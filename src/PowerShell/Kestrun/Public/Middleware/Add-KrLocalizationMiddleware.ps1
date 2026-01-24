@@ -26,9 +26,15 @@
 .PARAMETER EnableCookie
     Enables cookie resolution when specified. Default is false.
 .PARAMETER SetDefaultThreadCulture
-    When specified, sets the default thread culture (CultureInfo.DefaultThreadCurrentCulture
-    and CultureInfo.DefaultThreadCurrentUICulture) to the resolved culture on each request.
-    This affects all code running on the thread, including PowerShell runspaces. Default is false.
+    When specified, sets the process-wide default thread culture
+    (CultureInfo.DefaultThreadCurrentCulture and
+    CultureInfo.DefaultThreadCurrentUICulture) once during application
+    startup, using the configured DefaultCulture.
+    This culture is used as a fallback for newly created threads that do
+    not have an explicit CurrentCulture set. It does not change the culture
+    of existing threads or runspaces and does not replace per-request
+    culture handling.
+    Default is false.
 .PARAMETER PassThru
     Returns the server instance for chaining.
 .EXAMPLE

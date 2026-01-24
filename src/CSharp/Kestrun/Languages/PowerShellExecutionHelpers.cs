@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Management.Automation;
 using Serilog.Events;
 
@@ -35,6 +36,41 @@ internal static class PowerShellExecutionHelpers
     /// Adds a script block to the pipeline.
     /// </summary>
     internal static void AddScript(PowerShell ps, string code) => _ = ps.AddScript(code);
+
+    /// <summary>
+    /// Adds a culture initialization prelude to the PowerShell pipeline.
+    /// </summary>
+    /// <param name="ps">The PowerShell instance to configure.</param>
+    /// <param name="cultureName">The culture name to apply.</param>
+    /// <param name="log">The logger instance.</param>
+    internal static void AddCulturePrelude(PowerShell ps, string? cultureName, Serilog.ILogger log)
+    {
+        if (string.IsNullOrWhiteSpace(cultureName))
+        {
+            return;
+        }
+
+        string normalized;
+        try
+        {
+            normalized = CultureInfo.GetCultureInfo(cultureName).Name;
+        }
+        catch (CultureNotFoundException)
+        {
+            return;
+        }
+
+        if (log.IsEnabled(LogEventLevel.Verbose))
+        {
+            log.Verbose("Applying PowerShell culture: {Culture}", normalized);
+        }
+
+        var escaped = normalized.Replace("'", "''", StringComparison.Ordinal);
+        var prelude = "$__krCulture = [System.Globalization.CultureInfo]::GetCultureInfo('" + escaped + "'); " +
+                      "[System.Globalization.CultureInfo]::CurrentCulture = $__krCulture; " +
+                      "[System.Globalization.CultureInfo]::CurrentUICulture = $__krCulture;";
+        _ = ps.AddScript(prelude);
+    }
 
     /// <summary>
     /// Invokes the configured PowerShell pipeline asynchronously with cooperative cancellation.

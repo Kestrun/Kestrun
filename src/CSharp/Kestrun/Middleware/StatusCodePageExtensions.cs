@@ -129,6 +129,12 @@ public static class StatusCodePageExtensions
         return escaped;
     }
 
+    /// <summary>
+    /// Builds a status code handler that executes the compiled script delegate.
+    /// </summary>
+    /// <param name="options">The status code options.</param>
+    /// <param name="compiled">The compiled request delegate.</param>
+    /// <returns>A function that handles the status code context.</returns>
     private static Func<StatusCodeContext, Task> BuildScriptHandler(StatusCodeOptions options, RequestDelegate compiled)
     {
         return async context =>

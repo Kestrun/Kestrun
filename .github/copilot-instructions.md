@@ -177,6 +177,228 @@ Send-KrSignalRGroupMessage -GroupName 'Admins' -Method 'ReceiveGroupMessage' -Me
 - For SSE routes, keep tests bounded by using small `count` / `intervalMs` values or by testing broadcast APIs instead of holding open infinite streams.
 - For SignalR, validate hub-adjacent HTTP routes and (when needed) use the existing SignalR test helpers in the Pester harness.
 
+### 7. Localization (Request-Based Culture & String Tables)
+
+Kestrun supports **PowerShell-style .psd1 string tables** (with optional `.json` fallback) with automatic request-based culture resolution and per-key fallback across culture hierarchies.
+
+#### Setting Up Localization
+
+**Enable the middleware:**
+
+```powershell
+Add-KrLocalizationMiddleware -ResourcesBasePath './i18n' -DefaultCulture 'en-US'
+```
+
+- `-ResourcesBasePath`: Directory containing one subfolder per culture (e.g., `i18n/en-US/`, `i18n/fr-FR/`).
+  - Each culture folder contains the localization file (default: `Messages.psd1`).
+  - JSON fallback: if `Messages.psd1` is missing, Kestrun tries `Messages.json` in the same folder.
+- `-DefaultCulture`: Fallback when no culture is detected in request
+- `-FileName` (optional): Overrides the localization filename (default: `Messages.psd1`).
+
+**Create string tables (.psd1 format):**
+
+File: `./i18n/en-US/Messages.psd1`
+
+```powershell
+@{
+    Title = 'Museum Guide'
+    Navigation = @{
+        Home = 'Home'
+        About = 'About'
+        Contact = 'Contact'
+    }
+    Labels = @{
+        Save = 'Save'
+        Cancel = 'Cancel'
+        Delete = 'Delete'
+    }
+    Messages = @{
+        Welcome = 'Welcome to the Museum'
+        Success = 'Operation completed successfully'
+    }
+}
+```
+
+File: `./i18n/fr-FR/Messages.psd1`
+
+```powershell
+@{
+    Title = 'Guide du Musée'
+    Navigation = @{
+        Home = 'Accueil'
+        About = 'À Propos'
+        Contact = 'Contact'
+    }
+    Labels = @{
+        Save = 'Enregistrer'
+        Cancel = 'Annuler'
+        Delete = 'Supprimer'
+    }
+    Messages = @{
+        Welcome = 'Bienvenue au Musée'
+        Success = 'Opération réussie'
+    }
+}
+```
+
+#### Culture Resolution Order
+
+The middleware resolves the request culture from (in priority order):
+
+1. Query parameter: `?lang=fr-CA`
+2. Cookie: `lang=fr-CA`
+3. `Accept-Language` header (first culture with highest quality)
+4. Server default (specified in `-DefaultCulture`)
+
+#### Per-Key Fallback Behavior
+
+When a request comes in for a culture (e.g., `fr-CA`), Kestrun searches for each string individually across:
+
+1. Specific culture (`i18n/fr-CA/Messages.psd1`)
+2. Sibling language (`i18n/fr-FR/Messages.psd1`) — checked before parent chain
+3. Parent culture chain (`i18n/fr/Messages.psd1`)
+4. Default culture (`i18n/en-US/Messages.psd1`)
+
+**Example:** If `i18n/fr-CA/Messages.psd1` has `Messages.Welcome` but is missing `Labels.Save`, a request for `?lang=fr-CA` will:
+- Use French-Canadian `Messages.Welcome`
+- Fall back to French-France `Labels.Save` (from `i18n/fr-FR/Messages.psd1`) if available
+- Or fall back to French `Labels.Save` (from `i18n/fr/Messages.psd1`)
+- Or use English `Labels.Save` (from `i18n/en-US/Messages.psd1`)
+
+#### Accessing Strings in PowerShell Routes
+
+**In route scriptblocks:**
+
+```powershell
+Add-KrMapRoute -Verbs Get -Pattern '/api/welcome' {
+    $greeting = Get-KrLocalizedString -Key 'Messages.Welcome'
+    Write-KrJsonResponse @{ message = $greeting }
+}
+```
+
+**Via $Context (auto-injected):**
+
+```powershell
+Add-KrMapRoute -Verbs Get -Pattern '/api/nav' {
+    # $Context.LocalizedStrings is an IReadOnlyDictionary<string,string> with dot-delimited keys (e.g. 'Navigation.Home')
+    $navHome = $Context.LocalizedStrings['Navigation.Home']
+    Write-KrJsonResponse @{ Home = $navHome }
+}
+```
+
+**Culture info in PowerShell:**
+
+```powershell
+Add-KrMapRoute -Verbs Get -Pattern '/api/locale' {
+    # $Context.Culture is a culture name string (e.g., 'fr-FR')
+    $ci = [System.Globalization.CultureInfo]::GetCultureInfo($Context.Culture)
+    $info = @{
+        Name = $ci.Name
+        DisplayName = $ci.DisplayName
+        DateFormat = $ci.DateTimeFormat.ShortDatePattern
+        CurrencySymbol = $ci.NumberFormat.CurrencySymbol
+    }
+    Write-KrJsonResponse $info
+}
+```
+
+The middleware also sets `CurrentCulture` and `CurrentUICulture` inside the runspace, so `Get-Date`, currency formatting, and number formatting automatically respect the request culture.
+
+#### Accessing Strings in Razor Views
+
+In `.cshtml` files, access the per-request localizer from `HttpContext.Items` (the middleware stores it under `KrLocalizer`, and `KrStrings` is an alias):
+
+```html
+@{
+  var localizer = (System.Collections.Generic.IReadOnlyDictionary<string, string>)Context.Items["KrLocalizer"];
+}
+
+<h1>@localizer["Title"]</h1>
+
+<nav>
+  <a href="/">@localizer["Navigation.Home"]</a>
+  <a href="/about">@localizer["Navigation.About"]</a>
+</nav>
+
+<button type="submit">@localizer["Labels.Save"]</button>
+```
+
+This dictionary respects the request culture and performs per-key fallback using the same logic as PowerShell routes.
+
+#### Discovering Loaded Cultures
+
+Use `Get-KrLocalizationCulture` to enumerate all cultures that have been loaded from the string table directory:
+
+```powershell
+$cultures = Get-KrLocalizationCulture
+# Each item has a Name property, e.g., 'en-US', 'fr-FR', 'fr-CA', 'de-DE'
+
+foreach ($culture in $cultures) {
+    Write-Host "Loaded culture: $($culture.Name)"
+}
+```
+
+This helper queries the running host's localization store and returns cultures whose string table files were discovered on disk under the configured resources path (for example, `.psd1` or `.json` files).
+
+#### String Table File Rules
+
+- **Encoding**: UTF-8 without BOM (use `Remove-BomFromScripts` if needed)
+- **Format**: `.psd1` PowerShell hashtable or `.json` object with nested properties
+- **Nesting**: Supported up to any depth (e.g., `Navigation.Main.Home`)
+- **Naming**: Culture code per folder under `-ResourcesBasePath` (e.g., `i18n/en-US/`, `i18n/fr-FR/`)
+  - Default filename is `Messages.psd1` (or `Messages.json` fallback) per culture folder
+  - Use BCP 47 format ([RFC 5646](https://tools.ietf.org/html/rfc5646)): language-region (e.g., `en`, `en-US`, `fr-CA`, `zh-Hans`)
+
+#### Example: Multi-Culture Formatting
+
+Combine localization with culture-aware formatting:
+
+```powershell
+Add-KrMapRoute -Verbs Get -Pattern '/api/museum-info' {
+    $createdDate = Get-Date -Date '2023-10-29'
+    $ticketPrice = 25.50
+    $info = @{
+        title = Get-KrLocalizedString -Key 'Title'
+        founded = $createdDate.ToString('D')  # Respects $Context.Culture
+        ticketPrice = $ticketPrice.ToString('C')  # Uses locale currency
+        language = $Context.Culture.DisplayName
+    }
+    Write-KrJsonResponse $info
+}
+```
+
+For a request with `?lang=fr-FR`, this will:
+- Use French title from `i18n/fr-FR/Messages.psd1`
+- Format the date in French format (e.g., "29 octobre 2023")
+- Format currency with Euro symbol (€)
+
+#### Testing Localization (Pester)
+
+Example test pattern:
+
+```powershell
+Context 'Localization - French-Canadian fallback' {
+    It 'resolves missing fr-CA keys from fr-FR' {
+        $response = Invoke-WebRequest 'http://localhost:5000/api/welcome?lang=fr-CA'
+        $body = $response.Content | ConvertFrom-Json
+        $body.message | Should -Be 'Bienvenue au Musée'  # From fr-FR if missing in fr-CA
+    }
+
+    It 'respects request culture for date formatting' {
+        $response = Invoke-WebRequest 'http://localhost:5000/api/date?lang=fr-FR'
+        $body = $response.Content | ConvertFrom-Json
+        $body.formatted | Should -Match '^[0-9]{1,2}\s+\w+\s+[0-9]{4}$'  # French format
+    }
+}
+```
+
+#### Documentation & References
+
+- **Full guide**: [Localization Guide](../../docs/guides/localization.md)
+- **Tutorial**: [Tutorial 21 - Localization](../../docs/pwsh/tutorial/21.Localization/index.md)
+- **Culture codes**: [IANA Language Subtag Registry](https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry)
+- **BCP 47**: [RFC 5646](https://tools.ietf.org/html/rfc5646) (language tag syntax)
+
 ## Critical Integration Points
 
 ### 1. Runspace Pool Management

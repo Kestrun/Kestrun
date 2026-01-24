@@ -32,6 +32,7 @@ It combines the performance of C# with the flexibility of PowerShell, making it 
 - **Logging** — Serilog, syslog, REST; structured logs galore.
 - **OpenAPI** — generate specs and serve interactive docs (Swagger UI / ReDoc / Scalar / RapiDoc / Elements).
 - **Realtime** — SSE and SignalR support for push-style apps.
+- **Localization** — Request-based culture resolution with `.psd1` or JSON string tables and per-key fallback across culture hierarchies.
 - **Extended HTTP verbs** — includes WebDAV methods and HTTP `QUERY` (OpenAPI 3.2+) when you need a body-based search.
 
 ## Quick links

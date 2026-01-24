@@ -74,6 +74,11 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
             var ss = ps.Runspace.SessionStateProxy;
             ss.SetVariable("Context", kestrunContext);
 
+            if (context.Items.TryGetValue("KrLocalizer", out var localizer))
+            {
+                ss.SetVariable("Localizer", localizer);
+            }
+
             // Defer cleanup until the response is fully completed. This ensures
             // post-endpoint middleware (e.g., StatusCodePages) can still access the runspace.
             context.Response.OnCompleted(() =>

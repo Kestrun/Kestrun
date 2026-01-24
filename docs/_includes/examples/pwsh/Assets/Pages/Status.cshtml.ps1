@@ -15,7 +15,7 @@ $headersText = ($lines -join "`n")
 $Model = [pscustomobject]@{
     NowUtc = [DateTime]::UtcNow.ToString('u')
     Method = $req.Method
-    Path = $req.Path.Value
+    Path = $req.Path
     RemoteIp = if ($ip) { $ip.ToString() } else { '' }
     Headers = $headersText
 }

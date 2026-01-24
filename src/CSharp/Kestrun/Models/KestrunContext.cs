@@ -1,6 +1,7 @@
 
 
 using System.Collections;
+using System.Globalization;
 using System.Security.Claims;
 using Kestrun.Hosting.Options;
 using Kestrun.SignalR;
@@ -15,6 +16,8 @@ namespace Kestrun.Models;
 /// </summary>
 public sealed record KestrunContext
 {
+    private static readonly IReadOnlyDictionary<string, string> EmptyStrings =
+        new Dictionary<string, string>(StringComparer.Ordinal);
     /// <summary>
     /// Initializes a new instance of the <see cref="KestrunContext"/> class.
     /// This constructor is used when creating a new KestrunContext from an existing HTTP context.
@@ -116,6 +119,33 @@ public sealed record KestrunContext
     /// Gets the collection of key/value pairs associated with the current HTTP context.
     /// </summary>
     public IDictionary<object, object?> Items => HttpContext.Items;
+
+    /// <summary>
+    /// Gets the resolved request culture when localization middleware is enabled.
+    /// </summary>
+    public bool HasRequestCulture =>
+        HttpContext.Items.TryGetValue("KrCulture", out var value) && value is string culture && !string.IsNullOrWhiteSpace(culture);
+
+    /// <summary>
+    /// Gets the resolved request culture when localization middleware is enabled.
+    /// </summary>
+    public string Culture =>
+        HttpContext.Items.TryGetValue("KrCulture", out var value) && value is string culture && !string.IsNullOrWhiteSpace(culture)
+            ? culture
+            : CultureInfo.CurrentCulture.Name;
+
+    /// <summary>
+    /// Gets the localized string table for the resolved culture when localization middleware is enabled.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> LocalizedStrings =>
+        HttpContext.Items.TryGetValue("KrStrings", out var value) && value is IReadOnlyDictionary<string, string> strings
+            ? strings
+            : EmptyStrings;
+
+    /// <summary>
+    /// Gets the localized string table for the resolved culture when localization middleware is enabled.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Strings => LocalizedStrings;
 
     /// <summary>
     /// Gets the user associated with the current HTTP context.

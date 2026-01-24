@@ -64,7 +64,6 @@ public sealed class KestrunRequestCultureMiddleware(
 
         try
         {
-
             // Set the current thread culture for formatting purposes.
             ApplyCulture(contextCulture);
             if (_logger.IsEnabled(LogEventLevel.Debug))

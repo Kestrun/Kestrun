@@ -1,5 +1,6 @@
 using System.Globalization;
 using Kestrun.Localization;
+using Serilog.Events;
 
 namespace Kestrun.Middleware;
 
@@ -19,6 +20,10 @@ public sealed class KestrunRequestCultureMiddleware(
     private readonly KestrunLocalizationStore _store = store ?? throw new ArgumentNullException(nameof(store));
     private readonly KestrunLocalizationOptions _options = options ?? throw new ArgumentNullException(nameof(options));
 
+    /// <summary>
+    /// Gets the logger instance.
+    /// </summary>
+    private readonly Serilog.ILogger _logger = store.Logger;
     /// <summary>
     /// Invokes the middleware for the specified request context.
     /// </summary>
@@ -59,9 +64,16 @@ public sealed class KestrunRequestCultureMiddleware(
 
         try
         {
+
             // Set the current thread culture for formatting purposes.
             ApplyCulture(contextCulture);
-
+            if (_logger.IsEnabled(LogEventLevel.Debug))
+            {
+                _logger.Debug("Request culture '{Culture}' applied for request {Method} {Path}",
+                    contextCulture,
+                    context.Request.Method,
+                    context.Request.Path);
+            }
             await _next(context);
         }
         finally
@@ -69,6 +81,13 @@ public sealed class KestrunRequestCultureMiddleware(
             // Restore the original culture after the request is complete.
             CultureInfo.CurrentCulture = originalCulture;
             CultureInfo.CurrentUICulture = originalUICulture;
+            if (_logger.IsEnabled(LogEventLevel.Debug))
+            {
+                _logger.Debug("Request culture restored to '{Culture}' after request {Method} {Path}",
+                    originalCulture.Name,
+                    context.Request.Method,
+                    context.Request.Path);
+            }
         }
     }
 
@@ -251,7 +270,7 @@ public sealed class KestrunRequestCultureMiddleware(
     /// Applies the specified culture to the current thread.
     /// </summary>
     /// <param name="resolvedCulture">The culture name to apply.</param>
-    private static void ApplyCulture(string resolvedCulture)
+    private void ApplyCulture(string resolvedCulture)
     {
         if (string.IsNullOrWhiteSpace(resolvedCulture))
         {
@@ -266,8 +285,8 @@ public sealed class KestrunRequestCultureMiddleware(
         }
         catch (CultureNotFoundException)
         {
+            _logger.Warning("Requested culture '{Culture}' is not valid and cannot be applied.", resolvedCulture);
             // Ignore invalid cultures to avoid breaking the request pipeline.
-
         }
     }
 

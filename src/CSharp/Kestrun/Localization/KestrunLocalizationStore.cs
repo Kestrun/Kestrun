@@ -12,7 +12,10 @@ public sealed class KestrunLocalizationStore
         new Dictionary<string, string>(StringComparer.Ordinal);
 
     private readonly KestrunLocalizationOptions options;
-    private readonly Serilog.ILogger logger;
+    /// <summary>
+    /// Gets the logger instance.
+    /// </summary>
+    public Serilog.ILogger Logger { get; }
     private readonly string resourcesRoot;
     private readonly ConcurrentDictionary<string, IReadOnlyDictionary<string, string>> cache;
     private readonly HashSet<string> availableCultures;
@@ -34,7 +37,7 @@ public sealed class KestrunLocalizationStore
         ArgumentNullException.ThrowIfNull(logger);
 
         this.options = options;
-        this.logger = logger;
+        Logger = logger;
         cache = new ConcurrentDictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
         availableCultures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         defaultCulture = NormalizeCulture(options.DefaultCulture) ?? options.DefaultCulture;
@@ -305,9 +308,9 @@ public sealed class KestrunLocalizationStore
     {
         if (!Directory.Exists(resourcesRoot))
         {
-            if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+            if (Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
             {
-                logger.Debug("Localization resources root '{BasePath}' does not exist; no cultures discovered.", resourcesRoot);
+                Logger.Debug("Localization resources root '{BasePath}' does not exist; no cultures discovered.", resourcesRoot);
             }
             return;
         }
@@ -327,9 +330,9 @@ public sealed class KestrunLocalizationStore
             }
         }
 
-        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        if (Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
-            logger.Debug("Discovered {Count} localization cultures in {BasePath}.", availableCultures.Count, resourcesRoot);
+            Logger.Debug("Discovered {Count} localization cultures in {BasePath}.", availableCultures.Count, resourcesRoot);
         }
     }
 
@@ -362,9 +365,9 @@ public sealed class KestrunLocalizationStore
             {
                 return LoadJsonStrings(jsonFallbackPath);
             }
-            if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+            if (Logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
             {
-                logger.Debug(
+                Logger.Debug(
                     "Localization file missing for culture '{Culture}'. Tried '{PrimaryPath}'{JsonPathMessage}.",
                     culture,
                     primaryPath,
@@ -386,7 +389,7 @@ public sealed class KestrunLocalizationStore
         }
         catch (Exception ex)
         {
-            logger.Warning(ex, "Failed to parse localization file '{Path}'.", path);
+            Logger.Warning(ex, "Failed to parse localization file '{Path}'.", path);
             return EmptyStrings;
         }
     }
@@ -399,7 +402,7 @@ public sealed class KestrunLocalizationStore
         }
         catch (Exception ex)
         {
-            logger.Warning(ex, "Failed to parse localization JSON file '{Path}'.", path);
+            Logger.Warning(ex, "Failed to parse localization JSON file '{Path}'.", path);
             return EmptyStrings;
         }
     }

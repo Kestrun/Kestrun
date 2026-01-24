@@ -1,4 +1,3 @@
-using System.Globalization;
 using Kestrun.Localization;
 using Kestrun.Middleware;
 

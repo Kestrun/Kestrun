@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds localization middleware to the Kestrun server.
 .DESCRIPTION

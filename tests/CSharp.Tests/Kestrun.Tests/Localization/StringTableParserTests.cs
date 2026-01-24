@@ -14,8 +14,8 @@ public class StringTableParserTests
         try
         {
             var path = Path.Combine(temp.FullName, "Messages.psd1");
-            var content = string.Join(Environment.NewLine, new[]
-            {
+            var content = string.Join(Environment.NewLine,
+            [
                 "@{",
                 "# Comment",
                 "// Another comment",
@@ -29,7 +29,7 @@ public class StringTableParserTests
                 "}",
                 "NoEqualsHere",
                 "}",
-            });
+            ]);
             File.WriteAllText(path, content);
 
             var map = StringTableParser.ParseFile(path);

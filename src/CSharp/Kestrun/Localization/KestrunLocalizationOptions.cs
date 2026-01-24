@@ -44,4 +44,9 @@ public sealed class KestrunLocalizationOptions
     /// Gets or sets a value indicating whether cookie resolution is enabled. Default is false.
     /// </summary>
     public bool EnableCookie { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether to set the thread's culture to the resolved culture. Default is false.
+    /// </summary>
+    public bool SetDefaultThreadCulture { get; set; }
 }

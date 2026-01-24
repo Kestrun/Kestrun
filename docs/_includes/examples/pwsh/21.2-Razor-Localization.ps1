@@ -1,4 +1,4 @@
-﻿<#!
+<#!
     Sample: Razor Pages + Localization
     File:   21.2-Razor-Localization.ps1
 #>

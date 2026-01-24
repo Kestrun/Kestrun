@@ -23,6 +23,7 @@ public sealed class KestrunRequestCultureMiddleware(
     /// Invokes the middleware for the specified request context.
     /// </summary>
     /// <param name="context">The HTTP context.</param>
+    /// <returns>A task that represents the completion of request processing.</returns>
     public async Task InvokeAsync(HttpContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -52,9 +53,23 @@ public sealed class KestrunRequestCultureMiddleware(
         context.Items[StringsItemKey] = strings;
         context.Items[LocalizerItemKey] = strings;
 
-        ApplyCulture(contextCulture);
+        // Preserve the original culture to restore after the request is complete.
+        var originalCulture = CultureInfo.CurrentCulture;
+        var originalUICulture = CultureInfo.CurrentUICulture;
 
-        await _next(context);
+        try
+        {
+            // Set the current thread culture for formatting purposes.
+            ApplyCulture(contextCulture);
+
+            await _next(context);
+        }
+        finally
+        {
+            // Restore the original culture after the request is complete.
+            CultureInfo.CurrentCulture = originalCulture;
+            CultureInfo.CurrentUICulture = originalUICulture;
+        }
     }
 
     private string? ResolveRequestedCulture(HttpContext context)
@@ -102,7 +117,7 @@ public sealed class KestrunRequestCultureMiddleware(
     /// <param name="headers">The request headers.</param>
     /// <param name="culture">The resolved culture, if any.</param>
     /// <returns>True if a culture was resolved; otherwise, false.</returns>
-    private bool TryGetAcceptLanguageCulture(IHeaderDictionary headers, out string? culture)
+    private static bool TryGetAcceptLanguageCulture(IHeaderDictionary headers, out string? culture)
     {
         if (!headers.TryGetValue("Accept-Language", out var values))
         {
@@ -252,6 +267,7 @@ public sealed class KestrunRequestCultureMiddleware(
         catch (CultureNotFoundException)
         {
             // Ignore invalid cultures to avoid breaking the request pipeline.
+
         }
     }
 

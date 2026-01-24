@@ -1,4 +1,4 @@
-﻿param()
+param()
 
 Describe 'Tutorial 21.1 - Localization' -Tag 'Tutorial', 'Localization' {
     BeforeAll {

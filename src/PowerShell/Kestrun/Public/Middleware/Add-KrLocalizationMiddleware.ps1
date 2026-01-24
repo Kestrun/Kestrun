@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Adds localization middleware to the Kestrun server.
 .DESCRIPTION
@@ -25,6 +25,10 @@
     Enables query string resolution when specified. Default is false.
 .PARAMETER EnableCookie
     Enables cookie resolution when specified. Default is false.
+.PARAMETER SetDefaultThreadCulture
+    When specified, sets the default thread culture (CultureInfo.DefaultThreadCurrentCulture
+    and CultureInfo.DefaultThreadCurrentUICulture) to the resolved culture on each request.
+    This affects all code running on the thread, including PowerShell runspaces. Default is false.
 .PARAMETER PassThru
     Returns the server instance for chaining.
 .EXAMPLE
@@ -75,6 +79,9 @@ function Add-KrLocalizationMiddleware {
         [Parameter(ParameterSetName = 'Items')]
         [switch]$EnableCookie,
 
+        [Parameter(ParameterSetName = 'Items')]
+        [switch]$SetDefaultThreadCulture,
+
         [Parameter()]
         [switch]$PassThru
     )
@@ -93,6 +100,7 @@ function Add-KrLocalizationMiddleware {
             if ($PSBoundParameters.ContainsKey('DisableAcceptLanguage')) { $Options.EnableAcceptLanguage = -not $DisableAcceptLanguage.IsPresent }
             if ($PSBoundParameters.ContainsKey('EnableQuery')) { $Options.EnableQuery = $EnableQuery.IsPresent }
             if ($PSBoundParameters.ContainsKey('EnableCookie')) { $Options.EnableCookie = $EnableCookie.IsPresent }
+            if ($PSBoundParameters.ContainsKey('SetDefaultThreadCulture')) { $Options.SetDefaultThreadCulture = $SetDefaultThreadCulture.IsPresent }
         } else {
             if ($null -eq $Options) {
                 throw 'Options cannot be null.'

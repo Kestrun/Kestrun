@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: OpenAPI 3.2 RFC 6570 Path Template Mapping
     Purpose: Demonstrate RFC 6570 URI Template mapping from ASP.NET Core route values
     File:    10.23-OpenAPI-Path-Template-Mapping.ps1

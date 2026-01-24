@@ -1,4 +1,4 @@
-﻿param()
+param()
 
 Describe 'Tutorial 21.2 - Razor Localization' -Tag 'Tutorial', 'Localization', 'Razor' {
     BeforeAll {

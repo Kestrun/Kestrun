@@ -1,4 +1,4 @@
-﻿<#!
+<#!
     Sample: Localization (PowerShell string tables)
     File:   21.1-Localization.ps1
 #>

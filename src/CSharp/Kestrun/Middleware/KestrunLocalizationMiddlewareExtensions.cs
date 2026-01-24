@@ -1,3 +1,4 @@
+using System.Globalization;
 using Kestrun.Hosting;
 using Kestrun.Localization;
 
@@ -37,6 +38,15 @@ public static class KestrunLocalizationMiddlewareExtensions
 
         var logger = host?.Logger ?? Serilog.Log.Logger;
         var store = new KestrunLocalizationStore(options, contentRoot, logger);
+
+        // Set the default thread culture if specified in options.
+        if (options.SetDefaultThreadCulture && !string.IsNullOrWhiteSpace(options.DefaultCulture))
+        {
+            var ci = CultureInfo.GetCultureInfo(options.DefaultCulture);
+            CultureInfo.DefaultThreadCurrentCulture = ci;
+            CultureInfo.DefaultThreadCurrentUICulture = ci;
+            logger.Information("Default thread culture set to {Culture}", ci.Name);
+        }
 
         // If a KestrunHost is available via DI, capture the store on the host so tools
         // and PowerShell helpers can inspect runtime-loaded cultures.

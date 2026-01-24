@@ -1,4 +1,4 @@
-﻿[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
 param()
 Write-Host "Rendering localized Razor page for culture: $($Context.Culture)"
 $culture = [System.Globalization.CultureInfo]::CurrentCulture

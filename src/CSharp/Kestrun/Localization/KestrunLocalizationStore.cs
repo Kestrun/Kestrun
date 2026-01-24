@@ -85,6 +85,7 @@ public sealed class KestrunLocalizationStore
     {
         private readonly KestrunLocalizationStore _store;
         private readonly List<string> _candidates;
+        private readonly Lazy<HashSet<string>> _keyCache;
 
         public CompositeStringTable(KestrunLocalizationStore store, string? requestedCulture)
         {
@@ -119,33 +120,13 @@ public sealed class KestrunLocalizationStore
             {
                 _candidates.Add(_store.defaultCulture);
             }
+
+            _keyCache = new Lazy<HashSet<string>>(BuildKeySet, LazyThreadSafetyMode.ExecutionAndPublication);
         }
 
         public string this[string key] => TryGetValue(key, out var value) ? value : throw new KeyNotFoundException(key);
 
-        public IEnumerable<string> Keys
-        {
-            get
-            {
-                var set = new HashSet<string>(StringComparer.Ordinal);
-                foreach (var candidate in _candidates)
-                {
-                    if (!IsUsableCandidate(candidate))
-                    {
-                        continue;
-                    }
-
-                    var dict = _store.cache.GetOrAdd(candidate, _store.LoadStringsForCulture);
-                    foreach (var k in dict.Keys)
-                    {
-                        if (set.Add(k))
-                        {
-                            yield return k;
-                        }
-                    }
-                }
-            }
-        }
+        public IEnumerable<string> Keys => _keyCache.Value;
 
         public IEnumerable<string> Values
         {
@@ -158,7 +139,7 @@ public sealed class KestrunLocalizationStore
             }
         }
 
-        public int Count => Keys.Count();
+        public int Count => _keyCache.Value.Count;
 
         public bool ContainsKey(string key) => TryGetValue(key, out _);
 
@@ -206,6 +187,26 @@ public sealed class KestrunLocalizationStore
             // Only cache/load cultures that were discovered as available, plus the configured default.
             return _store.IsCultureAvailable(candidate) ||
                    string.Equals(candidate, _store.defaultCulture, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private HashSet<string> BuildKeySet()
+        {
+            var set = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var candidate in _candidates)
+            {
+                if (!IsUsableCandidate(candidate))
+                {
+                    continue;
+                }
+
+                var dict = _store.cache.GetOrAdd(candidate, _store.LoadStringsForCulture);
+                foreach (var k in dict.Keys)
+                {
+                    _ = set.Add(k);
+                }
+            }
+
+            return set;
         }
     }
 

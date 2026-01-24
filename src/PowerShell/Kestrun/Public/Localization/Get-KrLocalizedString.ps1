@@ -1,4 +1,4 @@
-﻿<#
+<#
     .SYNOPSIS
         Returns a localized string for the current request culture.
     .DESCRIPTION

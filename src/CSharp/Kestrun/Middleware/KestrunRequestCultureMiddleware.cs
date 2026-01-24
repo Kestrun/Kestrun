@@ -322,8 +322,6 @@ public sealed class KestrunRequestCultureMiddleware(
         return quality is >= 0.0 and <= 1.0;
     }
 
-
-
     /// <summary>
     /// Normalizes and validates a culture name.
     /// </summary>

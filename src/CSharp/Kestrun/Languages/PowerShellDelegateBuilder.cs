@@ -58,7 +58,10 @@ internal static class PowerShellDelegateBuilder
             }
             krContext = GetKestrunContext(context);
 
-            PowerShellExecutionHelpers.AddCulturePrelude(ps, krContext.Culture, log);
+            if (krContext.HasRequestCulture)
+            {
+                PowerShellExecutionHelpers.AddCulturePrelude(ps, krContext.Culture, log);
+            }
             PowerShellExecutionHelpers.AddScript(ps, code);
 
             // Extract and add parameters for injection

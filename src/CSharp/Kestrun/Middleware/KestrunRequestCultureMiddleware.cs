@@ -1,5 +1,6 @@
 using System.Globalization;
 using Kestrun.Localization;
+using Kestrun.Logging;
 using Serilog.Events;
 
 namespace Kestrun.Middleware;
@@ -24,6 +25,7 @@ public sealed class KestrunRequestCultureMiddleware(
     /// Gets the logger instance.
     /// </summary>
     private readonly Serilog.ILogger _logger = store.Logger;
+
     /// <summary>
     /// Invokes the middleware for the specified request context.
     /// </summary>
@@ -61,35 +63,90 @@ public sealed class KestrunRequestCultureMiddleware(
         // Preserve the original culture to restore after the request is complete.
         var originalCulture = CultureInfo.CurrentCulture;
         var originalUICulture = CultureInfo.CurrentUICulture;
+        var appliedCulture = false;
+
+        // Attempt to set the current thread culture to the requested culture for formatting.
+        var targetCulture = TryResolveCulture(contextCulture);
+
+        // Determine if we should apply the culture change.
+        var shouldApplyCulture = targetCulture is not null
+        && (!string.Equals(originalCulture.Name, targetCulture.Name, StringComparison.OrdinalIgnoreCase)
+        || !string.Equals(originalUICulture.Name, targetCulture.Name, StringComparison.OrdinalIgnoreCase));
 
         try
         {
             // Set the current thread culture for formatting purposes.
-            ApplyCulture(contextCulture);
-            if (_logger.IsEnabled(LogEventLevel.Debug))
+            if (targetCulture is not null && shouldApplyCulture)
             {
-                _logger.Debug("Request culture '{Culture}' applied for request {Method} {Path}",
-                    contextCulture,
-                    context.Request.Method,
-                    context.Request.Path);
+                appliedCulture = ApplyCulture(context, targetCulture,
+                    "Applied request culture '{Culture}' for {Method} {Path}.");
             }
             await _next(context);
         }
         finally
         {
-            // Restore the original culture after the request is complete.
-            CultureInfo.CurrentCulture = originalCulture;
-            CultureInfo.CurrentUICulture = originalUICulture;
-            if (_logger.IsEnabled(LogEventLevel.Debug))
+            // Restore the original culture if it was changed.
+            if (appliedCulture)
             {
-                _logger.Debug("Request culture restored to '{Culture}' after request {Method} {Path}",
-                    originalCulture.Name,
-                    context.Request.Method,
-                    context.Request.Path);
+                _ = ApplyCulture(context, originalCulture,
+                    "Restored original culture '{Culture}' for {Method} {Path}.");
             }
         }
     }
 
+    /// <summary>
+    /// Applies the specified culture to the current thread.
+    /// </summary>
+    /// <param name="context">The current HTTP context.</param>
+    /// <param name="targetCulture">The culture to apply to the current thread.</param>
+    /// <param name="messageTemplate">The message template for logging.</param>
+    /// <returns>True if the culture was applied; otherwise, false.</returns>
+    private bool ApplyCulture(HttpContext context, CultureInfo targetCulture, string messageTemplate)
+    {
+        CultureInfo.CurrentCulture = targetCulture;
+        CultureInfo.CurrentUICulture = targetCulture;
+
+        if (_logger.IsEnabled(LogEventLevel.Debug))
+        {
+            _logger.DebugSanitized(messageTemplate,
+                targetCulture.Name,
+                context.Request.Method,
+                context.Request.Path);
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Attempts to resolve a CultureInfo object from the specified culture name.
+    /// </summary>
+    /// <param name="culture">The culture name to resolve.</param>
+    /// <returns>The resolved CultureInfo, or null if not found.</returns>
+    private CultureInfo? TryResolveCulture(string? culture)
+    {
+        if (string.IsNullOrWhiteSpace(culture))
+        {
+            return null;
+        }
+
+        try
+        {
+            return CultureInfo.GetCultureInfo(culture);
+        }
+        catch (CultureNotFoundException)
+        {
+            if (_logger.IsEnabled(LogEventLevel.Debug))
+            {
+                _logger.DebugSanitized("Invalid culture '{Culture}' requested.", culture);
+            }
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the requested culture from the HTTP context based on enabled sources.
+    /// </summary>
+    /// <param name="context">The HTTP context.</param>
+    /// <returns>The resolved culture name, or null if none found.</returns>
     private string? ResolveRequestedCulture(HttpContext context)
     {
         return _options.EnableQuery && TryGetQueryCulture(context.Request.Query, out var queryCulture)
@@ -265,29 +322,7 @@ public sealed class KestrunRequestCultureMiddleware(
         return quality is >= 0.0 and <= 1.0;
     }
 
-    /// <summary>
-    /// Applies the specified culture to the current thread.
-    /// </summary>
-    /// <param name="resolvedCulture">The culture name to apply.</param>
-    private void ApplyCulture(string resolvedCulture)
-    {
-        if (string.IsNullOrWhiteSpace(resolvedCulture))
-        {
-            return;
-        }
 
-        try
-        {
-            var cultureInfo = CultureInfo.GetCultureInfo(resolvedCulture);
-            CultureInfo.CurrentCulture = cultureInfo;
-            CultureInfo.CurrentUICulture = cultureInfo;
-        }
-        catch (CultureNotFoundException)
-        {
-            _logger.Warning("Requested culture '{Culture}' is not valid and cannot be applied.", resolvedCulture);
-            // Ignore invalid cultures to avoid breaking the request pipeline.
-        }
-    }
 
     /// <summary>
     /// Normalizes and validates a culture name.

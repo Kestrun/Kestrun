@@ -340,7 +340,10 @@ public static class PowerShellRazorPage
         {
             ss.SetVariable("Localizer", localizer);
         }
-        PowerShellExecutionHelpers.AddCulturePrelude(ps, krContext.Culture, host.Logger);
+        if (krContext.HasRequestCulture)
+        {
+            PowerShellExecutionHelpers.AddCulturePrelude(ps, krContext.Culture, host.Logger);
+        }
         ss.SetVariable("Model", null);
     }
 

@@ -123,6 +123,12 @@ public sealed record KestrunContext
     /// <summary>
     /// Gets the resolved request culture when localization middleware is enabled.
     /// </summary>
+    public bool HasRequestCulture =>
+        HttpContext.Items.TryGetValue("KrCulture", out var value) && value is string culture && !string.IsNullOrWhiteSpace(culture);
+
+    /// <summary>
+    /// Gets the resolved request culture when localization middleware is enabled.
+    /// </summary>
     public string Culture =>
         HttpContext.Items.TryGetValue("KrCulture", out var value) && value is string culture && !string.IsNullOrWhiteSpace(culture)
             ? culture

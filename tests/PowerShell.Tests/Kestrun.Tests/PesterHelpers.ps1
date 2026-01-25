@@ -2403,3 +2403,64 @@ function New-GzipBinaryData {
         $ms.Dispose()
     }
 }
+
+<#
+.SYNOPSIS
+    Create a multipart/form-data body from parts.
+.DESCRIPTION
+    This function constructs a multipart/form-data body using the specified boundary and parts.
+    Each part is defined by a hashtable containing Headers and Content.
+.PARAMETER Boundary
+    The boundary string to use for the multipart/form-data body.
+.PARAMETER Parts
+    An array of hashtables, each representing a part with Headers and Content.
+.OUTPUTS
+    A string containing the multipart/form-data body.
+#>
+function New-MultipartBody {
+    param(
+        [string]$Boundary,
+        [hashtable[]]$Parts
+    )
+
+    $body = ''
+    foreach ($part in $Parts) {
+        $body += "--$Boundary`r`n"
+
+        if ($part.Headers) {
+            foreach ($header in $part.Headers.GetEnumerator()) {
+                $body += "$($header.Key): $($header.Value)`r`n"
+            }
+        }
+
+        $body += "`r`n$($part.Content)`r`n"
+    }
+    $body += "--$Boundary--`r`n"
+
+    return $body
+}
+
+<#
+.SYNOPSIS
+    Compress a string using Gzip compression.
+.DESCRIPTION
+    This function takes a string as input, compresses it using Gzip, and returns
+    the resulting compressed byte array.
+.PARAMETER Data
+    The input string to compress.
+.OUTPUTS
+    A byte array containing the Gzip-compressed data.
+#>
+function Compress-Gzip {
+    param([string]$Data)
+
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Data)
+    $ms = [System.IO.MemoryStream]::new()
+    $gzip = [System.IO.Compression.GzipStream]::new($ms, [System.IO.Compression.CompressionMode]::Compress)
+    $gzip.Write($bytes, 0, $bytes.Length)
+    $gzip.Close()
+    $compressed = $ms.ToArray()
+    $ms.Dispose()
+
+    return $compressed
+}

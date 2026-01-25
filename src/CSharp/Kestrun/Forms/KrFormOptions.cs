@@ -10,11 +10,7 @@ public sealed class KrFormOptions
     /// </summary>
     public List<string> AllowedRequestContentTypes { get; } =
     [
-        "multipart/form-data",
-        "application/x-www-form-urlencoded",
-        "multipart/mixed",
-        "multipart/related",
-        "multipart/byteranges"
+        "multipart/form-data"
     ];
 
     /// <summary>

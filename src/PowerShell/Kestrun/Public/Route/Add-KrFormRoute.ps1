@@ -2,10 +2,13 @@
     .SYNOPSIS
         Adds a form parsing route to the Kestrun server.
     .DESCRIPTION
-        Registers a POST route that parses multipart/form-data, multipart/mixed,
-        and application/x-www-form-urlencoded payloads using KrFormParser, then
-        injects the parsed payload into the runspace as $FormPayload and invokes
-        the provided script block.
+        Registers a POST route that parses multipart/form-data payloads using
+        KrFormParser. Additional request content types (e.g., multipart/mixed
+        and application/x-www-form-urlencoded) are opt-in via
+        KrFormOptions.AllowedRequestContentTypes.
+
+        Once parsed, it injects the parsed payload into the runspace as
+        $FormPayload and invokes the provided script block.
     .PARAMETER Server
         The Kestrun server instance to which the route will be added.
     .PARAMETER Pattern
@@ -43,6 +46,12 @@ function Add-KrFormRoute {
         [string[]]$AuthorizationScheme = $null,
         [string[]]$AuthorizationPolicy = $null,
         [string]$CorsPolicy,
+        [string]$OpenApiOperationId,
+        [string[]]$OpenApiTags,
+        [string]$OpenApiSummary,
+        [string]$OpenApiDescription,
+        [string[]]$OpenApiDocumentId,
+        [switch]$DisableOpenApi,
         [switch]$AllowAnonymous,
         [switch]$PassThru
     )
@@ -50,39 +59,22 @@ function Add-KrFormRoute {
         $Server = Resolve-KestrunServer -Server $Server
     }
     process {
-        if ($null -eq $Options) {
-            $Options = [Kestrun.Forms.KrFormOptions]::new()
-        }
-        if ($null -eq $Options.Logger) {
-            $Options.Logger = $Server.Logger
-        }
-
-        $wrapperContent = @'
-##############################
-# Form Route Wrapper
-##############################
-$FormPayload = $null
-try {
-    $FormPayload = [Kestrun.Forms.KrFormParser]::Parse($Context.HttpContext, $Options, $Context.Ct)
-} catch [Kestrun.Forms.KrFormException] {
-    $ex = $_.Exception
-    Write-KrTextResponse -InputObject $ex.Message -StatusCode $ex.StatusCode
-    return
-}
-
-############################
-# User Scriptblock
-############################
-
-'@ + $ScriptBlock.ToString()
-
-        # Combine the wrapper and user scriptblocks
-        $wrapper = [scriptblock]::Create($wrapperContent)
-
-        # Register the route
-        Add-KrMapRoute -Server $Server -Verbs Post -Pattern $Pattern -Arguments @{ 'Options' = $Options } -ScriptBlock $wrapper `
-            -AuthorizationScheme $AuthorizationScheme -AuthorizationPolicy $AuthorizationPolicy `
-            -CorsPolicy $CorsPolicy -AllowAnonymous:$AllowAnonymous | Out-Null
+        [Kestrun.Hosting.KestrunHostMapExtensions]::AddFormRoute(
+            $Server,
+            $Pattern,
+            $ScriptBlock,
+            $Options,
+            $AuthorizationScheme,
+            $AuthorizationPolicy,
+            $CorsPolicy,
+            $AllowAnonymous.IsPresent,
+            $OpenApiOperationId,
+            $OpenApiTags,
+            $OpenApiSummary,
+            $OpenApiDescription,
+            $OpenApiDocumentId,
+            $DisableOpenApi.IsPresent
+        ) | Out-Null
 
         if ($PassThru.IsPresent) {
             return $Server

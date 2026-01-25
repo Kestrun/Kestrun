@@ -33,6 +33,7 @@ param(
 )
 
 New-KrLogger |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault
 
@@ -48,8 +49,7 @@ $options.DefaultUploadPath = $uploadRoot
 $options.ComputeSha256 = $true
 
 Add-KrFormRoute -Pattern '/upload' -Options $options -ScriptBlock {
-    param($Form)
-    $payload = $Form.Payload
+    $payload = $FormContext.Payload
     $files = $payload.Files['file']
     Write-KrJsonResponse -InputObject @{ count = $files.Count; files = $files } -StatusCode 200
 }

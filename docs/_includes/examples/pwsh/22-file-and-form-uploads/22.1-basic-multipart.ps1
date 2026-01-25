@@ -21,6 +21,7 @@ param(
 )
 
 New-KrLogger |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault
 
@@ -54,7 +55,6 @@ Add-KrFormRoute -Pattern '/upload' -Options $options -ScriptBlock {
 }
 
 Enable-KrConfiguration
-
 
 # Start the server asynchronously
 Start-KrServer

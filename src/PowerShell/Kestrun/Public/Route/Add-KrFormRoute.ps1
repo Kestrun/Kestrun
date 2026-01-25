@@ -59,7 +59,6 @@ function Add-KrFormRoute {
 ##############################
 # Form Route Wrapper
 ##############################
-Expand-KrObject $Options # Ensure $Options is available in the scriptblock. Just for debugging to remove later.
 $FormPayload = [Kestrun.Forms.KrFormParser]::ParseAsync($Context.HttpContext, $Options, $Context.Ct).GetAwaiter().GetResult()
 $FormContext = [Kestrun.Forms.KrFormContext]::new($Context, $Options, $FormPayload)
 '@

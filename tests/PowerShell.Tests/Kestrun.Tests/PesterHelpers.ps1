@@ -1,3 +1,5 @@
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+param()
 <#
 .SYNOPSIS
     Shared helper functions for tutorial example tests.
@@ -2323,4 +2325,62 @@ function Test-OpenApiDocumentMatchesExpected {
     $expectedNormalized = Get-NormalizedJson $expectedContent
 
     $actualNormalized | Should -Be $expectedNormalized
+}
+
+<#
+.SYNOPSIS
+    Create a Gzip-compressed multipart/form-data body for testing.
+.DESCRIPTION
+    This function constructs a multipart/form-data body with a text note and a text file,
+    then compresses it using Gzip and returns the resulting byte array.
+.PARAMETER boundary
+    The boundary string to use for the multipart/form-data body.
+.OUTPUTS
+    A byte array containing the Gzip-compressed multipart/form-data body.
+#>
+function New-GzipMultipartBody {
+    param(
+        [string]$boundary
+    )
+    $body = @(
+        "--$boundary",
+        'Content-Disposition: form-data; name=note',
+        '',
+        'compressed',
+        "--$boundary",
+        'Content-Disposition: form-data; name=file; filename=hello.txt',
+        'Content-Type: text/plain',
+        '',
+        'hello',
+        "--$boundary--",
+        ''
+    ) -join "`r`n"
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)
+    $ms = [System.IO.MemoryStream]::new()
+    $gzip = [System.IO.Compression.GZipStream]::new($ms, [System.IO.Compression.CompressionMode]::Compress, $true)
+    $gzip.Write($bytes, 0, $bytes.Length)
+    $gzip.Dispose()
+    return $ms.ToArray()
+}
+
+<#
+.SYNOPSIS
+    Create a Gzip-compressed byte array from input data.
+.DESCRIPTION
+    This function takes a byte array as input, compresses it using Gzip, and returns
+    the resulting compressed byte array.
+.PARAMETER data
+    The input byte array to compress.
+.OUTPUTS
+    A byte array containing the Gzip-compressed data.
+#>
+function New-GzipBinaryData {
+    param(
+        [byte[]]$data
+    )
+    $ms = [System.IO.MemoryStream]::new()
+    $gzip = [System.IO.Compression.GZipStream]::new($ms, [System.IO.Compression.CompressionMode]::Compress, $true)
+    $gzip.Write($data, 0, $data.Length)
+    $gzip.Dispose()
+    return $ms.ToArray()
 }

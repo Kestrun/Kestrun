@@ -2,6 +2,7 @@
     22.2 multipart/form-data with multiple files under the same field name
 
     Client example (PowerShell):
+        $Port = 5000
         $client = [System.Net.Http.HttpClient]::new()
         $content = [System.Net.Http.MultipartFormDataContent]::new()
         $content.Add([System.Net.Http.StringContent]::new('Batch upload'),'note')
@@ -23,6 +24,7 @@ param(
 )
 
 New-KrLogger |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault
 
@@ -36,10 +38,10 @@ $options.DefaultUploadPath = $uploadRoot
 $options.ComputeSha256 = $true
 
 Add-KrFormRoute -Pattern '/upload' -Options $options -ScriptBlock {
-    $payload = $Form.Payload
-    $files = $payload.Files['files']
+    $payload = $FormContext.Payload
+    $files = @($payload.Files['files'])
     $result = [pscustomobject]@{
-        count = if ($null -eq $files) { 0 } else { $files.Length }
+        count = $files.Count
         files = $files | ForEach-Object {
             [pscustomobject]@{
                 fileName = $_.OriginalFileName

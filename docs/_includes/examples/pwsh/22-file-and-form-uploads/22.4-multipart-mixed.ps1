@@ -26,6 +26,7 @@ param(
 )
 
 New-KrLogger |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault
 
@@ -38,8 +39,7 @@ $options = [Kestrun.Forms.KrFormOptions]::new()
 $options.DefaultUploadPath = $uploadRoot
 
 Add-KrFormRoute -Pattern '/mixed' -Options $options -ScriptBlock {
-    param($Form)
-    $payload = $Form.Payload
+    $payload = $FormContext.Payload
     $contentTypes = $payload.Parts | ForEach-Object { $_.ContentType }
     Write-KrJsonResponse -InputObject @{ count = $payload.Parts.Count; contentTypes = $contentTypes } -StatusCode 200
 }

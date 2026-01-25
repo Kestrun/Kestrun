@@ -39,6 +39,7 @@ param(
 )
 
 New-KrLogger |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault
 
@@ -52,8 +53,7 @@ $options.DefaultUploadPath = $uploadRoot
 $options.Limits.MaxNestingDepth = 1
 
 Add-KrFormRoute -Pattern '/nested' -Options $options -ScriptBlock {
-    param($Form)
-    $payload = $Form.Payload
+    $payload = $FormContext.Payload
     $outerParts = $payload.Parts
     $nestedSummary = @()
     foreach ($part in $outerParts) {

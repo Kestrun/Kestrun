@@ -14,6 +14,7 @@ param(
 )
 
 New-KrLogger |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault
 
@@ -26,8 +27,7 @@ $options = [Kestrun.Forms.KrFormOptions]::new()
 $options.DefaultUploadPath = $uploadRoot
 
 Add-KrFormRoute -Pattern '/form' -Options $options -ScriptBlock {
-    param($Form)
-    $payload = $Form.Payload
+    $payload = $FormContext.Payload
     $fields = @{}
     foreach ($key in $payload.Fields.Keys) {
         $fields[$key] = $payload.Fields[$key]

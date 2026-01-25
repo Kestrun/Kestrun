@@ -26,6 +26,7 @@ param(
 )
 
 New-KrLogger |
+    Set-KrLoggerLevel -Value Debug |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault
 
@@ -41,8 +42,7 @@ $options.EnablePartDecompression = $true
 $options.MaxDecompressedBytesPerPart = 1024 * 1024
 
 Add-KrFormRoute -Pattern '/part-compressed' -Options $options -ScriptBlock {
-    param($Form)
-    $payload = $Form.Payload
+    $payload = $FormContext.Payload
     $file = $payload.Files['file'][0]
     Write-KrJsonResponse -InputObject @{ fileName = $file.OriginalFileName; length = $file.Length; sha256 = $file.Sha256 } -StatusCode 200
 }

@@ -13,7 +13,7 @@
         $resp.Content.ReadAsStringAsync().Result
 
     Cleanup:
-        Remove-Item -Recurse -Force (Join-Path $PSScriptRoot 'uploads')
+        Remove-Item -Recurse -Force (Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.1-basic-multipart')
 #>
 param(
     [int]$Port = 5000,
@@ -29,14 +29,13 @@ New-KrServer -Name 'Forms 22.1'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
 
-$uploadRoot = Join-Path $PSScriptRoot 'uploads'
+$uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.1-basic-multipart'
 $options = [Kestrun.Forms.KrFormOptions]::new()
 $options.DefaultUploadPath = $uploadRoot
 $options.ComputeSha256 = $true
 
 Add-KrFormRoute -Pattern '/upload' -Options $options -ScriptBlock {
-    $payload = $FormContext.Payload
-    $files = foreach ($entry in $payload.Files.GetEnumerator()) {
+    $files = foreach ($entry in $FormPayload.Files.GetEnumerator()) {
         foreach ($file in $entry.Value) {
             [pscustomobject]@{
                 name = $file.Name
@@ -48,8 +47,8 @@ Add-KrFormRoute -Pattern '/upload' -Options $options -ScriptBlock {
         }
     }
     $fields = @{}
-    foreach ($key in $payload.Fields.Keys) {
-        $fields[$key] = $payload.Fields[$key]
+    foreach ($key in $FormPayload.Fields.Keys) {
+        $fields[$key] = $FormPayload.Fields[$key]
     }
     Write-KrJsonResponse -InputObject @{ fields = $fields; files = $files } -StatusCode 200
 }

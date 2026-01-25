@@ -44,4 +44,13 @@ Describe 'Example 22.7 part-level compression' {
         $resp = $client.PostAsync("$($script:instance.Url)/part-compressed", $content).Result
         $resp.StatusCode | Should -Not -Be 200
     }
+
+    It 'Rejects when required file part is missing' {
+        $client = [System.Net.Http.HttpClient]::new()
+        $content = [System.Net.Http.MultipartFormDataContent]::new()
+        $content.Add([System.Net.Http.StringContent]::new('noop'), 'note')
+
+        $resp = $client.PostAsync("$($script:instance.Url)/part-compressed", $content).Result
+        [int]$resp.StatusCode | Should -Be 400
+    }
 }

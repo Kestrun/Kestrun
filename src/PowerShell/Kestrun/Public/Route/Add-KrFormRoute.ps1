@@ -61,7 +61,14 @@ function Add-KrFormRoute {
 ##############################
 # Form Route Wrapper
 ##############################
-$FormPayload = [Kestrun.Forms.KrFormParser]::Parse($Context.HttpContext, $Options, $Context.Ct)
+$FormPayload = $null
+try {
+    $FormPayload = [Kestrun.Forms.KrFormParser]::Parse($Context.HttpContext, $Options, $Context.Ct)
+} catch [Kestrun.Forms.KrFormException] {
+    $ex = $_.Exception
+    Write-KrTextResponse -InputObject $ex.Message -StatusCode $ex.StatusCode
+    return
+}
 
 ############################
 # User Scriptblock

@@ -68,7 +68,7 @@ public static class KrFormParser
         ApplyRequestBodyLimit(context, options, logger);
 
         return normalizedMediaType.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase)
-            ? await ParseUrlEncodedAsync(context, logger, cancellationToken).ConfigureAwait(false)
+            ? await ParseUrlEncodedAsync(context, options, logger, cancellationToken).ConfigureAwait(false)
             : normalizedMediaType.Equals("multipart/form-data", StringComparison.OrdinalIgnoreCase)
                 ? await ParseMultipartFormDataAsync(context, mediaType, options, logger, cancellationToken).ConfigureAwait(false)
                 : normalizedMediaType.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase)
@@ -111,7 +111,7 @@ public static class KrFormParser
         logger.Debug("Set MaxRequestBodySize to {MaxBytes}", options.Limits.MaxRequestBodyBytes);
     }
 
-    private static async Task<KrFormPayload> ParseUrlEncodedAsync(HttpContext context, Logger logger, CancellationToken cancellationToken)
+    private static async Task<KrFormPayload> ParseUrlEncodedAsync(HttpContext context, KrFormOptions options, Logger logger, CancellationToken cancellationToken)
     {
         var payload = new KrNamedPartsPayload();
         var form = await context.Request.ReadFormAsync(cancellationToken).ConfigureAwait(false);
@@ -119,6 +119,9 @@ public static class KrFormParser
         {
             payload.Fields[key] = [.. form[key].Select(static v => v ?? string.Empty)];
         }
+
+        var rules = CreateRuleMap(options);
+        ValidateRequiredRules(payload, rules, logger);
 
         logger.Information("Parsed x-www-form-urlencoded payload with {FieldCount} fields.", payload.Fields.Count);
         return payload;

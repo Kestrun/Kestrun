@@ -27,6 +27,7 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 | [Razor Pages](./razor) | PowerShell-backed Razor Pages with per-request models |
 | [Status Code Pages](./statuscodepages) | Friendly error pages and re-execution flows |
 | [Certificates](./certificates) | Generate, import, export, and validate X.509 |
+| [File & Form Uploads](./uploads) | Multipart parsing, streaming storage, and validation rules/limits |
 
 ## Planned
 

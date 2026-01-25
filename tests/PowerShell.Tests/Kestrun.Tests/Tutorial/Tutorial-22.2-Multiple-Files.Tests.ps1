@@ -34,4 +34,26 @@ Describe 'Example 22.2 Multiple files under same field' {
         ($json.files.fileName -contains 'one.txt') | Should -BeTrue
         ($json.files.fileName -contains 'two.txt') | Should -BeTrue
     }
+
+    It 'Rejects when required files field is missing' {
+        $client = [System.Net.Http.HttpClient]::new()
+        $content = [System.Net.Http.MultipartFormDataContent]::new()
+        $content.Add([System.Net.Http.StringContent]::new('Batch'), 'note')
+
+        $resp = $client.PostAsync("$($script:instance.Url)/upload", $content).Result
+        [int]$resp.StatusCode | Should -Be 400
+    }
+
+    It 'Rejects when a file Content-Type is not allowed' {
+        $client = [System.Net.Http.HttpClient]::new()
+        $content = [System.Net.Http.MultipartFormDataContent]::new()
+        $content.Add([System.Net.Http.StringContent]::new('Batch'), 'note')
+
+        $file = [System.Net.Http.ByteArrayContent]::new([System.Text.Encoding]::UTF8.GetBytes('{"a":1}'))
+        $file.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse('application/json')
+        $content.Add($file, 'files', 'bad.json')
+
+        $resp = $client.PostAsync("$($script:instance.Url)/upload", $content).Result
+        [int]$resp.StatusCode | Should -Be 415
+    }
 }

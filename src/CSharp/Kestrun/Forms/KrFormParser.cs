@@ -14,6 +14,72 @@ namespace Kestrun.Forms;
 public static class KrFormParser
 {
     /// <summary>
+    /// Default buffer size for streaming operations (80 KB).
+    /// </summary>
+    private const int DefaultBufferSize = 81920;
+
+    /// <summary>
+    /// Checks if the encoding requires decompression (not identity).
+    /// </summary>
+    private static bool IsCompressionEncoding(string? encoding)
+    {
+        return !string.IsNullOrWhiteSpace(encoding) 
+               && !encoding.Equals("identity", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Initializes decompression for a part if needed based on Content-Encoding header.
+    /// </summary>
+    private static (Stream Stream, bool IsDecompressing) InitializePartDecompression(
+        Stream bodyStream,
+        Dictionary<string, StringValues>? headers,
+        KrFormOptions options,
+        Serilog.ILogger logger,
+        int partIndex)
+    {
+        var isDecompressing = false;
+
+        if (options.EnablePartDecompression && 
+            headers != null && 
+            headers.TryGetValue("Content-Encoding", out var partContentEncoding))
+        {
+            var encoding = partContentEncoding.ToString();
+            logger.Debug("Part {PartIndex} has Content-Encoding: {Encoding}", partIndex, encoding);
+
+            if (IsCompressionEncoding(encoding))
+            {
+                if (!options.AllowedPartContentEncodings.Contains(encoding, StringComparer.OrdinalIgnoreCase))
+                {
+                    if (options.RejectUnknownContentEncoding)
+                    {
+                        logger.Error("Unknown part Content-Encoding: {Encoding}", encoding);
+                        throw new BadHttpRequestException($"Unsupported part Content-Encoding: {encoding}", 
+                            StatusCodes.Status415UnsupportedMediaType);
+                    }
+                    logger.Warning("Unknown part Content-Encoding allowed: {Encoding}", encoding);
+                }
+                else
+                {
+                    try
+                    {
+                        (bodyStream, isDecompressing) = KrPartDecompression.WrapWithDecompression(
+                            bodyStream,
+                            encoding,
+                            options.MaxDecompressedBytesPerPart,
+                            logger);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.Error(ex, "Failed to initialize part decompression for part {PartIndex}", partIndex);
+                        throw new BadHttpRequestException("Failed to decompress part.", StatusCodes.Status400BadRequest);
+                    }
+                }
+            }
+        }
+
+        return (bodyStream, isDecompressing);
+    }
+    /// <summary>
     /// Parses a form request according to its content type.
     /// </summary>
     /// <param name="httpContext">The HTTP context.</param>
@@ -470,54 +536,23 @@ public static class KrFormParser
         var destinationPath = rule?.DestinationPath ?? options.DefaultUploadPath;
 
         // Handle part-level decompression
-        var bodyStream = section.Body;
-        var isDecompressing = false;
-        
-        if (options.EnablePartDecompression && section.Headers.TryGetValue("Content-Encoding", out var partContentEncoding))
-        {
-            var encoding = partContentEncoding.ToString();
-            logger.Debug("Part {PartIndex} has Content-Encoding: {Encoding}", partIndex, encoding);
-
-            if (!string.IsNullOrWhiteSpace(encoding) && !encoding.Equals("identity", StringComparison.OrdinalIgnoreCase))
-            {
-                if (!options.AllowedPartContentEncodings.Contains(encoding, StringComparer.OrdinalIgnoreCase))
-                {
-                    if (options.RejectUnknownContentEncoding)
-                    {
-                        logger.Error("Unknown part Content-Encoding: {Encoding}", encoding);
-                        throw new BadHttpRequestException($"Unsupported part Content-Encoding: {encoding}", StatusCodes.Status415UnsupportedMediaType);
-                    }
-                    logger.Warning("Unknown part Content-Encoding allowed: {Encoding}", encoding);
-                }
-                else if (!encoding.Equals("identity", StringComparison.OrdinalIgnoreCase))
-                {
-                    try
-                    {
-                        (bodyStream, isDecompressing) = KrPartDecompression.WrapWithDecompression(
-                            bodyStream,
-                            encoding,
-                            options.MaxDecompressedBytesPerPart,
-                            logger);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Error(ex, "Failed to initialize part decompression for part {PartIndex}", partIndex);
-                        throw new BadHttpRequestException("Failed to decompress part.", StatusCodes.Status400BadRequest);
-                    }
-                }
-            }
-        }
+        var (decompressedStream, isDecompressing) = InitializePartDecompression(
+            section.Body,
+            section.Headers,
+            options,
+            logger,
+            partIndex);
 
         // Stream to disk
         await using var sink = new DiskSink(destinationPath, options.ComputeSha256);
 
         try
         {
-            var buffer = new byte[81920]; // 80 KB buffer
+            var buffer = new byte[DefaultBufferSize];
             long totalBytesRead = 0;
 
             int bytesRead;
-            while ((bytesRead = await bodyStream.ReadAsync(buffer, cancellationToken)) > 0)
+            while ((bytesRead = await decompressedStream.ReadAsync(buffer, cancellationToken)) > 0)
             {
                 totalBytesRead += bytesRead;
 
@@ -570,54 +605,23 @@ public static class KrFormParser
         var destinationPath = options.DefaultUploadPath;
 
         // Handle part-level decompression
-        var bodyStream = section.Body;
-        var isDecompressing = false;
-
-        if (options.EnablePartDecompression && section.Headers.TryGetValue("Content-Encoding", out var partContentEncoding))
-        {
-            var encoding = partContentEncoding.ToString();
-            logger.Debug("Raw part {PartIndex} has Content-Encoding: {Encoding}", partIndex, encoding);
-
-            if (!string.IsNullOrWhiteSpace(encoding) && !encoding.Equals("identity", StringComparison.OrdinalIgnoreCase))
-            {
-                if (!options.AllowedPartContentEncodings.Contains(encoding, StringComparer.OrdinalIgnoreCase))
-                {
-                    if (options.RejectUnknownContentEncoding)
-                    {
-                        logger.Error("Unknown part Content-Encoding: {Encoding}", encoding);
-                        throw new BadHttpRequestException($"Unsupported part Content-Encoding: {encoding}", StatusCodes.Status415UnsupportedMediaType);
-                    }
-                    logger.Warning("Unknown part Content-Encoding allowed: {Encoding}", encoding);
-                }
-                else
-                {
-                    try
-                    {
-                        (bodyStream, isDecompressing) = KrPartDecompression.WrapWithDecompression(
-                            bodyStream,
-                            encoding,
-                            options.MaxDecompressedBytesPerPart,
-                            logger);
-                    }
-                    catch (Exception ex)
-                    {
-                        logger.Error(ex, "Failed to initialize part decompression for raw part {PartIndex}", partIndex);
-                        throw new BadHttpRequestException("Failed to decompress part.", StatusCodes.Status400BadRequest);
-                    }
-                }
-            }
-        }
+        var (decompressedStream, isDecompressing) = InitializePartDecompression(
+            section.Body,
+            section.Headers,
+            options,
+            logger,
+            partIndex);
 
         // Stream to disk
         await using var sink = new DiskSink(destinationPath, options.ComputeSha256);
 
         try
         {
-            var buffer = new byte[81920]; // 80 KB buffer
+            var buffer = new byte[DefaultBufferSize];
             long totalBytesRead = 0;
 
             int bytesRead;
-            while ((bytesRead = await bodyStream.ReadAsync(buffer, cancellationToken)) > 0)
+            while ((bytesRead = await decompressedStream.ReadAsync(buffer, cancellationToken)) > 0)
             {
                 totalBytesRead += bytesRead;
 

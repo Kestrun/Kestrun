@@ -23,6 +23,7 @@ Parse multipart and form submissions with streaming storage and limits.
 ## Gotchas
 
 - `Add-KrFormRoute` injects `$FormPayload` directly into the runspace (you already have `$Context`).
+- Content types: `Add-KrFormRoute` accepts `multipart/form-data` by default. The urlencoded and `multipart/mixed` chapters explicitly opt in via `KrFormOptions.AllowedRequestContentTypes`.
 - For request-level compression examples, make sure you send a real `byte[]` body with `Content-Encoding: gzip`
 (avoid returning an enumerated `Object[]` of bytes from helper functions).
 

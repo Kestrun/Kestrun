@@ -9,6 +9,8 @@ nav_order: 165
 Kestrun supports streaming form parsing for `multipart/form-data`, ordered multipart (`multipart/mixed`, etc.), and `application/x-www-form-urlencoded`,
 with first-class support for **rules** and **limits**.
 
+By default, `KrFormOptions.AllowedRequestContentTypes` allows only `multipart/form-data`. To accept `application/x-www-form-urlencoded` or other `multipart/*` types, explicitly opt in via `AllowedRequestContentTypes`.
+
 This guide focuses on how to configure:
 
 - **Rules** (`KrPartRule`): what parts are allowed/required and how they’re validated.
@@ -40,6 +42,7 @@ Add-KrFormRoute -Pattern '/upload' -Options $options -ScriptBlock {
 Notes:
 
 - `Add-KrFormRoute` injects the parsed payload as `$FormPayload` (you still have `$Context`).
+- Content types: `Add-KrFormRoute` defaults to `multipart/form-data` only; opt in to other request content types via `KrFormOptions.AllowedRequestContentTypes`.
 - When a rule/limit is violated, the route returns a non-200 status (commonly `400`, `413`, `415`) with a short text message.
 
 ## Quick start (C#)
@@ -71,6 +74,10 @@ Kestrun returns one of these payload shapes:
   - `Files`: map of `name -> KrFilePart[]`
 - **Ordered parts** (`multipart/mixed` and other `multipart/*`)
   - `Parts`: ordered list of raw parts (optionally with a nested payload)
+
+Note:
+
+- Named parts and ordered multipart payloads are supported, but `Add-KrFormRoute` only accepts `multipart/form-data` by default. Opt in to `application/x-www-form-urlencoded` and other `multipart/*` types via `KrFormOptions.AllowedRequestContentTypes`.
 
 Important:
 

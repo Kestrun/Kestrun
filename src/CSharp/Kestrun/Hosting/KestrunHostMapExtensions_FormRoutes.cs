@@ -11,9 +11,13 @@ namespace Kestrun.Hosting;
 public static partial class KestrunHostMapExtensions
 {
     /// <summary>
-    /// Adds a POST route that parses multipart/form-data, multipart/mixed, and application/x-www-form-urlencoded payloads
-    /// using <see cref="KrFormParser"/>, injects the parsed payload into the runspace as <c>$FormPayload</c>, and then
+    /// Adds a POST route that parses form payloads using <see cref="KrFormParser"/>, injects the parsed payload into the
+    /// runspace as <c>$FormPayload</c>, and then
     /// executes the provided PowerShell <paramref name="userScriptBlock"/>.
+    ///
+    /// By default, only <c>multipart/form-data</c> is accepted; additional request content types (such as
+    /// <c>application/x-www-form-urlencoded</c> and <c>multipart/mixed</c>) are opt-in via
+    /// <see cref="KrFormOptions.AllowedRequestContentTypes"/>.
     ///
     /// This method also fills <see cref="MapRouteOptions.OpenAPI"/> (unless disabled) so the route appears in generated
     /// OpenAPI documents.

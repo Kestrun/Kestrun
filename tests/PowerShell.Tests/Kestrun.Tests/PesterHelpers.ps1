@@ -2357,10 +2357,20 @@ function New-GzipMultipartBody {
     ) -join "`r`n"
     $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)
     $ms = [System.IO.MemoryStream]::new()
-    $gzip = [System.IO.Compression.GZipStream]::new($ms, [System.IO.Compression.CompressionMode]::Compress, $true)
-    $gzip.Write($bytes, 0, $bytes.Length)
-    $gzip.Dispose()
-    return $ms.ToArray()
+    try {
+        $gzip = [System.IO.Compression.GZipStream]::new($ms, [System.IO.Compression.CompressionMode]::Compress, $true)
+        try {
+            $gzip.Write($bytes, 0, $bytes.Length)
+        } finally {
+            $gzip.Dispose()
+        }
+
+        # IMPORTANT: prevent PowerShell from enumerating the byte[] on output.
+        # Invoke-WebRequest expects a single byte[] object for raw bodies.
+        return , $ms.ToArray()
+    } finally {
+        $ms.Dispose()
+    }
 }
 
 <#
@@ -2379,8 +2389,17 @@ function New-GzipBinaryData {
         [byte[]]$data
     )
     $ms = [System.IO.MemoryStream]::new()
-    $gzip = [System.IO.Compression.GZipStream]::new($ms, [System.IO.Compression.CompressionMode]::Compress, $true)
-    $gzip.Write($data, 0, $data.Length)
-    $gzip.Dispose()
-    return $ms.ToArray()
+    try {
+        $gzip = [System.IO.Compression.GZipStream]::new($ms, [System.IO.Compression.CompressionMode]::Compress, $true)
+        try {
+            $gzip.Write($data, 0, $data.Length)
+        } finally {
+            $gzip.Dispose()
+        }
+
+        # Prevent byte[] enumeration on output.
+        return , $ms.ToArray()
+    } finally {
+        $ms.Dispose()
+    }
 }

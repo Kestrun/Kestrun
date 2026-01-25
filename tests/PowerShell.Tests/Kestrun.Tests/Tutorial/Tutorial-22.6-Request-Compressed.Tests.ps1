@@ -4,8 +4,8 @@ BeforeAll {
 }
 Describe 'Example 22.6 request-level compression' {
     BeforeAll {
-        $script:withMiddleware = Start-ExampleScript -Name '22-file-and-form-uploads/22.6-request-compressed.ps1'
-        $script:withoutMiddleware = Start-ExampleScript -Name '22-file-and-form-uploads/22.1-basic-multipart.ps1'
+        $script:withMiddleware = Start-ExampleScript -Name '22.6-request-compressed.ps1'
+        $script:withoutMiddleware = Start-ExampleScript -Name '22.1-basic-multipart.ps1'
     }
     AfterAll {
         foreach ($instance in @($script:withMiddleware, $script:withoutMiddleware)) {

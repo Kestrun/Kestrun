@@ -3,7 +3,7 @@
 Describe 'Example 22.4 multipart/mixed ordered parts' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
-        $script:instance = Start-ExampleScript -Name '22-file-and-form-uploads/22.4-multipart-mixed.ps1'
+        $script:instance = Start-ExampleScript -Name '22.4-multipart-mixed.ps1'
     }
     AfterAll {
         if ($script:instance) {

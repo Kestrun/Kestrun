@@ -3,7 +3,7 @@
 Describe 'Example 22.5 nested multipart/mixed' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
-        $script:instance = Start-ExampleScript -Name '22-file-and-form-uploads/22.5-nested-multipart.ps1'
+        $script:instance = Start-ExampleScript -Name '22.5-nested-multipart.ps1'
     }
     AfterAll {
         if ($script:instance) {

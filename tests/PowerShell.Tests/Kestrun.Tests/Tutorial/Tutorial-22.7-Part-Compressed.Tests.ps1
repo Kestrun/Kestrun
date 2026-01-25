@@ -3,7 +3,7 @@
 Describe 'Example 22.7 part-level compression' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
-        $script:instance = Start-ExampleScript -Name '22-file-and-form-uploads/22.7-part-compressed.ps1'
+        $script:instance = Start-ExampleScript -Name '22.7-part-compressed.ps1'
     }
     AfterAll {
         if ($script:instance) {
@@ -22,7 +22,7 @@ Describe 'Example 22.7 part-level compression' {
         $part = [System.Net.Http.ByteArrayContent]::new($compressed)
         $part.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse('text/plain')
         $part.Headers.ContentEncoding.Add('gzip')
-        $content.Add($part,'file','payload.txt')
+        $content.Add($part, 'file', 'payload.txt')
 
         $resp = $client.PostAsync("$($script:instance.Url)/part-compressed", $content).Result
         $resp.StatusCode | Should -Be 200
@@ -39,7 +39,7 @@ Describe 'Example 22.7 part-level compression' {
         $part = [System.Net.Http.ByteArrayContent]::new($compressed)
         $part.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse('text/plain')
         $part.Headers.ContentEncoding.Add('gzip')
-        $content.Add($part,'file','too-big.txt')
+        $content.Add($part, 'file', 'too-big.txt')
 
         $resp = $client.PostAsync("$($script:instance.Url)/part-compressed", $content).Result
         $resp.StatusCode | Should -Not -Be 200

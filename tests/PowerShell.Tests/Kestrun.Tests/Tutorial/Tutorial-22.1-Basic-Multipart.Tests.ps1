@@ -3,7 +3,7 @@
 Describe 'Example 22.1 Basic multipart/form-data' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
-        $script:instance = Start-ExampleScript -Name '22-file-and-form-uploads/22.1-basic-multipart.ps1'
+        $script:instance = Start-ExampleScript -Name '22.1-basic-multipart.ps1'
     }
     AfterAll {
         if ($script:instance) {
@@ -16,11 +16,11 @@ Describe 'Example 22.1 Basic multipart/form-data' {
     It 'Parses fields and one file' {
         $client = [System.Net.Http.HttpClient]::new()
         $content = [System.Net.Http.MultipartFormDataContent]::new()
-        $content.Add([System.Net.Http.StringContent]::new('Hello'),'note')
+        $content.Add([System.Net.Http.StringContent]::new('Hello'), 'note')
         $bytes = [System.Text.Encoding]::UTF8.GetBytes('sample file')
         $file = [System.Net.Http.ByteArrayContent]::new($bytes)
         $file.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse('text/plain')
-        $content.Add($file,'file','hello.txt')
+        $content.Add($file, 'file', 'hello.txt')
 
         $resp = $client.PostAsync("$($script:instance.Url)/upload", $content).Result
         $resp.StatusCode | Should -Be 200

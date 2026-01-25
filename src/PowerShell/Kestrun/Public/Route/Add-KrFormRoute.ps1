@@ -55,14 +55,17 @@ function Add-KrFormRoute {
             $Options.Logger = $Server.Logger
         }
 
-        $wrapperContent = {
-            Expand-KrObject $Options
-            $FormPayload = [Kestrun.Forms.KrFormParser]::ParseAsync($Context.HttpContext, $Options, $Context.Ct).GetAwaiter().GetResult()
-            $FormContext = [Kestrun.Forms.KrFormContext]::new($Context, $Options, $FormPayload)
-        }
-        
+        $wrapperContent = @'
+##############################
+# Form Route Wrapper
+##############################
+Expand-KrObject $Options # Ensure $Options is available in the scriptblock. Just for debugging to remove later.
+$FormPayload = [Kestrun.Forms.KrFormParser]::ParseAsync($Context.HttpContext, $Options, $Context.Ct).GetAwaiter().GetResult()
+$FormContext = [Kestrun.Forms.KrFormContext]::new($Context, $Options, $FormPayload)
+'@
+
         # Combine the wrapper and user scriptblocks
-        $wrapper = [scriptblock]::Create($wrapperContent.ToString() +
+        $wrapper = [scriptblock]::Create($wrapperContent +
             "`n############################`n# User Scriptblock`n############################`n" + $ScriptBlock.ToString())
 
         # Register the route

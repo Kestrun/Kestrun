@@ -60,10 +60,12 @@ function Add-KrFormRoute {
             $FormPayload = [Kestrun.Forms.KrFormParser]::ParseAsync($Context.HttpContext, $Options, $Context.Ct).GetAwaiter().GetResult()
             $FormContext = [Kestrun.Forms.KrFormContext]::new($Context, $Options, $FormPayload)
         }
-
+        
+        # Combine the wrapper and user scriptblocks
         $wrapper = [scriptblock]::Create($wrapperContent.ToString() +
-        "`n############################`n# User Scriptblock`n############################`n" + $ScriptBlock.ToString())
+            "`n############################`n# User Scriptblock`n############################`n" + $ScriptBlock.ToString())
 
+        # Register the route
         Add-KrMapRoute -Server $Server -Verbs Post -Pattern $Pattern -Arguments @{ 'Options' = $Options } -ScriptBlock $wrapper `
             -AuthorizationScheme $AuthorizationScheme -AuthorizationPolicy $AuthorizationPolicy `
             -CorsPolicy $CorsPolicy -AllowAnonymous:$AllowAnonymous | Out-Null

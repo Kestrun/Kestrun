@@ -25,7 +25,7 @@
         Invoke-WebRequest -Method Post -Uri "http://127.0.0.1:$Port/upload" -ContentType "multipart/form-data; boundary=$boundary" -Headers @{ 'Content-Encoding'='gzip' } -Body $compressed
 
     Cleanup:
-        Remove-Item -Recurse -Force (Join-Path $PSScriptRoot 'uploads')
+        Remove-Item -Recurse -Force (Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.6-request-compressed')
 #>
 param(
     [int]$Port = 5000,
@@ -43,14 +43,13 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
 
 Add-KrRequestDecompressionMiddleware -AllowedEncoding gzip | Out-Null
 
-$uploadRoot = Join-Path $PSScriptRoot 'uploads'
+$uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.6-request-compressed'
 $options = [Kestrun.Forms.KrFormOptions]::new()
 $options.DefaultUploadPath = $uploadRoot
 $options.ComputeSha256 = $true
 
 Add-KrFormRoute -Pattern '/upload' -Options $options -ScriptBlock {
-    $payload = $FormContext.Payload
-    $files = $payload.Files['file']
+    $files = $FormPayload.Files['file']
     Write-KrJsonResponse -InputObject @{ count = $files.Count; files = $files } -StatusCode 200
 }
 

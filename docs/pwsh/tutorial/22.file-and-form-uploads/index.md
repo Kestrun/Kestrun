@@ -20,6 +20,11 @@ Parse multipart and form submissions with streaming storage and limits.
 6. [Request-level compression](./22.6-Request-Compressed)
 7. [Part-level compression](./22.7-Part-Compressed)
 
+## Gotchas
+
+- `Add-KrFormRoute` injects `$FormPayload` directly into the runspace (you already have `$Context`).
+- For request-level compression examples, make sure you send a real `byte[]` body with `Content-Encoding: gzip` (avoid returning an enumerated `Object[]` of bytes from helper functions).
+
 ## Prerequisites
 
 - PowerShell 7.4+

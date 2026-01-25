@@ -16,7 +16,7 @@
         $resp.Content.ReadAsStringAsync().Result
 
     Cleanup:
-        Remove-Item -Recurse -Force (Join-Path $PSScriptRoot 'uploads')
+        Remove-Item -Recurse -Force (Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.2-multiple-files')
 #>
 param(
     [int]$Port = 5000,
@@ -32,14 +32,13 @@ New-KrServer -Name 'Forms 22.2'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
 
-$uploadRoot = Join-Path $PSScriptRoot 'uploads'
+$uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.2-multiple-files'
 $options = [Kestrun.Forms.KrFormOptions]::new()
 $options.DefaultUploadPath = $uploadRoot
 $options.ComputeSha256 = $true
 
 Add-KrFormRoute -Pattern '/upload' -Options $options -ScriptBlock {
-    $payload = $FormContext.Payload
-    $files = @($payload.Files['files'])
+    $files = @($FormPayload.Files['files'])
     $result = [pscustomobject]@{
         count = $files.Count
         files = $files | ForEach-Object {

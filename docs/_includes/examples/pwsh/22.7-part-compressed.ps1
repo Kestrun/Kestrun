@@ -18,7 +18,7 @@
         $resp.Content.ReadAsStringAsync().Result
 
     Cleanup:
-        Remove-Item -Recurse -Force (Join-Path $PSScriptRoot 'uploads')
+        Remove-Item -Recurse -Force (Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.7-part-compressed')
 #>
 param(
     [int]$Port = 5000,
@@ -34,7 +34,7 @@ New-KrServer -Name 'Forms 22.7'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
 
-$uploadRoot = Join-Path $PSScriptRoot 'uploads'
+$uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.7-part-compressed'
 $options = [Kestrun.Forms.KrFormOptions]::new()
 $options.DefaultUploadPath = $uploadRoot
 $options.ComputeSha256 = $true
@@ -42,8 +42,7 @@ $options.EnablePartDecompression = $true
 $options.MaxDecompressedBytesPerPart = 1024 * 1024
 
 Add-KrFormRoute -Pattern '/part-compressed' -Options $options -ScriptBlock {
-    $payload = $FormContext.Payload
-    $file = $payload.Files['file'][0]
+    $file = $FormPayload.Files['file'][0]
     Write-KrJsonResponse -InputObject @{ fileName = $file.OriginalFileName; length = $file.Length; sha256 = $file.Sha256 } -StatusCode 200
 }
 

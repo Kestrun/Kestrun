@@ -31,7 +31,7 @@
         Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$Port/nested" -ContentType "multipart/mixed; boundary=$outer" -Body $outerBody
 
     Cleanup:
-        Remove-Item -Recurse -Force (Join-Path $PSScriptRoot 'uploads')
+        Remove-Item -Recurse -Force (Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.5-nested-multipart')
 #>
 param(
     [int]$Port = 5000,
@@ -47,14 +47,13 @@ New-KrServer -Name 'Forms 22.5'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
 
-$uploadRoot = Join-Path $PSScriptRoot 'uploads'
+$uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.5-nested-multipart'
 $options = [Kestrun.Forms.KrFormOptions]::new()
 $options.DefaultUploadPath = $uploadRoot
 $options.Limits.MaxNestingDepth = 1
 
 Add-KrFormRoute -Pattern '/nested' -Options $options -ScriptBlock {
-    $payload = $FormContext.Payload
-    $outerParts = $payload.Parts
+    $outerParts = $FormPayload.Parts
     $nestedSummary = @()
     foreach ($part in $outerParts) {
         if ($null -ne $part.NestedPayload) {

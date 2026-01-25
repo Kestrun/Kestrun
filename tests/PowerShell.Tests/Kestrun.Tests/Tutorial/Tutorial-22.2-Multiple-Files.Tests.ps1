@@ -16,15 +16,15 @@ Describe 'Example 22.2 Multiple files under same field' {
     It 'Accepts two files in the same field name' {
         $client = [System.Net.Http.HttpClient]::new()
         $content = [System.Net.Http.MultipartFormDataContent]::new()
-        $content.Add([System.Net.Http.StringContent]::new('Batch'),'note')
+        $content.Add([System.Net.Http.StringContent]::new('Batch'), 'note')
 
         $file1 = [System.Net.Http.ByteArrayContent]::new([System.Text.Encoding]::UTF8.GetBytes('one'))
         $file1.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse('text/plain')
-        $content.Add($file1,'files','one.txt')
+        $content.Add($file1, 'files', 'one.txt')
 
         $file2 = [System.Net.Http.ByteArrayContent]::new([System.Text.Encoding]::UTF8.GetBytes('two'))
         $file2.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse('text/plain')
-        $content.Add($file2,'files','two.txt')
+        $content.Add($file2, 'files', 'two.txt')
 
         $resp = $client.PostAsync("$($script:instance.Url)/upload", $content).Result
         $resp.StatusCode | Should -Be 200

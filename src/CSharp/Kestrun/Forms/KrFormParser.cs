@@ -76,6 +76,23 @@ public static class KrFormParser
                     : throw new KrFormException("Unsupported Content-Type for form parsing.", StatusCodes.Status415UnsupportedMediaType);
     }
 
+    /// <summary>
+    /// Parses the incoming request into a normalized form payload. Synchronous wrapper.
+    /// </summary>
+    /// <param name="context">The HTTP context.</param>
+    /// <param name="options">The form parsing options.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The parsed payload.</returns>
+    public static KrFormPayload Parse(HttpContext context, KrFormOptions options, CancellationToken cancellationToken) =>
+           ParseAsync(context, options, cancellationToken).GetAwaiter().GetResult();
+
+
+    /// <summary>
+    /// Applies the request body size limit based on the provided options.
+    /// </summary>
+    /// <param name="context">The HTTP context of the current request.</param>
+    /// <param name="options">The form parsing options containing limits.</param>
+    /// <param name="logger">The logger for diagnostic messages.</param>
     private static void ApplyRequestBodyLimit(HttpContext context, KrFormOptions options, Logger logger)
     {
         if (!options.Limits.MaxRequestBodyBytes.HasValue)

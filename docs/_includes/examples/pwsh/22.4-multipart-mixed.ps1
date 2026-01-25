@@ -18,7 +18,7 @@
         Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$Port/mixed" -ContentType "multipart/mixed; boundary=$boundary" -Body $body
 
     Cleanup:
-        Remove-Item -Recurse -Force (Join-Path $PSScriptRoot 'uploads')
+        Remove-Item -Recurse -Force (Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.4-multipart-mixed')
 #>
 param(
     [int]$Port = 5000,
@@ -34,14 +34,13 @@ New-KrServer -Name 'Forms 22.4'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
 
-$uploadRoot = Join-Path $PSScriptRoot 'uploads'
+$uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.4-multipart-mixed'
 $options = [Kestrun.Forms.KrFormOptions]::new()
 $options.DefaultUploadPath = $uploadRoot
 
 Add-KrFormRoute -Pattern '/mixed' -Options $options -ScriptBlock {
-    $payload = $FormContext.Payload
-    $contentTypes = $payload.Parts | ForEach-Object { $_.ContentType }
-    Write-KrJsonResponse -InputObject @{ count = $payload.Parts.Count; contentTypes = $contentTypes } -StatusCode 200
+    $contentTypes = $FormPayload.Parts | ForEach-Object { $_.ContentType }
+    Write-KrJsonResponse -InputObject @{ count = $FormPayload.Parts.Count; contentTypes = $contentTypes } -StatusCode 200
 }
 
 Enable-KrConfiguration

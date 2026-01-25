@@ -41,6 +41,14 @@ $options.ComputeSha256 = $true
 $options.EnablePartDecompression = $true
 $options.MaxDecompressedBytesPerPart = 1024 * 1024
 
+# Add Rules
+$fileRule = [Kestrun.Forms.KrPartRule]::new()
+$fileRule.Name = 'file'
+$fileRule.Required = $true
+$fileRule.AllowMultiple = $false
+$fileRule.AllowedContentTypes.Add('text/plain')
+$options.Rules.Add($fileRule)
+
 Add-KrFormRoute -Pattern '/part-compressed' -Options $options -ScriptBlock {
     $file = $FormPayload.Files['file'][0]
     Write-KrJsonResponse -InputObject @{ fileName = $file.OriginalFileName; length = $file.Length; sha256 = $file.Sha256 } -StatusCode 200

@@ -38,6 +38,18 @@ $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.4-
 $options = [Kestrun.Forms.KrFormOptions]::new()
 $options.DefaultUploadPath = $uploadRoot
 
+# Add Rules
+# Note: multipart/mixed is parsed as ordered parts. Rules apply when a part includes a Content-Disposition name.
+$textRule = [Kestrun.Forms.KrPartRule]::new()
+$textRule.Name = 'text'
+$textRule.MaxBytes = 1024
+$options.Rules.Add($textRule)
+
+$jsonRule = [Kestrun.Forms.KrPartRule]::new()
+$jsonRule.Name = 'json'
+$jsonRule.MaxBytes = 1024
+$options.Rules.Add($jsonRule)
+
 Add-KrFormRoute -Pattern '/mixed' -Options $options -ScriptBlock {
     $contentTypes = $FormPayload.Parts | ForEach-Object { $_.ContentType }
     Write-KrJsonResponse -InputObject @{ count = $FormPayload.Parts.Count; contentTypes = $contentTypes } -StatusCode 200

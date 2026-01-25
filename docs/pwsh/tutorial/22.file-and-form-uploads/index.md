@@ -26,6 +26,22 @@ Parse multipart and form submissions with streaming storage and limits.
 - For request-level compression examples, make sure you send a real `byte[]` body with `Content-Encoding: gzip`
 (avoid returning an enumerated `Object[]` of bytes from helper functions).
 
+## Multipart rules (`KrPartRule`)
+
+These examples configure upload validation rules via `KrFormOptions.Rules`.
+
+- Rules match by part **name** (the `name="..."` value from the `Content-Disposition` header).
+- For `multipart/form-data`, this is usually present by default.
+- For ordered `multipart/mixed`, you must include a `Content-Disposition` header with a `name=` for each part if you want rules to apply.
+- If a part has no `name`, it can still be parsed (as ordered content), but no named rule can match it.
+
+Common rule knobs used in this chapter:
+
+- `Required`: Rejects the request if a named part is missing.
+- `AllowMultiple`: Rejects multiple occurrences when set to `$false`.
+- `AllowedContentTypes` / `AllowedExtensions`: Rejects mismatched uploads.
+- `MaxBytes`: Rejects oversized parts.
+
 ## Prerequisites
 
 - PowerShell 7.4+

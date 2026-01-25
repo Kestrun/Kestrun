@@ -26,6 +26,17 @@ $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.3-
 $options = [Kestrun.Forms.KrFormOptions]::new()
 $options.DefaultUploadPath = $uploadRoot
 
+# Add Rules
+$nameRule = [Kestrun.Forms.KrPartRule]::new()
+$nameRule.Name = 'name'
+$nameRule.Required = $true
+$options.Rules.Add($nameRule)
+
+$roleRule = [Kestrun.Forms.KrPartRule]::new()
+$roleRule.Name = 'role'
+$roleRule.Required = $false
+$options.Rules.Add($roleRule)
+
 Add-KrFormRoute -Pattern '/form' -Options $options -ScriptBlock {
     $fields = @{}
     foreach ($key in $FormPayload.Fields.Keys) {

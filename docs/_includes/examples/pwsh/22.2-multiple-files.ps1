@@ -37,6 +37,14 @@ $options = [Kestrun.Forms.KrFormOptions]::new()
 $options.DefaultUploadPath = $uploadRoot
 $options.ComputeSha256 = $true
 
+# Add Rules
+$rule = [Kestrun.Forms.KrPartRule]::new()
+$rule.Name = 'files'
+$rule.Required = $true
+$rule.AllowMultiple = $true
+$rule.AllowedContentTypes.Add('text/plain')
+$options.Rules.Add($rule)
+
 Add-KrFormRoute -Pattern '/upload' -Options $options -ScriptBlock {
     $files = @($FormPayload.Files['files'])
     $result = [pscustomobject]@{

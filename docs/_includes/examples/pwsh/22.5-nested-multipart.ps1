@@ -52,6 +52,13 @@ $options = [Kestrun.Forms.KrFormOptions]::new()
 $options.DefaultUploadPath = $uploadRoot
 $options.Limits.MaxNestingDepth = 1
 
+# Add Rules
+# Note: nested multipart is parsed as ordered parts; rules apply when a part includes a Content-Disposition name.
+$nestedRule = [Kestrun.Forms.KrPartRule]::new()
+$nestedRule.Name = 'nested'
+$nestedRule.MaxBytes = 1024 * 1024
+$options.Rules.Add($nestedRule)
+
 Add-KrFormRoute -Pattern '/nested' -Options $options -ScriptBlock {
     $outerParts = $FormPayload.Parts
     $nestedSummary = @()

@@ -83,6 +83,25 @@ public static partial class KestrunHostMapExtensions
         return host.AddMapRoute(mapOptions);
     }
 
+    /// <summary>
+    /// Creates language options for the form route script.
+    /// </summary>
+    /// <param name="formOptions">Form parsing options.</param>
+    /// <param name="userScriptBlock">The PowerShell scriptblock to execute after parsing.</param>
+    /// <returns>Language options for the script.</returns>
+    private static LanguageOptions CreateLanguageOptions(KrFormOptions formOptions, ScriptBlock userScriptBlock)
+    {
+        return new LanguageOptions
+        {
+            Language = ScriptLanguage.PowerShell,
+            Code = GetFormRouteWrapperScript(userScriptBlock),
+            Arguments = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["__KrOptions"] = formOptions
+            }
+        };
+    }
+
     private static MapRouteOptions BuildFormRouteMapOptions(
         string pattern,
         ScriptBlock userScriptBlock,
@@ -104,19 +123,8 @@ public static partial class KestrunHostMapExtensions
             HttpVerbs = [HttpVerb.Post],
             AllowAnonymous = allowAnonymous,
             CorsPolicy = corsPolicy ?? string.Empty,
-            ScriptCode = new LanguageOptions
-            {
-                Language = ScriptLanguage.PowerShell,
-                Code = GetFormRouteWrapperScript(),
-                Arguments = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["Options"] = formOptions,
-                    // IMPORTANT: ScriptBlock instances capture their originating session state and cannot be
-                    // reliably invoked in Kestrun's request runspaces (which contain $Context and cmdlets).
-                    // Inject the text and recreate a new ScriptBlock per-request.
-                    ["__KrUserScriptText"] = userScriptBlock.ToString()
-                }
-            }
+            ScriptCode = CreateLanguageOptions(formOptions, userScriptBlock),
+            FormOptions = formOptions
         };
 
         if (!allowAnonymous)
@@ -164,8 +172,9 @@ public static partial class KestrunHostMapExtensions
         return routeOptions;
     }
 
-    private static string GetFormRouteWrapperScript()
+    private static string GetFormRouteWrapperScript(ScriptBlock scriptBlock)
     {
+
         // NOTE: We recreate the ScriptBlock inside the request runspace so it executes with the request's
         // session state (including $Context and Kestrun cmdlets).
         return @"
@@ -174,7 +183,7 @@ public static partial class KestrunHostMapExtensions
 ##############################
 $FormPayload = $null
 try {
-    $FormPayload = [Kestrun.Forms.KrFormParser]::Parse($Context.HttpContext, $Options, $Context.Ct)
+    $FormPayload = [Kestrun.Forms.KrFormParser]::Parse($Context.HttpContext, $__KrOptions, $Context.Ct)
 } catch [Kestrun.Forms.KrFormException] {
     $ex = $_.Exception
     Write-KrTextResponse -InputObject $ex.Message -StatusCode $ex.StatusCode
@@ -185,12 +194,10 @@ try {
 # User Scriptblock
 ############################
 
-$__KrUserScriptBlock = [ScriptBlock]::Create($__KrUserScriptText)
-& $__KrUserScriptBlock
-";
+" + scriptBlock.ToString();
     }
 
-    private static OpenApiRequestBody BuildOpenApiRequestBody(KrFormOptions options)
+    internal static OpenApiRequestBody BuildOpenApiRequestBody(KrFormOptions options)
     {
         var required = new HashSet<string>(StringComparer.Ordinal);
 

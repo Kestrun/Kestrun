@@ -113,7 +113,7 @@ public static class KrFormParser
 
     private static async Task<KrFormPayload> ParseUrlEncodedAsync(HttpContext context, KrFormOptions options, Logger logger, CancellationToken cancellationToken)
     {
-        var payload = new KrNamedPartsPayload();
+        var payload = new KrFormData();
         var form = await context.Request.ReadFormAsync(cancellationToken).ConfigureAwait(false);
         foreach (var key in form.Keys)
         {
@@ -135,7 +135,7 @@ public static class KrFormParser
             HeadersLengthLimit = options.Limits.MaxHeaderBytesPerPart
         };
 
-        var payload = new KrNamedPartsPayload();
+        var payload = new KrFormData();
         var rules = CreateRuleMap(options);
         var partIndex = 0;
         long totalBytes = 0;
@@ -258,7 +258,7 @@ public static class KrFormParser
             HeadersLengthLimit = options.Limits.MaxHeaderBytesPerPart
         };
 
-        var payload = new KrOrderedPartsPayload();
+        var payload = new KrMultipart();
         var rules = CreateRuleMap(options);
         var partIndex = 0;
         long totalBytes = 0;
@@ -482,7 +482,7 @@ public static class KrFormParser
         return total;
     }
 
-    private static void ValidateFilePart(string? name, string fileName, string contentType, KrPartRule? rule, KrNamedPartsPayload payload, Logger logger)
+    private static void ValidateFilePart(string? name, string fileName, string contentType, KrPartRule? rule, KrFormData payload, Logger logger)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -543,7 +543,7 @@ public static class KrFormParser
             : [value];
     }
 
-    private static void ValidateRequiredRules(KrNamedPartsPayload payload, Dictionary<string, KrPartRule> rules, Logger logger)
+    private static void ValidateRequiredRules(KrFormData payload, Dictionary<string, KrPartRule> rules, Logger logger)
     {
         foreach (var rule in rules.Values)
         {

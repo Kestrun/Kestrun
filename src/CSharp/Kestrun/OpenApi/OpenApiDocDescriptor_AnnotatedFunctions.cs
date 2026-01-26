@@ -2,9 +2,11 @@ using System.Management.Automation;
 using System.Management.Automation.Internal;
 using System.Management.Automation.Language;
 using System.Text.Json.Nodes;
+using Kestrun.Forms;
 using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Languages;
+using Kestrun.Scripting;
 using Kestrun.Utilities;
 using Microsoft.OpenApi;
 
@@ -12,6 +14,7 @@ namespace Kestrun.OpenApi;
 
 public partial class OpenApiDocDescriptor
 {
+
     /// <summary>
     /// Enumerates all in-session PowerShell functions in the given runspace,
     /// detects those annotated with [OpenApiPath], and maps them into the provided KestrunHost.
@@ -136,6 +139,9 @@ public partial class OpenApiDocDescriptor
                     case OpenApiCallbackRefAttribute callbackRefAttr:
                         ApplyCallbackRefAttribute(openApiMetadata, callbackRefAttr);
                         break;
+                    case KrBindFormAttribute formAttr:
+                        ApplyFormBindingAttribute(routeOptions, formAttr);
+                        break;
                     case KestrunAnnotation ka:
                         throw new InvalidOperationException($"Unhandled Kestrun annotation: {ka.GetType().Name}");
                 }
@@ -151,6 +157,56 @@ public partial class OpenApiDocDescriptor
         }
 
         return parsedVerb;
+    }
+
+    private void ApplyFormBindingAttribute(MapRouteOptions routeOptions, KrBindFormAttribute formAttr)
+    {
+        var formOptions = new KrFormOptions();
+
+        if (formAttr.DefaultUploadPath is not null)
+        {
+            formOptions.DefaultUploadPath = formAttr.DefaultUploadPath;
+        }
+
+        formOptions.ComputeSha256 = formAttr.ComputeSha256;
+        formOptions.EnablePartDecompression = formAttr.EnablePartDecompression;
+        if (formAttr.MaxDecompressedBytesPerPart > 0)
+        {
+            formOptions.MaxDecompressedBytesPerPart = formAttr.MaxDecompressedBytesPerPart;
+        }
+        formOptions.RejectUnknownRequestContentType = formAttr.RejectUnknownRequestContentType;
+        if (formAttr.AllowedPartContentEncodings is not null)
+        {
+            formOptions.AllowedPartContentEncodings.Clear();
+            formOptions.AllowedPartContentEncodings.AddRange(formAttr.AllowedPartContentEncodings);
+        }
+        formOptions.RejectUnknownContentEncoding = formAttr.RejectUnknownContentEncoding;
+        if (formAttr.MaxRequestBodyBytes > 0)
+        {
+            formOptions.Limits.MaxRequestBodyBytes = formAttr.MaxRequestBodyBytes;
+        }
+        if (formAttr.MaxPartBodyBytes > 0)
+        {
+            formOptions.Limits.MaxPartBodyBytes = formAttr.MaxPartBodyBytes;
+        }
+        if (formAttr.MaxParts > 0)
+        {
+            formOptions.Limits.MaxParts = formAttr.MaxParts;
+        }
+        if (formAttr.MaxHeaderBytesPerPart > 0)
+        {
+            formOptions.Limits.MaxHeaderBytesPerPart = formAttr.MaxHeaderBytesPerPart;
+        }
+        if (formAttr.MaxFieldValueBytes > 0)
+        {
+            formOptions.Limits.MaxFieldValueBytes = formAttr.MaxFieldValueBytes;
+        }
+        if (formAttr.MaxNestingDepth > 0)
+        {
+            formOptions.Limits.MaxNestingDepth = formAttr.MaxNestingDepth;
+        }
+        // Assign the form options to the route options
+        routeOptions.FormOptions = formOptions;
     }
 
     /// <summary>
@@ -889,8 +945,19 @@ public partial class OpenApiDocDescriptor
         ParameterMetadata paramInfo,
         OpenApiRequestBodyAttribute attribute)
     {
+        // Special handling for form payloads
+        if (routeOptions.FormOptions is not null &&
+                   (paramInfo.ParameterType == typeof(KrFormData) ||
+                    paramInfo.ParameterType == typeof(KrFormPayload)))
+        {
+            var requestBodyContent = KestrunHostMapExtensions.BuildOpenApiRequestBody(routeOptions.FormOptions);
+            metadata.RequestBody = requestBodyContent;
+            metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
+            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBodyContent));
+            return;
+        }
+        // Check for preferred request body in components
         var requestBodyPreferred = ComponentRequestBodiesExists(paramInfo.ParameterType.Name);
-
         if (requestBodyPreferred)
         {
             ApplyPreferredRequestBody(help, routeOptions, metadata, paramInfo, attribute);
@@ -1020,6 +1087,36 @@ public partial class OpenApiDocDescriptor
         }
     }
 
+
+    private static string GetFormRouteWrapperScript(ScriptBlock userScriptBlock)
+    {
+        // Get the user's first param name (e.g. "FormPayload"); fall back if none
+     //   var payloadVarName = ScriptBlockUtils.GetFormPayloadParameterName(userScriptBlock) ?? "FormPayload";
+
+        // Get only the executable body (no attributes, no param block)
+        var userBody = ScriptBlockUtils.GetBodyText(userScriptBlock);
+        // NOTE: We recreate the ScriptBlock inside the request runspace so it executes with the request's
+        // session state (including $Context and Kestrun cmdlets).
+        return @"
+##############################
+# Form Route Wrapper
+##############################
+$FormPayload = $null
+try {
+    $FormPayload = [Kestrun.Forms.KrFormParser]::Parse($Context.HttpContext, $__KrOptions, $Context.Ct)
+} catch [Kestrun.Forms.KrFormException] {
+    $ex = $_.Exception
+    Write-KrTextResponse -InputObject $ex.Message -StatusCode $ex.StatusCode
+    return
+}
+
+############################
+# User Scriptblock
+############################
+
+" + userBody;
+    }
+
     /// <summary>
     /// Finalizes the route options for a standard OpenAPI path.
     /// </summary>
@@ -1047,7 +1144,21 @@ public partial class OpenApiDocDescriptor
             routeOptions.CorsPolicy = metadata.CorsPolicy;
         }
 
-        routeOptions.ScriptCode.ScriptBlock = sb;
+        // Set the script language to PowerShell
+        routeOptions.ScriptCode.Language = ScriptLanguage.PowerShell;
+        // Set the script block or wrap for form options
+        if (routeOptions.FormOptions is null)
+        {
+            routeOptions.ScriptCode.Code = ScriptBlockUtils.GetBodyText(sb);
+        }
+        else
+        {
+            // Wrap the script block to handle form data
+            routeOptions.ScriptCode.Code = GetFormRouteWrapperScript(sb);
+            routeOptions.ScriptCode.Arguments ??= [];
+            routeOptions.ScriptCode.Arguments.Add("__KrOptions", routeOptions.FormOptions);
+        }
+
         routeOptions.DefaultResponseContentType = "application/json";
         _ = Host.AddMapRoute(routeOptions);
     }

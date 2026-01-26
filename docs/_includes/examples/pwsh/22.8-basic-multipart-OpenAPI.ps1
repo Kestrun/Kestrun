@@ -3,18 +3,16 @@
 
     Client example (PowerShell):
         $client = [System.Net.Http.HttpClient]::new()
-        try {
-            $content = [System.Net.Http.MultipartFormDataContent]::new()
-            try {
-                $content.Add([System.Net.Http.StringContent]::new('Hello from client'), 'note')
-                $bytes = [System.Text.Encoding]::UTF8.GetBytes('sample file')
-                $fileContent = [System.Net.Http.ByteArrayContent]::new($bytes)
-                $fileContent.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse('text/plain')
-                $content.Add($fileContent, 'file', 'hello.txt')
-                $resp = $client.PostAsync("http://127.0.0.1:$Port/upload", $content).Result
-                $resp.Content.ReadAsStringAsync().Result
-            } finally { $content.Dispose() }
-        } finally { $client.Dispose() }
+        $content = [System.Net.Http.MultipartFormDataContent]::new()
+        $content.Add([System.Net.Http.StringContent]::new('Hello from client'), 'note')
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes('sample file')
+        $fileContent = [System.Net.Http.ByteArrayContent]::new($bytes)
+        $fileContent.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse('text/plain')
+        $content.Add($fileContent, 'file', 'hello.txt')
+        $resp = $client.PostAsync("http://127.0.0.1:$Port/upload", $content).Result
+        $resp.Content.ReadAsStringAsync().Result
+        $content.Dispose()
+        $client.Dispose()
 
     Cleanup:
         Remove-Item -Recurse -Force (Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.1-basic-multipart')
@@ -56,6 +54,16 @@ $rule.AllowMultiple = $false
 $rule.AllowedContentTypes.Add('text/plain')
 $options.Rules.Add($rule)
 
+[OpenApiSchemaComponent(Description = 'Upload form')]
+class UploadForm {
+    [OpenApiProperty(Description = 'The file to upload', Format = 'binary')]
+    [string] $file
+
+    [OpenApiProperty(Description = 'Optional label')]
+    [string] $label
+}
+
+Enable-KrConfiguration
 <#
 .SYNOPSIS
     Upload endpoint for multipart/form-data
@@ -66,10 +74,12 @@ $options.Rules.Add($rule)
 #>
 function upload {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/upload')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Product updated successfully', Schema = [Product], ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
+    [KrBindForm(ComputeSha256 = $true)]
+    [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
+
     param(
-        [OpenApiRequestBody()]
-        $FormPayload
+        [OpenApiRequestBody(contentType = ('multipart/form-data'), Required = $true)]
+        [KrFormData] $FormPayload
     )
     $files = foreach ($entry in $FormPayload.Files.GetEnumerator()) {
         foreach ($file in $entry.Value) {
@@ -88,9 +98,6 @@ function upload {
     }
     Write-KrJsonResponse -InputObject @{ fields = $fields; files = $files } -StatusCode 200
 }
-
-
-Enable-KrConfiguration
 
 # =========================================================
 #                OPENAPI DOC ROUTE / UI

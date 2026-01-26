@@ -14,7 +14,6 @@ namespace Kestrun.OpenApi;
 
 public partial class OpenApiDocDescriptor
 {
-
     /// <summary>
     /// Enumerates all in-session PowerShell functions in the given runspace,
     /// detects those annotated with [OpenApiPath], and maps them into the provided KestrunHost.
@@ -1086,7 +1085,6 @@ public partial class OpenApiDocDescriptor
             RegisterCallback(func, sb, metadata, parsedVerb, documentIds);
         }
     }
-
 
     private static string GetFormRouteWrapperScript(ScriptBlock userScriptBlock)
     {

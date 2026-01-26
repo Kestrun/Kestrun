@@ -3,7 +3,6 @@ using Microsoft.Net.Http.Headers;
 
 namespace Kestrun.Models;
 
-
 /// <summary>
 /// Represents a request model for Kestrun, containing HTTP method, path, query, headers, body, authorization, cookies, and form data.
 /// </summary>
@@ -94,7 +93,6 @@ public partial class KestrunRequest
     /// </summary>
     public Dictionary<string, string> Query { get; init; }
 
-
     /// <summary>
     /// Gets the headers for the request as a dictionary of key-value pairs.
     /// </summary>
@@ -119,12 +117,10 @@ public partial class KestrunRequest
     /// </summary>
     public Dictionary<string, string>? Form { get; init; }
 
-
     /// <summary>
     /// Gets the route values for the request as a <see cref="RouteValueDictionary"/>, if present.
     /// </summary>
     public Dictionary<string, string> RouteValues { get; init; }
-
 
     /// <summary>
     /// Creates a new <see cref="KestrunRequest"/> instance from the specified <see cref="Microsoft.AspNetCore.Http.HttpContext"/>.

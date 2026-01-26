@@ -174,7 +174,6 @@ public static partial class KestrunHostMapExtensions
 
     private static string GetFormRouteWrapperScript(ScriptBlock scriptBlock)
     {
-
         // NOTE: We recreate the ScriptBlock inside the request runspace so it executes with the request's
         // session state (including $Context and Kestrun cmdlets).
         return @"

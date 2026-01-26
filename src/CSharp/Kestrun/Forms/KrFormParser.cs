@@ -86,7 +86,6 @@ public static class KrFormParser
     public static KrFormPayload Parse(HttpContext context, KrFormOptions options, CancellationToken cancellationToken) =>
            ParseAsync(context, options, cancellationToken).GetAwaiter().GetResult();
 
-
     /// <summary>
     /// Applies the request body size limit based on the provided options.
     /// </summary>

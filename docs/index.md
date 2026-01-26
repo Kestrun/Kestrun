@@ -44,6 +44,8 @@ It combines the performance of C# with the flexibility of PowerShell, making it 
 
 ## Getting started
 
+## Minimal example
+
 ```powershell
 # spin up Kestrun
 Import-Module Kestrun
@@ -52,14 +54,45 @@ Add-KrEndpoint -Port 5000
 Enable-KrConfiguration
 
 Add-KrMapRoute -Verbs Get -Path '/ps/hello' -ScriptBlock {
-    Write-KrTextResponse -inputObject "Hello world" -statusCode 200
+    Write-KrTextResponse -InputObject "Hello world" -StatusCode 200
 }
 Add-KrMapRoute -Verbs Get -Path '/cs/hello' -Code @'
     Context.Response.WriteTextResponse("Hello world", 200);
 '@ -Language CSharp
 
 Start-KrServer
+```
 
+## OpenAPI example
+
+```powershell
+# A minimal OpenAPI 3.1 example with a single endpoint
+Import-Module Kestrun
+# Create a new Kestrun server
+New-KrServer -Name 'MyKestrunServer'
+# Add an endpoint on port 5000
+Add-KrEndpoint -Port 5000
+
+#  Define OpenAPI info
+Add-KrOpenApiInfo -Title 'Hello World API' `
+    -Version '1.0.0' `
+    -Description 'A simple OpenAPI 3.1 example with a single endpoint.'
+
+Enable-KrConfiguration
+
+<#
+.SYNOPSIS
+    Get greeting message.
+.DESCRIPTION
+    Returns a simple greeting message.
+#>
+function getGreeting {
+    [OpenApiPath(HttpVerb = 'Get' , Pattern = '/greeting' )]
+    param()
+    Write-KrTextResponse -Text 'Hello, World!' -StatusCode 200
+}
+
+Start-KrServer
 ```
 
 ## External Documentation

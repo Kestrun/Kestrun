@@ -1089,7 +1089,7 @@ public partial class OpenApiDocDescriptor
     private static string GetFormRouteWrapperScript(ScriptBlock userScriptBlock)
     {
         // Get the user's first param name (e.g. "FormPayload"); fall back if none
-     //   var payloadVarName = ScriptBlockUtils.GetFormPayloadParameterName(userScriptBlock) ?? "FormPayload";
+        //   var payloadVarName = ScriptBlockUtils.GetFormPayloadParameterName(userScriptBlock) ?? "FormPayload";
 
         // Get only the executable body (no attributes, no param block)
         var userBody = ScriptBlockUtils.GetBodyText(userScriptBlock);
@@ -1142,15 +1142,16 @@ try {
             routeOptions.CorsPolicy = metadata.CorsPolicy;
         }
 
-        // Set the script language to PowerShell
-        routeOptions.ScriptCode.Language = ScriptLanguage.PowerShell;
         // Set the script block or wrap for form options
         if (routeOptions.FormOptions is null)
         {
-            routeOptions.ScriptCode.Code = ScriptBlockUtils.GetBodyText(sb);
+            // routeOptions.ScriptCode.Code = ScriptBlockUtils.GetBodyText(sb);
+            routeOptions.ScriptCode.ScriptBlock = sb;
         }
         else
         {
+            // Set the script language to PowerShell
+            routeOptions.ScriptCode.Language = ScriptLanguage.PowerShell;
             // Wrap the script block to handle form data
             routeOptions.ScriptCode.Code = GetFormRouteWrapperScript(sb);
             routeOptions.ScriptCode.Arguments ??= [];

@@ -153,7 +153,7 @@ function createUser {
         [OpenApiRequestBody(Required = $true, ContentType = ('application/json', 'application/xml', 'application/yaml'))]
         [UserPayload]$Body
     )
-
+    Expand-KrObject -InputObject $Body -Label 'Creating User'
     if (-not $Body.firstName -or -not $Body.lastName -or -not $Body.email) {
         Write-KrJsonResponse @{ error = 'firstName, lastName, and email are required' } -StatusCode 400
         return

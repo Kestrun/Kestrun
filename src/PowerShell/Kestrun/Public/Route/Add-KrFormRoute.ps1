@@ -46,12 +46,6 @@ function Add-KrFormRoute {
         [string[]]$AuthorizationScheme = $null,
         [string[]]$AuthorizationPolicy = $null,
         [string]$CorsPolicy,
-        [string]$OpenApiOperationId,
-        [string[]]$OpenApiTags,
-        [string]$OpenApiSummary,
-        [string]$OpenApiDescription,
-        [string[]]$OpenApiDocumentId,
-        [switch]$DisableOpenApi,
         [switch]$AllowAnonymous,
         [switch]$PassThru
     )
@@ -67,13 +61,7 @@ function Add-KrFormRoute {
             $AuthorizationScheme,
             $AuthorizationPolicy,
             $CorsPolicy,
-            $AllowAnonymous.IsPresent,
-            $OpenApiOperationId,
-            $OpenApiTags,
-            $OpenApiSummary,
-            $OpenApiDescription,
-            $OpenApiDocumentId,
-            $DisableOpenApi.IsPresent
+            $AllowAnonymous.IsPresent
         ) | Out-Null
 
         if ($PassThru.IsPresent) {

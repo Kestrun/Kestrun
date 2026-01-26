@@ -30,12 +30,6 @@ public static partial class KestrunHostMapExtensions
     /// <param name="authorizationPolicies">Authorization policies (optional).</param>
     /// <param name="corsPolicy">CORS policy name (optional).</param>
     /// <param name="allowAnonymous">Whether to allow anonymous access.</param>
-    /// <param name="openApiOperationId">Optional OpenAPI operationId override.</param>
-    /// <param name="openApiTags">Optional OpenAPI tags.</param>
-    /// <param name="openApiSummary">Optional OpenAPI summary.</param>
-    /// <param name="openApiDescription">Optional OpenAPI description.</param>
-    /// <param name="openApiDocumentId">Optional OpenAPI document IDs to target.</param>
-    /// <param name="disableOpenApi">If true, does not populate OpenAPI metadata.</param>
     /// <returns>The host for chaining.</returns>
     public static KestrunHost AddFormRoute(
         this KestrunHost host,
@@ -45,13 +39,7 @@ public static partial class KestrunHostMapExtensions
         string[]? authorizationSchemes,
         string[]? authorizationPolicies,
         string? corsPolicy,
-        bool allowAnonymous,
-        string? openApiOperationId,
-        string[]? openApiTags,
-        string? openApiSummary,
-        string? openApiDescription,
-        string[]? openApiDocumentId,
-        bool disableOpenApi)
+        bool allowAnonymous)
     {
         ArgumentNullException.ThrowIfNull(host);
         ArgumentException.ThrowIfNullOrWhiteSpace(pattern);
@@ -67,13 +55,7 @@ public static partial class KestrunHostMapExtensions
             authorizationSchemes,
             authorizationPolicies,
             corsPolicy,
-            allowAnonymous,
-            openApiOperationId,
-            openApiTags,
-            openApiSummary,
-            openApiDescription,
-            openApiDocumentId,
-            disableOpenApi);
+            allowAnonymous);
 
         if (host.RouteGroupStack.Count > 0 && host.RouteGroupStack.Peek() is MapRouteOptions parent)
         {
@@ -110,12 +92,13 @@ public static partial class KestrunHostMapExtensions
         string[]? authorizationPolicies,
         string? corsPolicy,
         bool allowAnonymous,
-        string? openApiOperationId,
-        string[]? openApiTags,
-        string? openApiSummary,
-        string? openApiDescription,
-        string[]? openApiDocumentId,
-        bool disableOpenApi)
+        bool disableOpenApi = true,
+        string? openApiOperationId = null,
+        string[]? openApiTags = null,
+        string? openApiSummary = null,
+        string? openApiDescription = null,
+        string[]? openApiDocumentId = null
+      )
     {
         var routeOptions = new MapRouteOptions
         {

@@ -41,19 +41,17 @@ Add-KrOpenApiInfo -Title 'Uploads 22.1 - Basic Multipart' `
 
 Add-KrOpenApiContact -Email 'support@example.com'
 
+# =========================================================
+#               FORM OPTION DEFINITION
+# =========================================================
 $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.1-basic-multipart'
-$options = [Kestrun.Forms.KrFormOptions]::new()
-$options.DefaultUploadPath = $uploadRoot
-$options.ComputeSha256 = $true
 
-# Add Rules
-$rule = [Kestrun.Forms.KrPartRule]::new()
-$rule.Name = 'file'
-$rule.Required = $true
-$rule.AllowMultiple = $false
-$rule.AllowedContentTypes.Add('text/plain')
-$options.Rules.Add($rule)
+New-KrFormPartRule -Name 'file' -Required -AllowedContentTypes 'text/plain' -AllowOnlyOne |
+    Add-KrFormOption -Name 'fileUpload' -DefaultUploadPath $uploadRoot -ComputeSha256
 
+# =========================================================
+#               SCHEMA DEFINITION
+# =========================================================
 [OpenApiSchemaComponent(Description = 'Upload form')]
 class UploadForm {
     [OpenApiProperty(Description = 'The file to upload', Format = 'binary')]
@@ -64,6 +62,7 @@ class UploadForm {
 }
 
 Enable-KrConfiguration
+
 <#
 .SYNOPSIS
     Upload endpoint for multipart/form-data
@@ -74,7 +73,7 @@ Enable-KrConfiguration
 #>
 function upload {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/upload')]
-    [KrBindForm(ComputeSha256 = $true)]
+    [KrBindForm(Template = 'fileUpload')]
     [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
 
     param(

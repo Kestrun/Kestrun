@@ -370,7 +370,7 @@ public static class KrFormParser
         return payload;
     }
 
-    private static async Task<KrPartWriteResult> StorePartAsync(Stream body, KrFormOptions options, KrPartRule? rule, string? originalFileName, string? contentEncoding, Logger logger, CancellationToken cancellationToken)
+    private static async Task<KrPartWriteResult> StorePartAsync(Stream body, KrFormOptions options, KrFormPartRule? rule, string? originalFileName, string? contentEncoding, Logger logger, CancellationToken cancellationToken)
     {
         var maxBytes = rule?.MaxBytes ?? options.Limits.MaxPartBodyBytes;
         var effectiveMax = options.EnablePartDecompression ? Math.Min(maxBytes, options.MaxDecompressedBytesPerPart) : maxBytes;
@@ -481,7 +481,7 @@ public static class KrFormParser
         return total;
     }
 
-    private static void ValidateFilePart(string? name, string fileName, string contentType, KrPartRule? rule, KrFormData payload, Logger logger)
+    private static void ValidateFilePart(string? name, string fileName, string contentType, KrFormPartRule? rule, KrFormData payload, Logger logger)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -522,7 +522,7 @@ public static class KrFormParser
         }
     }
 
-    private static void AppendFile(Dictionary<string, KrFilePart[]> files, KrFilePart part, KrPartRule? rule, Logger logger)
+    private static void AppendFile(Dictionary<string, KrFilePart[]> files, KrFilePart part, KrFormPartRule? rule, Logger logger)
     {
         files[part.Name] = files.TryGetValue(part.Name, out var existing)
             ? [.. existing, part]
@@ -542,7 +542,7 @@ public static class KrFormParser
             : [value];
     }
 
-    private static void ValidateRequiredRules(KrFormData payload, Dictionary<string, KrPartRule> rules, Logger logger)
+    private static void ValidateRequiredRules(KrFormData payload, Dictionary<string, KrFormPartRule> rules, Logger logger)
     {
         foreach (var rule in rules.Values)
         {
@@ -561,9 +561,9 @@ public static class KrFormParser
         }
     }
 
-    private static Dictionary<string, KrPartRule> CreateRuleMap(KrFormOptions options)
+    private static Dictionary<string, KrFormPartRule> CreateRuleMap(KrFormOptions options)
     {
-        var map = new Dictionary<string, KrPartRule>(StringComparer.OrdinalIgnoreCase);
+        var map = new Dictionary<string, KrFormPartRule>(StringComparer.OrdinalIgnoreCase);
         foreach (var rule in options.Rules)
         {
             map[rule.Name] = rule;

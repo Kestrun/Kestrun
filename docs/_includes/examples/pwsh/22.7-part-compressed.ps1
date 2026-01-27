@@ -52,7 +52,7 @@ $options.EnablePartDecompression = $true
 $options.MaxDecompressedBytesPerPart = 1024 * 1024
 
 # Add Rules
-$fileRule = [Kestrun.Forms.KrPartRule]::new()
+$fileRule = [Kestrun.Forms.KrFormPartRule]::new()
 $fileRule.Name = 'file'
 $fileRule.Required = $true
 $fileRule.AllowMultiple = $false

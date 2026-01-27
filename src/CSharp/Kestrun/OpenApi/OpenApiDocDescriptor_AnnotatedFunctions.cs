@@ -160,6 +160,19 @@ public partial class OpenApiDocDescriptor
 
     private void ApplyFormBindingAttribute(MapRouteOptions routeOptions, KrBindFormAttribute formAttr)
     {
+        if (formAttr.Template is not null)
+        {
+            if (!Host.Runtime.FormOptions.TryGetValue(formAttr.Template, out var template))
+            {
+                throw new InvalidOperationException($"Form options template '{formAttr.Template}' not found.");
+            }
+
+            // Clone the template to avoid modifying the original
+            routeOptions.FormOptions = new KrFormOptions(template);
+            return;
+        }
+
+        // Create new form options based on the attribute properties
         var formOptions = new KrFormOptions();
 
         if (formAttr.DefaultUploadPath is not null)

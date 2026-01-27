@@ -59,14 +59,14 @@ $options.DefaultUploadPath = $uploadRoot
 $options.ComputeSha256 = $true
 
 # Add Rules
-$fileRule = [Kestrun.Forms.KrPartRule]::new()
+$fileRule = [Kestrun.Forms.KrFormPartRule]::new()
 $fileRule.Name = 'file'
 $fileRule.Required = $true
 $fileRule.AllowMultiple = $false
 $fileRule.AllowedContentTypes.Add('text/plain')
 $options.Rules.Add($fileRule)
 
-$noteRule = [Kestrun.Forms.KrPartRule]::new()
+$noteRule = [Kestrun.Forms.KrFormPartRule]::new()
 $noteRule.Name = 'note'
 $noteRule.Required = $true
 $options.Rules.Add($noteRule)

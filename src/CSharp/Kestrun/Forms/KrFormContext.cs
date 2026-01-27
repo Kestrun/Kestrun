@@ -97,7 +97,7 @@ public sealed record KrPartContext
     /// <summary>
     /// Gets the matching rule for the part, if any.
     /// </summary>
-    public KrPartRule? Rule { get; init; }
+    public KrFormPartRule? Rule { get; init; }
 }
 
 /// <summary>

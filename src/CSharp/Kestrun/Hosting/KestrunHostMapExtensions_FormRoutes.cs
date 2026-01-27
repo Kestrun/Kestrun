@@ -244,7 +244,7 @@ try {
         };
     }
 
-    private static bool IsProbablyFileRule(KrPartRule rule)
+    private static bool IsProbablyFileRule(KrFormPartRule rule)
     {
         if (rule.StoreToDisk)
         {

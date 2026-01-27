@@ -34,4 +34,29 @@ public sealed class KrFormLimits
     /// Gets or sets the maximum nesting depth for multipart bodies.
     /// </summary>
     public int MaxNestingDepth { get; set; } = 1;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="KrFormLimits"/> class.
+    /// </summary>
+    public KrFormLimits() { }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="KrFormLimits"/> class by copying settings from another instance.
+    /// </summary>
+    /// <param name="other"> The instance to copy settings from. </param>
+    public KrFormLimits(KrFormLimits other)
+    {
+        MaxRequestBodyBytes = other.MaxRequestBodyBytes;
+        MaxPartBodyBytes = other.MaxPartBodyBytes;
+        MaxParts = other.MaxParts;
+        MaxHeaderBytesPerPart = other.MaxHeaderBytesPerPart;
+        MaxFieldValueBytes = other.MaxFieldValueBytes;
+        MaxNestingDepth = other.MaxNestingDepth;
+    }
+
+    /// <summary>
+    /// Returns a string representation of the form limits.
+    /// </summary>
+    /// <returns></returns>
+    public override string ToString() => $"MaxRequestBodyBytes={MaxRequestBodyBytes}, MaxPartBodyBytes={MaxPartBodyBytes}, MaxParts={MaxParts}, MaxHeaderBytesPerPart={MaxHeaderBytesPerPart}, MaxFieldValueBytes={MaxFieldValueBytes}, MaxNestingDepth={MaxNestingDepth}";
 }

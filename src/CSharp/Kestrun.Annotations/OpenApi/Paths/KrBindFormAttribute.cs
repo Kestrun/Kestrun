@@ -1,6 +1,11 @@
-[AttributeUsage(AttributeTargets.Method, AllowMultiple = true, Inherited = false)]
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
 public sealed class KrBindFormAttribute : KestrunAnnotation
 {
+    /// <summary>
+    /// Gets or sets the form option template name to use for binding.
+    /// </summary>
+    public string? Template { get; set; }
+
     /// <summary>
     /// Optional override: default upload path.
     /// </summary>

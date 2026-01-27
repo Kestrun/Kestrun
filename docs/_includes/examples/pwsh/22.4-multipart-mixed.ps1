@@ -54,12 +54,12 @@ $options.AllowedRequestContentTypes.Add('multipart/mixed')
 
 # Add Rules
 # Note: multipart/mixed is parsed as ordered parts. Rules apply when a part includes a Content-Disposition name.
-$textRule = [Kestrun.Forms.KrPartRule]::new()
+$textRule = [Kestrun.Forms.KrFormPartRule]::new()
 $textRule.Name = 'text'
 $textRule.MaxBytes = 1024
 $options.Rules.Add($textRule)
 
-$jsonRule = [Kestrun.Forms.KrPartRule]::new()
+$jsonRule = [Kestrun.Forms.KrFormPartRule]::new()
 $jsonRule.Name = 'json'
 $jsonRule.MaxBytes = 1024
 $options.Rules.Add($jsonRule)

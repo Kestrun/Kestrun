@@ -3,12 +3,17 @@ namespace Kestrun.Forms;
 /// <summary>
 /// Defines a rule for a named multipart part.
 /// </summary>
-public sealed class KrPartRule
+public sealed class KrFormPartRule
 {
     /// <summary>
     /// Gets or sets the part name to match.
     /// </summary>
     public required string Name { get; set; }
+
+    /// <summary>
+    /// Gets or sets the description of the part.
+    /// </summary>
+    public string? Description { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether the part is required.

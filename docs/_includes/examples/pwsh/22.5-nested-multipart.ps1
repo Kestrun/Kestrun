@@ -68,7 +68,7 @@ $options.AllowedRequestContentTypes.Add('multipart/mixed')
 
 # Add Rules
 # Note: nested multipart is parsed as ordered parts; rules apply when a part includes a Content-Disposition name.
-$nestedRule = [Kestrun.Forms.KrPartRule]::new()
+$nestedRule = [Kestrun.Forms.KrFormPartRule]::new()
 $nestedRule.Name = 'nested'
 $nestedRule.MaxBytes = 1024 * 1024
 $options.Rules.Add($nestedRule)

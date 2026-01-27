@@ -6,6 +6,15 @@ namespace Kestrun.Forms;
 public sealed class KrFormOptions
 {
     /// <summary>
+    /// Gets or sets the name of the form parser.
+    /// </summary>
+    public string? Name { get; set; }
+
+    /// <summary>
+    /// Gets or sets the description of the form parser.
+    /// </summary>
+    public string? Description { get; set; }
+    /// <summary>
     /// Gets the allowed request content types.
     /// </summary>
     public List<string> AllowedRequestContentTypes { get; } =
@@ -71,7 +80,7 @@ public sealed class KrFormOptions
     /// <summary>
     /// Gets the per-part rules.
     /// </summary>
-    public List<KrPartRule> Rules { get; } = [];
+    public List<KrFormPartRule> Rules { get; } = [];
 
     /// <summary>
     /// Gets or sets the hook invoked for each part.
@@ -87,4 +96,34 @@ public sealed class KrFormOptions
     /// Gets or sets the logger used by the form parser.
     /// </summary>
     public Serilog.ILogger? Logger { get; set; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="KrFormOptions"/> class.
+    /// </summary>
+    public KrFormOptions() { }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="KrFormOptions"/> class by copying settings from another instance.
+    /// </summary>
+    /// <param name="copyFrom">The instance to copy settings from.</param>
+    public KrFormOptions(KrFormOptions copyFrom)
+    {
+        Name = copyFrom.Name;
+        Description = copyFrom.Description;
+        AllowedRequestContentTypes.AddRange(copyFrom.AllowedRequestContentTypes);
+        RejectUnknownRequestContentType = copyFrom.RejectUnknownRequestContentType;
+        DefaultUploadPath = copyFrom.DefaultUploadPath;
+        SanitizeFileName = copyFrom.SanitizeFileName;
+        ComputeSha256 = copyFrom.ComputeSha256;
+        EnablePartDecompression = copyFrom.EnablePartDecompression;
+        AllowedPartContentEncodings.AddRange(copyFrom.AllowedPartContentEncodings);
+        MaxDecompressedBytesPerPart = copyFrom.MaxDecompressedBytesPerPart;
+        RejectUnknownContentEncoding = copyFrom.RejectUnknownContentEncoding;
+        Rules.AddRange(copyFrom.Rules);
+        OnPart = copyFrom.OnPart;
+        OnCompleted = copyFrom.OnCompleted;
+        Logger = copyFrom.Logger;
+        // Copy limits
+        Limits = new KrFormLimits(copyFrom.Limits);
+    }
 }

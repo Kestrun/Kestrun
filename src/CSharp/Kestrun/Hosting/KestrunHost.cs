@@ -29,8 +29,10 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.OpenApi;
 using System.Text.Json.Nodes;
+using Kestrun.Forms;
 
 namespace Kestrun.Hosting;
+
 
 /// <summary>
 /// Provides hosting and configuration for the Kestrun application, including service registration, middleware setup, and runspace pool management.
@@ -61,6 +63,11 @@ public partial class KestrunHost : IDisposable
     internal WebApplication App => _app ?? throw new InvalidOperationException("WebApplication is not built yet. Call Build() first.");
 
     /// <summary>
+    /// Gets the runtime information for the Kestrun host.
+    /// </summary>
+    public KestrunHostRuntime Runtime { get; } = new();
+
+    /// <summary>
     /// Gets the application name for the Kestrun host.
     /// </summary>
     public string ApplicationName => Options.ApplicationName ?? "KestrunApp";
@@ -85,28 +92,7 @@ public partial class KestrunHost : IDisposable
     /// </summary>
     public bool IsConfigured { get; private set; }
 
-    /// <summary>
-    /// Gets the timestamp when the Kestrun host was started.
-    /// </summary>
-    public DateTime? StartTime { get; private set; }
 
-    /// <summary>
-    /// Gets the timestamp when the Kestrun host was stopped.
-    /// </summary>
-    public DateTime? StopTime { get; private set; }
-
-    /// <summary>
-    /// Gets the uptime duration of the Kestrun host.
-    /// While running (no StopTime yet), this returns DateTime.UtcNow - StartTime.
-    /// After stopping, it returns StopTime - StartTime.
-    /// If StartTime is not set, returns null.
-    /// </summary>
-    public TimeSpan? Uptime =>
-        !StartTime.HasValue
-            ? null
-            : StopTime.HasValue
-                ? StopTime - StartTime
-                : DateTime.UtcNow - StartTime.Value;
     /// <summary>
     /// The runspace pool manager for PowerShell execution.
     /// </summary>
@@ -418,6 +404,41 @@ public partial class KestrunHost : IDisposable
     #endregion
 
     #region Helpers
+
+    /// <summary>
+    /// Adds a form parsing option for the specified name.
+    /// </summary>
+    /// <param name="options">The form options to add.</param>
+    /// <returns>True if the option was added successfully; otherwise, false.</returns>
+    public bool AddFormOption(KrFormOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(options.Name);
+
+        if (Runtime.FormOptions.TryAdd(options.Name, options))
+        {
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("Added form option with name '{FormOptionName}'.", options.Name);
+            }
+            return true;
+        }
+        else
+        {
+            if (Logger.IsEnabled(LogEventLevel.Warning))
+            {
+                Logger.Warning("Form option with name '{FormOptionName}' already exists. Skipping addition.", options.Name);
+            }
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Gets the form parsing option for the specified name.
+    /// </summary>
+    /// <param name="name">The name of the form option.</param>
+    /// <returns>The form options if found; otherwise, null.</returns>
+    public KrFormOptions? GetFormOption(string name) => Runtime.FormOptions.TryGetValue(name, out var options) ? options : null;
 
     /// <summary>
     /// Gets the OpenAPI document descriptor for the specified document ID.
@@ -1979,7 +2000,7 @@ public partial class KestrunHost : IDisposable
         }
 
         EnableConfiguration();
-        StartTime = DateTime.UtcNow;
+        Runtime.StartTime = DateTime.UtcNow;
         _app?.Run();
     }
 
@@ -1998,7 +2019,7 @@ public partial class KestrunHost : IDisposable
         EnableConfiguration();
         if (_app != null)
         {
-            StartTime = DateTime.UtcNow;
+            Runtime.StartTime = DateTime.UtcNow;
             await _app.StartAsync(cancellationToken);
         }
     }
@@ -2021,7 +2042,7 @@ public partial class KestrunHost : IDisposable
             {
                 // Initiate graceful shutdown
                 await _app.StopAsync(cancellationToken);
-                StopTime = DateTime.UtcNow;
+                Runtime.StopTime = DateTime.UtcNow;
             }
             catch (Exception ex) when (ex.GetType().FullName == "System.Net.Quic.QuicException")
             {
@@ -2049,7 +2070,7 @@ public partial class KestrunHost : IDisposable
         }
         // This initiates a graceful shutdown.
         _app?.Lifetime.StopApplication();
-        StopTime = DateTime.UtcNow;
+        Runtime.StopTime = DateTime.UtcNow;
     }
 
     /// <summary>

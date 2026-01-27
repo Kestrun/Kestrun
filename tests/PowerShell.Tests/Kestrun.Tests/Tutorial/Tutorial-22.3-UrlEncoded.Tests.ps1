@@ -3,7 +3,7 @@
 Describe 'Example 22.3 Urlencoded forms' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
-        $script:instance = Start-ExampleScript -Name '22.3-urlencoded.ps1'
+        $script:instance = Start-ExampleScript -Name '22.3-UrlEncoded.ps1'
     }
     AfterAll {
         if ($script:instance) {

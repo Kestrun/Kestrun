@@ -3,7 +3,7 @@
 Describe 'Example 22.9 Multiple files under same field using OpenAPI' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
-        $script:instance = Start-ExampleScript -Name '22.9-multiple-files-OpenAPI.ps1'
+        $script:instance = Start-ExampleScript -Name '22.9-Multiple-Files-OpenAPI.ps1'
     }
     AfterAll {
         if ($script:instance) {

@@ -62,6 +62,7 @@ function form {
     }
     Write-KrJsonResponse -InputObject @{ fields = $fields } -StatusCode 200
 }
+
 Enable-KrConfiguration
 
 # =========================================================

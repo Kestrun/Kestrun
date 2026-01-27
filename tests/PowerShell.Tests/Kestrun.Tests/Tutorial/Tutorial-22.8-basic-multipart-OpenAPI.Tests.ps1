@@ -5,7 +5,7 @@ BeforeAll {
 
 Describe 'Example 22.1 Basic multipart/form-data' {
     BeforeAll {
-        $script:instance = Start-ExampleScript -Name '22.8-basic-multipart-OpenAPI.ps1'
+        $script:instance = Start-ExampleScript -Name '22.8-Basic-Multipart-OpenAPI.ps1'
     }
     AfterAll {
         if ($script:instance) {

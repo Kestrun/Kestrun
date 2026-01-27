@@ -1,4 +1,4 @@
-﻿<#!
+<#!
     22.4 multipart/mixed (ordered parts)
 
     Client example (PowerShell):
@@ -51,11 +51,27 @@ $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.4-
 # Opt-in: only multipart/form-data is enabled by default
 New-KrFormPartRule -Name 'text' -MaxBytes 1024 |
     New-KrFormPartRule -Name 'json' -MaxBytes 1024 |
-    Add-KrFormOption -DefaultUploadPath $uploadRoot -AllowedRequestContentTypes 'multipart/mixed' |
-    Add-KrFormRoute -Pattern '/mixed' -ScriptBlock {
-        $contentTypes = $FormPayload.Parts | ForEach-Object { $_.ContentType }
-        Write-KrJsonResponse -InputObject @{ count = $FormPayload.Parts.Count; contentTypes = $contentTypes } -StatusCode 200
-    }
+    Add-KrFormOption -Name 'MixedForm' -DefaultUploadPath $uploadRoot -AllowedRequestContentTypes 'multipart/mixed'
+
+<#.SYNOPSIS
+    Form route for multipart/mixed using OpenAPI annotations.
+.DESCRIPTION
+    This function defines a form route that accepts multipart/mixed data using OpenAPI annotations.
+    It responds with a JSON object containing the parsed parts' content types.
+.PARAMETER FormPayload
+    The form data payload containing the uploaded parts.
+#>
+function mixed {
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/mixed')]
+    [KrBindForm(Template = 'MixedForm')]
+    [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
+    param(
+        [OpenApiRequestBody(contentType = ('multipart/mixed'), Required = $true)]
+        [KrFormData] $FormPayload
+    )
+    $contentTypes = $FormPayload.Parts | ForEach-Object { $_.ContentType }
+    Write-KrJsonResponse -InputObject @{ count = $FormPayload.Parts.Count; contentTypes = $contentTypes } -StatusCode 200
+}
 
 Enable-KrConfiguration
 

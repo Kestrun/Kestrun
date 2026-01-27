@@ -1,6 +1,6 @@
 ﻿param()
 
-Describe 'Example 22.7 part-level compression' {
+Describe 'Example 22.7 Part-Level Compression' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
         $script:instance = Start-ExampleScript -Name '22.7-Part-Compressed.ps1'

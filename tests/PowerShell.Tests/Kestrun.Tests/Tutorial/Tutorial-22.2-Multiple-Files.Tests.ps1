@@ -3,7 +3,7 @@
 Describe 'Example 22.2 Multiple files under same field' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
-        $script:instance = Start-ExampleScript -Name '22.2-multiple-files.ps1'
+        $script:instance = Start-ExampleScript -Name '22.2-Multiple-Files.ps1'
     }
     AfterAll {
         if ($script:instance) {

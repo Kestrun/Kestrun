@@ -3,7 +3,7 @@
 Describe 'Example 22.1 Basic multipart/form-data' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
-        $script:instance = Start-ExampleScript -Name '22.1-basic-multipart.ps1'
+        $script:instance = Start-ExampleScript -Name '22.1-Basic-Multipart.ps1'
     }
     AfterAll {
         if ($script:instance) {

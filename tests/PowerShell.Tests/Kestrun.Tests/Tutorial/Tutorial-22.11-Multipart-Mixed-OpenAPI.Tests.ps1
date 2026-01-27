@@ -1,9 +1,9 @@
 ﻿param()
 
-Describe 'Example 22.4 multipart/mixed ordered parts' {
+Describe 'Example 22.11 multipart/mixed ordered parts using OpenAPI' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
-        $script:instance = Start-ExampleScript -Name '22.4-Multipart-Mixed.ps1'
+        $script:instance = Start-ExampleScript -Name '22.11-Multipart-Mixed-OpenAPI.ps1'
     }
     AfterAll {
         if ($script:instance) {

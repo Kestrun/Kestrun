@@ -33,32 +33,35 @@ Add-KrOpenApiInfo -Title 'Uploads 22.3 - UrlEncoded' `
 Add-KrOpenApiContact -Email 'support@example.com'
 
 $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.3-urlencoded'
-$options = [Kestrun.Forms.KrFormOptions]::new()
-$options.DefaultUploadPath = $uploadRoot
 
 # Opt-in: only multipart/form-data is enabled by default
-$options.AllowedRequestContentTypes.Clear()
-$options.AllowedRequestContentTypes.Add('application/x-www-form-urlencoded')
+New-KrFormPartRule -Name 'name' -Required |
+    New-KrFormPartRule -Name 'role' |
+    Add-KrFormOption -Name 'UrlEncodedForm' -DefaultUploadPath $uploadRoot -AllowedRequestContentTypes 'application/x-www-form-urlencoded'
 
-# Add Rules
-$nameRule = [Kestrun.Forms.KrFormPartRule]::new()
-$nameRule.Name = 'name'
-$nameRule.Required = $true
-$options.Rules.Add($nameRule)
-
-$roleRule = [Kestrun.Forms.KrFormPartRule]::new()
-$roleRule.Name = 'role'
-$roleRule.Required = $false
-$options.Rules.Add($roleRule)
-
-Add-KrFormRoute -Pattern '/form' -Options $options -ScriptBlock {
+<#
+.SYNOPSIS
+    Form route for application/x-www-form-urlencoded using OpenAPI annotations.
+.DESCRIPTION
+    This function defines a form route that accepts application/x-www-form-urlencoded data using OpenAPI annotations.
+    It responds with a JSON object containing the parsed fields.
+.PARAMETER FormPayload
+    The form data payload containing the submitted fields.
+#>
+function form {
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/form')]
+    [KrBindForm(Template = 'UrlEncodedForm')]
+    [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
+    param(
+        [OpenApiRequestBody(contentType = ('application/x-www-form-urlencoded'), Required = $true)]
+        [KrFormData] $FormPayload
+    )
     $fields = @{}
     foreach ($key in $FormPayload.Fields.Keys) {
         $fields[$key] = $FormPayload.Fields[$key]
     }
     Write-KrJsonResponse -InputObject @{ fields = $fields } -StatusCode 200
 }
-
 Enable-KrConfiguration
 
 # =========================================================

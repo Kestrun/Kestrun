@@ -10,8 +10,7 @@ public record KestrunHostRuntime
     /// <summary>
     /// Gets the form parsing options for Kestrun hosts.
     /// </summary>
-    public Dictionary<string, KrFormOptions> FormOptions { get; } = [];
-
+    public Dictionary<string, KrFormOptions> FormOptions { get; } = new Dictionary<string, KrFormOptions>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Gets the timestamp when the Kestrun host was started.

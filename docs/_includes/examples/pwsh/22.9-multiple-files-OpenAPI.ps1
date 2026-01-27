@@ -1,5 +1,5 @@
 ﻿<#!
-    22.2 multipart/form-data with multiple files under the same field name
+    22.9 multipart/form-data with multiple files under the same field name using OpenAPI
 
     Client example (PowerShell):
         $Port = 5000
@@ -47,22 +47,39 @@ $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.2-
 
 
 New-KrFormPartRule -Name 'files' -Required -AllowedContentTypes 'text/plain' |
-    Add-KrFormOption -DefaultUploadPath $uploadRoot -ComputeSha256 |
-    Add-KrFormRoute -Pattern '/upload' -ScriptBlock {
-        $files = @($FormPayload.Files['files'])
-        $result = [pscustomobject]@{
-            count = $files.Count
-            files = $files | ForEach-Object {
-                [pscustomobject]@{
-                    fileName = $_.OriginalFileName
-                    length = $_.Length
-                    sha256 = $_.Sha256
-                }
+    Add-KrFormOption -Name 'FilesUpload' -DefaultUploadPath $uploadRoot -ComputeSha256
+
+<#
+.SYNOPSIS
+    Upload route for multiple files using OpenAPI annotations.
+.DESCRIPTION
+    This function defines an upload route that accepts multiple files under the same field name using OpenAPI annotations.
+    It responds with a JSON object containing details about the uploaded files.
+.PARAMETER FormPayload
+    The form data payload containing the uploaded files.
+#>
+function upload {
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/upload')]
+    [KrBindForm(Template = 'FilesUpload')]
+    [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
+
+    param(
+        [OpenApiRequestBody(contentType = ('multipart/form-data'), Required = $true)]
+        [KrFormData] $FormPayload
+    )
+    $files = @($FormPayload.Files['files'])
+    $result = [pscustomobject]@{
+        count = $files.Count
+        files = $files | ForEach-Object {
+            [pscustomobject]@{
+                fileName = $_.OriginalFileName
+                length = $_.Length
+                sha256 = $_.Sha256
             }
         }
-        Write-KrJsonResponse -InputObject $result -StatusCode 200
     }
-
+    Write-KrJsonResponse -InputObject $result -StatusCode 200
+}
 Enable-KrConfiguration
 
 # =========================================================

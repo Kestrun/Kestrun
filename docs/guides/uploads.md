@@ -9,7 +9,8 @@ nav_order: 165
 Kestrun supports streaming form parsing for `multipart/form-data`, ordered multipart (`multipart/mixed`, etc.), and `application/x-www-form-urlencoded`,
 with first-class support for **rules** and **limits**.
 
-By default, `KrFormOptions.AllowedRequestContentTypes` allows only `multipart/form-data`. To accept `application/x-www-form-urlencoded` or other `multipart/*` types, explicitly opt in via `AllowedRequestContentTypes`.
+By default, `KrFormOptions.AllowedRequestContentTypes` allows only `multipart/form-data`.
+To accept `application/x-www-form-urlencoded` or other `multipart/*` types, explicitly opt in via `AllowedRequestContentTypes`.
 
 This guide focuses on how to configure:
 
@@ -77,7 +78,8 @@ Kestrun returns one of these payload shapes:
 
 Note:
 
-- Named parts and ordered multipart payloads are supported, but `Add-KrFormRoute` only accepts `multipart/form-data` by default. Opt in to `application/x-www-form-urlencoded` and other `multipart/*` types via `KrFormOptions.AllowedRequestContentTypes`.
+- Named parts and ordered multipart payloads are supported, but `Add-KrFormRoute` only accepts `multipart/form-data` by default.
+Opt in to `application/x-www-form-urlencoded` and other `multipart/*` types via `KrFormOptions.AllowedRequestContentTypes`.
 
 Important:
 

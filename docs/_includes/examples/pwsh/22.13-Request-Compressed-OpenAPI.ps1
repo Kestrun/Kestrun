@@ -1,5 +1,5 @@
-﻿<#!
-    22.6 Upload with request-level compression (RequestDecompression middleware)
+<#!
+    22.13 Upload with request-level compression with OpenAPI (RequestDecompression middleware)
 
     Client example (PowerShell):
         $boundary = 'req-boundary'
@@ -25,7 +25,7 @@
         Invoke-WebRequest -Method Post -Uri "http://127.0.0.1:$Port/upload" -ContentType "multipart/form-data; boundary=$boundary" -Headers @{ 'Content-Encoding'='gzip' } -Body $compressed
 
     Cleanup:
-        Remove-Item -Recurse -Force (Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.6-request-compressed')
+        Remove-Item -Recurse -Force (Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.13-request-compressed')
 #>
 param(
     [int]$Port = 5000,
@@ -37,7 +37,7 @@ New-KrLogger |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault
 
-New-KrServer -Name 'Forms 22.6'
+New-KrServer -Name 'Forms 22.13'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
 
@@ -45,7 +45,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
 #                 TOP-LEVEL OPENAPI
 # =========================================================
 
-Add-KrOpenApiInfo -Title 'Uploads 22.6 - Request Compressed' `
+Add-KrOpenApiInfo -Title 'Uploads 22.13 - Request Compressed' `
     -Version '1.0.0' `
     -Description 'Request-level compression (RequestDecompression middleware) + multipart parsing using Add-KrFormRoute.'
 
@@ -53,25 +53,30 @@ Add-KrOpenApiContact -Email 'support@example.com'
 
 Add-KrRequestDecompressionMiddleware -AllowedEncoding gzip | Out-Null
 
-$uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.6-request-compressed'
-$options = [Kestrun.Forms.KrFormOptions]::new()
-$options.DefaultUploadPath = $uploadRoot
-$options.ComputeSha256 = $true
+$uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.13-request-compressed'
 
 # Add Rules
-$fileRule = [Kestrun.Forms.KrFormPartRule]::new()
-$fileRule.Name = 'file'
-$fileRule.Required = $true
-$fileRule.AllowMultiple = $false
-$fileRule.AllowedContentTypes.Add('text/plain')
-$options.Rules.Add($fileRule)
+New-KrFormPartRule -Name 'file' -Required -AllowOnlyOne -AllowedContentTypes 'text/plain' |
+    New-KrFormPartRule -Name 'note' -Required |
+    Add-KrFormOption -Name 'fileUpload' -DefaultUploadPath $uploadRoot -ComputeSha256
 
-$noteRule = [Kestrun.Forms.KrFormPartRule]::new()
-$noteRule.Name = 'note'
-$noteRule.Required = $true
-$options.Rules.Add($noteRule)
-
-Add-KrFormRoute -Pattern '/upload' -Options $options -ScriptBlock {
+<#
+.SYNOPSIS
+    Upload endpoint for request-compressed multipart/form-data
+.DESCRIPTION
+    Upload endpoint for request-compressed multipart/form-data
+    using OpenAPI documentation and Add-KrFormRoute.
+.PARAMETER FormPayload
+    The parsed multipart/form-data payload.
+#>
+function upload {
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/upload')]
+    [KrBindForm(Template = 'fileUpload')]
+    [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
+    param(
+        [OpenApiRequestBody(contentType = ('multipart/form-data'), Required = $true)]
+        [KrFormData] $FormPayload
+    )
     $files = $FormPayload.Files['file']
     Write-KrJsonResponse -InputObject @{ count = $files.Count; files = $files } -StatusCode 200
 }

@@ -174,22 +174,22 @@ function Add-KrFormOption {
 
         # Limits
         if ($PSBoundParameters.ContainsKey('MaxRequestBodyBytes')) {
-            $Options.MaxRequestBodyBytes = $MaxRequestBodyBytes
+            $Options.Limits.MaxRequestBodyBytes = $MaxRequestBodyBytes
         }
         if ($PSBoundParameters.ContainsKey('MaxPartBodyBytes')) {
-            $Options.MaxPartBodyBytes = $MaxPartBodyBytes
+            $Options.Limits.MaxPartBodyBytes = $MaxPartBodyBytes
         }
         if ($PSBoundParameters.ContainsKey('MaxParts')) {
-            $Options.MaxParts = $MaxParts
+            $Options.Limits.MaxParts = $MaxParts
         }
         if ($PSBoundParameters.ContainsKey('MaxHeaderBytesPerPart')) {
-            $Options.MaxHeaderBytesPerPart = $MaxHeaderBytesPerPart
+            $Options.Limits.MaxHeaderBytesPerPart = $MaxHeaderBytesPerPart
         }
         if ($PSBoundParameters.ContainsKey('MaxFieldValueBytes')) {
-            $Options.MaxFieldValueBytes = $MaxFieldValueBytes
+            $Options.Limits.MaxFieldValueBytes = $MaxFieldValueBytes
         }
         if ($PSBoundParameters.ContainsKey('MaxNestingDepth')) {
-            $Options.MaxNestingDepth = $MaxNestingDepth
+            $Options.Limits.MaxNestingDepth = $MaxNestingDepth
         }
 
         # Register the option

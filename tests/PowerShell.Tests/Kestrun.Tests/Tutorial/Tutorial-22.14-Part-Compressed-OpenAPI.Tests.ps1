@@ -1,13 +1,13 @@
 ﻿param()
 
-Describe 'Example 22.7 Part-Level Compression' {
+Describe 'Example 22.14 Part-Level Compression with OpenAPI' {
     BeforeAll {
         . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
-        $script:instance = Start-ExampleScript -Name '22.7-Part-Compressed.ps1'
+        $script:instance = Start-ExampleScript -Name '22.14-Part-Compressed-OpenAPI.ps1'
     }
     AfterAll {
         if ($script:instance) {
-            $uploadDir = Join-Path (Split-Path -Parent $script:instance.TempPath) 'uploads'
+            $uploadDir = Join-Path (Split-Path -Parent $script:instance.TempPath) 'kestrun-uploads-22.14-part-compressed-openapi'
             if (Test-Path $uploadDir) { Remove-Item -Recurse -Force $uploadDir }
             Stop-ExampleScript -Instance $script:instance
         }

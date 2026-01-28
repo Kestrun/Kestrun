@@ -1,4 +1,4 @@
-﻿<#!
+<#!
     22.7 Upload with part-level compression (optional feature)
 
     Client example (PowerShell):
@@ -45,24 +45,14 @@ Add-KrOpenApiInfo -Title 'Uploads 22.7 - Part Compressed' `
 Add-KrOpenApiContact -Email 'support@example.com'
 
 $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.7-part-compressed'
-$options = [Kestrun.Forms.KrFormOptions]::new()
-$options.DefaultUploadPath = $uploadRoot
-$options.ComputeSha256 = $true
-$options.EnablePartDecompression = $true
-$options.MaxDecompressedBytesPerPart = 1024 * 1024
 
 # Add Rules
-$fileRule = [Kestrun.Forms.KrFormPartRule]::new()
-$fileRule.Name = 'file'
-$fileRule.Required = $true
-$fileRule.AllowMultiple = $false
-$fileRule.AllowedContentTypes.Add('text/plain')
-$options.Rules.Add($fileRule)
-
-Add-KrFormRoute -Pattern '/part-compressed' -Options $options -ScriptBlock {
-    $file = $FormPayload.Files['file'][0]
-    Write-KrJsonResponse -InputObject @{ fileName = $file.OriginalFileName; length = $file.Length; sha256 = $file.Sha256 } -StatusCode 200
-}
+New-KrFormPartRule -Name 'file' -Required -AllowOnlyOne -AllowedContentTypes 'text/plain' |
+    Add-KrFormOption -DefaultUploadPath $uploadRoot -ComputeSha256 -EnablePartDecompression -MaxDecompressedBytesPerPart (1024 * 1024) |
+    Add-KrFormRoute -Pattern '/part-compressed' -ScriptBlock {
+        $file = $FormPayload.Files['file'][0]
+        Write-KrJsonResponse -InputObject @{ fileName = $file.OriginalFileName; length = $file.Length; sha256 = $file.Sha256 } -StatusCode 200
+    }
 
 Enable-KrConfiguration
 

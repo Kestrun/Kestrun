@@ -1,5 +1,7 @@
-﻿<#!
-    22.5 nested multipart/mixed (one level)
+<#!
+    22.12-Nested-Multipart-OpenAPI.ps1
+    Example PowerShell script for KestRun demonstrating nested multipart/mixed payload parsing
+    using OpenAPI documentation and Add-KrFormRoute.
 
     Client example (PowerShell):
         $outer = 'outer-boundary'
@@ -62,20 +64,36 @@ $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.5-
 # Add Rules
 # Note: nested multipart is parsed as ordered parts; rules apply when a part includes a Content-Disposition name.
 New-KrFormPartRule -Name 'nested' -MaxBytes (1024 * 1024) |
-    Add-KrFormOption -DefaultUploadPath $uploadRoot -AllowedRequestContentTypes 'multipart/mixed' -MaxNestingDepth 1 |
-    Add-KrFormRoute -Pattern '/nested' -ScriptBlock {
-        $outerParts = $FormPayload.Parts
-        $nestedSummary = @()
-        foreach ($part in $outerParts) {
-            if ($null -ne $part.NestedPayload) {
-                $nestedSummary += [pscustomobject]@{
-                    outerContentType = $part.ContentType
-                    nestedCount = $part.NestedPayload.Parts.Count
-                }
+    Add-KrFormOption -Name 'NestedForm' -DefaultUploadPath $uploadRoot -AllowedRequestContentTypes 'multipart/mixed' -MaxNestingDepth 1
+
+<#.SYNOPSIS
+    Upload endpoint for nested multipart/mixed
+.DESCRIPTION
+    Handles nested multipart/mixed payloads with file and field processing.
+.PARAMETER FormPayload
+    The parsed multipart/mixed payload.
+#>
+function nested {
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/nested')]
+    [KrBindForm(Template = 'NestedForm')]
+    [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
+
+    param(
+        [OpenApiRequestBody(contentType = ('multipart/form-data'), Required = $true)]
+        [KrFormData] $FormPayload
+    )
+    $outerParts = $FormPayload.Parts
+    $nestedSummary = @()
+    foreach ($part in $outerParts) {
+        if ($null -ne $part.NestedPayload) {
+            $nestedSummary += [pscustomobject]@{
+                outerContentType = $part.ContentType
+                nestedCount = $part.NestedPayload.Parts.Count
             }
         }
-        Write-KrJsonResponse -InputObject @{ outerCount = $outerParts.Count; nested = $nestedSummary } -StatusCode 200
     }
+    Write-KrJsonResponse -InputObject @{ outerCount = $outerParts.Count; nested = $nestedSummary } -StatusCode 200
+}
 
 Enable-KrConfiguration
 

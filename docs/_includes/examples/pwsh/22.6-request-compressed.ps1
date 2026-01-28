@@ -54,27 +54,16 @@ Add-KrOpenApiContact -Email 'support@example.com'
 Add-KrRequestDecompressionMiddleware -AllowedEncoding gzip | Out-Null
 
 $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.6-request-compressed'
-$options = [Kestrun.Forms.KrFormOptions]::new()
-$options.DefaultUploadPath = $uploadRoot
-$options.ComputeSha256 = $true
 
 # Add Rules
-$fileRule = [Kestrun.Forms.KrFormPartRule]::new()
-$fileRule.Name = 'file'
-$fileRule.Required = $true
-$fileRule.AllowMultiple = $false
-$fileRule.AllowedContentTypes.Add('text/plain')
-$options.Rules.Add($fileRule)
+New-KrFormPartRule -Name 'file' -Required -AllowOnlyOne -AllowedContentTypes 'text/plain' |
+    New-KrFormPartRule -Name 'note' -Required |
+    Add-KrFormOption -DefaultUploadPath $uploadRoot -ComputeSha256 |
 
-$noteRule = [Kestrun.Forms.KrFormPartRule]::new()
-$noteRule.Name = 'note'
-$noteRule.Required = $true
-$options.Rules.Add($noteRule)
-
-Add-KrFormRoute -Pattern '/upload' -Options $options -ScriptBlock {
-    $files = $FormPayload.Files['file']
-    Write-KrJsonResponse -InputObject @{ count = $files.Count; files = $files } -StatusCode 200
-}
+    Add-KrFormRoute -Pattern '/upload' -ScriptBlock {
+        $files = $FormPayload.Files['file']
+        Write-KrJsonResponse -InputObject @{ count = $files.Count; files = $files } -StatusCode 200
+    }
 
 Enable-KrConfiguration
 

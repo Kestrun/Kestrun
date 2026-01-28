@@ -3,9 +3,9 @@ BeforeAll {
     . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
 }
 
-Describe 'Example 22.3 Urlencoded forms' -Tag 'Tutorial', 'multipart/form', 'OpenApi', 'Slow' {
+Describe 'Example 22.3 Urlencoded forms' -Tag 'Tutorial', 'multipart/form', 'Slow' {
     BeforeAll {
-        $script:instance = Start-ExampleScript -Name '22.10-Urlencoded-OpenAPI.ps1'
+        $script:instance = Start-ExampleScript -Name '22.3-Url-Encoded.ps1'
     }
     AfterAll {
         if ($script:instance) {

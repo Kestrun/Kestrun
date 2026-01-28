@@ -1,12 +1,12 @@
 ﻿<#!
-    22.3 application/x-www-form-urlencoded forms
+    22.10-Url-Encoded-OpenAPI application/x-www-form-urlencoded forms
 
     Client example (PowerShell):
         $body = 'name=Kestrun&role=admin&role=maintainer'
         Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$Port/form" -ContentType 'application/x-www-form-urlencoded' -Body $body
 
     Cleanup:
-        Remove-Item -Recurse -Force (Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.3-urlencoded')
+    Remove-Item -Recurse -Force (Join-Path ([System.IO.Path]::GetTempPath()) '22.10-Url-Encoded-OpenAPI')
 #>
 param(
     [int]$Port = 5000,

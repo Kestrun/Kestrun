@@ -1,5 +1,5 @@
 ﻿<#!
-    22.3 application/x-www-form-urlencoded forms
+    22.3-Url-Encoded application/x-www-form-urlencoded forms
 
     Client example (PowerShell):
         $body = 'name=Kestrun&role=admin&role=maintainer'

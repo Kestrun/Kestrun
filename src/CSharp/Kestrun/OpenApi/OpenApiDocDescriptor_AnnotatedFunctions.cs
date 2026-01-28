@@ -2,6 +2,7 @@ using System.Management.Automation;
 using System.Management.Automation.Internal;
 using System.Management.Automation.Language;
 using System.Text.Json.Nodes;
+using Kestrun.Forms;
 using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Languages;
@@ -136,6 +137,9 @@ public partial class OpenApiDocDescriptor
                     case OpenApiCallbackRefAttribute callbackRefAttr:
                         ApplyCallbackRefAttribute(openApiMetadata, callbackRefAttr);
                         break;
+                    case KrBindFormAttribute formAttr:
+                        ApplyFormBindingAttribute(routeOptions, formAttr);
+                        break;
                     case KestrunAnnotation ka:
                         throw new InvalidOperationException($"Unhandled Kestrun annotation: {ka.GetType().Name}");
                 }
@@ -151,6 +155,69 @@ public partial class OpenApiDocDescriptor
         }
 
         return parsedVerb;
+    }
+
+    private void ApplyFormBindingAttribute(MapRouteOptions routeOptions, KrBindFormAttribute formAttr)
+    {
+        if (formAttr.Template is not null)
+        {
+            if (!Host.Runtime.FormOptions.TryGetValue(formAttr.Template, out var template))
+            {
+                throw new InvalidOperationException($"Form options template '{formAttr.Template}' not found.");
+            }
+
+            // Clone the template to avoid modifying the original
+            routeOptions.FormOptions = new KrFormOptions(template);
+            return;
+        }
+
+        // Create new form options based on the attribute properties
+        var formOptions = new KrFormOptions();
+
+        if (formAttr.DefaultUploadPath is not null)
+        {
+            formOptions.DefaultUploadPath = formAttr.DefaultUploadPath;
+        }
+
+        formOptions.ComputeSha256 = formAttr.ComputeSha256;
+        formOptions.EnablePartDecompression = formAttr.EnablePartDecompression;
+        if (formAttr.MaxDecompressedBytesPerPart > 0)
+        {
+            formOptions.MaxDecompressedBytesPerPart = formAttr.MaxDecompressedBytesPerPart;
+        }
+        formOptions.RejectUnknownRequestContentType = formAttr.RejectUnknownRequestContentType;
+        if (formAttr.AllowedPartContentEncodings is not null)
+        {
+            formOptions.AllowedPartContentEncodings.Clear();
+            formOptions.AllowedPartContentEncodings.AddRange(formAttr.AllowedPartContentEncodings);
+        }
+        formOptions.RejectUnknownContentEncoding = formAttr.RejectUnknownContentEncoding;
+        if (formAttr.MaxRequestBodyBytes > 0)
+        {
+            formOptions.Limits.MaxRequestBodyBytes = formAttr.MaxRequestBodyBytes;
+        }
+        if (formAttr.MaxPartBodyBytes > 0)
+        {
+            formOptions.Limits.MaxPartBodyBytes = formAttr.MaxPartBodyBytes;
+        }
+        if (formAttr.MaxParts > 0)
+        {
+            formOptions.Limits.MaxParts = formAttr.MaxParts;
+        }
+        if (formAttr.MaxHeaderBytesPerPart > 0)
+        {
+            formOptions.Limits.MaxHeaderBytesPerPart = formAttr.MaxHeaderBytesPerPart;
+        }
+        if (formAttr.MaxFieldValueBytes > 0)
+        {
+            formOptions.Limits.MaxFieldValueBytes = formAttr.MaxFieldValueBytes;
+        }
+        if (formAttr.MaxNestingDepth > 0)
+        {
+            formOptions.Limits.MaxNestingDepth = formAttr.MaxNestingDepth;
+        }
+        // Assign the form options to the route options
+        routeOptions.FormOptions = formOptions;
     }
 
     /// <summary>
@@ -771,7 +838,7 @@ public partial class OpenApiDocDescriptor
         metadata.RequestBody = attribute.Inline ? componentRequestBody.Clone() : new OpenApiRequestBodyReference(referenceId);
         metadata.RequestBody.Description = attribute.Description ?? help.GetParameterDescription(paramInfo.Name);
 
-        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody));
+        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody, routeOptions.FormOptions));
     }
 
     /// <summary>
@@ -889,8 +956,19 @@ public partial class OpenApiDocDescriptor
         ParameterMetadata paramInfo,
         OpenApiRequestBodyAttribute attribute)
     {
+        // Special handling for form payloads
+        if (routeOptions.FormOptions is not null)
+        // && (paramInfo.ParameterType == typeof(KrFormData) || paramInfo.ParameterType == typeof(KrFormPayload)))
+        {
+            var requestBodyContent = KestrunHostMapExtensions.BuildOpenApiRequestBody(routeOptions.FormOptions);
+            metadata.RequestBody = requestBodyContent;
+            metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
+            // Add the parameter for injection
+            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBodyContent, routeOptions.FormOptions));
+            return;
+        }
+        // Check for preferred request body in components
         var requestBodyPreferred = ComponentRequestBodiesExists(paramInfo.ParameterType.Name);
-
         if (requestBodyPreferred)
         {
             ApplyPreferredRequestBody(help, routeOptions, metadata, paramInfo, attribute);
@@ -907,7 +985,7 @@ public partial class OpenApiDocDescriptor
 
         metadata.RequestBody = requestBody;
         metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
-        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBody));
+        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBody, routeOptions.FormOptions));
     }
 
     /// <summary>
@@ -959,7 +1037,7 @@ public partial class OpenApiDocDescriptor
             : new OpenApiRequestBodyReference(paramInfo.ParameterType.Name);
 
         metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
-        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody));
+        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody, routeOptions.FormOptions));
     }
     #endregion
 
@@ -1047,10 +1125,12 @@ public partial class OpenApiDocDescriptor
             routeOptions.CorsPolicy = metadata.CorsPolicy;
         }
 
+        // Set the script block or wrap for form options
         routeOptions.ScriptCode.ScriptBlock = sb;
-        routeOptions.DefaultResponseContentType = "application/json";
+        // routeOptions.DefaultResponseContentType = "application/json";
         _ = Host.AddMapRoute(routeOptions);
     }
+
     /// <summary>
     /// Registers a webhook in the OpenAPI document descriptors.
     /// </summary>

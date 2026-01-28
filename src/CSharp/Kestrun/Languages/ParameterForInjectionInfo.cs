@@ -7,6 +7,7 @@ using System.Xml;
 using System.Xml.Linq;
 using CsvHelper;
 using CsvHelper.Configuration;
+using Kestrun.Forms;
 using Kestrun.Logging;
 using Kestrun.Models;
 using Kestrun.Utilities;
@@ -61,7 +62,8 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// </summary>
     /// <param name="paramInfo">The parameter metadata.</param>
     /// <param name="requestBody">The OpenApiRequestBody to construct from.</param>
-    public ParameterForInjectionInfo(ParameterMetadata paramInfo, OpenApiRequestBody requestBody) :
+    /// <param name="formOptions">The form options for handling form data.</param>
+    public ParameterForInjectionInfo(ParameterMetadata paramInfo, OpenApiRequestBody requestBody, KrFormOptions? formOptions) :
         base(Validate(paramInfo).Name, Validate(paramInfo).ParameterType)
     {
         ArgumentNullException.ThrowIfNull(requestBody);
@@ -84,6 +86,8 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
                 ContentTypes.Add(key);
             }
         }
+        // Default to "form" style with explode for request bodies.
+        FormOptions = formOptions;
     }
 
     /// <summary>
@@ -188,14 +192,18 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     {
         var logger = context.Host.Logger;
         var name = param.Name;
-
+        object? converted;
         LogInjectingParameter(logger, param);
-
-        var converted = GetConvertedParameterValue(context, param, out var shouldLog);
-        converted = ConvertBodyParameterIfNeeded(context, param, converted);
-
-        LogAddingParameter(logger, name, converted, shouldLog);
-
+        if (param.FormOptions is not null)
+        {
+            converted = KrFormParser.Parse(context.HttpContext, param.FormOptions, context.Ct);
+        }
+        else
+        {
+            converted = GetConvertedParameterValue(context, param, out var shouldLog);
+            converted = ConvertBodyParameterIfNeeded(context, param, converted);
+            LogAddingParameter(logger, name, converted, shouldLog);
+        }
         _ = ps.AddParameter(name, converted);
         StoreResolvedParameter(context, param, name, converted);
     }

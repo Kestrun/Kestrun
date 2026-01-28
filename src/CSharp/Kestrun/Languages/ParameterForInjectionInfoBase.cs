@@ -1,5 +1,6 @@
 
 using System.Text.Json.Nodes;
+using Kestrun.Forms;
 using Microsoft.OpenApi;
 
 namespace Kestrun.Languages;
@@ -52,4 +53,9 @@ public abstract class ParameterForInjectionInfoBase(string name, Type parameterT
     /// Indicates whether the parameter should be exploded.
     /// </summary>
     public bool Explode { get; init; }
+
+    /// <summary>
+    /// Form options for handling form data.
+    /// </summary>
+    public KrFormOptions? FormOptions { get; init; }
 }

@@ -1,7 +1,7 @@
 using System.Text;
+using Microsoft.Net.Http.Headers;
 
 namespace Kestrun.Models;
-
 
 /// <summary>
 /// Represents a request model for Kestrun, containing HTTP method, path, query, headers, body, authorization, cookies, and form data.
@@ -93,7 +93,6 @@ public partial class KestrunRequest
     /// </summary>
     public Dictionary<string, string> Query { get; init; }
 
-
     /// <summary>
     /// Gets the headers for the request as a dictionary of key-value pairs.
     /// </summary>
@@ -118,12 +117,10 @@ public partial class KestrunRequest
     /// </summary>
     public Dictionary<string, string>? Form { get; init; }
 
-
     /// <summary>
     /// Gets the route values for the request as a <see cref="RouteValueDictionary"/>, if present.
     /// </summary>
     public Dictionary<string, string> RouteValues { get; init; }
-
 
     /// <summary>
     /// Creates a new <see cref="KestrunRequest"/> instance from the specified <see cref="Microsoft.AspNetCore.Http.HttpContext"/>.
@@ -132,29 +129,57 @@ public partial class KestrunRequest
     /// <returns>A task that represents the asynchronous operation. The task result contains the constructed <see cref="KestrunRequest"/>.</returns>
     public static async Task<KestrunRequest> NewRequest(HttpContext context)
     {
-        // ① Allow the body to be read multiple times
-        context.Request.EnableBuffering();
+        // If request decompression runs later in the pipeline (after the PowerShell middleware),
+        // the body is still encoded here. Avoid reading/parsing forms at this stage in that case.
+        // Also avoid enabling buffering up-front for encoded bodies; the decompression middleware
+        // expects to read the raw encoded stream from position 0.
+        var contentEncoding = context.Request.Headers[HeaderNames.ContentEncoding].ToString();
 
-        // ② Read the raw body into a string, then rewind
-        string body;
-        using (var reader = new StreamReader(
-                   context.Request.Body,
-                   encoding: Encoding.UTF8,
-                   detectEncodingFromByteOrderMarks: false,
-                   leaveOpen: true))
+        // Allow the body to be read multiple times for non-encoded requests.
+        if (string.IsNullOrWhiteSpace(contentEncoding))
         {
-            body = await reader.ReadToEndAsync();
+            context.Request.EnableBuffering();
+        }
+
+        var contentType = context.Request.ContentType;
+        var hasFormContentType = context.Request.HasFormContentType;
+        var isMultipart = contentType?.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase) ?? false;
+
+        // ② Read the raw body into a string (best-effort), then rewind.
+        // IMPORTANT: Avoid reading encoded bodies and multipart payloads here.
+        // - For Content-Encoding (e.g. gzip), RequestDecompression will decode later in the pipeline.
+        // - For multipart, KrFormParser handles parsing/streaming.
+        // Reading those payloads as UTF-8 here can interfere with later middleware/parsers.
+        var body = string.Empty;
+        if (!isMultipart && string.IsNullOrWhiteSpace(contentEncoding))
+        {
+            using var reader = new StreamReader(
+                context.Request.Body,
+                encoding: Encoding.UTF8,
+                detectEncodingFromByteOrderMarks: false,
+                leaveOpen: true);
+
+            body = await reader.ReadToEndAsync().ConfigureAwait(false);
             context.Request.Body.Position = 0;
         }
 
         // ③ If it's a form, read it safely
-        var formDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (context.Request.HasFormContentType)
+        Dictionary<string, string>? formDict = null;
+        if (hasFormContentType)
         {
-            var form = await context.Request.ReadFormAsync();
-            foreach (var kv in form)
+            // Only parse application/x-www-form-urlencoded here.
+            // Multipart (form-data/mixed/etc) is handled by KrFormParser / Add-KrFormRoute.
+            // Also skip parsing when a non-empty Content-Encoding header is present; in that case
+            // request decompression middleware may not have run yet.
+            if (string.IsNullOrWhiteSpace(contentEncoding)
+                && (context.Request.ContentType?.StartsWith("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase) ?? false))
             {
-                formDict[kv.Key] = kv.Value.ToString();
+                formDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                var form = await context.Request.ReadFormAsync().ConfigureAwait(false);
+                foreach (var kv in form)
+                {
+                    formDict[kv.Key] = kv.Value.ToString();
+                }
             }
         }
 

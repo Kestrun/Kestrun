@@ -119,6 +119,13 @@ Stop the server with Ctrl+C in the terminal.
 | 67    | Middleware: Sessions (SQL)    | [Sessions with SQL Server][ch-mw-sessions-sql] | [Script][sc-mw-sessions-sql] | SQL-backed session storage          |
 | 68    | Localization: Basics          | [Localization][ch-localization]           | [Script][sc-localization]       | String table localization           |
 | 69    | Localization: Razor           | [Razor Localization][ch-razor-localization] | [Script][sc-razor-localization] | Razor pages + localization          |
+| 70    | Uploads: Basic multipart      | [File and Form Uploads][ch-uploads]       | [Script][sc-uploads-1]          | Basic multipart parsing             |
+| 71    | Uploads: Multiple files       | [File and Form Uploads][ch-uploads]       | [Script][sc-uploads-2]          | Same-field multi-file upload        |
+| 72    | Uploads: Urlencoded           | [File and Form Uploads][ch-uploads]       | [Script][sc-uploads-3]          | application/x-www-form-urlencoded   |
+| 73    | Uploads: multipart/mixed       | [File and Form Uploads][ch-uploads]       | [Script][sc-uploads-4]          | Ordered multipart parts             |
+| 74    | Uploads: nested multipart      | [File and Form Uploads][ch-uploads]       | [Script][sc-uploads-5]          | One-level nested multipart/mixed    |
+| 75    | Uploads: request compression   | [File and Form Uploads][ch-uploads]       | [Script][sc-uploads-6]          | RequestDecompression middleware     |
+| 76    | Uploads: part compression      | [File and Form Uploads][ch-uploads]       | [Script][sc-uploads-7]          | Per-part Content-Encoding           |
 
 Static chapters and scripts are all linked directly above for quick navigation.
 
@@ -191,6 +198,7 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [ch-mw-sessions-sql]: ./19.Sessions/3.Sessions-Sql
 [ch-localization]: ./21.Localization/1.Localization
 [ch-razor-localization]: ./21.Localization/2.Razor-Localization
+[ch-uploads]: ./22.file-and-form-uploads/index
 [sc-hello]: /pwsh/tutorial/examples/1.1-Hello-World.ps1
 [sc-content]: /pwsh/tutorial/examples/2.1-Multiple-Content-Types.ps1
 [sc-multilang]: /pwsh/tutorial/examples/2.2-Multi-Language-Routes.ps1
@@ -238,6 +246,13 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-scfg-limits]: /pwsh/tutorial/examples/13.1-Server-Limits.ps1
 [sc-scfg-options]: /pwsh/tutorial/examples/13.2-Server-Options.ps1
 [sc-life-startstop]: /pwsh/tutorial/examples/14.1-Start-Stop.ps1
+[sc-uploads-1]: /pwsh/tutorial/examples/22-file-and-form-uploads/22.1-basic-multipart.ps1
+[sc-uploads-2]: /pwsh/tutorial/examples/22-file-and-form-uploads/22.2-multiple-files.ps1
+[sc-uploads-3]: /pwsh/tutorial/examples/22-file-and-form-uploads/22.3-urlencoded.ps1
+[sc-uploads-4]: /pwsh/tutorial/examples/22-file-and-form-uploads/22.4-multipart-mixed.ps1
+[sc-uploads-5]: /pwsh/tutorial/examples/22-file-and-form-uploads/22.5-nested-multipart.ps1
+[sc-uploads-6]: /pwsh/tutorial/examples/22-file-and-form-uploads/22.6-request-compressed.ps1
+[sc-uploads-7]: /pwsh/tutorial/examples/22-file-and-form-uploads/22.7-part-compressed.ps1
 [sc-demo-full]: /pwsh/tutorial/examples/14.1-Full-Demo.ps1
 [sc-health-1]: /pwsh/tutorial/examples/16.1-Health-Quickstart.ps1
 [sc-health-2]: /pwsh/tutorial/examples/16.2-Health-Script-Probe.ps1

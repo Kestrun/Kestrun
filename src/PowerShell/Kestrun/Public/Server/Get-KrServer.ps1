@@ -59,11 +59,11 @@ function Get-KrServer {
         }
 
         if ($StartTime.IsPresent) {
-            return $Server.StartTime
+            return $Server.Runtime.StartTime
         } elseif ($StopTime.IsPresent) {
-            return $Server.StopTime
+            return $Server.Runtime.StopTime
         } elseif ($Uptime.IsPresent) {
-            return $Server.Uptime
+            return $Server.Runtime.Uptime
         } else {
             return $Server
         }

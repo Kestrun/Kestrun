@@ -90,7 +90,7 @@
 
         PSUseSingularNouns = @{
             Enable = $true
-            NounAllowList = @('Data', 'Windows', 'Metadata', 'Settings', 'Options', 'Parameters', 'Credentials', 'Properties', 'Hsts', 'Refs')
+            NounAllowList = @('Data', 'Windows', 'Metadata', 'Settings', 'Options', 'Parameters', 'Credentials', 'Properties', 'Hsts', 'Refs', 'Bytes')
         }
 
         # Opinionated toggles

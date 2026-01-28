@@ -130,6 +130,20 @@ try {
         [Kestrun.KestrunHostManager]::KestrunRoot = $PWD
         [Kestrun.KestrunRuntimeInfo]::AspNetCoreVersion = $KrAspNetCoreVersion
     }
+<#
+
+    # Register Type Accelerators for form payloads
+    $ta = [psobject].Assembly.GetType('System.Management.Automation.TypeAccelerators')
+
+    # Add KrFormData -> Kestrun.Forms.KrNamedPartsPayload
+    if (-not $ta::Get.ContainsKey('KrFormData')) {
+        $ta::Add('KrFormData', [Kestrun.Forms.KrNamedPartsPayload])
+    }
+
+    # Add KrMultipart -> Kestrun.Forms.KrOrderedPartsPayload
+    if (-not $ta::Get.ContainsKey('KrMultipart')) {
+        $ta::Add('KrMultipart', [Kestrun.Forms.KrOrderedPartsPayload])
+    }#>
 } catch {
     throw ("Failed to import Kestrun module: $_")
 } finally {

@@ -1,4 +1,5 @@
 using Kestrun.Callback;
+using Kestrun.Forms;
 using Kestrun.Utilities;
 
 namespace Kestrun.Hosting.Options;
@@ -84,6 +85,11 @@ public class MapRouteOptions
     /// Callback requests associated with this route.
     /// </summary>
     public List<CallbackPlan> CallbackPlan { get; set; } = [];
+
+    /// <summary>
+    /// Form parsing options for this route, if any.
+    /// </summary>
+    public KrFormOptions? FormOptions { get; set; }
 
     /// <summary>
     /// Returns a string representation of the MapRouteOptions.

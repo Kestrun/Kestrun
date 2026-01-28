@@ -26,7 +26,7 @@ public record OpenApiMapRouteOptions
     /// <summary>
     /// The supported OpenAPI spec versions.
     /// </summary>
-    public OpenApiSpecVersion[] SpecVersion { get; set; } =
+    public OpenApiSpecVersion[] SpecVersions { get; set; } =
       [OpenApiSpecVersion.OpenApi2_0, OpenApiSpecVersion.OpenApi3_0, OpenApiSpecVersion.OpenApi3_1, OpenApiSpecVersion.OpenApi3_2];
 
     /// <summary>

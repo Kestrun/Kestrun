@@ -6,7 +6,6 @@ using Kestrun.Forms;
 using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Languages;
-using Kestrun.Scripting;
 using Kestrun.Utilities;
 using Microsoft.OpenApi;
 
@@ -1099,35 +1098,6 @@ public partial class OpenApiDocDescriptor
         }
     }
 
-    private static string GetFormRouteWrapperScript(ScriptBlock userScriptBlock)
-    {
-        // Get the user's first param name (e.g. "FormPayload"); fall back if none
-        //   var payloadVarName = ScriptBlockUtils.GetFormPayloadParameterName(userScriptBlock) ?? "FormPayload";
-
-        // Get only the executable body (no attributes, no param block)
-        var userBody = ScriptBlockUtils.GetBodyText(userScriptBlock);
-        // NOTE: We recreate the ScriptBlock inside the request runspace so it executes with the request's
-        // session state (including $Context and Kestrun cmdlets).
-        return @"
-##############################
-# Form Route Wrapper
-##############################
-$FormPayload = $null
-try {
-    $FormPayload = [Kestrun.Forms.KrFormParser]::Parse($Context.HttpContext, $__KrOptions, $Context.Ct)
-} catch [Kestrun.Forms.KrFormException] {
-    $ex = $_.Exception
-    Write-KrTextResponse -InputObject $ex.Message -StatusCode $ex.StatusCode
-    return
-}
-
-############################
-# User Scriptblock
-############################
-
-" + userBody;
-    }
-
     /// <summary>
     /// Finalizes the route options for a standard OpenAPI path.
     /// </summary>
@@ -1157,24 +1127,10 @@ try {
 
         // Set the script block or wrap for form options
         routeOptions.ScriptCode.ScriptBlock = sb;
-        /*     if (routeOptions.FormOptions is null)
-             {
-                 // routeOptions.ScriptCode.Code = ScriptBlockUtils.GetBodyText(sb);
-                 routeOptions.ScriptCode.ScriptBlock = sb;
-             }
-             else
-             {
-                 // Set the script language to PowerShell
-                 routeOptions.ScriptCode.Language = ScriptLanguage.PowerShell;
-                 // Wrap the script block to handle form data
-                 routeOptions.ScriptCode.Code = GetFormRouteWrapperScript(sb);
-                 routeOptions.ScriptCode.Arguments ??= [];
-                 routeOptions.ScriptCode.Arguments.Add("__KrOptions", routeOptions.FormOptions);
-             }
-     */
-        routeOptions.DefaultResponseContentType = "application/json";
+        // routeOptions.DefaultResponseContentType = "application/json";
         _ = Host.AddMapRoute(routeOptions);
     }
+
     /// <summary>
     /// Registers a webhook in the OpenAPI document descriptors.
     /// </summary>

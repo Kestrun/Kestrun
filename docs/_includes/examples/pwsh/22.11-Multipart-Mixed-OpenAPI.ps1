@@ -67,7 +67,7 @@ function mixed {
     [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
     param(
         [OpenApiRequestBody(contentType = ('multipart/mixed'), Required = $true)]
-        [KrFormData] $FormPayload
+         $FormPayload
     )
     $contentTypes = $FormPayload.Parts | ForEach-Object { $_.ContentType }
     Write-KrJsonResponse -InputObject @{ count = $FormPayload.Parts.Count; contentTypes = $contentTypes } -StatusCode 200

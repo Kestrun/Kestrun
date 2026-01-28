@@ -80,7 +80,7 @@ function nested {
 
     param(
         [OpenApiRequestBody(contentType = ('multipart/form-data'), Required = $true)]
-        [KrFormData] $FormPayload
+        $FormPayload
     )
     $outerParts = $FormPayload.Parts
     $nestedSummary = @()

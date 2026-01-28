@@ -839,7 +839,7 @@ public partial class OpenApiDocDescriptor
         metadata.RequestBody = attribute.Inline ? componentRequestBody.Clone() : new OpenApiRequestBodyReference(referenceId);
         metadata.RequestBody.Description = attribute.Description ?? help.GetParameterDescription(paramInfo.Name);
 
-        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody));
+        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody, routeOptions.FormOptions));
     }
 
     /// <summary>
@@ -958,14 +958,14 @@ public partial class OpenApiDocDescriptor
         OpenApiRequestBodyAttribute attribute)
     {
         // Special handling for form payloads
-        if (routeOptions.FormOptions is not null &&
-                   (paramInfo.ParameterType == typeof(KrFormData) ||
-                    paramInfo.ParameterType == typeof(KrFormPayload)))
+        if (routeOptions.FormOptions is not null)
+        // && (paramInfo.ParameterType == typeof(KrFormData) || paramInfo.ParameterType == typeof(KrFormPayload)))
         {
             var requestBodyContent = KestrunHostMapExtensions.BuildOpenApiRequestBody(routeOptions.FormOptions);
             metadata.RequestBody = requestBodyContent;
             metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
-            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBodyContent));
+            // Add the parameter for injection
+            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBodyContent, routeOptions.FormOptions));
             return;
         }
         // Check for preferred request body in components
@@ -986,7 +986,7 @@ public partial class OpenApiDocDescriptor
 
         metadata.RequestBody = requestBody;
         metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
-        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBody));
+        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBody, routeOptions.FormOptions));
     }
 
     /// <summary>
@@ -1038,7 +1038,7 @@ public partial class OpenApiDocDescriptor
             : new OpenApiRequestBodyReference(paramInfo.ParameterType.Name);
 
         metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
-        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody));
+        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody, routeOptions.FormOptions));
     }
     #endregion
 
@@ -1156,21 +1156,22 @@ try {
         }
 
         // Set the script block or wrap for form options
-        if (routeOptions.FormOptions is null)
-        {
-            // routeOptions.ScriptCode.Code = ScriptBlockUtils.GetBodyText(sb);
-            routeOptions.ScriptCode.ScriptBlock = sb;
-        }
-        else
-        {
-            // Set the script language to PowerShell
-            routeOptions.ScriptCode.Language = ScriptLanguage.PowerShell;
-            // Wrap the script block to handle form data
-            routeOptions.ScriptCode.Code = GetFormRouteWrapperScript(sb);
-            routeOptions.ScriptCode.Arguments ??= [];
-            routeOptions.ScriptCode.Arguments.Add("__KrOptions", routeOptions.FormOptions);
-        }
-
+        routeOptions.ScriptCode.ScriptBlock = sb;
+        /*     if (routeOptions.FormOptions is null)
+             {
+                 // routeOptions.ScriptCode.Code = ScriptBlockUtils.GetBodyText(sb);
+                 routeOptions.ScriptCode.ScriptBlock = sb;
+             }
+             else
+             {
+                 // Set the script language to PowerShell
+                 routeOptions.ScriptCode.Language = ScriptLanguage.PowerShell;
+                 // Wrap the script block to handle form data
+                 routeOptions.ScriptCode.Code = GetFormRouteWrapperScript(sb);
+                 routeOptions.ScriptCode.Arguments ??= [];
+                 routeOptions.ScriptCode.Arguments.Add("__KrOptions", routeOptions.FormOptions);
+             }
+     */
         routeOptions.DefaultResponseContentType = "application/json";
         _ = Host.AddMapRoute(routeOptions);
     }

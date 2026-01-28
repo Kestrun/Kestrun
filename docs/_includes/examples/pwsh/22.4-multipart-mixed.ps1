@@ -34,17 +34,9 @@ New-KrServer -Name 'Forms 22.4'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
 
-# =========================================================
-#                 TOP-LEVEL OPENAPI
-# =========================================================
-
-Add-KrOpenApiInfo -Title 'Uploads 22.4 - Multipart Mixed' `
-    -Version '1.0.0' `
-    -Description 'multipart/mixed parsing using Add-KrFormRoute.'
-
-Add-KrOpenApiContact -Email 'support@example.com'
-
-$uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.4-multipart-mixed'
+# Upload directory
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($PSCommandPath)
+$uploadRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "kestrun-uploads-$scriptName"
 
 # Add Rules
 # Note: multipart/mixed is parsed as ordered parts. Rules apply when a part includes a Content-Disposition name.
@@ -58,15 +50,6 @@ New-KrFormPartRule -Name 'text' -MaxBytes 1024 |
     }
 
 Enable-KrConfiguration
-
-# =========================================================
-#                OPENAPI DOC ROUTE / UI
-# =========================================================
-
-Add-KrOpenApiRoute -SpecVersion OpenApi3_2
-
-Add-KrApiDocumentationRoute -DocumentType Swagger -OpenApiEndpoint '/openapi/v3.2/openapi.json'
-Add-KrApiDocumentationRoute -DocumentType Redoc -OpenApiEndpoint '/openapi/v3.2/openapi.json'
 
 # Start the server asynchronously
 Start-KrServer

@@ -33,18 +33,9 @@ New-KrLogger |
 New-KrServer -Name 'Forms 22.7'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
-
-# =========================================================
-#                 TOP-LEVEL OPENAPI
-# =========================================================
-
-Add-KrOpenApiInfo -Title 'Uploads 22.7 - Part Compressed' `
-    -Version '1.0.0' `
-    -Description 'Per-part compression + multipart parsing using Add-KrFormRoute.'
-
-Add-KrOpenApiContact -Email 'support@example.com'
-
-$uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.7-part-compressed'
+# Upload directory
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($PSCommandPath)
+$uploadRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "kestrun-uploads-$scriptName"
 
 # Add Rules
 New-KrFormPartRule -Name 'file' -Required -AllowOnlyOne -AllowedContentTypes 'text/plain' |
@@ -55,15 +46,6 @@ New-KrFormPartRule -Name 'file' -Required -AllowOnlyOne -AllowedContentTypes 'te
     }
 
 Enable-KrConfiguration
-
-# =========================================================
-#                OPENAPI DOC ROUTE / UI
-# =========================================================
-
-Add-KrOpenApiRoute -SpecVersion OpenApi3_2
-
-Add-KrApiDocumentationRoute -DocumentType Swagger -OpenApiEndpoint '/openapi/v3.2/openapi.json'
-Add-KrApiDocumentationRoute -DocumentType Redoc -OpenApiEndpoint '/openapi/v3.2/openapi.json'
 
 # Start the server asynchronously
 Start-KrServer

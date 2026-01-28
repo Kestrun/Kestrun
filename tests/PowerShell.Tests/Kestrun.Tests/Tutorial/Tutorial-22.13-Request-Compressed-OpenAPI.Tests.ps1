@@ -2,7 +2,8 @@
 BeforeAll {
     . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
 }
-Describe 'Example 22.13 request-level compression with OpenAPI and middleware' {
+
+Describe 'Example 22.13 request-level compression with OpenAPI and middleware' -Tag 'Tutorial', 'multipart/form', 'OpenApi', 'Slow' {
     BeforeAll {
         $script:withMiddleware = Start-ExampleScript -Name '22.13-Request-Compressed-OpenAPI.ps1'
         $script:withoutMiddleware = Start-ExampleScript -Name '22.8-Basic-Multipart-OpenAPI.ps1'
@@ -10,7 +11,7 @@ Describe 'Example 22.13 request-level compression with OpenAPI and middleware' {
     AfterAll {
         foreach ($instance in @($script:withMiddleware, $script:withoutMiddleware)) {
             if ($instance) {
-                $uploadDir = Join-Path (Split-Path -Parent $instance.TempPath) 'uploads'
+                $uploadDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath $instance.BaseName
                 if (Test-Path $uploadDir) { Remove-Item -Recurse -Force $uploadDir }
                 Stop-ExampleScript -Instance $instance
             }

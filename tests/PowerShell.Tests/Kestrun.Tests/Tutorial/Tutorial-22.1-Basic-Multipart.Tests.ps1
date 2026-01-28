@@ -1,13 +1,15 @@
 ﻿param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
 
-Describe 'Example 22.1 Basic multipart/form-data' {
+Describe 'Example 22.1 Basic multipart/form-data' -Tag 'Tutorial', 'multipart/form', 'Slow' {
     BeforeAll {
-        . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
         $script:instance = Start-ExampleScript -Name '22.1-Basic-Multipart.ps1'
     }
     AfterAll {
         if ($script:instance) {
-            $uploadDir = Join-Path (Split-Path -Parent $script:instance.TempPath) 'uploads'
+            $uploadDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath $script:instance.BaseName
             if (Test-Path $uploadDir) { Remove-Item -Recurse -Force $uploadDir }
             Stop-ExampleScript -Instance $script:instance
         }

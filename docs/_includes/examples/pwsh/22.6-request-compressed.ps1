@@ -41,40 +41,24 @@ New-KrServer -Name 'Forms 22.6'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
 
-# =========================================================
-#                 TOP-LEVEL OPENAPI
-# =========================================================
-
-Add-KrOpenApiInfo -Title 'Uploads 22.6 - Request Compressed' `
-    -Version '1.0.0' `
-    -Description 'Request-level compression (RequestDecompression middleware) + multipart parsing using Add-KrFormRoute.'
-
-Add-KrOpenApiContact -Email 'support@example.com'
-
+# Enable Request Decompression Middleware
 Add-KrRequestDecompressionMiddleware -AllowedEncoding gzip | Out-Null
 
-$uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.6-request-compressed'
+# Upload directory
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($PSCommandPath)
+$uploadRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "kestrun-uploads-$scriptName"
 
 # Add Rules
 New-KrFormPartRule -Name 'file' -Required -AllowOnlyOne -AllowedContentTypes 'text/plain' |
     New-KrFormPartRule -Name 'note' -Required |
     Add-KrFormOption -DefaultUploadPath $uploadRoot -ComputeSha256 |
-
+    # Form Route
     Add-KrFormRoute -Pattern '/upload' -ScriptBlock {
         $files = $FormPayload.Files['file']
         Write-KrJsonResponse -InputObject @{ count = $files.Count; files = $files } -StatusCode 200
     }
 
 Enable-KrConfiguration
-
-# =========================================================
-#                OPENAPI DOC ROUTE / UI
-# =========================================================
-
-Add-KrOpenApiRoute -SpecVersion OpenApi3_2
-
-Add-KrApiDocumentationRoute -DocumentType Swagger -OpenApiEndpoint '/openapi/v3.2/openapi.json'
-Add-KrApiDocumentationRoute -DocumentType Redoc -OpenApiEndpoint '/openapi/v3.2/openapi.json'
 
 # Start the server asynchronously
 Start-KrServer

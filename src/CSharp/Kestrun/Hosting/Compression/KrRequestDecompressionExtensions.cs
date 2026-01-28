@@ -1,3 +1,4 @@
+using Kestrun.Logging;
 using Microsoft.AspNetCore.RequestDecompression;
 using Microsoft.Net.Http.Headers;
 using Serilog.Events;
@@ -62,7 +63,7 @@ public static class KrRequestDecompressionExtensions
 
                     if (!encodingSet.Contains(encoding))
                     {
-                        host.Logger.Warning("Rejected request Content-Encoding: {Encoding}", encoding);
+                        host.Logger.WarningSanitized("Rejected request Content-Encoding: {Encoding}", encoding);
                         ctx.Response.StatusCode = StatusCodes.Status415UnsupportedMediaType;
                         await ctx.Response.WriteAsync("Unsupported Content-Encoding.", ctx.RequestAborted).ConfigureAwait(false);
                         return;

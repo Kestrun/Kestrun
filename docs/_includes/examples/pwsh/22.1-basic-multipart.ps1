@@ -32,17 +32,9 @@ New-KrServer -Name 'Forms 22.1'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
 
-# =========================================================
-#                 TOP-LEVEL OPENAPI
-# =========================================================
-
-Add-KrOpenApiInfo -Title 'Uploads 22.1 - Basic Multipart' `
-    -Version '1.0.0' `
-    -Description 'Basic multipart/form-data upload example using Add-KrFormRoute.'
-
-Add-KrOpenApiContact -Email 'support@example.com'
-
-$uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.1-basic-multipart'
+# Upload directory
+$scriptName = [System.IO.Path]::GetFileNameWithoutExtension($PSCommandPath)
+$uploadRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "kestrun-uploads-$scriptName"
 
 New-KrFormPartRule -Name 'file' -Required -AllowedContentTypes 'text/plain' -AllowOnlyOne |
     Add-KrFormOption -DefaultUploadPath $uploadRoot -ComputeSha256 |
@@ -66,16 +58,6 @@ New-KrFormPartRule -Name 'file' -Required -AllowedContentTypes 'text/plain' -All
     }
 
 Enable-KrConfiguration
-
-# =========================================================
-#                OPENAPI DOC ROUTE / UI
-# =========================================================
-
-Add-KrOpenApiRoute -SpecVersion OpenApi3_2
-
-Add-KrApiDocumentationRoute -DocumentType Swagger -OpenApiEndpoint '/openapi/v3.1/openapi.json'
-Add-KrApiDocumentationRoute -DocumentType Redoc -OpenApiEndpoint '/openapi/v3.1/openapi.json'
-Add-KrApiDocumentationRoute -DocumentType Elements -OpenApiEndpoint '/openapi/v3.2/openapi.json'
 
 # Start the server asynchronously
 Start-KrServer

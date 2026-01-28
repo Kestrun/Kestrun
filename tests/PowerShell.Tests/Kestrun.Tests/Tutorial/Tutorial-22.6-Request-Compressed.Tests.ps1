@@ -2,6 +2,7 @@
 BeforeAll {
     . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
 }
+
 Describe 'Example 22.6 request-level compression' {
     BeforeAll {
         $script:withMiddleware = Start-ExampleScript -Name '22.6-Request-Compressed.ps1'
@@ -10,7 +11,7 @@ Describe 'Example 22.6 request-level compression' {
     AfterAll {
         foreach ($instance in @($script:withMiddleware, $script:withoutMiddleware)) {
             if ($instance) {
-                $uploadDir = Join-Path (Split-Path -Parent $instance.TempPath) 'uploads'
+                $uploadDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath $instance.BaseName
                 if (Test-Path $uploadDir) { Remove-Item -Recurse -Force $uploadDir }
                 Stop-ExampleScript -Instance $instance
             }
@@ -38,7 +39,8 @@ Describe 'Example 22.6 request-level compression' {
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)
         $compressed = New-GzipBinaryData -data $bytes
 
-        $resp = Invoke-WebRequest -Method Post -Uri "$($script:withMiddleware.Url)/upload" -ContentType "multipart/form-data; boundary=$boundary" -Headers @{ 'Content-Encoding' = 'gzip' } -Body $compressed -SkipHttpErrorCheck
+        $resp = Invoke-WebRequest -Method Post -Uri "$($script:withMiddleware.Url)/upload" `
+            -ContentType "multipart/form-data; boundary=$boundary" -Headers @{ 'Content-Encoding' = 'gzip' } -Body $compressed -SkipHttpErrorCheck
         $resp.StatusCode | Should -Be 400
     }
 
@@ -60,7 +62,8 @@ Describe 'Example 22.6 request-level compression' {
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)
         $compressed = New-GzipBinaryData -data $bytes
 
-        $resp = Invoke-WebRequest -Method Post -Uri "$($script:withMiddleware.Url)/upload" -ContentType "multipart/form-data; boundary=$boundary" -Headers @{ 'Content-Encoding' = 'gzip' } -Body $compressed -SkipHttpErrorCheck
+        $resp = Invoke-WebRequest -Method Post -Uri "$($script:withMiddleware.Url)/upload" `
+            -ContentType "multipart/form-data; boundary=$boundary" -Headers @{ 'Content-Encoding' = 'gzip' } -Body $compressed -SkipHttpErrorCheck
         $resp.StatusCode | Should -Be 415
     }
 
@@ -87,7 +90,8 @@ Describe 'Example 22.6 request-level compression' {
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)
         $compressed = New-GzipBinaryData -data $bytes
 
-        $resp = Invoke-WebRequest -Method Post -Uri "$($script:withMiddleware.Url)/upload" -ContentType "multipart/form-data; boundary=$boundary" -Headers @{ 'Content-Encoding' = 'gzip' } -Body $compressed -SkipHttpErrorCheck
+        $resp = Invoke-WebRequest -Method Post -Uri "$($script:withMiddleware.Url)/upload" `
+            -ContentType "multipart/form-data; boundary=$boundary" -Headers @{ 'Content-Encoding' = 'gzip' } -Body $compressed -SkipHttpErrorCheck
         $resp.StatusCode | Should -Be 400
     }
 

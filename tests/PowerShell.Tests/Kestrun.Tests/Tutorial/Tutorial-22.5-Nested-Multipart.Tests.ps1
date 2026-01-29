@@ -145,7 +145,7 @@ Describe 'Example 22.5 nested multipart/mixed' -Tag 'Tutorial', 'multipart/form'
         }
     }
 
-    It 'Returns 400 when inner parts are missing Content-Disposition names (rules apply everywhere)' {
+    It 'Returns 400 when inner parts are missing Content-Disposition names' {
         $outer = 'outer-boundary'
         $inner = 'inner-boundary'
         $body = New-NestedMultipartBody `

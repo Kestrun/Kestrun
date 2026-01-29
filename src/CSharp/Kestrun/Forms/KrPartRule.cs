@@ -11,6 +11,11 @@ public sealed class KrFormPartRule
     public required string Name { get; set; }
 
     /// <summary>
+    /// Gets or sets the scope name for nested multipart rules. When not set, the rule applies only at the root.
+    /// </summary>
+    public string? Scope { get; set; }
+
+    /// <summary>
     /// Gets or sets the description of the part.
     /// </summary>
     public string? Description { get; set; }

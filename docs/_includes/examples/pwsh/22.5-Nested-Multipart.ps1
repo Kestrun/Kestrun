@@ -1,4 +1,4 @@
-﻿<#!
+<#!
     22.5 nested multipart/mixed (one level)
 
     Client example (PowerShell):
@@ -53,8 +53,26 @@ $uploadRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "kest
 
 # Add Rules
 # Note: nested multipart is parsed as ordered parts; rules apply when a part includes a Content-Disposition name.
-New-KrFormPartRule -Name 'outer' -MaxBytes 1024 |
-    New-KrFormPartRule -Name 'nested' -MaxBytes (1024 * 1024) |
+#New-KrFormPartRule -Name 'outer' -MaxBytes 1024 |
+#New-KrFormPartRule -Name 'nested' -MaxBytes (1024 * 1024) |
+
+
+New-KrFormPartRule -Name 'outer' -Required -MaxBytes 1024 `
+    -AllowOnlyOne `
+    -AllowedContentTypes 'application/json' |
+
+    New-KrFormPartRule -Name 'nested' -Required -MaxBytes (1024 * 1024) `
+        -AllowOnlyOne `
+        -AllowedContentTypes 'multipart/mixed' |
+
+    # These apply only inside the nested multipart container (Scope = 'nested')
+    New-KrFormPartRule -Name 'text' -Scope 'nested' -Required -MaxBytes 1024 `
+        -AllowOnlyOne `
+        -AllowedContentTypes 'text/plain' |
+
+    New-KrFormPartRule -Name 'json' -Scope 'nested' -Required -MaxBytes 4096 `
+        -AllowOnlyOne `
+        -AllowedContentTypes 'application/json' |
     Add-KrFormOption -DefaultUploadPath $uploadRoot -AllowedRequestContentTypes 'multipart/mixed' -MaxNestingDepth 1 |
     Add-KrFormRoute -Pattern '/nested' -ScriptBlock {
         $outerParts = $FormPayload.Parts

@@ -125,7 +125,7 @@ public static class KrFormParser
             payload.Fields[key] = [.. form[key].Select(static v => v ?? string.Empty)];
         }
 
-        var rules = CreateRuleMap(options);
+        var rules = CreateRuleMap(options, isRoot: true, scopeName: null);
         ValidateRequiredRules(payload, rules, logger);
 
         logger.Information("Parsed x-www-form-urlencoded payload with {FieldCount} fields.", payload.Fields.Count);
@@ -141,7 +141,7 @@ public static class KrFormParser
         };
 
         var payload = new KrFormData();
-        var rules = CreateRuleMap(options);
+        var rules = CreateRuleMap(options, isRoot: true, scopeName: null);
         var partIndex = 0;
         long totalBytes = 0;
         var stopwatch = Stopwatch.StartNew();
@@ -253,10 +253,10 @@ public static class KrFormParser
     private static async Task<KrFormPayload> ParseMultipartOrderedAsync(HttpContext context, MediaTypeHeaderValue mediaType, KrFormOptions options, Logger logger, int nestingDepth, CancellationToken cancellationToken)
     {
         var boundary = GetBoundary(mediaType);
-        return await ParseMultipartFromStreamAsync(context.Request.Body, boundary, options, logger, nestingDepth, cancellationToken).ConfigureAwait(false);
+        return await ParseMultipartFromStreamAsync(context.Request.Body, boundary, options, logger, nestingDepth, isRoot: true, scopeName: null, cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task<KrFormPayload> ParseMultipartFromStreamAsync(Stream body, string boundary, KrFormOptions options, Logger logger, int nestingDepth, CancellationToken cancellationToken)
+    private static async Task<KrFormPayload> ParseMultipartFromStreamAsync(Stream body, string boundary, KrFormOptions options, Logger logger, int nestingDepth, bool isRoot, string? scopeName, CancellationToken cancellationToken)
     {
         var reader = new MultipartReader(boundary, body)
         {
@@ -264,7 +264,7 @@ public static class KrFormParser
         };
 
         var payload = new KrMultipart();
-        var rules = CreateRuleMap(options);
+        var rules = CreateRuleMap(options, isRoot, scopeName);
         var partIndex = 0;
         long totalBytes = 0;
 
@@ -340,7 +340,7 @@ public static class KrFormParser
                     if (!string.IsNullOrWhiteSpace(result.TempPath))
                     {
                         await using var nestedStream = File.OpenRead(result.TempPath);
-                        nested = await ParseMultipartFromStreamAsync(nestedStream, nestedBoundary, options, logger, nestingDepth + 1, cancellationToken).ConfigureAwait(false);
+                        nested = await ParseMultipartFromStreamAsync(nestedStream, nestedBoundary, options, logger, nestingDepth + 1, isRoot: false, scopeName: name, cancellationToken).ConfigureAwait(false);
                     }
                     else
                     {
@@ -568,14 +568,34 @@ public static class KrFormParser
         }
     }
 
-    private static Dictionary<string, KrFormPartRule> CreateRuleMap(KrFormOptions options)
+    private static Dictionary<string, KrFormPartRule> CreateRuleMap(KrFormOptions options, bool isRoot, string? scopeName)
     {
         var map = new Dictionary<string, KrFormPartRule>(StringComparer.OrdinalIgnoreCase);
         foreach (var rule in options.Rules)
         {
+            if (!IsRuleInScope(rule, isRoot, scopeName))
+            {
+                continue;
+            }
             map[rule.Name] = rule;
         }
         return map;
+    }
+
+    private static bool IsRuleInScope(KrFormPartRule rule, bool isRoot, string? scopeName)
+    {
+        var ruleScope = string.IsNullOrWhiteSpace(rule.Scope) ? null : rule.Scope;
+        if (isRoot)
+        {
+            return ruleScope is null;
+        }
+
+        if (string.IsNullOrWhiteSpace(scopeName))
+        {
+            return false;
+        }
+
+        return string.Equals(ruleScope, scopeName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static (string? Name, string? FileName, ContentDispositionHeaderValue? Disposition) GetContentDisposition(MultipartSection section, Logger logger, bool allowMissing = false)

@@ -9,6 +9,8 @@
     An array of existing form part rules to which the new rule will be added.
 .PARAMETER Name
     The name of the form part rule.
+.PARAMETER Scope
+    The multipart scope that this rule applies to. When omitted, the rule applies only at the root level.
 .PARAMETER Description
     A description of the form part rule.
 .PARAMETER Required
@@ -48,6 +50,9 @@ function New-KrFormPartRule {
         [string] $Name,
 
         [Parameter()]
+        [string] $Scope,
+
+        [Parameter()]
         [string] $Description,
 
         [Parameter()]
@@ -85,6 +90,9 @@ function New-KrFormPartRule {
     end {
         $Rule = [Kestrun.Forms.KrFormPartRule]::new()
         $Rule.Name = $Name
+        if ($PSBoundParameters.ContainsKey('Scope')) {
+            $Rule.Scope = $Scope
+        }
         if ($PSBoundParameters.ContainsKey('Description')) {
             $Rule.Description = $Description
         }

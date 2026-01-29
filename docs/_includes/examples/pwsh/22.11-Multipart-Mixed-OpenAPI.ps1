@@ -49,8 +49,8 @@ $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.4-
 # Add Rules
 # Note: multipart/mixed is parsed as ordered parts. Rules apply when a part includes a Content-Disposition name.
 # Opt-in: only multipart/form-data is enabled by default
-New-KrFormPartRule -Name 'text' -MaxBytes 1024 |
-    New-KrFormPartRule -Name 'json' -MaxBytes 1024 |
+New-KrFormPartRule -Name 'outer' -MaxBytes 1024 |
+    New-KrFormPartRule -Name 'nested' -MaxBytes (1024 * 1024) |
     Add-KrFormOption -Name 'MixedForm' -DefaultUploadPath $uploadRoot -AllowedRequestContentTypes 'multipart/mixed'
 
 

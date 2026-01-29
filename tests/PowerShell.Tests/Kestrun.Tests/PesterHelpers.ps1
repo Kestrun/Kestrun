@@ -2464,3 +2464,97 @@ function Compress-Gzip {
 
     return $compressed
 }
+
+<#
+.SYNOPSIS
+    Create a nested multipart/mixed body for testing.
+.DESCRIPTION
+    This function constructs a multipart/mixed body with an outer and inner boundary,
+    allowing for nested multipart content. It supports optional Content-Disposition headers
+    for the outer and nested parts, as well as for the inner text and JSON parts.
+.PARAMETER OuterBoundary
+    The boundary string for the outer multipart section.
+.PARAMETER InnerBoundary
+    The boundary string for the inner multipart section.
+.PARAMETER IncludeOuterDisposition
+    If specified, includes a Content-Disposition header for the outer part.
+.PARAMETER IncludeNestedDisposition
+    If specified, includes a Content-Disposition header for the nested part.
+.PARAMETER IncludeInnerDispositions
+    If specified, includes Content-Disposition headers for the inner text and JSON parts.
+.PARAMETER OuterName
+    The name to use in the Content-Disposition header for the outer part.
+.PARAMETER NestedName
+    The name to use in the Content-Disposition header for the nested part.
+.PARAMETER TextName
+    The name to use in the Content-Disposition header for the inner text part.
+.PARAMETER JsonName
+    The name to use in the Content-Disposition header for the inner JSON part.
+.PARAMETER OuterJson
+    The JSON content for the outer part.
+.PARAMETER InnerJson
+    The JSON content for the inner part.
+.PARAMETER InnerText
+    The text content for the inner text part.
+.PARAMETER NestedContentTypeHeader
+    The Content-Type header to use for the nested part. If not specified, defaults to multipart/mixed with the inner boundary.
+.OUTPUTS
+    A string containing the nested multipart/mixed body.
+#>
+function New-NestedMultipartBody {
+    param(
+        [string] $OuterBoundary = 'outer-boundary',
+        [string] $InnerBoundary = 'inner-boundary',
+        [switch] $IncludeOuterDisposition,
+        [switch] $IncludeNestedDisposition,
+        [switch] $IncludeInnerDispositions,
+        [string] $OuterName = 'outer',
+        [string] $NestedName = 'nested',
+        [string] $TextName = 'text',
+        [string] $JsonName = 'json',
+        [string] $OuterJson = '{"stage":"outer"}',
+        [string] $InnerJson = '{"nested":true}',
+        [string] $InnerText = 'inner-1',
+        [string] $NestedContentTypeHeader = $null
+    )
+
+    if (-not $NestedContentTypeHeader) {
+        $NestedContentTypeHeader = "Content-Type: multipart/mixed; boundary=$InnerBoundary"
+    }
+
+    $innerBody = @(
+        "--$InnerBoundary"
+        if ($IncludeInnerDispositions) { "Content-Disposition: form-data; name=""$TextName""" }
+        'Content-Type: text/plain'
+        ''
+        $InnerText
+
+        "--$InnerBoundary"
+        if ($IncludeInnerDispositions) { "Content-Disposition: form-data; name=""$JsonName""" }
+        'Content-Type: application/json'
+        ''
+        $InnerJson
+
+        "--$InnerBoundary--"
+        ''
+    ) -join "`r`n"
+
+    $outerBody = @(
+        "--$OuterBoundary"
+        if ($IncludeOuterDisposition) { "Content-Disposition: form-data; name=""$OuterName""" }
+        'Content-Type: application/json'
+        ''
+        $OuterJson
+
+        "--$OuterBoundary"
+        if ($IncludeNestedDisposition) { "Content-Disposition: form-data; name=""$NestedName""" }
+        $NestedContentTypeHeader
+        ''
+        $innerBody
+
+        "--$OuterBoundary--"
+        ''
+    ) -join "`r`n"
+
+    return $outerBody
+}

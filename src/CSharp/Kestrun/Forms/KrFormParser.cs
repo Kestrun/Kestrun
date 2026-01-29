@@ -65,6 +65,12 @@ public static class KrFormParser
             logger.Warning("Unknown Content-Type allowed: {ContentType}", normalizedMediaType);
         }
 
+        if (IsMultipartContentType(normalizedMediaType) && !mediaType.Boundary.HasValue)
+        {
+            logger.Error("Missing multipart boundary for Content-Type: {ContentType}", normalizedMediaType);
+            throw new KrFormException("Missing multipart boundary.", StatusCodes.Status400BadRequest);
+        }
+
         ApplyRequestBodyLimit(context, options, logger);
 
         return normalizedMediaType.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase)
@@ -273,8 +279,9 @@ public static class KrFormParser
             }
 
             var headers = ToHeaderDictionary(section.Headers ?? []);
-            var (name, fileName, _) = GetContentDisposition(section, logger, allowMissing: true);
             var contentType = section.ContentType ?? "application/octet-stream";
+            var allowMissingDisposition = IsMultipartContentType(contentType);
+            var (name, fileName, _) = GetContentDisposition(section, logger, allowMissing: allowMissingDisposition);
             var contentEncoding = GetHeaderValue(headers, HeaderNames.ContentEncoding);
             var declaredLength = GetHeaderLong(headers, HeaderNames.ContentLength);
 

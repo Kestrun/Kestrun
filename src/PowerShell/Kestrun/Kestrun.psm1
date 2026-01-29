@@ -130,7 +130,7 @@ try {
         [Kestrun.KestrunHostManager]::KestrunRoot = $PWD
         [Kestrun.KestrunRuntimeInfo]::AspNetCoreVersion = $KrAspNetCoreVersion
     }
-<#
+    <#
 
     # Register Type Accelerators for form payloads
     $ta = [psobject].Assembly.GetType('System.Management.Automation.TypeAccelerators')

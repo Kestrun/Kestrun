@@ -20,10 +20,12 @@ Describe 'Example 22.11 multipart/mixed ordered parts using OpenAPI' -Tag 'Tutor
         $boundary = 'mixed-boundary'
         $body = @(
             "--$boundary",
+            'Content-Disposition: form-data; name="text"',
             'Content-Type: text/plain',
             '',
             'first',
             "--$boundary",
+            'Content-Disposition: form-data; name="json"',
             'Content-Type: application/json',
             '',
             '{"value":42}',
@@ -35,5 +37,52 @@ Describe 'Example 22.11 multipart/mixed ordered parts using OpenAPI' -Tag 'Tutor
         $resp.count | Should -Be 2
         $resp.contentTypes[0] | Should -Be 'text/plain'
         $resp.contentTypes[1] | Should -Be 'application/json'
+    }
+
+    It 'Rejects multipart/mixed parts without Content-Disposition' {
+        $boundary = 'mixed-boundary'
+        $body = @(
+            "--$boundary",
+            'Content-Type: text/plain',
+            '',
+            'first',
+            "--$boundary",
+            'Content-Type: application/json',
+            '',
+            '{"value":42}',
+            "--$boundary--",
+            ''
+        ) -join "`r`n"
+
+        $statusCode = $null
+        try {
+            Invoke-RestMethod -Method Post -Uri "$($script:instance.Url)/mixed" -ContentType "multipart/mixed; boundary=$boundary" -Body $body -ErrorAction Stop | Out-Null
+        } catch {
+            $statusCode = $_.Exception.Response.StatusCode.value__
+        }
+
+        $statusCode | Should -Be 400
+    }
+
+    It 'Rejects multipart/mixed without boundary parameter' {
+        $boundary = 'mixed-boundary'
+        $body = @(
+            "--$boundary",
+            'Content-Disposition: form-data; name="text"',
+            'Content-Type: text/plain',
+            '',
+            'first',
+            "--$boundary--",
+            ''
+        ) -join "`r`n"
+
+        $statusCode = $null
+        try {
+            Invoke-RestMethod -Method Post -Uri "$($script:instance.Url)/mixed" -ContentType 'multipart/mixed' -Body $body -ErrorAction Stop | Out-Null
+        } catch {
+            $statusCode = $_.Exception.Response.StatusCode.value__
+        }
+
+        $statusCode | Should -Be 400
     }
 }

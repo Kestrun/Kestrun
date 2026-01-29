@@ -53,7 +53,10 @@ New-KrFormPartRule -Name 'text' -MaxBytes 1024 |
     New-KrFormPartRule -Name 'json' -MaxBytes 1024 |
     Add-KrFormOption -Name 'MixedForm' -DefaultUploadPath $uploadRoot -AllowedRequestContentTypes 'multipart/mixed'
 
-<#.SYNOPSIS
+
+
+<#
+.SYNOPSIS
     Form route for multipart/mixed using OpenAPI annotations.
 .DESCRIPTION
     This function defines a form route that accepts multipart/mixed data using OpenAPI annotations.
@@ -67,7 +70,7 @@ function mixed {
     [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
     param(
         [OpenApiRequestBody(contentType = ('multipart/mixed'), Required = $true)]
-         $FormPayload
+        $FormPayload
     )
     $contentTypes = $FormPayload.Parts | ForEach-Object { $_.ContentType }
     Write-KrJsonResponse -InputObject @{ count = $FormPayload.Parts.Count; contentTypes = $contentTypes } -StatusCode 200

@@ -53,7 +53,8 @@ $uploadRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "kest
 
 # Add Rules
 # Note: nested multipart is parsed as ordered parts; rules apply when a part includes a Content-Disposition name.
-New-KrFormPartRule -Name 'nested' -MaxBytes (1024 * 1024) |
+New-KrFormPartRule -Name 'outer' -MaxBytes 1024 |
+    New-KrFormPartRule -Name 'nested' -MaxBytes (1024 * 1024) |
     Add-KrFormOption -DefaultUploadPath $uploadRoot -AllowedRequestContentTypes 'multipart/mixed' -MaxNestingDepth 1 |
     Add-KrFormRoute -Pattern '/nested' -ScriptBlock {
         $outerParts = $FormPayload.Parts

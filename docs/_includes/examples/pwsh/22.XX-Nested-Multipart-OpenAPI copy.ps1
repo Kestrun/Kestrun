@@ -66,7 +66,69 @@ $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.5-
 New-KrFormPartRule -Name 'nested' -MaxBytes (1024 * 1024) |
     Add-KrFormOption -Name 'NestedForm' -DefaultUploadPath $uploadRoot -AllowedRequestContentTypes 'multipart/mixed' -MaxNestingDepth 1
 
-<#.SYNOPSIS
+<#
+[OpenApiSchemaComponent(Description = 'Nested multipart request body.' )]
+class OuterControl {
+    [OpenApiProperty(Description = 'Stage identifier')]
+    [string] $stage
+
+    [OpenApiAdditionalProperties()]
+    $AdditionalProperties
+}
+
+[OpenApiSchemaComponent(Description = 'Inner nested multipart payload.')]
+class NestedParts {
+
+    [KrPart(Required = $true, MaxBytes = 1024, ContentTypes = 'text/plain')]
+    [OpenApiProperty(Description = 'Inner text part.')]
+    [string] $text
+
+    [KrPart(Required = $true, MaxBytes = 4096, ContentTypes = 'application/json')]
+    [OpenApiProperty(Description = 'Inner JSON part.')]
+    [string] $json  # or a real class if you want strict JSON
+}
+[OpenApiSchemaComponent(Description = 'Nested multipart request body.')]
+class NestedMultipartRequest {
+    [KrPart(Required = $true, MaxBytes = 1024, ContentTypes = 'application/json')]
+    [OpenApiProperty(Description = 'Outer JSON control object.')]
+    [pscustomobject] $outer  # or a class
+
+    [KrPart(Required = $true, MaxBytes = 1048576, ContentTypes = 'multipart/mixed')]
+    [OpenApiProperty(Description = 'Nested multipart container.')]
+    [NestedParts[]] $nested # Nested multipart payload definition
+}#>
+#
+.SYNOPSIS
+    Upload endpoint for nested multipart/mixed
+.DESCRIPTION
+    Handles nested multipart/mixed payloads with file and field processing.
+.PARAMETER FormPayload
+    The parsed multipart/mixed payload.
+>
+function nested2 {
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/nested')]
+    [KrBindForm( MaxNestingDepth = 1)]
+    [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
+
+    param(
+        [OpenApiRequestBody(contentType = ('multipart/mixed'), Required = $true )]
+        [NestedMultipartRequest]$FormPayload
+    )
+
+    # If you want to return counts, compute from bound model:
+    $resp = @{
+        outerStage = $FormPayload.outer.stage
+        nested = @{
+            hasText = [bool]$FormPayload.nested.text
+            hasJson = [bool]$FormPayload.nested.json
+        }
+    }
+
+    Write-KrJsonResponse -InputObject $resp -StatusCode 200
+}
+#>
+<#
+.SYNOPSIS
     Upload endpoint for nested multipart/mixed
 .DESCRIPTION
     Handles nested multipart/mixed payloads with file and field processing.
@@ -77,6 +139,7 @@ function nested {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/nested')]
     [KrBindForm(Template = 'NestedForm')]
     [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
+
     param(
         [OpenApiRequestBody(contentType = ('multipart/form-data'), Required = $true)]
         $FormPayload
@@ -93,7 +156,6 @@ function nested {
     }
     Write-KrJsonResponse -InputObject @{ outerCount = $outerParts.Count; nested = $nestedSummary } -StatusCode 200
 }
-
 Enable-KrConfiguration
 
 # =========================================================

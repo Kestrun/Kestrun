@@ -102,7 +102,6 @@ internal static class PowerShellDelegateBuilder
             {
                 log.Verbose("No redirect detected; applying response to HttpResponse...");
             }
-
         }
         // optional: catch client cancellation to avoid noisy logs
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)

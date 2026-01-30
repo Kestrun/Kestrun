@@ -33,7 +33,6 @@ using Kestrun.Forms;
 
 namespace Kestrun.Hosting;
 
-
 /// <summary>
 /// Provides hosting and configuration for the Kestrun application, including service registration, middleware setup, and runspace pool management.
 /// </summary>
@@ -91,7 +90,6 @@ public partial class KestrunHost : IDisposable
     /// Indicates whether the Kestrun host configuration has been applied.
     /// </summary>
     public bool IsConfigured { get; private set; }
-
 
     /// <summary>
     /// The runspace pool manager for PowerShell execution.

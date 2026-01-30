@@ -7,8 +7,8 @@
     - Write-KrSseEvent
 #>
 param(
-  [int]$Port = 5000,
-  [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = 5000,
+    [IPAddress]$IPAddress = [IPAddress]::Loopback
 )
 
 if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
@@ -18,8 +18,8 @@ Initialize-KrRoot -Path $PSScriptRoot
 
 ## 1. Logging
 New-KrLogger |
-  Set-KrLoggerLevel -Value Debug |
-  Add-KrSinkConsole | Register-KrLogger -Name 'SseDemo' -SetAsDefault
+    Set-KrLoggerLevel -Value Debug |
+    Add-KrSinkConsole | Register-KrLogger -Name 'SseDemo' -SetAsDefault
 
 ## 2. Create Server
 New-KrServer -Name 'Kestrun SSE Demo'
@@ -36,52 +36,53 @@ Add-KrHtmlTemplateRoute -Pattern '/' -HtmlTemplatePath 'Assets/wwwroot/sse.html'
 
 # SSE stream endpoint (per connection)
 Add-KrMapRoute -Verbs Get -Pattern '/sse' {
-  $count = Get-KrRequestQuery -Name 'count' -AsInt
-  if ($count -le 0) { $count = 30 }
+    $count = Get-KrRequestQuery -Name 'count' -AsInt
+    if ($count -le 0) { $count = 30 }
 
-  $intervalMs = Get-KrRequestQuery -Name 'intervalMs' -AsInt
-  if ($intervalMs -le 0) { $intervalMs = 1000 }
+    $intervalMs = Get-KrRequestQuery -Name 'intervalMs' -AsInt
+    if ($intervalMs -le 0) { $intervalMs = 1000 }
 
-  Start-KrSseResponse
+    Start-KrSseResponse
 
-  $connected = @{
-    message = 'Connected to Kestrun SSE stream'
-    serverTime = (Get-Date)
-    count = $count
-    intervalMs = $intervalMs
-  } | ConvertTo-Json -Compress
+    $connected = @{
+        message = 'Connected to Kestrun SSE stream'
+        serverTime = (Get-Date)
+        count = $count
+        intervalMs = $intervalMs
+    } | ConvertTo-Json -Compress
 
-  Write-KrSseEvent -Event 'connected' -Data $connected -retryMs 2000
+    Write-KrSseEvent -Event 'connected' -Data $connected -retryMs 2000
 
-  for ($i = 1; $i -le $count; $i++) {
-    $payload = @{
-      i = $i
-      total = $count
-      timestamp = (Get-Date)
+    for ($i = 1; $i -le $count; $i++) {
+        $payload = @{
+            i = $i
+            total = $count
+            timestamp = (Get-Date)
+        } | ConvertTo-Json -Compress
+
+        try {
+            Write-KrSseEvent -Event 'tick' -Data $payload -id "$i"
+        } catch {
+            # Most common cause: client disconnected.
+            Write-KrLog -Level Debug -Message 'SSE write failed (client disconnected?)' -Exception $_
+            break
+        }
+
+        Start-Sleep -Milliseconds $intervalMs
+    }
+
+    $complete = @{
+        message = 'Stream complete'
+        total = $count
+        serverTime = (Get-Date)
     } | ConvertTo-Json -Compress
 
     try {
-      Write-KrSseEvent -Event 'tick' -Data $payload -id "$i"
+        Write-KrSseEvent -Event 'complete' -Data $complete
     } catch {
-      # Most common cause: client disconnected.
-      Write-KrLog -Level Debug -Message 'SSE write failed (client disconnected?): {Error}' -Values $_
-      break
+        Write-KrLog -Level Debug -Message 'SSE write failed on completion (client disconnected?)' -Exception $_
+        # Client may have disconnected; ignore.
     }
-
-    Start-Sleep -Milliseconds $intervalMs
-  }
-
-  $complete = @{
-    message = 'Stream complete'
-    total = $count
-    serverTime = (Get-Date)
-  } | ConvertTo-Json -Compress
-
-  try {
-    Write-KrSseEvent -Event 'complete' -Data $complete
-  } catch {
-    # Client may have disconnected; ignore.
-  }
 }
 
 ## 6. Start Server

@@ -66,7 +66,7 @@ $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.5-
 New-KrFormPartRule -Name 'nested' -MaxBytes (1024 * 1024) |
     Add-KrFormOption -Name 'NestedForm' -DefaultUploadPath $uploadRoot -AllowedRequestContentTypes 'multipart/mixed' -MaxNestingDepth 1
 
-<#
+
 [OpenApiSchemaComponent(Description = 'Nested multipart request body.' )]
 class OuterControl {
     [OpenApiProperty(Description = 'Stage identifier')]
@@ -79,32 +79,33 @@ class OuterControl {
 [OpenApiSchemaComponent(Description = 'Inner nested multipart payload.')]
 class NestedParts {
 
-    [KrPart(Required = $true, MaxBytes = 1024, ContentTypes = 'text/plain')]
+    [KrPartAttribute(Required = $true, MaxBytes = 1024, ContentTypes = 'text/plain'    )]
     [OpenApiProperty(Description = 'Inner text part.')]
     [string] $text
 
-    [KrPart(Required = $true, MaxBytes = 4096, ContentTypes = 'application/json')]
+   # [KrPartAttribute(Required = $true, MaxBytes = 4096, ContentTypes = 'application/json')]
     [OpenApiProperty(Description = 'Inner JSON part.')]
     [string] $json  # or a real class if you want strict JSON
 }
 [OpenApiSchemaComponent(Description = 'Nested multipart request body.')]
 class NestedMultipartRequest {
-    [KrPart(Required = $true, MaxBytes = 1024, ContentTypes = 'application/json')]
+  #  [KrPart(Required = $true, MaxBytes = 1024, ContentTypes = 'application/json')]
     [OpenApiProperty(Description = 'Outer JSON control object.')]
     [pscustomobject] $outer  # or a class
 
-    [KrPart(Required = $true, MaxBytes = 1048576, ContentTypes = 'multipart/mixed')]
+ #   [KrPart(Required = $true, MaxBytes = 1048576, ContentTypes = 'multipart/mixed')]
     [OpenApiProperty(Description = 'Nested multipart container.')]
     [NestedParts[]] $nested # Nested multipart payload definition
-}#>
-#
+}
+
+<#
 .SYNOPSIS
     Upload endpoint for nested multipart/mixed
 .DESCRIPTION
     Handles nested multipart/mixed payloads with file and field processing.
 .PARAMETER FormPayload
     The parsed multipart/mixed payload.
->
+#>
 function nested2 {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/nested')]
     [KrBindForm( MaxNestingDepth = 1)]

@@ -4,9 +4,8 @@
 /// Defines a rule for a named multipart part.
 /// </summary>
 [AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
-public sealed class KrPart : KestrunAnnotation
+public sealed class KrPartAttribute : KestrunAnnotation
 {
-
     /// <summary>
     /// Gets or sets the description of the part.
     /// </summary>
@@ -25,17 +24,17 @@ public sealed class KrPart : KestrunAnnotation
     /// <summary>
     /// Gets or sets the allowed content types for the part.
     /// </summary>
-    public List<string> ContentTypes { get; set; } = [];
+    public string[] ContentTypes { get; set; } = [];
 
     /// <summary>
     /// Gets or sets the allowed file extensions for file parts.
     /// </summary>
-    public List<string> Extensions { get; set; } = [];
+    public string[] Extensions { get; set; } = [];
 
     /// <summary>
     /// Gets or sets the maximum number of bytes allowed for the part.
     /// </summary>
-    public long? MaxBytes { get; set; }
+    public long MaxBytes { get; set; }
 
     /// <summary>
     /// Gets or sets the decode mode for the part.

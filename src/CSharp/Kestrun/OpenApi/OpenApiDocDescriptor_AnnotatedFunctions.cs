@@ -1127,7 +1127,7 @@ public partial class OpenApiDocDescriptor
 
         // Set the script block or wrap for form options
         routeOptions.ScriptCode.ScriptBlock = sb;
-        // routeOptions.DefaultResponseContentType = "application/json";
+        routeOptions.DefaultResponseContentType = "application/json";
         _ = Host.AddMapRoute(routeOptions);
     }
 

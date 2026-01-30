@@ -216,7 +216,13 @@ function InvokeSseBroadcastProgress {
 Add-KrOpenApiRoute  # Default pattern '/openapi/{version}/openapi.{format}'
 
 Build-KrOpenApiDocument
-Test-KrOpenApiDocument
+
+# Test and log OpenAPI document validation result
+if (Test-KrOpenApiDocument) {
+    Write-KrLog -Level Information -Message 'OpenAPI document built and validated successfully.'
+} else {
+    Write-KrLog -Level Error -Message 'OpenAPI document validation failed.'
+}
 
 Write-Host '🟢 Kestrun SSE Broadcast Demo (OpenAPI) Server Started' -ForegroundColor Green
 Write-Host "📍 Navigate to http://localhost:$Port" -ForegroundColor Cyan

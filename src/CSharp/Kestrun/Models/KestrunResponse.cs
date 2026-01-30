@@ -1355,8 +1355,15 @@ public class KestrunResponse
             }
             else
             {
-                response.ContentType = null;
-                response.ContentLength = null;
+                if (!response.HasStarted && string.IsNullOrEmpty(response.ContentType))
+                {
+                    response.ContentType = null;
+                }
+
+                if (!response.HasStarted)
+                {
+                    response.ContentLength = null;
+                }
                 if (Log.IsEnabled(LogEventLevel.Debug))
                 {
                     Log.Debug("Status-only: HasStarted={HasStarted} CL={CL} CT='{CT}'",

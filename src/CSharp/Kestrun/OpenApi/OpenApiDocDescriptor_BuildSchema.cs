@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.Json.Nodes;
+using Kestrun.Forms;
 using Microsoft.OpenApi;
 
 namespace Kestrun.OpenApi;
@@ -131,6 +132,7 @@ public partial class OpenApiDocDescriptor
         }
         ApplySchemaAttr(MergeXmlAttributes(p), schema);
         PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
+        FormHelper.ApplyKrPartAttributes(Host, p, built);
         return schema;
     }
 

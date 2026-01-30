@@ -69,9 +69,6 @@ New-KrFormPartRule -Name 'nested' -MaxBytes (1024 * 1024) |
 
 [OpenApiSchemaComponent(Description = 'Nested multipart request body.' )]
 class OuterControl {
-    [OpenApiProperty(Description = 'Stage identifier')]
-    [string] $stage
-
     [OpenApiAdditionalProperties()]
     $AdditionalProperties
 }
@@ -83,17 +80,17 @@ class NestedParts {
     [OpenApiProperty(Description = 'Inner text part.')]
     [string] $text
 
-   # [KrPartAttribute(Required = $true, MaxBytes = 4096, ContentTypes = 'application/json')]
+    [KrPartAttribute(Required = $true, MaxBytes = 4096, ContentTypes = 'application/json')]
     [OpenApiProperty(Description = 'Inner JSON part.')]
     [string] $json  # or a real class if you want strict JSON
 }
 [OpenApiSchemaComponent(Description = 'Nested multipart request body.')]
 class NestedMultipartRequest {
-  #  [KrPart(Required = $true, MaxBytes = 1024, ContentTypes = 'application/json')]
+    [KrPart(Required = $true, MaxBytes = 1024, ContentTypes = 'application/json')]
     [OpenApiProperty(Description = 'Outer JSON control object.')]
-    [pscustomobject] $outer  # or a class
+    [OuterControl] $outer  # or a class
 
- #   [KrPart(Required = $true, MaxBytes = 1048576, ContentTypes = 'multipart/mixed')]
+    [KrPart(Required = $true, MaxBytes = 1048576, ContentTypes = 'multipart/mixed')]
     [OpenApiProperty(Description = 'Nested multipart container.')]
     [NestedParts[]] $nested # Nested multipart payload definition
 }
@@ -106,7 +103,7 @@ class NestedMultipartRequest {
 .PARAMETER FormPayload
     The parsed multipart/mixed payload.
 #>
-function nested2 {
+function nested {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/nested')]
     [KrBindForm( MaxNestingDepth = 1)]
     [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
@@ -136,7 +133,7 @@ function nested2 {
 .PARAMETER FormPayload
     The parsed multipart/mixed payload.
 #>
-function nested {
+function nested3 {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/nested')]
     [KrBindForm(Template = 'NestedForm')]
     [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]

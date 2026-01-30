@@ -13,6 +13,11 @@ public record KestrunHostRuntime
     public Dictionary<string, KrFormOptions> FormOptions { get; } = new Dictionary<string, KrFormOptions>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Gets the form part rules for Kestrun hosts.
+    /// </summary>
+    public Dictionary<string, KrFormPartRule> FormPartRules { get; } = new Dictionary<string, KrFormPartRule>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Gets the timestamp when the Kestrun host was started.
     /// </summary>
     public DateTime? StartTime { get; internal set; }

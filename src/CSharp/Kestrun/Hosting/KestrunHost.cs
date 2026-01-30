@@ -439,6 +439,41 @@ public partial class KestrunHost : IDisposable
     public KrFormOptions? GetFormOption(string name) => Runtime.FormOptions.TryGetValue(name, out var options) ? options : null;
 
     /// <summary>
+    /// Adds a form part rule for the specified name.
+    /// </summary>
+    /// <param name="ruleOptions">The form part rule to add.</param>
+    /// <returns>True if the rule was added successfully; otherwise, false.</returns>
+    public bool AddFormPartRule(KrFormPartRule ruleOptions)
+    {
+        ArgumentNullException.ThrowIfNull(ruleOptions);
+        ArgumentNullException.ThrowIfNull(ruleOptions.Name);
+
+        if (Runtime.FormPartRules.TryAdd(ruleOptions.Name, ruleOptions))
+        {
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("Added form part rule with name '{FormPartRuleName}'.", ruleOptions.Name);
+            }
+            return true;
+        }
+        else
+        {
+            if (Logger.IsEnabled(LogEventLevel.Warning))
+            {
+                Logger.Warning("Form part rule with name '{FormPartRuleName}' already exists. Skipping addition.", ruleOptions.Name);
+            }
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Gets the form part rule for the specified name.
+    /// </summary>
+    /// <param name="name">The name of the form part rule.</param>
+    /// <returns>The form part rule if found; otherwise, null.</returns>
+    public KrFormPartRule? GetFormPartRule(string name) => Runtime.FormPartRules.TryGetValue(name, out var options) ? options : null;
+
+    /// <summary>
     /// Gets the OpenAPI document descriptor for the specified document ID.
     /// </summary>
     /// <param name="apiDocId">The ID of the OpenAPI document.</param>

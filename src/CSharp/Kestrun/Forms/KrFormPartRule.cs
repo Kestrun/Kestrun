@@ -60,34 +60,3 @@ public sealed class KrFormPartRule
     /// </summary>
     public bool StoreToDisk { get; set; } = true;
 }
-
-/// <summary>
-/// Represents decode mode options for parts (scaffold only).
-/// </summary>
-public enum KrPartDecodeMode
-{
-    /// <summary>
-    /// No decoding.
-    /// </summary>
-    None,
-
-    /// <summary>
-    /// Decode as UTF-8 text.
-    /// </summary>
-    TextUtf8,
-
-    /// <summary>
-    /// Decode as JSON (placeholder).
-    /// </summary>
-    Json,
-
-    /// <summary>
-    /// Decode as Base64 (placeholder).
-    /// </summary>
-    Base64,
-
-    /// <summary>
-    /// Decode as Base64 URL (placeholder).
-    /// </summary>
-    Base64Url
-}

@@ -71,7 +71,7 @@ function New-KrFormPartRule {
         [long] $MaxBytes,
 
         [Parameter()]
-        [Kestrun.Forms.KrPartDecodeMode] $DecodeMode = [Kestrun.Forms.KrPartDecodeMode]::None,
+        [KrPartDecodeMode] $DecodeMode = [KrPartDecodeMode]::None,
 
         [Parameter()]
         [string] $DestinationPath,
@@ -81,6 +81,8 @@ function New-KrFormPartRule {
     )
     begin {
         $bag = [System.Collections.Generic.List[Kestrun.Forms.KrFormPartRule]]::new()
+        # Ensure the server instance is resolved
+        $Server = Resolve-KestrunServe
     }
     process {
         if ( $null -ne $Rules ) {
@@ -126,7 +128,13 @@ function New-KrFormPartRule {
         if ($PSBoundParameters.ContainsKey('StoreToDisk')) {
             $Rule.StoreToDisk = $StoreToDisk.IsPresent
         }
-        $bag.Add($Rule)
+
+        if (-not ($Server.AddFormPartRule($Rule))) {
+            throw "Failed to add form part rule named '$Name' because a rule with the same name already exists."
+        }
+
+        # Add to output collection
+        $bag.Add($Rule) | Out-Null
         , [Kestrun.Forms.KrFormPartRule[]] $bag.ToArray()
     }
 }

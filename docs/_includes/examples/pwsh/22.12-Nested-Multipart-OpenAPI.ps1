@@ -63,8 +63,24 @@ $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.5-
 
 # Add Rules
 # Note: nested multipart is parsed as ordered parts; rules apply when a part includes a Content-Disposition name.
-New-KrFormPartRule -Name 'nested' -MaxBytes (1024 * 1024) |
+New-KrFormPartRule -Name 'outer' -Required -MaxBytes 1024 `
+    -AllowOnlyOne `
+    -AllowedContentTypes 'application/json' |
+
+    New-KrFormPartRule -Name 'nested' -Required -MaxBytes (1024 * 1024) `
+        -AllowOnlyOne `
+        -AllowedContentTypes 'multipart/mixed' |
+
+    # These apply only inside the nested multipart container (Scope = 'nested')
+    New-KrFormPartRule -Name 'text' -Scope 'nested' -Required -MaxBytes 1024 `
+        -AllowOnlyOne `
+        -AllowedContentTypes 'text/plain' |
+
+    New-KrFormPartRule -Name 'json' -Scope 'nested' -Required -MaxBytes 4096 `
+        -AllowOnlyOne `
+        -AllowedContentTypes 'application/json' |
     Add-KrFormOption -Name 'NestedForm' -DefaultUploadPath $uploadRoot -AllowedRequestContentTypes 'multipart/mixed' -MaxNestingDepth 1
+
 
 <#.SYNOPSIS
     Upload endpoint for nested multipart/mixed

@@ -113,7 +113,7 @@ public class ParameterForInjectionInfoTests
     public void Ctor_FromOpenApiParameter_ThrowsOnNulls()
     {
         var metadata = new ParameterMetadata("id", typeof(int));
-        _ = Assert.Throws<ArgumentNullException>(() => new ParameterForInjectionInfo(metadata, (OpenApiParameter)null!));
+        _ = Assert.Throws<ArgumentNullException>(() => new ParameterForInjectionInfo(metadata, null!));
         _ = Assert.Throws<ArgumentNullException>(() => new ParameterForInjectionInfo(null!, new OpenApiParameter()));
     }
 

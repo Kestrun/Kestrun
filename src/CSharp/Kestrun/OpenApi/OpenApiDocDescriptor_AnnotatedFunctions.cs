@@ -943,6 +943,17 @@ public partial class OpenApiDocDescriptor
 
         metadata.RequestBody = requestBody;
         metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
+
+        if (routeOptions.FormOptions is null && Host.Runtime.FormOptions.TryGetValue(paramInfo.ParameterType.Name, out var formOptionsValue))
+        {
+            routeOptions.FormOptions = new KrFormOptions(formOptionsValue);
+            if (requestBody.Content?.Keys.Count > 0)
+            {
+                routeOptions.FormOptions.AllowedRequestContentTypes.Clear();
+                routeOptions.FormOptions.AllowedRequestContentTypes.AddRange(requestBody.Content?.Keys ?? []);
+            }
+        }
+        // Add the parameter for injection
         routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBody, routeOptions.FormOptions));
     }
 

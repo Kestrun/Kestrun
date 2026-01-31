@@ -94,7 +94,7 @@ class NestedParts {
 
 [OpenApiSchemaComponent(Description = 'Nested multipart request body.')]
 [KrBindForm( MaxNestingDepth = 1, DefaultUploadPath = './kestrun-uploads-22.5-nested-multipart')]
-class NestedMultipartRequest {
+class NestedMultipartRequest:IKrFormPayload {
     [KrPart(Required = $true, MaxBytes = 1024, ContentTypes = 'application/json')]
     [OpenApiProperty(Description = 'Outer JSON control object.')]
     [OuterControl] $outer  # or a class
@@ -114,7 +114,7 @@ class NestedMultipartRequest {
 #>
 function nested {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/nested')]
-    [KrBindForm( MaxNestingDepth = 1)]
+   # [KrBindForm( MaxNestingDepth = 1)]
     [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
 
     param(

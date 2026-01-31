@@ -4,12 +4,15 @@ using System.Collections.ObjectModel;
 /// Represents a parsed form payload.
 /// </summary>
 #pragma warning disable CA1050 // Declare types in namespaces
-public abstract record KrFormPayload;
+public interface IKrFormPayload
+{
+
+};
 
 /// <summary>
 /// Represents a form payload containing named fields and files.
 /// </summary>
-public sealed record KrFormData : KrFormPayload
+public sealed record KrFormData : IKrFormPayload
 {
     /// <summary>
     /// Gets the parsed fields keyed by field name.
@@ -25,7 +28,7 @@ public sealed record KrFormData : KrFormPayload
 /// <summary>
 /// Represents a form payload containing ordered parts.
 /// </summary>
-public sealed record KrMultipart : KrFormPayload
+public sealed record KrMultipart : IKrFormPayload
 {
     /// <summary>
     /// Gets the ordered list of parts in the payload.
@@ -107,7 +110,7 @@ public sealed record KrRawPart
     /// <summary>
     /// Gets the nested multipart payload, if present.
     /// </summary>
-    public KrFormPayload? NestedPayload { get; init; }
+    public IKrFormPayload? NestedPayload { get; init; }
 }
 
 #pragma warning restore CA1050 // Declare types in namespaces

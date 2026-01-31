@@ -21,7 +21,7 @@ public static class KrFormParser
     /// <param name="options">The form parsing options.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The parsed payload.</returns>
-    public static async Task<KrFormPayload> ParseAsync(HttpContext context, KrFormOptions options, CancellationToken cancellationToken)
+    public static async Task<IKrFormPayload> ParseAsync(HttpContext context, KrFormOptions options, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(options);
@@ -89,7 +89,7 @@ public static class KrFormParser
     /// <param name="options">The form parsing options.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The parsed payload.</returns>
-    public static KrFormPayload Parse(HttpContext context, KrFormOptions options, CancellationToken cancellationToken) =>
+    public static IKrFormPayload Parse(HttpContext context, KrFormOptions options, CancellationToken cancellationToken) =>
            ParseAsync(context, options, cancellationToken).GetAwaiter().GetResult();
 
     /// <summary>
@@ -116,7 +116,7 @@ public static class KrFormParser
         logger.Debug("Set MaxRequestBodySize to {MaxBytes}", options.Limits.MaxRequestBodyBytes);
     }
 
-    private static async Task<KrFormPayload> ParseUrlEncodedAsync(HttpContext context, KrFormOptions options, Logger logger, CancellationToken cancellationToken)
+    private static async Task<IKrFormPayload> ParseUrlEncodedAsync(HttpContext context, KrFormOptions options, Logger logger, CancellationToken cancellationToken)
     {
         var payload = new KrFormData();
         var form = await context.Request.ReadFormAsync(cancellationToken).ConfigureAwait(false);
@@ -132,7 +132,7 @@ public static class KrFormParser
         return payload;
     }
 
-    private static async Task<KrFormPayload> ParseMultipartFormDataAsync(HttpContext context, MediaTypeHeaderValue mediaType, KrFormOptions options, Logger logger, CancellationToken cancellationToken)
+    private static async Task<IKrFormPayload> ParseMultipartFormDataAsync(HttpContext context, MediaTypeHeaderValue mediaType, KrFormOptions options, Logger logger, CancellationToken cancellationToken)
     {
         var boundary = GetBoundary(mediaType);
         var reader = new MultipartReader(boundary, context.Request.Body)
@@ -250,13 +250,13 @@ public static class KrFormParser
         return payload;
     }
 
-    private static async Task<KrFormPayload> ParseMultipartOrderedAsync(HttpContext context, MediaTypeHeaderValue mediaType, KrFormOptions options, Logger logger, int nestingDepth, CancellationToken cancellationToken)
+    private static async Task<IKrFormPayload> ParseMultipartOrderedAsync(HttpContext context, MediaTypeHeaderValue mediaType, KrFormOptions options, Logger logger, int nestingDepth, CancellationToken cancellationToken)
     {
         var boundary = GetBoundary(mediaType);
         return await ParseMultipartFromStreamAsync(context.Request.Body, boundary, options, logger, nestingDepth, isRoot: true, scopeName: null, cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task<KrFormPayload> ParseMultipartFromStreamAsync(Stream body, string boundary, KrFormOptions options, Logger logger, int nestingDepth, bool isRoot, string? scopeName, CancellationToken cancellationToken)
+    private static async Task<IKrFormPayload> ParseMultipartFromStreamAsync(Stream body, string boundary, KrFormOptions options, Logger logger, int nestingDepth, bool isRoot, string? scopeName, CancellationToken cancellationToken)
     {
         var reader = new MultipartReader(boundary, body)
         {
@@ -326,7 +326,7 @@ public static class KrFormParser
             var result = await StorePartAsync(section.Body, options, rule, null, contentEncoding, logger, cancellationToken).ConfigureAwait(false);
             totalBytes += result.Length;
 
-            KrFormPayload? nested = null;
+            IKrFormPayload? nested = null;
             if (IsMultipartContentType(contentType))
             {
                 if (nestingDepth >= options.Limits.MaxNestingDepth)

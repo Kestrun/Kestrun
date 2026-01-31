@@ -8,6 +8,72 @@ namespace Kestrun.Forms;
 internal static class FormHelper
 {
     /// <summary>
+    /// Populates <see cref="KrFormPartRule.NestedRules"/> for rules within a <see cref="KrFormOptions"/> instance.
+    /// This uses <see cref="KrFormPartRule.Scope"/> as the parent container rule name and attaches all scoped rules
+    /// to their matching container rule(s) (case-insensitive).
+    /// </summary>
+    /// <param name="options">The options containing rules to link.</param>
+    internal static void PopulateNestedRulesFromScopes(KrFormOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        // Clear first to avoid duplication when called multiple times.
+        foreach (var rule in options.Rules)
+        {
+            rule.NestedRules.Clear();
+        }
+
+        // Build a lookup of container-name -> list of container rules.
+        var containers = new Dictionary<string, List<KrFormPartRule>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var rule in options.Rules)
+        {
+            if (string.IsNullOrWhiteSpace(rule.Name))
+            {
+                continue;
+            }
+
+            if (!containers.TryGetValue(rule.Name, out var bag))
+            {
+                bag = [];
+                containers.Add(rule.Name, bag);
+            }
+
+            bag.Add(rule);
+        }
+
+        foreach (var child in options.Rules)
+        {
+            if (string.IsNullOrWhiteSpace(child.Scope))
+            {
+                continue;
+            }
+
+            if (!containers.TryGetValue(child.Scope, out var parents) || parents.Count == 0)
+            {
+                continue;
+            }
+
+            foreach (var parent in parents)
+            {
+                var exists = false;
+                for (var i = 0; i < parent.NestedRules.Count; i++)
+                {
+                    if (ReferenceEquals(parent.NestedRules[i], child))
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
+
+                if (!exists)
+                {
+                    parent.NestedRules.Add(child);
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Applies KrPartAttribute annotations to the host's form part rules.
     /// </summary>
     /// <param name="host">The Kestrun host runtime.</param>

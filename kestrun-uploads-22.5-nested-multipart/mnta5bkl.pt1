@@ -1,0 +1,11 @@
+--inner-boundary
+Content-Disposition: form-data; name="text"
+Content-Type: text/plain
+
+inner-1
+--inner-boundary
+Content-Disposition: form-data; name="json"
+Content-Type: application/json
+
+{"nested":true}
+--inner-boundary--

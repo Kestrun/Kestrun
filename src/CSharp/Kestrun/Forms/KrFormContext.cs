@@ -14,7 +14,7 @@ public sealed record KrFormContext
     /// <param name="kestrunContext">The Kestrun context.</param>
     /// <param name="options">The form parsing options.</param>
     /// <param name="payload">The parsed payload.</param>
-    public KrFormContext(KestrunContext kestrunContext, KrFormOptions options, KrFormPayload payload)
+    public KrFormContext(KestrunContext kestrunContext, KrFormOptions options, IKrFormPayload payload)
     {
         KestrunContext = kestrunContext;
         Host = kestrunContext.Host;
@@ -46,7 +46,7 @@ public sealed record KrFormContext
     /// <summary>
     /// Gets the parsed payload.
     /// </summary>
-    public KrFormPayload Payload { get; }
+    public IKrFormPayload Payload { get; }
 
     /// <summary>
     /// Gets the logger associated with the host.

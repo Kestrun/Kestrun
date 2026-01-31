@@ -415,6 +415,10 @@ public partial class KestrunHost : IDisposable
 
         if (Runtime.FormOptions.TryAdd(options.Name, options))
         {
+            // Link scoped rules under their container rule(s) once at configuration-time.
+            // This keeps KrFormPartRule.NestedRules useful for introspection/debugging.
+            FormHelper.PopulateNestedRulesFromScopes(options);
+
             if (Logger.IsEnabled(LogEventLevel.Debug))
             {
                 Logger.Debug("Added form option with name '{FormOptionName}'.", options.Name);

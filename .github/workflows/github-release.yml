@@ -28,7 +28,7 @@ jobs:
         runs-on: ubuntu-latest
         needs: [lint, clamav]
         steps:
-            - uses: actions/checkout@v6.0.1
+            - uses: actions/checkout@v6.0.2
               with: { fetch-depth: 0 }
 
             - name: Compute tag & prerelease from version.json

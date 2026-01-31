@@ -16,6 +16,11 @@ public sealed class KrFormPartRule
     public string? Scope { get; set; }
 
     /// <summary>
+    /// Gets the nested part rules for multipart/mixed parts.
+    /// </summary>
+    public List<KrFormPartRule> NestedRules { get; } = [];
+
+    /// <summary>
     /// Gets or sets the description of the part.
     /// </summary>
     public string? Description { get; set; }

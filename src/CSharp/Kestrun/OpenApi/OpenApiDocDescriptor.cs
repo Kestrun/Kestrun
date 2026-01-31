@@ -6,6 +6,8 @@ using Kestrun.Hosting.Options;
 using Kestrun.Utilities;
 using System.Collections;
 using System.Text.Json.Nodes;
+using Kestrun.Forms;
+using System.Reflection;
 
 namespace Kestrun.OpenApi;
 
@@ -124,8 +126,48 @@ public partial class OpenApiDocDescriptor
         // Generate components from the discovered types
         GenerateComponents(components);
 
+        AddFormOptions(components);
+
         // Process variable annotations from the host
         ProcessVariableAnnotations(Host.ComponentAnnotations);
+    }
+
+    private void AddFormOptions(OpenApiComponentSet components)
+    {
+        foreach (var type in components.SchemaTypes)
+        {
+
+            if (type is not null && type.IsDefined(typeof(KrBindFormAttribute), true))
+            {
+                var formOptions = BuildFormOptionsSchema(type.FullName, type);
+                foreach (var partRule in Host.Runtime.FormPartRules)
+                {
+
+                }
+
+                if (formOptions is not null)
+                {
+                    _ = Host.AddFormOption(formOptions);
+                }
+            }
+        }
+        // Add form options as schema components
+    }
+
+    private KrFormOptions? BuildFormOptionsSchema(string? typeName, Type type)
+    {
+        if (typeName is null)
+        {
+            return null;
+        }
+
+        foreach (var attr in type.GetCustomAttributes<KrBindFormAttribute>(inherit: false))
+        {
+            var formOptions = FormHelper.ApplyKrPartAttributes(attr);
+            formOptions.Name = typeName;
+            return formOptions;
+        }
+        return null;
     }
 
     /// <summary>

@@ -1,4 +1,7 @@
-[AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
+/// <summary>
+/// Specifies that a method or class binds to a form with specific options.
+/// </summary>
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
 public sealed class KrBindFormAttribute : KestrunAnnotation
 {
     /// <summary>

@@ -82,7 +82,7 @@ function New-KrFormPartRule {
     begin {
         $bag = [System.Collections.Generic.List[Kestrun.Forms.KrFormPartRule]]::new()
         # Ensure the server instance is resolved
-        $Server = Resolve-KestrunServe
+        $Server = Resolve-KestrunServer
     }
     process {
         if ( $null -ne $Rules ) {

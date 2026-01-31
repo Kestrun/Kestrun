@@ -85,7 +85,7 @@ public partial class KestrunResponseTests
 
     [Fact]
     [Trait("Category", "Models")]
-    public async Task ApplyTo_StatusOnly_ClearsContentTypeAndLength()
+    public async Task ApplyTo_StatusOnly_PreservesExistingContentType_AndClearsLength()
     {
         var ctx = TestRequestFactory.CreateContext();
         var res = ctx.Response;
@@ -99,7 +99,7 @@ public partial class KestrunResponseTests
         await res.ApplyTo(http.Response);
 
         Assert.Equal(StatusCodes.Status204NoContent, http.Response.StatusCode);
-        Assert.Null(http.Response.ContentType);
+        Assert.Equal("text/plain", http.Response.ContentType);
         Assert.Null(http.Response.ContentLength);
     }
 

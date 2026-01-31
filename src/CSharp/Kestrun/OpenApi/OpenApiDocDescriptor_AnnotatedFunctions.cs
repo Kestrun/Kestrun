@@ -171,51 +171,9 @@ public partial class OpenApiDocDescriptor
             return;
         }
 
-        // Create new form options based on the attribute properties
-        var formOptions = new KrFormOptions();
+        // If no template is specified, apply the attribute properties directly
+        var formOptions = FormHelper.ApplyKrPartAttributes(formAttr);
 
-        if (formAttr.DefaultUploadPath is not null)
-        {
-            formOptions.DefaultUploadPath = formAttr.DefaultUploadPath;
-        }
-
-        formOptions.ComputeSha256 = formAttr.ComputeSha256;
-        formOptions.EnablePartDecompression = formAttr.EnablePartDecompression;
-        if (formAttr.MaxDecompressedBytesPerPart > 0)
-        {
-            formOptions.MaxDecompressedBytesPerPart = formAttr.MaxDecompressedBytesPerPart;
-        }
-        formOptions.RejectUnknownRequestContentType = formAttr.RejectUnknownRequestContentType;
-        if (formAttr.AllowedPartContentEncodings is not null)
-        {
-            formOptions.AllowedPartContentEncodings.Clear();
-            formOptions.AllowedPartContentEncodings.AddRange(formAttr.AllowedPartContentEncodings);
-        }
-        formOptions.RejectUnknownContentEncoding = formAttr.RejectUnknownContentEncoding;
-        if (formAttr.MaxRequestBodyBytes > 0)
-        {
-            formOptions.Limits.MaxRequestBodyBytes = formAttr.MaxRequestBodyBytes;
-        }
-        if (formAttr.MaxPartBodyBytes > 0)
-        {
-            formOptions.Limits.MaxPartBodyBytes = formAttr.MaxPartBodyBytes;
-        }
-        if (formAttr.MaxParts > 0)
-        {
-            formOptions.Limits.MaxParts = formAttr.MaxParts;
-        }
-        if (formAttr.MaxHeaderBytesPerPart > 0)
-        {
-            formOptions.Limits.MaxHeaderBytesPerPart = formAttr.MaxHeaderBytesPerPart;
-        }
-        if (formAttr.MaxFieldValueBytes > 0)
-        {
-            formOptions.Limits.MaxFieldValueBytes = formAttr.MaxFieldValueBytes;
-        }
-        if (formAttr.MaxNestingDepth > 0)
-        {
-            formOptions.Limits.MaxNestingDepth = formAttr.MaxNestingDepth;
-        }
         // Assign the form options to the route options
         routeOptions.FormOptions = formOptions;
     }

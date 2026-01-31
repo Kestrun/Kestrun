@@ -28,7 +28,7 @@ public sealed record KrFormData : IKrFormPayload
 /// <summary>
 /// Represents a form payload containing ordered parts.
 /// </summary>
-public sealed record KrMultipart : IKrFormPayload
+public class KrMultipart : IKrFormPayload
 {
     /// <summary>
     /// Gets the ordered list of parts in the payload.
@@ -39,7 +39,7 @@ public sealed record KrMultipart : IKrFormPayload
 /// <summary>
 /// Represents a stored file part.
 /// </summary>
-public sealed record KrFilePart
+public class KrFilePart
 {
     /// <summary>
     /// Gets the field name associated with the file part.

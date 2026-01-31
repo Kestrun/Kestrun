@@ -6,8 +6,6 @@
         It enables administrators to control server behavior, resource usage, and protocol compliance by
         setting limits on request sizes, connection counts, timeouts, and other operational parameters.
         Each parameter is optional and, if not specified, the server will use its built-in default value.
-    .PARAMETER Server
-        The Kestrun server instance to configure. This parameter is mandatory and must be a valid server object.
     .PARAMETER AllowSynchronousIO
         If set to $true, allows synchronous IO operations on the server.
         Synchronous IO can impact scalability and is generally discouraged.
@@ -35,8 +33,10 @@
         Specifies the minimum number of runspaces to use for script execution.
         This ensures that at least a certain number of runspaces are always available for processing requests.
         Default: 1.
-    .PARAMETER PassThru
-        If specified, the cmdlet will return the modified server instance after applying the limits.
+    .PARAMETER DefaultUploadPath
+        Specifies the default file system path where uploaded files will be stored.
+        This path is used when no specific upload path is defined in form options.
+        Default: System temporary directory (e.g., C:\Windows\Temp\kestrun-uploads).
     .EXAMPLE
         Set-KrServerOptions -Server $srv -MaxRequestBodySize 1000000
         Configures the server instance $srv to limit request body size to 1,000,000 bytes.
@@ -52,75 +52,76 @@ function Set-KrServerOptions {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
-        [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter()]
         [switch]$AllowSynchronousIO,
+
         [Parameter()]
-        [switch]$DisableResponseHeaderCompression ,
+        [switch]$DisableResponseHeaderCompression,
+
         [Parameter()]
         [switch]$DenyServerHeader,
+
         [Parameter()]
         [switch]$AllowAlternateSchemes,
+
         [Parameter()]
         [switch]$AllowHostHeaderOverride,
+
         [Parameter()]
         [switch]$DisableStringReuse,
+
         [Parameter()]
         [int]$MaxRunspaces,
+
         [Parameter()]
         [int]$MinRunspaces = 1,
+
         [Parameter()]
-        [switch]$PassThru
+        [string]$DefaultUploadPath
     )
-    begin {
-        # Ensure the server instance is resolved
-        $Server = Resolve-KestrunServer -Server $Server
+    # Ensure the server instance is resolved
+    $Server = Resolve-KestrunServer
+
+    $options = $Server.Options
+    if ($null -eq $options) {
+        throw 'Server is not initialized. Please ensure the server is configured before setting options.'
     }
-    process {
-        $options = $Server.Options
-        if ($null -eq $options) {
-            throw 'Server is not initialized. Please ensure the server is configured before setting options.'
-        }
 
-        if ($AllowSynchronousIO.IsPresent) {
-            Write-KrLog -Logger $Server.Logger -Level Verbose -Message "Setting ServerOptions.AllowSynchronousIO to {AllowSynchronousIO}" -Values $AllowSynchronousIO.IsPresent
-            $options.ServerOptions.AllowSynchronousIO = $AllowSynchronousIO.IsPresent
-        }
-        if ($DisableResponseHeaderCompression.IsPresent) {
-            Write-KrLog -Logger $Server.Logger -Level Verbose -Message "Setting ServerOptions.AllowResponseHeaderCompression to {AllowResponseHeaderCompression}" `
-                -Values $false
-            $options.ServerOptions.AllowResponseHeaderCompression = $false
-        }
-        if ($DenyServerHeader.IsPresent) {
-            Write-KrLog -Logger $Server.Logger -Level Verbose -Message "Setting ServerOptions.AddServerHeader to {AddServerHeader}" -Values $false
-            $options.ServerOptions.AddServerHeader = $false
-        }
-        if ($AllowAlternateSchemes.IsPresent) {
-            Write-KrLog -Logger $Server.Logger -Level Verbose -Message "Setting ServerOptions.AllowAlternateSchemes to {AllowAlternateSchemes}" -Values $true
-            $options.ServerOptions.AllowAlternateSchemes = $true
-        }
-        if ($AllowHostHeaderOverride.IsPresent) {
-            Write-KrLog -Logger $Server.Logger -Level Verbose -Message "Setting ServerOptions.AllowHostHeaderOverride to {AllowHostHeaderOverride}" -Values $true
-            $options.ServerOptions.AllowHostHeaderOverride = $true
-        }
-        if ($DisableStringReuse.IsPresent) {
-            Write-KrLog -Logger $Server.Logger -Level Verbose -Message "Setting ServerOptions.DisableStringReuse to {DisableStringReuse}" -Values $true
-            $options.ServerOptions.DisableStringReuse = $true
-        }
-        if ($MaxRunspaces -gt 0) {
-            Write-KrLog -Logger $Server.Logger -Level Verbose -Message "Setting MaxRunspaces to {MaxRunspaces}" -Values $MaxRunspaces
-            $options.MaxRunspaces = $MaxRunspaces
-        }
-        if ($MinRunspaces -gt 0) {
-            Write-KrLog -Logger $Server.Logger -Level Verbose -Message "Setting MinRunspaces to {MinRunspaces}" -Values $MinRunspaces
-            $options.MinRunspaces = $MinRunspaces
-        }
-
-        if ($PassThru.IsPresent) {
-            # if the PassThru switch is specified, return the modified server instance
-            return $Server
-        }
+    if ($AllowSynchronousIO.IsPresent) {
+        Write-KrLog -Logger $Server.Logger -Level Verbose -Message 'Setting ServerOptions.AllowSynchronousIO to {AllowSynchronousIO}' -Values $AllowSynchronousIO.IsPresent
+        $options.ServerOptions.AllowSynchronousIO = $AllowSynchronousIO.IsPresent
+    }
+    if ($DisableResponseHeaderCompression.IsPresent) {
+        Write-KrLog -Logger $Server.Logger -Level Verbose -Message 'Setting ServerOptions.AllowResponseHeaderCompression to {AllowResponseHeaderCompression}' `
+            -Values $false
+        $options.ServerOptions.AllowResponseHeaderCompression = $false
+    }
+    if ($DenyServerHeader.IsPresent) {
+        Write-KrLog -Logger $Server.Logger -Level Verbose -Message 'Setting ServerOptions.AddServerHeader to {AddServerHeader}' -Values $false
+        $options.ServerOptions.AddServerHeader = $false
+    }
+    if ($AllowAlternateSchemes.IsPresent) {
+        Write-KrLog -Logger $Server.Logger -Level Verbose -Message 'Setting ServerOptions.AllowAlternateSchemes to {AllowAlternateSchemes}' -Values $true
+        $options.ServerOptions.AllowAlternateSchemes = $true
+    }
+    if ($AllowHostHeaderOverride.IsPresent) {
+        Write-KrLog -Logger $Server.Logger -Level Verbose -Message 'Setting ServerOptions.AllowHostHeaderOverride to {AllowHostHeaderOverride}' -Values $true
+        $options.ServerOptions.AllowHostHeaderOverride = $true
+    }
+    if ($DisableStringReuse.IsPresent) {
+        Write-KrLog -Logger $Server.Logger -Level Verbose -Message 'Setting ServerOptions.DisableStringReuse to {DisableStringReuse}' -Values $true
+        $options.ServerOptions.DisableStringReuse = $true
+    }
+    if ($MaxRunspaces -gt 0) {
+        Write-KrLog -Logger $Server.Logger -Level Verbose -Message 'Setting MaxRunspaces to {MaxRunspaces}' -Values $MaxRunspaces
+        $options.MaxRunspaces = $MaxRunspaces
+    }
+    if ($MinRunspaces -gt 0) {
+        Write-KrLog -Logger $Server.Logger -Level Verbose -Message 'Setting MinRunspaces to {MinRunspaces}' -Values $MinRunspaces
+        $options.MinRunspaces = $MinRunspaces
+    }
+    if ($PSBoundParameters.ContainsKey('DefaultUploadPath')) {
+        Write-KrLog -Logger $Server.Logger -Level Verbose -Message 'Setting DefaultUploadPath to {DefaultUploadPath}' -Values $DefaultUploadPath
+        $options.DefaultUploadPath = $DefaultUploadPath
     }
 }
-

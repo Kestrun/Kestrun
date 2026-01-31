@@ -93,7 +93,7 @@ class NestedParts {
 }
 
 [OpenApiSchemaComponent(Description = 'Nested multipart request body.')]
-[KrBindForm( MaxNestingDepth = 1, DefaultUploadPath = './kestrun-uploads-22.5-nested-multipart')]
+[KrBindForm( MaxNestingDepth = 1)]
 class NestedMultipartRequest:IKrFormPayload {
     [KrPart(Required = $true, MaxBytes = 1024, ContentTypes = 'application/json')]
     [OpenApiProperty(Description = 'Outer JSON control object.')]
@@ -114,7 +114,7 @@ class NestedMultipartRequest:IKrFormPayload {
 #>
 function nested {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/nested')]
-   # [KrBindForm( MaxNestingDepth = 1)]
+    # [KrBindForm( MaxNestingDepth = 1)]
     [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
 
     param(
@@ -123,15 +123,17 @@ function nested {
     )
 
     # If you want to return counts, compute from bound model:
-    $resp = @{
-        outerStage = $FormPayload.outer.stage
-        nested = @{
-            hasText = [bool]$FormPayload.nested.text
-            hasJson = [bool]$FormPayload.nested.json
+    $outerParts = $FormPayload.Parts
+    $nestedSummary = @()
+    foreach ($part in $outerParts) {
+        if ($null -ne $part.NestedPayload) {
+            $nestedSummary += [ordered]@{
+                outerContentType = $part.ContentType
+                nestedCount = $part.NestedPayload.Parts.Count
+            }
         }
     }
-
-    Write-KrJsonResponse -InputObject $resp -StatusCode 200
+    Write-KrJsonResponse -InputObject @{ outerCount = $outerParts.Count; nested = $nestedSummary } -StatusCode 200
 }
 
 Enable-KrConfiguration

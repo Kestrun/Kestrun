@@ -35,7 +35,7 @@ public sealed class KrFormOptions
     /// <summary>
     /// Gets or sets the default upload path for stored parts.
     /// </summary>
-    public string DefaultUploadPath { get; set; } = Path.Combine(Path.GetTempPath(), "kestrun-uploads");
+    public string DefaultUploadPath { get; set; } = KestrunHostManager.Default?.Options.DefaultUploadPath ?? Path.Combine(Path.GetTempPath(), "kestrun-uploads");
 
     /// <summary>
     /// Gets or sets the filename sanitizer.

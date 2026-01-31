@@ -197,6 +197,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         if (param.FormOptions is not null)
         {
             converted = KrFormParser.Parse(context.HttpContext, param.FormOptions, context.Ct);
+            converted = CoerceFormPayloadForParameter(param.ParameterType, converted, logger, ps);
         }
         else
         {
@@ -207,6 +208,133 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         _ = ps.AddParameter(name, converted);
         StoreResolvedParameter(context, param, name, converted);
     }
+
+    /// <summary>
+    /// Coerces a parsed form payload to the expected parameter type when possible.
+    /// This supports parameters typed as <see cref="IKrFormPayload"/> as well as PowerShell
+    /// classes derived from <see cref="KrMultipart"/>.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to satisfy.</param>
+    /// <param name="payload">The parsed form payload.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>The original payload or a new instance compatible with the parameter type.</returns>
+    internal static object? CoerceFormPayloadForParameter(Type? parameterType, object? payload, Serilog.ILogger logger, PowerShell? ps = null)
+    {
+        if (parameterType is null || payload is not IKrFormPayload formPayload)
+        {
+            return payload;
+        }
+
+        if (parameterType.IsInstanceOfType(formPayload))
+        {
+            return formPayload;
+        }
+
+        if (formPayload is KrMultipart multipart && typeof(KrMultipart).IsAssignableFrom(parameterType))
+        {
+            var instance = IsPowerShellClassType(parameterType) && ps is not null
+                ? TryCreateMultipartInstanceInRunspace(ps, parameterType, logger)
+                : TryCreateMultipartInstance(parameterType, logger);
+
+            if (instance is not null)
+            {
+                instance.Parts.AddRange(multipart.Parts);
+                return instance;
+            }
+        }
+
+        return formPayload;
+    }
+
+    /// <summary>
+    /// Returns true when the type is a PowerShell class emitted in a dynamic assembly.
+    /// </summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <returns>True when the type originates from a PowerShell class assembly.</returns>
+    private static bool IsPowerShellClassType(Type type)
+    {
+        var asm = type.Assembly;
+        if (!asm.IsDynamic)
+        {
+            return false;
+        }
+
+        var fullName = asm.FullName;
+        return fullName is not null && fullName.StartsWith("PowerShell Class Assembly", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Attempts to create a <see cref="KrMultipart"/> instance for a derived parameter type.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to construct.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <returns>A new multipart instance or null if creation failed.</returns>
+    private static KrMultipart? TryCreateMultipartInstance(Type parameterType, Serilog.ILogger logger)
+    {
+        try
+        {
+            var instance = Activator.CreateInstance(parameterType, nonPublic: true) as KrMultipart;
+            if (instance is null)
+            {
+                logger.Warning("Failed to create form payload instance for parameter type {ParameterType}.", parameterType);
+            }
+            return instance;
+        }
+        catch (Exception ex)
+        {
+            logger.Warning(ex, "Failed to create form payload instance for parameter type {ParameterType}.", parameterType);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to create a derived <see cref="KrMultipart"/> instance using the current PowerShell runspace.
+    /// </summary>
+    /// <param name="ps">The current PowerShell instance.</param>
+    /// <param name="parameterType">The parameter type to construct.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <returns>A new multipart instance or null if creation failed.</returns>
+    private static KrMultipart? TryCreateMultipartInstanceInRunspace(PowerShell ps, Type parameterType, Serilog.ILogger logger)
+    {
+        try
+        {
+            using var localPs = PowerShell.Create();
+            localPs.Runspace = ps.Runspace;
+
+            var typeName = parameterType.FullName ?? parameterType.Name;
+            var escapedName = EscapePowerShellString(typeName);
+            _ = localPs.AddScript($"[Activator]::CreateInstance([type]'{escapedName}')");
+
+            var results = localPs.Invoke();
+            if (localPs.HadErrors || results.Count == 0)
+            {
+                logger.Warning("Failed to resolve PowerShell class type {ParameterType} in the current runspace.", parameterType);
+                return null;
+            }
+
+            var instance = results[0]?.BaseObject as KrMultipart;
+            if (instance is null)
+            {
+                logger.Warning("Resolved PowerShell class type {ParameterType} is not a KrMultipart instance.", parameterType);
+            }
+
+            return instance;
+        }
+        catch (Exception ex)
+        {
+            logger.Warning(ex, "Failed to create PowerShell class instance for parameter type {ParameterType}.", parameterType);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Escapes a string for inclusion in a single-quoted PowerShell string literal.
+    /// </summary>
+    /// <param name="value">The raw string value.</param>
+    /// <returns>An escaped string safe for single-quoted PowerShell literals.</returns>
+    private static string EscapePowerShellString(string value)
+        => value.Replace("'", "''", StringComparison.Ordinal);
 
     /// <summary>
     /// Logs the injection of a parameter when debug logging is enabled.

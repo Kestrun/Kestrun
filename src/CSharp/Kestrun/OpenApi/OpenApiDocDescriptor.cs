@@ -136,22 +136,52 @@ public partial class OpenApiDocDescriptor
     {
         foreach (var type in components.SchemaTypes)
         {
-
-            if (type is not null && type.IsDefined(typeof(KrBindFormAttribute), true))
+            if (type is null || !type.IsDefined(typeof(KrBindFormAttribute), inherit: true))
             {
-                var formOptions = BuildFormOptionsSchema(type.FullName, type);
-                foreach (var partRule in Host.Runtime.FormPartRules)
-                {
+                continue;
+            }
 
-                }
+            var formOptions = BuildFormOptionsSchema(type.FullName, type);
+            if (formOptions is null)
+            {
+                continue;
+            }
 
-                if (formOptions is not null)
-                {
-                    _ = Host.AddFormOption(formOptions);
-                }
+            var rules = FormHelper.BuildFormPartRulesFromType(type);
+            AddFormPartRules(formOptions, rules);
+
+            // Register the option in the host.
+            _ = Host.AddFormOption(formOptions);
+
+            // Register part rules in the host runtime (best-effort: host rule store is keyed by name).
+            foreach (var rule in rules)
+            {
+                _ = Host.AddFormPartRule(rule);
             }
         }
-        // Add form options as schema components
+    }
+
+    private static void AddFormPartRules(KrFormOptions options, IEnumerable<KrFormPartRule> rules)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var rule in rules)
+        {
+            if (string.IsNullOrWhiteSpace(rule.Name))
+            {
+                continue;
+            }
+
+            var key = string.IsNullOrWhiteSpace(rule.Scope)
+                ? rule.Name
+                : $"{rule.Scope}::{rule.Name}";
+
+            if (!seen.Add(key))
+            {
+                continue;
+            }
+
+            options.Rules.Add(rule);
+        }
     }
 
     private KrFormOptions? BuildFormOptionsSchema(string? typeName, Type type)

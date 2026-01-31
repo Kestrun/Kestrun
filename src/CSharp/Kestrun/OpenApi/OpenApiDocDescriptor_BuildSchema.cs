@@ -7,6 +7,8 @@ namespace Kestrun.OpenApi;
 
 public partial class OpenApiDocDescriptor
 {
+    private readonly Stack<string?> _formPartScopeStack = new();
+
     /// <summary>
     /// Merges OpenApiProperties with OpenApiXmlAttribute if present.
     /// </summary>
@@ -89,23 +91,43 @@ public partial class OpenApiDocDescriptor
             allowNull = true;
             pt = underlying;
         }
+        var currentScope = _formPartScopeStack.Count > 0 ? _formPartScopeStack.Peek() : null;
+        FormHelper.ApplyKrPartAttributes(Host, p, currentScope);
+
+        var hasKrPartAttribute = p.IsDefined(typeof(KrPartAttribute), inherit: false);
+        var partName = hasKrPartAttribute ? FormHelper.ResolvePartName(p) : null;
+        var pushScope = hasKrPartAttribute && !string.IsNullOrWhiteSpace(partName) && ShouldPushNestedScope(pt);
+        if (pushScope)
+        {
+            _formPartScopeStack.Push(partName);
+        }
         IOpenApiSchema schema;
+        try
+        {
 #pragma warning disable IDE0045
-        // Convert to conditional expression
-        if (PrimitiveSchemaMap.TryGetValue(pt, out var getSchema))
-        {
-            schema = getSchema();
-        }
-        else if (pt.IsArray)
-        {
-            schema = BuildArraySchema(pt, p, built);
-        }
-        else
-        {
-            // Treat enums and complex types the same: register as component and reference
-            schema = BuildComplexTypeSchema(pt, p, built);
-        }
+            // Convert to conditional expression
+            if (PrimitiveSchemaMap.TryGetValue(pt, out var getSchema))
+            {
+                schema = getSchema();
+            }
+            else if (pt.IsArray)
+            {
+                schema = BuildArraySchema(pt, p, built);
+            }
+            else
+            {
+                // Treat enums and complex types the same: register as component and reference
+                schema = BuildComplexTypeSchema(pt, p, built);
+            }
 #pragma warning restore IDE0045
+        }
+        finally
+        {
+            if (pushScope)
+            {
+                _ = _formPartScopeStack.Pop();
+            }
+        }
         // Convert to conditional expression
         // Apply nullable flag if needed
         if (allowNull)
@@ -132,8 +154,24 @@ public partial class OpenApiDocDescriptor
         }
         ApplySchemaAttr(MergeXmlAttributes(p), schema);
         PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
-        FormHelper.ApplyKrPartAttributes(Host, p, built);
         return schema;
+    }
+
+    private static bool ShouldPushNestedScope(Type propertyType)
+    {
+        var candidate = propertyType;
+
+        if (candidate.IsArray)
+        {
+            candidate = candidate.GetElementType()!;
+        }
+
+        if (candidate.IsGenericType && candidate.GetGenericTypeDefinition() == typeof(Nullable<>))
+        {
+            candidate = Nullable.GetUnderlyingType(candidate)!;
+        }
+
+        return !candidate.IsEnum && !PrimitiveSchemaMap.ContainsKey(candidate);
     }
 
     /// <summary>

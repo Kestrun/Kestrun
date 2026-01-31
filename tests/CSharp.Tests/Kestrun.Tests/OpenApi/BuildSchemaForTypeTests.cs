@@ -1,4 +1,5 @@
 using System.Reflection;
+using Kestrun.Forms;
 using Kestrun.Hosting;
 using Kestrun.OpenApi;
 using Microsoft.OpenApi;
@@ -186,6 +187,22 @@ public class BuildSchemaForTypeTests
 
     [Fact]
     [Trait("Category", "OpenAPI")]
+    public void RegistersScopedFormRulesFromNestedKrPartAttributes()
+    {
+        // Act
+        _ = InvokeBuildSchemaForType(typeof(FormWithNestedParts));
+
+        // Assert
+        Assert.True(_descriptor.Host.Runtime.FormPartRules.TryGetValue("Nested", out var parentRule));
+        Assert.True(_descriptor.Host.Runtime.FormPartRules.TryGetValue("Text", out var childRule));
+        Assert.Equal("Nested", childRule.Scope);
+        Assert.Contains(parentRule.NestedRules, rule =>
+            string.Equals(rule.Name, "Text", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(rule.Scope, "Nested", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    [Trait("Category", "OpenAPI")]
     public void CapturesDefaultPropertyValues()
     {
         // Arrange
@@ -346,6 +363,18 @@ public class ClassWithAdditionalProperties
 public class ClassWithoutDefaultConstructor(string name)
 {
     public string Name { get; set; } = name;
+}
+
+public class FormWithNestedParts
+{
+    [KrPart(Required = true, ContentTypes = ["multipart/mixed"])]
+    public NestedFormParts Nested { get; set; } = new();
+}
+
+public class NestedFormParts
+{
+    [KrPart(Required = true, ContentTypes = ["text/plain"])]
+    public string Text { get; set; } = string.Empty;
 }
 
 /// <summary>

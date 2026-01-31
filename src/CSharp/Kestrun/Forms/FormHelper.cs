@@ -12,8 +12,44 @@ internal static class FormHelper
     /// </summary>
     /// <param name="host">The Kestrun host runtime.</param>
     /// <param name="p">The property info to inspect for KrPartAttribute annotations.</param>
-    /// <param name="built">The set of already built types to avoid recursion.</param>
-    internal static void ApplyKrPartAttributes(Hosting.KestrunHost host, PropertyInfo p, HashSet<Type> built)
+    /// <param name="scopeName">The parent multipart scope name (null for root).</param>
+    internal static void ApplyKrPartAttributes(Hosting.KestrunHost host, PropertyInfo p, string? scopeName)
+    {
+        var name = ResolvePartName(p);
+        // Apply KrPartAttribute annotations
+        foreach (var attr in p.GetCustomAttributes<KrPartAttribute>(inherit: false))
+        {
+            var formPartRule = new KrFormPartRule
+            {
+                Name = name ?? "",
+                Scope = scopeName,
+                Description = attr.Description,
+                Required = attr.Required,
+                AllowMultiple = attr.AllowMultiple,
+
+                MaxBytes = attr.MaxBytes,
+                DecodeMode = attr.DecodeMode,
+                DestinationPath = attr.DestinationPath,
+                StoreToDisk = attr.StoreToDisk,
+            };
+
+            formPartRule.AllowedContentTypes.AddRange(attr.ContentTypes);
+            formPartRule.AllowedExtensions.AddRange(attr.Extensions);
+            var added = host.AddFormPartRule(formPartRule);
+            if (!added && host.Runtime.FormPartRules.TryGetValue(formPartRule.Name, out var existingRule))
+            {
+                formPartRule = existingRule;
+            }
+            AttachNestedRule(host, scopeName, formPartRule);
+        }
+    }
+
+    /// <summary>
+    /// Resolves the part name for a property, including PowerShell dynamic type handling.
+    /// </summary>
+    /// <param name="p">The property info to inspect.</param>
+    /// <returns>The resolved part name.</returns>
+    internal static string? ResolvePartName(PropertyInfo p)
     {
         var name = p.Name;
         var type = p.PropertyType;
@@ -47,35 +83,161 @@ internal static class FormHelper
                 }
             }
         }
-        // Apply KrPartAttribute annotations
-        foreach (var attr in p.GetCustomAttributes<KrPartAttribute>(inherit: false))
+
+        return name;
+    }
+
+    /// <summary>
+    /// Builds form part rules for a CLR type decorated with <see cref="KrPartAttribute"/>.
+    /// Nested multipart container parts (parts whose allowed content types include <c>multipart/*</c>)
+    /// will have their inner part rules added to <see cref="KrFormPartRule.NestedRules"/>, and the
+    /// inner rules will be scoped to the container's part name.
+    /// </summary>
+    /// <param name="rootType">The root type to inspect.</param>
+    /// <returns>A flattened list of rules including nested rules.</returns>
+    internal static List<KrFormPartRule> BuildFormPartRulesFromType(Type rootType)
+    {
+        ArgumentNullException.ThrowIfNull(rootType);
+        var visited = new HashSet<Type>();
+        return BuildFormPartRulesFromType(rootType, scopeName: null, visited);
+    }
+
+    /// <summary>
+    /// Builds form part rules for a type, scoped under a given parent container name.
+    /// </summary>
+    private static List<KrFormPartRule> BuildFormPartRulesFromType(Type type, string? scopeName, HashSet<Type> visited)
+    {
+        if (!visited.Add(type))
         {
-            var parent = built.First();
-            var formPartRule = new KrFormPartRule
+            return [];
+        }
+
+        var rules = new List<KrFormPartRule>();
+        foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                     .Where(static p => p.DeclaringType == p.ReflectedType))
+        {
+            var attr = prop.GetCustomAttribute<KrPartAttribute>(inherit: false);
+            if (attr is null)
             {
-                Name = name ?? "",
-                Scope = parent.FullName,
+                continue;
+            }
+
+            var partName = ResolvePartName(prop);
+            if (string.IsNullOrWhiteSpace(partName))
+            {
+                continue;
+            }
+
+            var underlying = UnwrapElementType(prop.PropertyType);
+            var ruleName = IsMultipartContainerRule(attr) && underlying is not null && IsComplexType(underlying)
+                ? underlying.Name
+                : partName;
+
+            var rule = new KrFormPartRule
+            {
+                Name = ruleName,
+                Scope = scopeName,
                 Description = attr.Description,
                 Required = attr.Required,
                 AllowMultiple = attr.AllowMultiple,
-
                 MaxBytes = attr.MaxBytes,
                 DecodeMode = attr.DecodeMode,
                 DestinationPath = attr.DestinationPath,
                 StoreToDisk = attr.StoreToDisk,
             };
 
-            formPartRule.AllowedContentTypes.AddRange(attr.ContentTypes);
-            formPartRule.AllowedExtensions.AddRange(attr.Extensions);
-            if (name is not null)
+            rule.AllowedContentTypes.AddRange(attr.ContentTypes);
+            rule.AllowedExtensions.AddRange(attr.Extensions);
+
+            rules.Add(rule);
+
+            if (!IsMultipartContainerRule(attr) || underlying is null || !IsComplexType(underlying))
             {
-                foreach (var existingRule in host.Runtime.FormPartRules.Where(r => r.Value.Scope == parent.FullName))
-                {
-                    formPartRule.NestedRules.Add(existingRule.Value);
-                }
+                continue;
             }
-            _ = host.AddFormPartRule(formPartRule);
+
+            var childRules = BuildFormPartRulesFromType(underlying, scopeName: rule.Name, visited);
+            foreach (var child in childRules)
+            {
+                rule.NestedRules.Add(child);
+            }
+
+            rules.AddRange(childRules);
         }
+
+        return rules;
+    }
+
+    private static Type? UnwrapElementType(Type type)
+    {
+        var t = type;
+        if (t.IsArray)
+        {
+            t = t.GetElementType()!;
+        }
+
+        if (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(Nullable<>))
+        {
+            t = Nullable.GetUnderlyingType(t)!;
+        }
+
+        return t;
+    }
+
+    private static bool IsMultipartContainerRule(KrPartAttribute attr)
+    {
+        if (attr.ContentTypes is null || attr.ContentTypes.Length == 0)
+        {
+            return false;
+        }
+
+        foreach (var ct in attr.ContentTypes)
+        {
+            if (ct is null)
+            {
+                continue;
+            }
+
+            if (ct.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsComplexType(Type type) => !type.IsEnum && type != typeof(string) && !type.IsPrimitive;
+
+    /// <summary>
+    /// Attaches a rule to its parent container rule when a scope is provided.
+    /// </summary>
+    /// <param name="host">The Kestrun host runtime.</param>
+    /// <param name="scopeName">The parent multipart scope name.</param>
+    /// <param name="childRule">The rule to attach.</param>
+    private static void AttachNestedRule(Hosting.KestrunHost host, string? scopeName, KrFormPartRule childRule)
+    {
+        if (string.IsNullOrWhiteSpace(scopeName))
+        {
+            return;
+        }
+
+        if (!host.Runtime.FormPartRules.TryGetValue(scopeName, out var parentRule))
+        {
+            return;
+        }
+
+        for (var i = 0; i < parentRule.NestedRules.Count; i++)
+        {
+            var existing = parentRule.NestedRules[i];
+            if (string.Equals(existing.Name, childRule.Name, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(existing.Scope, childRule.Scope, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+        }
+
+        parentRule.NestedRules.Add(childRule);
     }
 
     /// <summary>

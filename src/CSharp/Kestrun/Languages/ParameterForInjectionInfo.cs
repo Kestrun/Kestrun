@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Globalization;
 using System.Management.Automation;
-using System.Management.Automation.Runspaces;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
@@ -14,7 +13,6 @@ using Kestrun.Forms;
 using Kestrun.Logging;
 using Kestrun.Models;
 using Kestrun.Utilities;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 using Microsoft.OpenApi;
 using MongoDB.Bson;
@@ -449,7 +447,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
                 continue;
             }
 
-            var values = kvp.Value ?? Array.Empty<string>();
+            var values = kvp.Value ?? [];
             object? value = prop.PropertyType switch
             {
                 var t when t == typeof(string) => values.FirstOrDefault(),
@@ -473,7 +471,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
                 continue;
             }
 
-            var files = kvp.Value ?? Array.Empty<KrFilePart>();
+            var files = kvp.Value ?? [];
             object? value = prop.PropertyType switch
             {
                 var t when t == typeof(KrFilePart) => files.FirstOrDefault(),
@@ -512,7 +510,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             {
                 foreach (var part in source.Parts)
                 {
-                    list.Add(part);
+                    _ = list.Add(part);
                 }
             }
         }
@@ -664,12 +662,9 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(part.TempPath) || !File.Exists(part.TempPath))
-            {
-                return null;
-            }
-
-            return File.ReadAllText(part.TempPath, Encoding.UTF8);
+            return string.IsNullOrWhiteSpace(part.TempPath) || !File.Exists(part.TempPath)
+                ? null
+                : File.ReadAllText(part.TempPath, Encoding.UTF8);
         }
         catch (Exception ex)
         {
@@ -817,7 +812,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             logger.Warning(ex, "Failed to set property {PropertyName} on type {Type}.", prop.Name, target.GetType());
 
             // Best-effort fallback for dynamically-emitted types: try writing the auto-property backing field.
-            TrySetPropertyBackingFieldValue(target, prop, value, logger);
+            _ = TrySetPropertyBackingFieldValue(target, prop, value, logger);
         }
     }
 
@@ -2325,7 +2320,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         }
 
         // Fallback: interpret as UTF-8 text (best-effort).
-        return System.Text.Encoding.UTF8.GetBytes(trimmed);
+        return Encoding.UTF8.GetBytes(trimmed);
     }
 
     private static bool TryDecodeBase64(string input, out byte[] bytes)

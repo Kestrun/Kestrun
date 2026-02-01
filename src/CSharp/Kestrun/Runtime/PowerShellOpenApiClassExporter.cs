@@ -604,7 +604,7 @@ public static class PowerShellOpenApiClassExporter
         // Detect base type (for parenting). For OpenAPI form models, base type is chosen
         // by KrBindForm.MaxNestingDepth rather than requiring inheritance on the original class.
         var baseClause = string.Empty;
-        if (TryGetFormPayloadBasePsName(type, componentSet, out var formBasePsName))
+        if (TryGetFormPayloadBasePsName(type, out var formBasePsName))
         {
             baseClause = $" : {formBasePsName}";
         }
@@ -1193,10 +1193,9 @@ public static class PowerShellOpenApiClassExporter
     /// Determines the PowerShell base type for form payload exports based on KrBindForm.MaxNestingDepth.
     /// </summary>
     /// <param name="type">The OpenAPI component type.</param>
-    /// <param name="componentSet">The set of known OpenAPI component types.</param>
     /// <param name="basePsName">The resolved PowerShell base type name.</param>
     /// <returns>True if a form payload base should be applied; otherwise false.</returns>
-    private static bool TryGetFormPayloadBasePsName(Type type, HashSet<Type> componentSet, out string? basePsName)
+    private static bool TryGetFormPayloadBasePsName(Type type, out string? basePsName)
     {
         basePsName = null;
 

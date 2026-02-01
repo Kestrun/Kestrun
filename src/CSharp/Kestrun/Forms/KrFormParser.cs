@@ -582,20 +582,19 @@ public static class KrFormParser
         return map;
     }
 
+    /// <summary>
+    /// Determines if a rule applies to the current scope.
+    /// </summary>
+    /// <param name="rule">The form part rule.</param>
+    /// <param name="isRoot">Indicates if the current scope is the root.</param>
+    /// <param name="scopeName">The current scope name, or null if root.</param>
+    /// <returns>True if the rule is in scope; otherwise, false.</returns>
     private static bool IsRuleInScope(KrFormPartRule rule, bool isRoot, string? scopeName)
     {
         var ruleScope = string.IsNullOrWhiteSpace(rule.Scope) ? null : rule.Scope;
-        if (isRoot)
-        {
-            return ruleScope is null;
-        }
-
-        if (string.IsNullOrWhiteSpace(scopeName))
-        {
-            return false;
-        }
-
-        return string.Equals(ruleScope, scopeName, StringComparison.OrdinalIgnoreCase);
+        return isRoot
+            ? ruleScope is null
+            : !string.IsNullOrWhiteSpace(scopeName) && string.Equals(ruleScope, scopeName, StringComparison.OrdinalIgnoreCase);
     }
 
     private static (string? Name, string? FileName, ContentDispositionHeaderValue? Disposition) GetContentDisposition(MultipartSection section, Logger logger, bool allowMissing = false)

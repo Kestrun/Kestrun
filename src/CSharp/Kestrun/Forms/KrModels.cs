@@ -9,25 +9,14 @@ public interface IKrFormPayload
 
 };
 
-/*[OpenApiSchemaComponent(
+/// <summary>
+/// Represents a form payload containing named fields and files.
+/// </summary>
+[OpenApiSchemaComponent(
     Description = "Base schema for parsed multipart/form-data payloads. Concrete form models should declare the expected parts as properties.",
     Type = OaSchemaType.Object,
     AdditionalPropertiesAllowed = true
 )]
-
-[OpenApiSchemaComponent(
-    Description = "Base schema for parsed multipart/mixed payloads. Concrete models should declare the expected parts as properties.",
-    Type = OaSchemaType.Object,
-    AdditionalPropertiesAllowed = true
-)]
-
-*/
-
-
-/// <summary>
-/// Represents a form payload containing named fields and files.
-/// </summary>
-
 public class KrFormData : IKrFormPayload
 {
     /// <summary>
@@ -44,7 +33,11 @@ public class KrFormData : IKrFormPayload
 /// <summary>
 /// Represents a form payload containing ordered parts.
 /// </summary>
-
+[OpenApiSchemaComponent(
+    Description = "Base schema for parsed multipart/mixed payloads. Concrete models should declare the expected parts as properties.",
+    Type = OaSchemaType.Object,
+    AdditionalPropertiesAllowed = true
+)]
 public class KrMultipart : IKrFormPayload
 {
     /// <summary>

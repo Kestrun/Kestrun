@@ -1211,7 +1211,9 @@ public static class PowerShellOpenApiClassExporter
         var maxDepth = maxDepthProp?.GetValue(bindAttr) as int?;
 
         // If MaxNestingDepth > 0, treat as multipart; otherwise form data.
-        basePsName = (maxDepth.GetValueOrDefault(0) > 0) ? "KrMultipart" : "KrFormData";
+        basePsName = (maxDepth.GetValueOrDefault(0) > 0)
+            ? "Kestrun.Forms.KrMultipart"
+            : "Kestrun.Forms.KrFormData";
         return true;
     }
 

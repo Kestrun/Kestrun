@@ -1,13 +1,14 @@
 using System.Collections.ObjectModel;
 
+namespace Kestrun.Forms;
+
 /// <summary>
 /// Represents a parsed form payload.
 /// </summary>
-#pragma warning disable CA1050 // Declare types in namespaces
 public interface IKrFormPayload
 {
 
-};
+}
 
 /// <summary>
 /// Represents a form payload containing named fields and files.
@@ -122,5 +123,3 @@ public sealed record KrRawPart
     /// </summary>
     public IKrFormPayload? NestedPayload { get; init; }
 }
-
-#pragma warning restore CA1050 // Declare types in namespaces

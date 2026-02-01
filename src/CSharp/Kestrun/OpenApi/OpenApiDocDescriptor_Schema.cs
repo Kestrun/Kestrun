@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
 using OpenApiXmlModel = Microsoft.OpenApi.OpenApiXml;
 using Kestrun.Runtime;
+using Kestrun.Forms;
 
 namespace Kestrun.OpenApi;
 
@@ -53,6 +54,8 @@ public partial class OpenApiDocDescriptor
             return primitiveSchema;
         }
 
+        var formSchemaParent = TryBuildFormPayloadSchemaParent(t, built);
+
         if (TryBuildDerivedSchemaFromBaseType(t, built, out var derivedSchema, out var schemaParent))
         {
             return derivedSchema;
@@ -78,7 +81,30 @@ public partial class OpenApiDocDescriptor
         // Properties
         ProcessTypeProperties(t, schema, built);
         // Return composed schema if applicable
-        return ComposeWithParentSchema(schemaParent, schema);
+        var parentToCompose = schemaParent ?? formSchemaParent;
+        return ComposeWithParentSchema(parentToCompose, schema);
+    }
+
+    private OpenApiSchema? TryBuildFormPayloadSchemaParent(Type t, HashSet<Type> built)
+    {
+        var bindAttr = t.GetCustomAttributes(inherit: true)
+            .FirstOrDefault(a => a.GetType().Name.Equals("KrBindFormAttribute", StringComparison.OrdinalIgnoreCase));
+
+        if (bindAttr is null)
+        {
+            return null;
+        }
+
+        var depthProp = bindAttr.GetType().GetProperty("MaxNestingDepth", BindingFlags.Public | BindingFlags.Instance);
+        var maxDepth = depthProp?.GetValue(bindAttr) as int? ?? 0;
+        var baseType = maxDepth > 0 ? typeof(KrMultipart) : typeof(KrFormData);
+
+        BuildSchema(baseType, built);
+
+        return new OpenApiSchema
+        {
+            AllOf = [new OpenApiSchemaReference(baseType.Name)]
+        };
     }
 
     /// <summary>

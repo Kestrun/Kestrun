@@ -45,9 +45,17 @@ public static class OpenApiSchemaDiscovery
         return [.. assemblies.SelectMany(asm => asm.GetTypes())
             .Where(t => t.IsClass && !t.IsAbstract &&
                     t.IsDefined(typeof(OpenApiSchemaComponent), true) &&
+                    !IsFormPayloadBaseType(t) &&
                     // Exclude built-in OpenApi* primitives from auto-discovered components,
                     // but keep user-defined schema components that inherit those primitives.
                     !(t.Assembly == primitivesAssembly && typeof(IOpenApiScalar).IsAssignableFrom(t)))];
+    }
+
+    private static bool IsFormPayloadBaseType(Type t)
+    {
+        // Avoid emitting base form payload schemas unless explicitly referenced.
+        return string.Equals(t.Name, "KrFormData", StringComparison.Ordinal)
+            || string.Equals(t.Name, "KrMultipart", StringComparison.Ordinal);
     }
 
 #if EXTENDED_OPENAPI

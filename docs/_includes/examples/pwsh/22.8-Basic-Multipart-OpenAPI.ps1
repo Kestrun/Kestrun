@@ -53,7 +53,7 @@ Set-KrServerOptions -DefaultUploadPath $uploadRoot
 
 [OpenApiSchemaComponent(Description = 'File upload form')]
 [KrBindForm(ComputeSha256 = $true)]
-class FileUpload:KrFormData {
+class FileUpload{
     [OpenApiProperty(Description = 'Optional note field')]
     [string] $note
 

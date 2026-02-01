@@ -134,6 +134,7 @@ public class KrFormParserMultipartMixedTests
         };
 
         options.AllowedRequestContentTypes.Add("multipart/mixed");
+        options.Limits.MaxNestingDepth = 1;
         options.Rules.Add(new KrFormPartRule { Name = "text", StoreToDisk = true });
         options.Rules.Add(new KrFormPartRule { Name = "text", Scope = "nested", StoreToDisk = false });
 

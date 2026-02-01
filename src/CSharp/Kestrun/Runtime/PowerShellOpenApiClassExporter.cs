@@ -601,15 +601,22 @@ public static class PowerShellOpenApiClassExporter
     /// <param name="sb"></param>
     private static void AppendClass(Type type, HashSet<Type> componentSet, StringBuilder sb)
     {
-        // Detect base type (for parenting)
-        var baseType = type.BaseType;
+        // Detect base type (for parenting). For OpenAPI form models, base type is chosen
+        // by KrBindForm.MaxNestingDepth rather than requiring inheritance on the original class.
         var baseClause = string.Empty;
-
-        if (baseType != null && baseType != typeof(object))
+        if (TryGetFormPayloadBasePsName(type, componentSet, out var formBasePsName))
         {
-            // Use PS-friendly type name for the base
-            var basePsName = ToPowerShellTypeName(baseType, componentSet, collapseToUnderlyingPrimitives: false);
-            baseClause = $" : {basePsName}";
+            baseClause = $" : {formBasePsName}";
+        }
+        else
+        {
+            var baseType = type.BaseType;
+            if (baseType != null && baseType != typeof(object))
+            {
+                // Use PS-friendly type name for the base
+                var basePsName = ToPowerShellTypeName(baseType, componentSet, collapseToUnderlyingPrimitives: false);
+                baseClause = $" : {basePsName}";
+            }
         }
         _ = sb.AppendLine("[NoRunspaceAffinity()]");
         _ = sb.AppendLine($"class {type.Name}{baseClause} {{");
@@ -1180,6 +1187,33 @@ public static class PowerShellOpenApiClassExporter
         }
 
         return componentSet.Contains(propertyType) ? propertyType : null;
+    }
+
+    /// <summary>
+    /// Determines the PowerShell base type for form payload exports based on KrBindForm.MaxNestingDepth.
+    /// </summary>
+    /// <param name="type">The OpenAPI component type.</param>
+    /// <param name="componentSet">The set of known OpenAPI component types.</param>
+    /// <param name="basePsName">The resolved PowerShell base type name.</param>
+    /// <returns>True if a form payload base should be applied; otherwise false.</returns>
+    private static bool TryGetFormPayloadBasePsName(Type type, HashSet<Type> componentSet, out string? basePsName)
+    {
+        basePsName = null;
+
+        var bindAttr = type.GetCustomAttributes(inherit: false)
+            .FirstOrDefault(a => a.GetType().Name.Equals("KrBindFormAttribute", StringComparison.OrdinalIgnoreCase));
+
+        if (bindAttr is null)
+        {
+            return false;
+        }
+
+        var maxDepthProp = bindAttr.GetType().GetProperty("MaxNestingDepth");
+        var maxDepth = maxDepthProp?.GetValue(bindAttr) as int?;
+
+        // If MaxNestingDepth > 0, treat as multipart; otherwise form data.
+        basePsName = (maxDepth.GetValueOrDefault(0) > 0) ? "KrMultipart" : "KrFormData";
+        return true;
     }
 
     /// <summary>

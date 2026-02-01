@@ -94,7 +94,7 @@ class NestedParts {
 
 [OpenApiSchemaComponent(Description = 'Nested multipart request body.')]
 [KrBindForm( MaxNestingDepth = 1)]
-class NestedMultipartRequest:KrMultipart {
+class NestedMultipartRequest {
     [KrPart(Required = $true, MaxBytes = 1024, ContentTypes = 'application/json')]
     [OpenApiProperty(Description = 'Outer JSON control object.')]
     [OuterControl] $outer  # or a class

@@ -9,7 +9,12 @@ Describe 'Example 10.10 Component Link' -Tag 'Tutorial', 'OpenApi', 'Slow' {
     }
 
     AfterAll {
-        if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
     }
 
     It 'CRUD user operations behave as expected' {

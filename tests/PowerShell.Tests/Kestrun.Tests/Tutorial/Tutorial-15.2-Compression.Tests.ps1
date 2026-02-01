@@ -5,7 +5,13 @@ BeforeAll {
 
 Describe 'Example 15.2-Compression' -Tag 'Tutorial', 'Middleware', 'Compression' {
     BeforeAll { $script:instance = Start-ExampleScript -Name '15.2-Compression.ps1' }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll { if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     It 'All main routes respond 200 without compression header' {
         foreach ($p in '/text', '/json', '/html', '/xml', '/form', '/info', '/raw-nocompress') {

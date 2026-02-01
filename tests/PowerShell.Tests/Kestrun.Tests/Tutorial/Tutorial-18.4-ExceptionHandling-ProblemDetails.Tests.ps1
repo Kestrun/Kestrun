@@ -1,7 +1,19 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Tutorial 18.4-ExceptionHandling-ProblemDetails' -Tag 'Tutorial' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '18.4-ExceptionHandling-ProblemDetails.ps1' }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    BeforeAll {
+        $script:instance = Start-ExampleScript -Name '18.4-ExceptionHandling-ProblemDetails.ps1'
+    }
+    AfterAll { if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     It 'GET /hello returns 200 and JSON' {
         $r = Invoke-ExampleRequest -Uri "$($script:instance.Url)/hello" -ReturnRaw

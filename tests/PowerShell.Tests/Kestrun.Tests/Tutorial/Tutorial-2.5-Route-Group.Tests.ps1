@@ -1,7 +1,17 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
 Describe 'Example 2.5-Route-Group' -Tag 'Tutorial' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '2.5-Route-Group.ps1' }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    BeforeAll { $script:instance = Start-ExampleScript -Name '2.5-Route-Group.ps1' }
+    AfterAll {
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
     It 'Grouped parameter routes return expected content for Get' {
         # Path (GET)
         $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/input/demoPath" -UseBasicParsing -TimeoutSec 6 -Method Get

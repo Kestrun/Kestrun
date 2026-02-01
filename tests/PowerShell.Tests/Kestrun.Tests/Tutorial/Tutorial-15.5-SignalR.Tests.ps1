@@ -1,9 +1,10 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
 
 Describe 'Tutorial 15.5 - SignalR (PowerShell)' -Tag 'Tutorial' {
     BeforeAll {
-        . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
-
         # Start the SignalR example server
         $script:instance = Start-ExampleScript -Name '15.5-SignalR.ps1' -StartupTimeoutSeconds 60
 
@@ -54,7 +55,12 @@ Describe 'Tutorial 15.5 - SignalR (PowerShell)' -Tag 'Tutorial' {
     }
 
     AfterAll {
-        if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
     }
 
     It 'Home page is served' {

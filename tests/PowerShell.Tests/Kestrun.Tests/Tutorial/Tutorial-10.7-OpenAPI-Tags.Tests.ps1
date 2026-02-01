@@ -26,7 +26,12 @@ Describe 'Example 10.7 OpenAPI Tags' -Tag 'OpenApi', 'Tutorial', 'Slow' {
         }
     }
     AfterAll {
-        if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
     }
 
     It 'Check OpenAPI Tags' {

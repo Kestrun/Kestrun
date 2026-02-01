@@ -6,7 +6,14 @@ BeforeAll {
 Describe 'Example 10.3 OpenAPI Component RequestBody' -Tag 'OpenApi', 'Tutorial', 'Slow' {
     BeforeAll {
         $script:instance = Start-ExampleScript -Name '10.3-OpenAPI-Component-RequestBody.ps1' }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll {
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     It 'Create Product (POST)' {
         $body = @{

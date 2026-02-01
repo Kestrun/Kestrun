@@ -12,7 +12,11 @@ Describe 'Example 22.12 nested multipart/mixed using OpenAPI' -Tag 'Tutorial', '
         if ($script:instance) {
             $uploadDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath $script:instance.BaseName
             if (Test-Path $uploadDir) { Remove-Item -Recurse -Force $uploadDir }
+
+            # Stop the example script
             Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
         }
     }
 

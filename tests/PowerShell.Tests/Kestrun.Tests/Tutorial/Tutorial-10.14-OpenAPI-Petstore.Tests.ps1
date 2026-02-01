@@ -9,7 +9,12 @@ Describe 'OpenAPI Petstore Example' -Tag 'OpenApi', 'Slow' {
     }
 
     AfterAll {
-        if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
     }
 
     It 'OpenAPI JSON equals expected petstore-api.json' {

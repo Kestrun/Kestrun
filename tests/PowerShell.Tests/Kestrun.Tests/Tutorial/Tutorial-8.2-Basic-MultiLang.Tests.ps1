@@ -1,14 +1,23 @@
 param()
-. "./tests/PowerShell.Tests/Kestrun.Tests/PesterHelpers.ps1"
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Example 8.x Authentication (Basic-MultiLang)' -Tag 'Tutorial', 'Slow' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+    BeforeAll {
         $script:instance = Start-ExampleScript -Name '8.2-Basic-MultiLang.ps1'
         # Precompute Basic auth header value for tests
         # Username: admin, Password: password
         $creds = 'admin:password'
         $script:basic = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($creds)) }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
-
+    AfterAll {
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     It 'cs/hello in CSharp' {
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/secure/cs/hello" -SkipCertificateCheck -Headers @{Authorization = $script:basic }

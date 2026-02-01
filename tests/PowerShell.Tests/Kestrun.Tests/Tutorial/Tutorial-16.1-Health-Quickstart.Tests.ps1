@@ -1,9 +1,19 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Example 16.1-Health-Quickstart' -Tag 'Tutorial', 'Health' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '16.1-Health-Quickstart.ps1' }
+    BeforeAll {
+        $script:instance = Start-ExampleScript -Name '16.1-Health-Quickstart.ps1'
+    }
     AfterAll {
         if ($script:instance) {
+
+            # Stop the example script
             Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
         }
     }
 

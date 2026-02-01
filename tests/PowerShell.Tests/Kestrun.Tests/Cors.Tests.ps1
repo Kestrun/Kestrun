@@ -1,5 +1,4 @@
 param()
-
 BeforeAll {
     . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
 }
@@ -9,7 +8,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
     Context 'Multiple Origins Support' {
 
         BeforeAll {
-            $script:instance = Start-ExampleScript -ScriptBlock {
+            $script:instance = Start-ExampleScript -Scriptblock {
                 param(
                     [int]$Port = 5000,
                     [IPAddress]$IPAddress = [IPAddress]::Loopback
@@ -25,7 +24,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
                     Set-KrCorsHeader -Any |
                     Add-KrCorsPolicy -Name 'MultiOrigin'
 
-                Add-KrMapRoute -Verbs Get, Options -Pattern '/data' -ScriptBlock {
+                Add-KrMapRoute -Verbs Get, Options -Pattern '/data' -Scriptblock {
                     Write-KrJsonResponse @{ message = 'Data from multi-origin endpoint' }
                 } -CorsPolicy 'MultiOrigin'
 
@@ -35,7 +34,12 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         AfterAll {
-            if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+            if ($script:instance) {
+                # Stop the example script
+                Stop-ExampleScript -Instance $script:instance
+                # Diagnostic info on failure
+                Write-KrExampleInstanceOnFailure -Instance $script:instance
+            }
         }
 
         It 'Allows first origin' {
@@ -66,7 +70,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
     Context 'Credentials Support' {
 
         BeforeAll {
-            $script:instance = Start-ExampleScript -ScriptBlock {
+            $script:instance = Start-ExampleScript -Scriptblock {
                 param(
                     [int]$Port = 5000,
                     [IPAddress]$IPAddress = [IPAddress]::Loopback
@@ -82,7 +86,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
                     Set-KrCorsCredential -Allow |
                     Add-KrCorsPolicy -Name 'WithCredentials'
 
-                Add-KrMapRoute -Verbs Get, Options -Pattern '/secure' -ScriptBlock {
+                Add-KrMapRoute -Verbs Get, Options -Pattern '/secure' -Scriptblock {
                     Write-KrJsonResponse @{ authenticated = $true }
                 } -CorsPolicy 'WithCredentials'
 
@@ -92,7 +96,12 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         AfterAll {
-            if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+            if ($script:instance) {
+                # Stop the example script
+                Stop-ExampleScript -Instance $script:instance
+                # Diagnostic info on failure
+                Write-KrExampleInstanceOnFailure -Instance $script:instance
+            }
         }
 
         It 'Includes Access-Control-Allow-Credentials header' {
@@ -116,7 +125,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
     Context 'Exposed Headers' {
 
         BeforeAll {
-            $script:instance = Start-ExampleScript -ScriptBlock {
+            $script:instance = Start-ExampleScript -Scriptblock {
                 param(
                     [int]$Port = 5000,
                     [IPAddress]$IPAddress = [IPAddress]::Loopback
@@ -132,7 +141,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
                     Set-KrCorsExposedHeader -Headers 'X-Total-Count', 'X-Page-Number' |
                     Add-KrCorsPolicy -Name 'WithExposedHeaders'
 
-                Add-KrMapRoute -Verbs Get, Options -Pattern '/list' -ScriptBlock {
+                Add-KrMapRoute -Verbs Get, Options -Pattern '/list' -Scriptblock {
                     $Context.Response.Headers.Add('X-Total-Count', '42')
                     $Context.Response.Headers.Add('X-Page-Number', '1')
                     Write-KrJsonResponse @( @{ id = 1 }, @{ id = 2 } )
@@ -144,7 +153,12 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         AfterAll {
-            if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+            if ($script:instance) {
+                # Stop the example script
+                Stop-ExampleScript -Instance $script:instance
+                # Diagnostic info on failure
+                Write-KrExampleInstanceOnFailure -Instance $script:instance
+            }
         }
 
         It 'Exposes custom headers in CORS response' {
@@ -171,7 +185,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
     Context 'Preflight Max Age' {
 
         BeforeAll {
-            $script:instance = Start-ExampleScript -ScriptBlock {
+            $script:instance = Start-ExampleScript -Scriptblock {
                 param(
                     [int]$Port = 5000,
                     [IPAddress]$IPAddress = [IPAddress]::Loopback
@@ -187,7 +201,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
                     Set-KrCorsPreflightMaxAge -Seconds 7200 |
                     Add-KrCorsPolicy -Name 'WithMaxAge'
 
-                Add-KrMapRoute -Verbs Post, Options -Pattern '/update' -ScriptBlock {
+                Add-KrMapRoute -Verbs Post, Options -Pattern '/update' -Scriptblock {
                     Write-KrJsonResponse @{ updated = $true }
                 } -CorsPolicy 'WithMaxAge'
 
@@ -197,7 +211,12 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         AfterAll {
-            if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+            if ($script:instance) {
+                # Stop the example script
+                Stop-ExampleScript -Instance $script:instance
+                # Diagnostic info on failure
+                Write-KrExampleInstanceOnFailure -Instance $script:instance
+            }
         }
 
         It 'Includes Access-Control-Max-Age header in preflight response' {
@@ -227,7 +246,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
     Context 'Complex Method and Header Combinations' {
 
         BeforeAll {
-            $script:instance = Start-ExampleScript -ScriptBlock {
+            $script:instance = Start-ExampleScript -Scriptblock {
                 param(
                     [int]$Port = 5000,
                     [IPAddress]$IPAddress = [IPAddress]::Loopback
@@ -242,7 +261,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
                     Set-KrCorsHeader -Headers 'Content-Type', 'Authorization', 'X-Api-Key' |
                     Add-KrCorsPolicy -Name 'RestrictedWritePolicy'
 
-                Add-KrMapRoute -Verbs Post, Put, Patch, Options -Pattern '/api/resource' -ScriptBlock {
+                Add-KrMapRoute -Verbs Post, Put, Patch, Options -Pattern '/api/resource' -Scriptblock {
                     $method = $Context.Request.Method
                     Write-KrJsonResponse @{ method = $method; status = 'processed' }
                 } -CorsPolicy 'RestrictedWritePolicy'
@@ -254,7 +273,11 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
 
         AfterAll {
             if ($script:instance) {
+
+                # Stop the example script
                 Stop-ExampleScript -Instance $script:instance
+                # Diagnostic info on failure
+                Write-KrExampleInstanceOnFailure -Instance $script:instance
             }
         }
 
@@ -305,7 +328,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
     Context 'AllowAll Policy Variants' {
 
         BeforeAll {
-            $script:instance = Start-ExampleScript -ScriptBlock {
+            $script:instance = Start-ExampleScript -Scriptblock {
                 param(
                     [int]$Port = 5000,
                     [IPAddress]$IPAddress = [IPAddress]::Loopback
@@ -316,7 +339,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
                 # AllowAll as default policy
                 Add-KrCorsPolicy -Default -AllowAll
 
-                Add-KrMapRoute -Verbs Get, Post, Options -Pattern '/public' -ScriptBlock {
+                Add-KrMapRoute -Verbs Get, Post, Options -Pattern '/public' -Scriptblock {
                     Write-KrJsonResponse @{ access = 'public' }
                 }
 
@@ -326,7 +349,12 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         AfterAll {
-            if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+            if ($script:instance) {
+                # Stop the example script
+                Stop-ExampleScript -Instance $script:instance
+                # Diagnostic info on failure
+                Write-KrExampleInstanceOnFailure -Instance $script:instance
+            }
         }
 
         It 'AllowAll responds with wildcard origin' {
@@ -364,7 +392,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
     Context 'Default Policy Fallback' {
 
         BeforeAll {
-            $script:instance = Start-ExampleScript -ScriptBlock {
+            $script:instance = Start-ExampleScript -Scriptblock {
                 param(
                     [int]$Port = 5000,
                     [IPAddress]$IPAddress = [IPAddress]::Loopback
@@ -379,7 +407,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
                     Add-KrCorsPolicy -Default
 
                 # Route without explicit policy should use default
-                Add-KrMapRoute -Verbs Get, Options -Pattern '/default-route' -ScriptBlock {
+                Add-KrMapRoute -Verbs Get, Options -Pattern '/default-route' -Scriptblock {
                     Write-KrJsonResponse @{ usedDefault = $true }
                 }
 
@@ -389,7 +417,12 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         AfterAll {
-            if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+            if ($script:instance) {
+                # Stop the example script
+                Stop-ExampleScript -Instance $script:instance
+                # Diagnostic info on failure
+                Write-KrExampleInstanceOnFailure -Instance $script:instance
+            }
         }
 
         It 'Uses default policy when no policy specified on route' {

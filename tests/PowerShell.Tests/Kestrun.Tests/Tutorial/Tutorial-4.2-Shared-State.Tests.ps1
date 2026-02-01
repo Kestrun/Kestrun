@@ -1,13 +1,20 @@
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseUsingScopeModifierInNewRunspaces', '')]
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Example 4.2-Shared-State' {
     BeforeAll {
-        . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
         $script:instance = Start-ExampleScript -Name '4.2-Shared-State.ps1'
     }
 
     AfterAll {
         if ($script:instance) {
+            # Stop the example script
             Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
         }
     }
 
@@ -86,7 +93,7 @@ Describe 'Example 4.2-Shared-State' {
 
             $null = $jobs | Wait-Job | Receive-Job
             $jobs | Remove-Job
-            start-sleep -Seconds 2  # Allow slight delay for state update
+            Start-Sleep -Seconds 2  # Allow slight delay for state update
             # Verify final count
             $checkUrl = "$($script:instance.Url)/visits"
             $finalResponse = Invoke-RestMethod -Uri $checkUrl -Method Get

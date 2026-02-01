@@ -5,7 +5,12 @@ Describe 'Tutorial 12.1 Scheduling Quickstart' -Tag 'Tutorial' {
         $script:instance = Start-ExampleScript -Name '12.1-Scheduling-Quickstart.ps1'
     }
     AfterAll {
-        if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
     }
 
     It '/visit increments counter' {

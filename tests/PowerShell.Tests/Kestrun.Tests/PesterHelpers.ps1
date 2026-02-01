@@ -372,7 +372,13 @@ function Stop-ExampleScript {
         }
     } finally {
         if (-not $Instance.Process.HasExited) { $Instance.Process | Stop-Process -Force }
+        $p = [pscustomobject]@{
+            Id = $Instance.Process.Id
+            HasExited = $Instance.Process.HasExited
+            ExitCode = $Instance.Process.ExitCode
+        }
         $Instance.Process.Dispose()
+        $Instance.Process = $p
         Remove-Item -Path $Instance.TempPath -Force -ErrorAction SilentlyContinue
         if ($Instance.PushedLocation) {
             try { Pop-Location -ErrorAction Stop } catch { Write-Warning "Pop-Location failed: $($_.Exception.Message)" }
@@ -2557,4 +2563,120 @@ function New-NestedMultipartBody {
     ) -join "`r`n"
 
     return $outerBody
+}
+
+<#
+.SYNOPSIS
+    Write detailed diagnostics of a Kestrun example instance on test failure.
+.DESCRIPTION
+    This function checks the Pester test result and, if the test has failed,
+    it outputs detailed information about the provided Kestrun example instance.
+    This includes core metadata, process information, standard error/output,
+    and a full JSON dump of the instance for debugging purposes.
+.PARAMETER Instance
+    The Kestrun example instance object to output diagnostics for.
+.PARAMETER Label
+    An optional label to identify the instance in the output. Default is 'Example instance'.
+#>
+function Write-KrExampleInstanceOnFailure {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [psobject] $Instance,
+
+        [Parameter()]
+        [string] $Label
+    )
+
+    $failedTests = Get-KrPesterFailedTestsInCurrentBlock
+    if ($failedTests.Count -eq 0) { return }
+
+    if (-not $Label) {
+        $Label = $Instance.Name
+    }
+
+    Write-Host ''
+    Write-Host "=== $Label (failure diagnostics) ===" -ForegroundColor Yellow
+
+    # Core metadata (keep readable)
+    $Instance |
+        Select-Object `
+            Name,
+        BaseName,
+        Url,
+        Host,
+        Port,
+        TempPath,
+        Ready,
+        ExitedEarly,
+        Https |
+        Format-List * |
+        Out-String |
+        Write-Host
+
+    # Process info (after Stop-ExampleScript)
+    if ($Instance.Process) {
+        try {
+            Write-Host '=== Process ===' -ForegroundColor Yellow
+            $p = $Instance.Process
+            "Id=$($p.Id) HasExited=$($p.HasExited) ExitCode=$($p.ExitCode)" |
+                Write-Host
+        } catch {
+            Write-Host "Failed to retrieve process info: $_" -ForegroundColor Red
+        }
+    }
+
+    # STDERR / STDOUT (super useful after stop)
+    if ($Instance.StdErr) {
+        Write-Host '=== StdErr ===' -ForegroundColor Red
+        $Instance.StdErr | Write-Host
+    }
+
+    if ($Instance.StdOut) {
+        Write-Host '=== StdOut ===' -ForegroundColor DarkGray
+        $Instance.StdOut | Write-Host
+    }
+
+    # Full JSON dump (for CI / copy-paste)
+    Write-Host '=== Full instance (JSON) ===' -ForegroundColor Yellow
+
+    $diag = [pscustomobject]@{
+        Name = $Instance.Name
+        BaseName = $Instance.BaseName
+        Url = $Instance.Url
+        Port = $Instance.Port
+        Ready = $Instance.Ready
+        ExitedEarly = $Instance.ExitedEarly
+        Https = $Instance.Https
+        StdErr = $Instance.StdErr
+        StdOut = $Instance.StdOut
+    }
+
+    $diag | ConvertTo-Json -Depth 4 | Write-Host
+}
+
+<#
+.SYNOPSIS
+    Get the failed Pester tests in the current test block.
+.DESCRIPTION
+    This function retrieves the list of failed tests from the current Pester test block.
+    It checks the test results and filters for tests that have failed or have an associated error record.
+.OUTPUTS
+    An array of objects representing the failed tests.
+#>
+function Get-KrPesterFailedTestsInCurrentBlock {
+    [CmdletBinding()]
+    [outputtype([object[]])]
+    param()
+
+    try {
+        $items = @(
+            $____Pester.CurrentBlock.Tests |
+                Where-Object { $_.Result -eq 'Failed' -or $_.ErrorRecord }
+        )
+
+        return , $items   # <-- ALWAYS returns an array (0/1/many)
+    } catch {
+        return , @()      # <-- ALSO always array
+    }
 }

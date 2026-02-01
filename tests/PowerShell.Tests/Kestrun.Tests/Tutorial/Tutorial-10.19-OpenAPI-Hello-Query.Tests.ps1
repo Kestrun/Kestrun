@@ -1,11 +1,19 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Example 10.19 OpenAPI HTTP QUERY Product Search' -Tag 'OpenApi', 'Tutorial', 'Slow' {
     BeforeAll {
-        . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
         $script:instance = Start-ExampleScript -Name '10.19-OpenAPI-Hello-Query.ps1'
     }
     AfterAll {
-        if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
     }
 
     It 'QUERY products with JSON filters and pagination (JSON accept)' {

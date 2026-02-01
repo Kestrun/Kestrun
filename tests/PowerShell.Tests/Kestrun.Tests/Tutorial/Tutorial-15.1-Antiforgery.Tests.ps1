@@ -1,8 +1,19 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
 
 Describe 'Example 15.1-Antiforgery' -Tag 'Tutorial', 'Middleware', 'Antiforgery' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '15.1-Antiforgery.ps1' }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    BeforeAll {
+        $script:instance = Start-ExampleScript -Name '15.1-Antiforgery.ps1'
+    }
+    AfterAll { if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     It 'Allows safe GET routes without antiforgery token' {
         $base = $script:instance.Url

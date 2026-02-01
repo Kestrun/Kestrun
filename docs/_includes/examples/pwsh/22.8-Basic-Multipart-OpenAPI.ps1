@@ -53,13 +53,13 @@ Set-KrServerOptions -DefaultUploadPath $uploadRoot
 
 [OpenApiSchemaComponent(Description = 'File upload form')]
 [KrBindForm(ComputeSha256 = $true)]
-class FileUpload{
+class FileUpload {
     [OpenApiProperty(Description = 'Optional note field')]
     [string] $note
 
     [KrPart(Required = $true, ContentTypes = 'text/plain', AllowMultiple = $false)]
     [OpenApiProperty(Description = 'The file to upload', Format = 'binary')]
-    [string] $file
+    [Kestrun.Forms.KrFilePart] $file
 }
 
 Enable-KrConfiguration
@@ -80,20 +80,22 @@ function upload {
         [OpenApiRequestBody(contentType = ('multipart/form-data'), Required = $true)]
         [FileUpload] $FormPayload
     )
-    $files = foreach ($entry in $FormPayload.Files.GetEnumerator()) {
-        foreach ($file in $entry.Value) {
+    $files = @()
+    if ($null -ne $FormPayload.file) {
+        $files = @(
             [pscustomobject]@{
-                name = $file.Name
-                fileName = $file.OriginalFileName
-                contentType = $file.ContentType
-                length = $file.Length
-                sha256 = $file.Sha256
+                name = $FormPayload.file.Name
+                fileName = $FormPayload.file.OriginalFileName
+                contentType = $FormPayload.file.ContentType
+                length = $FormPayload.file.Length
+                sha256 = $FormPayload.file.Sha256
             }
-        }
+        )
     }
+
     $fields = @{}
-    foreach ($key in $FormPayload.Fields.Keys) {
-        $fields[$key] = $FormPayload.Fields[$key]
+    if (-not [string]::IsNullOrWhiteSpace($FormPayload.note)) {
+        $fields['note'] = @($FormPayload.note)
     }
     Write-KrJsonResponse -InputObject @{ fields = $fields; files = $files } -StatusCode 200
 }

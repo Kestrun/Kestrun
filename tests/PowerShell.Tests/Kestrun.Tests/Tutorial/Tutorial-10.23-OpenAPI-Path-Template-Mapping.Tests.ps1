@@ -9,7 +9,12 @@ Describe 'Example 10.23 RFC 6570 Variable Mapping' -Tag 'Tutorial', 'OpenApi', '
     }
 
     AfterAll {
-        if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
     }
 
     It 'Simple parameter extraction works' {

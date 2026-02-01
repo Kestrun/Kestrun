@@ -1,10 +1,19 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow' {
     BeforeAll {
-        . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
         $script:instance = Start-ExampleScript -Name '10.22-OpenAPI-XML-Modeling.ps1'
     }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll { if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     It 'Get Product (GET JSON)' {
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/products/5" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck

@@ -1,5 +1,8 @@
 param()
-. "./tests/PowerShell.Tests/Kestrun.Tests/PesterHelpers.ps1"
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Example 8.x Authentication (Claims-Policies)' {
     It 'Skipped (authentication examples require credentials setup)' -Skip:$true { }
 }

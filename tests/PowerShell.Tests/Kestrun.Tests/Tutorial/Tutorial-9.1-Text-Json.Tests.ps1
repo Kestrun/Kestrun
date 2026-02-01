@@ -1,7 +1,18 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
 Describe 'Example 9.1-Text-Json' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '9.1-Text-Json.ps1' }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    BeforeAll { $script:instance = Start-ExampleScript -Name '9.1-Text-Json.ps1' }
+    AfterAll {
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
+    
     It 'Text and JSON routes return expected payloads' {
         # /ping -> pong (text)
         Assert-RouteContent -Uri "$($script:instance.Url)/ping" -Contains 'pong'

@@ -1,7 +1,18 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Example 9.6-Redirects' -Tag 'Tutorial', 'Redirects', 'Slow' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '9.6-Redirects.ps1' }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    BeforeAll { $script:instance = Start-ExampleScript -Name '9.6-Redirects.ps1' }
+    AfterAll {
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     It 'Route /old issues redirect with expected Location header' {
         $url = "http://127.0.0.1:$($script:instance.Port)/old"

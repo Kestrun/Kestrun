@@ -13,7 +13,10 @@ Describe 'Example 22.13 request-level compression with OpenAPI and middleware' -
             if ($instance) {
                 $uploadDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath $instance.BaseName
                 if (Test-Path $uploadDir) { Remove-Item -Recurse -Force $uploadDir }
+                # Stop the example script
                 Stop-ExampleScript -Instance $instance
+                # Diagnostic info on failure
+                Write-KrExampleInstanceOnFailure -Instance $instance
             }
         }
     }

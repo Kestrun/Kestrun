@@ -94,7 +94,7 @@ class NestedParts {
 
 [OpenApiSchemaComponent(Description = 'Nested multipart request body.')]
 [KrBindForm( MaxNestingDepth = 1)]
-class NestedMultipartRequest:IKrFormPayload {
+class NestedMultipartRequest:KrMultipart {
     [KrPart(Required = $true, MaxBytes = 1024, ContentTypes = 'application/json')]
     [OpenApiProperty(Description = 'Outer JSON control object.')]
     [OuterControl] $outer  # or a class
@@ -133,7 +133,7 @@ function nested {
             }
         }
     }
-    Write-KrJsonResponse -InputObject @{ outerCount = $outerParts.Count; nested = $nestedSummary } -StatusCode 200
+    Write-KrJsonResponse -InputObject @{ outerCount = $outerParts.Count; nested = $nestedSummary; formPayload = $FormPayload } -StatusCode 200
 }
 
 Enable-KrConfiguration

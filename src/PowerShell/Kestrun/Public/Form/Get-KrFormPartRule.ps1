@@ -16,7 +16,7 @@
 function Get-KrFormPartRule {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding()]
-    [OutputType([Kestrun.Forms.KrFormPartRules])]
+    [OutputType([Kestrun.Forms.KrFormPartRule])]
     param(
         [Parameter()]
         [string] $Name

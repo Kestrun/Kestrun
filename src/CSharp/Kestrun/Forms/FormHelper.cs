@@ -93,7 +93,7 @@ internal static class FormHelper
                 Required = attr.Required,
                 AllowMultiple = attr.AllowMultiple,
 
-                MaxBytes = attr.MaxBytes,
+                MaxBytes = attr.MaxBytes > 0 ? attr.MaxBytes : null,
                 DecodeMode = attr.DecodeMode,
                 DestinationPath = attr.DestinationPath,
                 StoreToDisk = attr.StoreToDisk,
@@ -206,7 +206,7 @@ internal static class FormHelper
                 Description = attr.Description,
                 Required = attr.Required,
                 AllowMultiple = attr.AllowMultiple,
-                MaxBytes = attr.MaxBytes,
+                MaxBytes = attr.MaxBytes > 0 ? attr.MaxBytes : null,
                 DecodeMode = attr.DecodeMode,
                 DestinationPath = attr.DestinationPath,
                 StoreToDisk = attr.StoreToDisk,

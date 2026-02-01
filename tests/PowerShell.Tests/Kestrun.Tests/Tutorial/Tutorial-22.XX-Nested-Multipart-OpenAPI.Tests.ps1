@@ -17,7 +17,7 @@ Describe 'Example 22.12 nested multipart/mixed using OpenAPI' -Tag 'Tutorial', '
     }
 
     # --- Success case ---------------------------------------------------------
-    It 'Parses nested multipart payloads' {
+    It 'Binds nested multipart payloads to the model' {
         $outer = 'outer-boundary'
         $inner = 'inner-boundary'
         $outerBody = New-NestedMultipartBody `
@@ -29,7 +29,26 @@ Describe 'Example 22.12 nested multipart/mixed using OpenAPI' -Tag 'Tutorial', '
 
         $resp = Invoke-RestMethod -Method Post -Uri "$($script:instance.Url)/nested" -ContentType "multipart/mixed; boundary=$outer" -Body $outerBody
         $resp.outerCount | Should -Be 2
+        $resp.nested.Count | Should -Be 1
         $resp.nested[0].nestedCount | Should -Be 2
+
+        $resp.formPayload | Should -Not -BeNullOrEmpty
+
+        # Ensure KrMultipart-derived model properties are actually populated
+        $resp.formPayload.outer | Should -Not -BeNullOrEmpty
+        $outerStage = if ($resp.formPayload.outer.PSObject.Properties['stage']) {
+            $resp.formPayload.outer.stage
+        } elseif ($resp.formPayload.outer.PSObject.Properties['AdditionalProperties']) {
+            $resp.formPayload.outer.AdditionalProperties.stage
+        } else {
+            $null
+        }
+        $outerStage | Should -Be 'outer'
+
+        $resp.formPayload.nested | Should -Not -BeNullOrEmpty
+        $resp.formPayload.nested.Count | Should -Be 1
+        $resp.formPayload.nested[0].text | Should -Be 'inner-1'
+        $resp.formPayload.nested[0].json | Should -Be '{"nested":true}'
     }
 
     # --- Common failure cases -------------------------------------------------

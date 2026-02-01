@@ -9,10 +9,26 @@ public interface IKrFormPayload
 
 };
 
+/*[OpenApiSchemaComponent(
+    Description = "Base schema for parsed multipart/form-data payloads. Concrete form models should declare the expected parts as properties.",
+    Type = OaSchemaType.Object,
+    AdditionalPropertiesAllowed = true
+)]
+
+[OpenApiSchemaComponent(
+    Description = "Base schema for parsed multipart/mixed payloads. Concrete models should declare the expected parts as properties.",
+    Type = OaSchemaType.Object,
+    AdditionalPropertiesAllowed = true
+)]
+
+*/
+
+
 /// <summary>
 /// Represents a form payload containing named fields and files.
 /// </summary>
-public sealed record KrFormData : IKrFormPayload
+
+public class KrFormData : IKrFormPayload
 {
     /// <summary>
     /// Gets the parsed fields keyed by field name.
@@ -28,6 +44,7 @@ public sealed record KrFormData : IKrFormPayload
 /// <summary>
 /// Represents a form payload containing ordered parts.
 /// </summary>
+
 public class KrMultipart : IKrFormPayload
 {
     /// <summary>
@@ -39,7 +56,7 @@ public class KrMultipart : IKrFormPayload
 /// <summary>
 /// Represents a stored file part.
 /// </summary>
-public class KrFilePart
+public sealed record KrFilePart
 {
     /// <summary>
     /// Gets the field name associated with the file part.

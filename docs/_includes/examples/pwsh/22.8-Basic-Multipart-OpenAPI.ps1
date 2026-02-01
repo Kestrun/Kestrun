@@ -44,21 +44,22 @@ Add-KrOpenApiContact -Email 'support@example.com'
 # =========================================================
 #               FORM OPTION DEFINITION
 # =========================================================
+# Set default upload path for form parts
 $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.1-basic-multipart'
+Set-KrServerOptions -DefaultUploadPath $uploadRoot
 
-New-KrFormPartRule -Name 'file' -Required -AllowedContentTypes 'text/plain' -AllowOnlyOne |
-    Add-KrFormOption -Name 'fileUpload' -DefaultUploadPath $uploadRoot -ComputeSha256
+#New-KrFormPartRule -Name 'file' -Required -AllowedContentTypes 'text/plain' -AllowOnlyOne |
+#   Add-KrFormOption -Name 'fileUpload' -DefaultUploadPath $uploadRoot -ComputeSha256
 
-# =========================================================
-#               SCHEMA DEFINITION
-# =========================================================
-[OpenApiSchemaComponent(Description = 'Upload form')]
-class UploadForm {
+[OpenApiSchemaComponent(Description = 'File upload form')]
+[KrBindForm(ComputeSha256 = $true)]
+class FileUpload:KrFormData {
+    [OpenApiProperty(Description = 'Optional note field')]
+    [string] $note
+
+    [KrPart(Required = $true, ContentTypes = 'text/plain', AllowMultiple = $false)]
     [OpenApiProperty(Description = 'The file to upload', Format = 'binary')]
     [string] $file
-
-    [OpenApiProperty(Description = 'Optional label')]
-    [string] $label
 }
 
 Enable-KrConfiguration
@@ -73,12 +74,11 @@ Enable-KrConfiguration
 #>
 function upload {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/upload')]
-    [KrBindForm(Template = 'fileUpload')]
     [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
 
     param(
         [OpenApiRequestBody(contentType = ('multipart/form-data'), Required = $true)]
-        [KrFormData] $FormPayload
+        [FileUpload] $FormPayload
     )
     $files = foreach ($entry in $FormPayload.Files.GetEnumerator()) {
         foreach ($file in $entry.Value) {

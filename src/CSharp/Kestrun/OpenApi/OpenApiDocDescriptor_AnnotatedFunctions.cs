@@ -1,4 +1,5 @@
 using System.Management.Automation;
+using System.Reflection;
 using System.Management.Automation.Internal;
 using System.Management.Automation.Language;
 using System.Text.Json.Nodes;
@@ -947,11 +948,26 @@ public partial class OpenApiDocDescriptor
         if (routeOptions.FormOptions is null && Host.Runtime.FormOptions.TryGetValue(paramInfo.ParameterType.Name, out var formOptionsValue))
         {
             routeOptions.FormOptions = new KrFormOptions(formOptionsValue);
-            if (requestBody.Content?.Keys.Count > 0)
+        }
+        else if (routeOptions.FormOptions is null)
+        {
+            var formAttr = paramInfo.ParameterType.GetCustomAttribute<KrBindFormAttribute>(inherit: true);
+            if (formAttr is not null)
             {
-                routeOptions.FormOptions.AllowedRequestContentTypes.Clear();
-                routeOptions.FormOptions.AllowedRequestContentTypes.AddRange(requestBody.Content?.Keys ?? []);
+                var formOptions = FormHelper.ApplyKrPartAttributes(formAttr);
+                formOptions.Name = paramInfo.ParameterType.FullName ?? paramInfo.ParameterType.Name;
+
+                var rules = FormHelper.BuildFormPartRulesFromType(paramInfo.ParameterType);
+                AddFormPartRules(formOptions, rules);
+
+                routeOptions.FormOptions = formOptions;
             }
+        }
+
+        if (routeOptions.FormOptions is not null && requestBody.Content?.Keys.Count > 0)
+        {
+            routeOptions.FormOptions.AllowedRequestContentTypes.Clear();
+            routeOptions.FormOptions.AllowedRequestContentTypes.AddRange(requestBody.Content?.Keys ?? []);
         }
         // Add the parameter for injection
         routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBody, routeOptions.FormOptions));

@@ -33,7 +33,7 @@ public sealed class KrFormLimits
     /// <summary>
     /// Gets or sets the maximum nesting depth for multipart bodies.
     /// </summary>
-    public int MaxNestingDepth { get; set; } = 1;
+    public int MaxNestingDepth { get; set; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="KrFormLimits"/> class.

@@ -1,4 +1,5 @@
 using System.Reflection;
+using Kestrun.Forms;
 using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
 using OpenApiXmlModel = Microsoft.OpenApi.OpenApiXml;
@@ -146,6 +147,14 @@ public partial class OpenApiDocDescriptor
         if (baseSchema is null)
         {
             return false;
+        }
+
+        // If we emit a $ref to the base type (inheritance via allOf), ensure the base type schema exists.
+        // Limit this to form payload inheritance to avoid registering unrelated base types (e.g., ValueType/Enum).
+        if (t.BaseType is not null && t.BaseType != typeof(object)
+            && (typeof(KrFormData).IsAssignableFrom(t) || typeof(KrMultipart).IsAssignableFrom(t)))
+        {
+            BuildSchema(t.BaseType, built);
         }
 
         if (TryResolveSimpleOrReferenceBaseSchema(t, baseSchema, out resolved))
@@ -446,6 +455,11 @@ public partial class OpenApiDocDescriptor
         foreach (var prop in t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
                       .Where(p => p.DeclaringType == t))
         {
+            if (ShouldSkipRuntimeFormPayloadStorageProperty(t, prop))
+            {
+                continue;
+            }
+
             var propSchema = BuildPropertySchema(prop, built);
             CapturePropertyDefault(instance, prop, propSchema);
 
@@ -459,6 +473,24 @@ public partial class OpenApiDocDescriptor
                 schema.Properties?.Add(prop.Name, propSchema);
             }
         }
+    }
+
+    /// <summary>
+    /// Returns <c>true</c> when a property should be excluded from OpenAPI schema generation because
+    /// it represents runtime storage on Kestrun form payload base types.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="KrFormData"/> and <see cref="KrMultipart"/> are runtime containers.
+    /// Their storage properties (<c>Fields</c>/<c>Files</c>/<c>Parts</c>) are not part of the public request/response contract.
+    /// Concrete models should declare expected parts as properties.
+    /// </para>
+    /// </remarks>
+    private static bool ShouldSkipRuntimeFormPayloadStorageProperty(Type declaringType, PropertyInfo prop)
+    {
+        return declaringType == typeof(KrFormData)
+            ? prop.Name is nameof(KrFormData.Fields) or nameof(KrFormData.Files)
+            : declaringType == typeof(KrMultipart) && prop.Name == nameof(KrMultipart.Parts);
     }
 
     /// <summary>

@@ -940,7 +940,6 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
             // Some PowerShell-emitted properties can be effectively read-only to reflection.
             return TrySetAdditionalPropertiesBackingField(target, ht, logger);
-
         }
         catch (Exception ex)
         {

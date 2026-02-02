@@ -8,7 +8,7 @@ Strategy:
 #>
 param()
 BeforeAll {
-    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+    . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
 }
 
 Describe 'Validates numeric probe data representation in YAML health response' -Tag 'Health' {

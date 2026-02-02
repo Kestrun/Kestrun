@@ -32,12 +32,21 @@ Add-KrOpenApiInfo -Title 'Uploads 22.3 - UrlEncoded' `
 
 Add-KrOpenApiContact -Email 'support@example.com'
 
+# Set default upload path for form parts
 $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.3-urlencoded'
+Set-KrServerOptions -DefaultUploadPath $uploadRoot
 
-# Opt-in: only multipart/form-data is enabled by default
-New-KrFormPartRule -Name 'name' -Required |
-    New-KrFormPartRule -Name 'role' |
-    Add-KrFormOption -Name 'UrlEncodedForm' -DefaultUploadPath $uploadRoot -AllowedRequestContentTypes 'application/x-www-form-urlencoded'
+[OpenApiSchemaComponent(Description = 'Url-encoded form payload')]
+[KrBindForm(ComputeSha256 = $false)]
+class UrlEncodedForm {
+    [KrPart(Required = $true)]
+    [OpenApiProperty(Description = 'User name')]
+    [string] $Name
+
+    [KrPart(Required = $false, AllowMultiple = $true)]
+    [OpenApiProperty(Description = 'Roles for the user')]
+    [string[]] $Role
+}
 
 <#
 .SYNOPSIS
@@ -50,15 +59,17 @@ New-KrFormPartRule -Name 'name' -Required |
 #>
 function form {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/form')]
-    [KrBindForm(Template = 'UrlEncodedForm')]
     [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
     param(
         [OpenApiRequestBody(contentType = ('application/x-www-form-urlencoded'), Required = $true)]
-        [KrFormData] $FormPayload
+        [UrlEncodedForm] $FormPayload
     )
     $fields = @{}
-    foreach ($key in $FormPayload.Fields.Keys) {
-        $fields[$key] = $FormPayload.Fields[$key]
+    if (-not [string]::IsNullOrWhiteSpace($FormPayload.Name)) {
+        $fields['name'] = @($FormPayload.Name)
+    }
+    if ($null -ne $FormPayload.Role) {
+        $fields['role'] = @($FormPayload.Role)
     }
     Write-KrJsonResponse -InputObject @{ fields = $fields } -StatusCode 200
 }

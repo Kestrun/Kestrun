@@ -5,10 +5,7 @@ namespace Kestrun.Forms;
 /// <summary>
 /// Represents a parsed form payload.
 /// </summary>
-public interface IKrFormPayload
-{
-
-}
+public interface IKrFormPayload { }
 
 /// <summary>
 /// Represents a form payload containing named fields and files.

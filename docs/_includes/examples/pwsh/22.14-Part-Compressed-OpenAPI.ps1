@@ -32,7 +32,7 @@ New-KrLogger |
 
 New-KrServer -Name 'Forms 22.14-Part-Compressed-OpenAPI'
 
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
 # =========================================================
 #                 TOP-LEVEL OPENAPI
@@ -44,12 +44,17 @@ Add-KrOpenApiInfo -Title 'Uploads 22.14-Part-Compressed-OpenAPI' `
 
 Add-KrOpenApiContact -Email 'support@example.com'
 
+# Set default upload path for form parts
 $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.14-part-compressed-openapi'
+Set-KrServerOptions -DefaultUploadPath $uploadRoot
 
-# Add Rules
-New-KrFormPartRule -Name 'file' -Required -AllowOnlyOne -AllowedContentTypes 'text/plain' |
-    Add-KrFormOption -Name 'PartCompressed' -DefaultUploadPath $uploadRoot -ComputeSha256 -EnablePartDecompression -MaxDecompressedBytesPerPart (1024 * 1024)
-
+[OpenApiSchemaComponent(Description = 'File upload form')]
+[KrBindForm(ComputeSha256 = $true, EnablePartDecompression = $true, MaxDecompressedBytesPerPart = (1024 * 1024))]
+class PartCompressed {
+    [KrPart(Required = $true, ContentTypes = 'text/plain', AllowMultiple = $false)]
+    [OpenApiProperty(Description = 'The file to upload', Format = 'binary')]
+    [Kestrun.Forms.KrFilePart] $file
+}
 
 <#
 .SYNOPSIS
@@ -57,18 +62,17 @@ New-KrFormPartRule -Name 'file' -Required -AllowOnlyOne -AllowedContentTypes 'te
 .DESCRIPTION
     OpenAPI route function for /part-compressed with KrBindForm and OpenAPI attributes
 .PARAMETER FormPayload
-    The parsed multipart/form-data payload.
+    The form payload bound to the PartCompressed class
 #>
 function partcompressed {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/part-compressed')]
-    [KrBindForm(Template = 'PartCompressed')]
     [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
 
     param(
         [OpenApiRequestBody(contentType = ('multipart/form-data'), Required = $true)]
-        [KrFormData] $FormPayload
+        [PartCompressed] $FormPayload
     )
-    $file = $FormPayload.Files['file'][0]
+    $file = $FormPayload.file
     Write-KrJsonResponse -InputObject @{ fileName = $file.OriginalFileName; length = $file.Length; sha256 = $file.Sha256 } -StatusCode 200
 }
 
@@ -84,4 +88,4 @@ Add-KrApiDocumentationRoute -DocumentType Swagger -OpenApiEndpoint '/openapi/v3.
 Add-KrApiDocumentationRoute -DocumentType Redoc -OpenApiEndpoint '/openapi/v3.2/openapi.json'
 
 # Start the server asynchronously
-Start-KrServer
+Start-KrServer -CloseLogsOnExit

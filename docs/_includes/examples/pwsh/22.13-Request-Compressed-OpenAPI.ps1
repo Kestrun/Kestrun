@@ -53,12 +53,21 @@ Add-KrOpenApiContact -Email 'support@example.com'
 
 Add-KrRequestDecompressionMiddleware -AllowedEncoding gzip | Out-Null
 
+# Set default upload path for form parts
 $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.13-request-compressed'
+Set-KrServerOptions -DefaultUploadPath $uploadRoot
 
-# Add Rules
-New-KrFormPartRule -Name 'file' -Required -AllowOnlyOne -AllowedContentTypes 'text/plain' |
-    New-KrFormPartRule -Name 'note' -Required |
-    Add-KrFormOption -Name 'fileUpload' -DefaultUploadPath $uploadRoot -ComputeSha256
+[OpenApiSchemaComponent(Description = 'Request-compressed upload form')]
+[KrBindForm(ComputeSha256 = $true)]
+class RequestCompressedUpload {
+    [KrPart(Required = $true)]
+    [OpenApiProperty(Description = 'Required note field')]
+    [string] $note
+
+    [KrPart(Required = $true, ContentTypes = 'text/plain', AllowMultiple = $false)]
+    [OpenApiProperty(Description = 'The file to upload', Format = 'binary')]
+    [Kestrun.Forms.KrFilePart] $file
+}
 
 <#
 .SYNOPSIS
@@ -71,13 +80,13 @@ New-KrFormPartRule -Name 'file' -Required -AllowOnlyOne -AllowedContentTypes 'te
 #>
 function upload {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/upload')]
-    [KrBindForm(Template = 'fileUpload')]
     [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
     param(
         [OpenApiRequestBody(contentType = ('multipart/form-data'), Required = $true)]
-        [KrFormData] $FormPayload
+        [RequestCompressedUpload] $FormPayload
     )
-    $files = $FormPayload.Files['file']
+    $file = $FormPayload.file
+    $files = if ($null -ne $file) { @($file) } else { @() }
     Write-KrJsonResponse -InputObject @{ count = $files.Count; files = $files } -StatusCode 200
 }
 
@@ -87,10 +96,10 @@ Enable-KrConfiguration
 #                OPENAPI DOC ROUTE / UI
 # =========================================================
 
-Add-KrOpenApiRoute -SpecVersion OpenApi3_2
+Add-KrOpenApiRoute
 
-Add-KrApiDocumentationRoute -DocumentType Swagger -OpenApiEndpoint '/openapi/v3.2/openapi.json'
-Add-KrApiDocumentationRoute -DocumentType Redoc -OpenApiEndpoint '/openapi/v3.2/openapi.json'
+Add-KrApiDocumentationRoute -DocumentType Swagger -OpenApiEndpoint '/openapi/v3.1/openapi.json'
+Add-KrApiDocumentationRoute -DocumentType Redoc -OpenApiEndpoint '/openapi/v3.1/openapi.json'
 
 # Start the server asynchronously
-Start-KrServer
+Start-KrServer -CloseLogsOnExit

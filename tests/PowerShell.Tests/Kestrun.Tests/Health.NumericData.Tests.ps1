@@ -5,7 +5,7 @@
 #>
 param()
 BeforeAll {
-    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+    . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
 }
 
 Describe 'Health Checks numeric data' -Tag 'Health' {

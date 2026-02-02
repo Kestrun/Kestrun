@@ -5,7 +5,7 @@
 #>
 param()
 BeforeAll {
-    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+    . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
 }
 
 Describe 'Example 16.3-Health-Http-Probe' -Tag 'Tutorial', 'Health' {

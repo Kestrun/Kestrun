@@ -436,8 +436,6 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     {
         var props = declaringType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Where(static p => p.GetIndexParameters().Length == 0)
-            .Where(static p => !string.Equals(p.Name, nameof(KrFormData.Fields), StringComparison.OrdinalIgnoreCase))
-            .Where(static p => !string.Equals(p.Name, nameof(KrFormData.Files), StringComparison.OrdinalIgnoreCase))
             .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
 
         foreach (var kvp in source.Fields)
@@ -692,6 +690,25 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
             {
                 logger.Debug("Failed to create PowerShell class instance in the current runspace for type {Type}.", type);
+            }
+
+            // As a fallback, create an uninitialized instance so we can still populate properties.
+            // This avoids returning null when runspace construction fails for PowerShell-emitted types.
+            if (!type.IsValueType && !type.IsAbstract)
+            {
+                try
+                {
+#pragma warning disable SYSLIB0050
+                    return FormatterServices.GetUninitializedObject(type);
+#pragma warning restore SYSLIB0050
+                }
+                catch (Exception ex)
+                {
+                    if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+                    {
+                        logger.Debug(ex, "Failed to create uninitialized instance for PowerShell class type {Type}.", type);
+                    }
+                }
             }
 
             return null;

@@ -2,7 +2,7 @@
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingEmptyCatchBlock', '')]
 param()
 BeforeAll {
-    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+    . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
 }
 
 

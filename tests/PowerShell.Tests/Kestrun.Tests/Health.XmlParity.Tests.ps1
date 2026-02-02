@@ -5,7 +5,7 @@ Validates numeric probe data representation in XML health response.
 #>
 param()
 BeforeAll {
-    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+    . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
 }
 
 Describe 'Validates numeric probe data representation in XML health response' -Tag 'Health' {

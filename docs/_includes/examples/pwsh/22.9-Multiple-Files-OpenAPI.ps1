@@ -42,12 +42,21 @@ Add-KrOpenApiInfo -Title 'Uploads 22.2 - Multiple Files' `
 
 Add-KrOpenApiContact -Email 'support@example.com'
 
+# Set default upload path for form parts
 $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.2-multiple-files'
+Set-KrServerOptions -DefaultUploadPath $uploadRoot
 
+[OpenApiSchemaComponent(Description = 'Multiple files upload form')]
+[KrBindForm(ComputeSha256 = $true)]
+class FilesUpload {
+    [KrPart(Required = $true, ContentTypes = 'text/plain', AllowMultiple = $true)]
+    [OpenApiProperty(Description = 'Files to upload', Format = 'binary')]
+    [Kestrun.Forms.KrFilePart[]] $Files
 
-
-New-KrFormPartRule -Name 'files' -Required -AllowedContentTypes 'text/plain' |
-    Add-KrFormOption -Name 'FilesUpload' -DefaultUploadPath $uploadRoot -ComputeSha256
+    [KrPart(Required = $false)]
+    [OpenApiProperty(Description = 'Optional note field')]
+    [string] $note
+}
 
 <#
 .SYNOPSIS
@@ -60,14 +69,13 @@ New-KrFormPartRule -Name 'files' -Required -AllowedContentTypes 'text/plain' |
 #>
 function upload {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/upload')]
-    [KrBindForm(Template = 'FilesUpload')]
     [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
 
     param(
         [OpenApiRequestBody(contentType = ('multipart/form-data'), Required = $true)]
-        [KrFormData] $FormPayload
+        [FilesUpload] $FormPayload
     )
-    $files = @($FormPayload.Files['files'])
+    $files = @($FormPayload.Files)
     $result = [pscustomobject]@{
         count = $files.Count
         files = $files | ForEach-Object {

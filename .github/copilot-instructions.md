@@ -114,7 +114,40 @@ Set-KrSharedState -Name 'Visits' -Value @{Count = 0}
 # Available in all routes as $Visits
 ```
 
-### 5. SSE (Server-Sent Events)
+### 5. FormData & Multipart Binding (PowerShell)
+
+Kestrun supports request form parsing for `multipart/form-data` (files + fields) and `multipart/mixed` (ordered parts). Prefer **KrBindForm + KrPart** on PowerShell classes for explicit, OpenAPI-friendly models.
+
+**Core types (namespace):**
+- `Kestrun.Forms.KrFormData` — parsed fields + files (dictionary-based).
+- `Kestrun.Forms.KrMultipart` — ordered parts (`Parts` list).
+- `Kestrun.Forms.KrFilePart` — file metadata (name, filename, content type, length, sha256, temp path).
+
+**Recommended model pattern (no inheritance required):**
+- Decorate the model with `[KrBindForm(...)]`.
+- Use `[KrPart(...)]` on properties to describe required parts, allowed content types, and multiplicity.
+- Prefer typed properties (`[string]`, `[string[]]`, `[KrFilePart]`, `[KrFilePart[]]`) so binding is direct and predictable.
+
+**Form kind selection:**
+- `KrBindForm.MaxNestingDepth > 0` → multipart/mixed binding (ordered parts, nested allowed).
+- `KrBindForm.MaxNestingDepth <= 0` → multipart/form-data binding (fields + files).
+
+**Binding behavior:**
+- Form fields bind by part name → property name (case-insensitive).
+- File parts bind to `KrFilePart` or `KrFilePart[]` properties.
+- When using `KrFormData`, access dictionaries: `$FormPayload.Fields['note']`, `$FormPayload.Files['file']`.
+- When using `KrBindForm` models, access bound properties directly (e.g., `$FormPayload.note`, `$FormPayload.file`).
+
+**OpenAPI notes:**
+- Models with `KrBindForm` should be composed with `KrFormData` or `KrMultipart` using `allOf`.
+- `KrFormData` / `KrMultipart` should not appear as standalone components unless referenced.
+- Use `Kestrun.Forms.KrFilePart` for file properties so OpenAPI treats them as binary parts.
+
+**Errors:**
+- Invalid JSON in multipart JSON parts should map to **400** (not 500).
+- Required parts / content-type restrictions should map to **400** or **415** as appropriate.
+
+### 6. SSE (Server-Sent Events)
 
 Kestrun supports **per-connection SSE** and **server-wide broadcast SSE**.
 

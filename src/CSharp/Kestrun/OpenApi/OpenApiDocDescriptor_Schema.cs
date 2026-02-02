@@ -451,7 +451,7 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Applies type-level attributes to a schema.
     /// </summary>
-    private static void ApplyTypeAttributes(Type t, OpenApiSchema schema)
+    private void ApplyTypeAttributes(Type t, OpenApiSchema schema)
     {
         foreach (var attr in t.GetCustomAttributes(true)
           .Where(a => a is OpenApiPropertyAttribute or OpenApiSchemaComponent))
@@ -476,6 +476,8 @@ public partial class OpenApiDocDescriptor
     private void ProcessTypeProperties(Type t, OpenApiSchema schema, HashSet<Type> built)
     {
         var instance = TryCreateTypeInstance(t);
+        var isFormModel = t.GetCustomAttributes(inherit: true)
+            .Any(a => a.GetType().Name.Equals("KrBindFormAttribute", StringComparison.OrdinalIgnoreCase));
 
         foreach (var prop in t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
                       .Where(p => p.DeclaringType == t))
@@ -487,6 +489,12 @@ public partial class OpenApiDocDescriptor
 
             var propSchema = BuildPropertySchema(prop, built);
             CapturePropertyDefault(instance, prop, propSchema);
+
+            if (isFormModel && prop.GetCustomAttribute<KrPartAttribute>(inherit: false) is { Required: true })
+            {
+                schema.Required ??= new HashSet<string>(StringComparer.Ordinal);
+                _ = schema.Required.Add(prop.Name);
+            }
 
             if (prop.GetCustomAttribute<OpenApiAdditionalPropertiesAttribute>() is not null)
             {
@@ -774,7 +782,7 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     /// <param name="oaProperties">The OpenApiProperties containing attributes to apply.</param>
     /// <param name="ioaSchema">The OpenAPI schema to apply attributes to.</param>
-    private static void ApplySchemaAttr(OpenApiProperties? oaProperties, IOpenApiSchema ioaSchema)
+    private void ApplySchemaAttr(OpenApiProperties? oaProperties, IOpenApiSchema ioaSchema)
     {
         if (oaProperties is null)
         {
@@ -800,7 +808,7 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     /// <param name="properties">The OpenApiProperties containing attributes to apply.</param>
     /// <param name="schema">The OpenApiSchema to apply attributes to.</param>
-    private static void ApplyConcreteSchemaAttributes(OpenApiProperties properties, OpenApiSchema schema)
+    private void ApplyConcreteSchemaAttributes(OpenApiProperties properties, OpenApiSchema schema)
     {
         ApplyTitleAndDescription(properties, schema);
         ApplySchemaType(properties, schema);
@@ -949,11 +957,31 @@ public partial class OpenApiDocDescriptor
         }
     }
 
-    private static void ApplyFlags(OpenApiProperties properties, OpenApiSchema schema)
+    private void ApplyFlags(OpenApiProperties properties, OpenApiSchema schema)
     {
         schema.ReadOnly = properties.ReadOnly;
         schema.WriteOnly = properties.WriteOnly;
         schema.AdditionalPropertiesAllowed = properties.AdditionalPropertiesAllowed;
+        if (properties.AdditionalPropertiesAllowed && properties.AdditionalProperties is not null)
+        {
+            HashSet<Type>? built = null;
+            if (properties.AdditionalProperties.IsArray)
+            {
+                var item = properties.AdditionalProperties.GetElementType()!;
+
+                var itemSchema = BuildSchemaForType(item, built);
+
+                schema.AdditionalProperties = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.Array,
+                    Items = itemSchema
+                };
+            }
+            else
+            {
+                schema.AdditionalProperties = BuildSchemaForType(properties.AdditionalProperties, built);
+            }
+        }
         schema.UnevaluatedProperties = properties.UnevaluatedProperties;
         if (properties is not OpenApiParameterComponentAttribute)
         {

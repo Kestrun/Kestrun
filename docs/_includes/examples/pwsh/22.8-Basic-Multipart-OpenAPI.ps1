@@ -48,10 +48,7 @@ Add-KrOpenApiContact -Email 'support@example.com'
 $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.1-basic-multipart'
 Set-KrServerOptions -DefaultUploadPath $uploadRoot
 
-#New-KrFormPartRule -Name 'file' -Required -AllowedContentTypes 'text/plain' -AllowOnlyOne |
-#   Add-KrFormOption -Name 'fileUpload' -DefaultUploadPath $uploadRoot -ComputeSha256
-
-[OpenApiSchemaComponent(Description = 'File upload form')]
+[OpenApiSchemaComponent(Description = 'File upload form', AdditionalPropertiesAllowed = $false)]
 [KrBindForm(ComputeSha256 = $true)]
 class FileUpload {
     [OpenApiProperty(Description = 'Optional note field')]

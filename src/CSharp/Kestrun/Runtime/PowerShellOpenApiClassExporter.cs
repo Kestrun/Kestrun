@@ -601,10 +601,12 @@ public static class PowerShellOpenApiClassExporter
     /// <param name="sb"></param>
     private static void AppendClass(Type type, HashSet<Type> componentSet, StringBuilder sb)
     {
+        var bindFormAttribute = TryBuildKrBindFormAttribute(type);
+
         // Detect base type (for parenting). For OpenAPI form models, base type is chosen
         // by KrBindForm.MaxNestingDepth rather than requiring inheritance on the original class.
         var baseClause = string.Empty;
-        if (TryGetFormPayloadBasePsName(type, out var formBasePsName))
+        if (bindFormAttribute is null && TryGetFormPayloadBasePsName(type, out var formBasePsName))
         {
             baseClause = $" : {formBasePsName}";
         }
@@ -617,6 +619,10 @@ public static class PowerShellOpenApiClassExporter
                 var basePsName = ToPowerShellTypeName(baseType, componentSet, collapseToUnderlyingPrimitives: false);
                 baseClause = $" : {basePsName}";
             }
+        }
+        if (bindFormAttribute is not null)
+        {
+            _ = sb.AppendLine(bindFormAttribute);
         }
         _ = sb.AppendLine("[NoRunspaceAffinity()]");
         _ = sb.AppendLine($"class {type.Name}{baseClause} {{");
@@ -635,6 +641,24 @@ public static class PowerShellOpenApiClassExporter
         AppendOpenApiXmlMetadataProperty(type, props, sb);
 
         _ = sb.AppendLine("}");
+    }
+
+    private static string? TryBuildKrBindFormAttribute(Type type)
+    {
+        var bindAttr = type.GetCustomAttributes(inherit: false)
+            .FirstOrDefault(a => a.GetType().Name.Equals("KrBindFormAttribute", StringComparison.OrdinalIgnoreCase));
+
+        if (bindAttr is null)
+        {
+            return null;
+        }
+
+        var maxDepthProp = bindAttr.GetType().GetProperty("MaxNestingDepth");
+        var maxDepth = maxDepthProp?.GetValue(bindAttr) as int? ?? 0;
+
+        return maxDepth > 0
+            ? $"[KrBindForm(MaxNestingDepth = {maxDepth})]"
+            : "[KrBindForm()]";
     }
 
     /// <summary>

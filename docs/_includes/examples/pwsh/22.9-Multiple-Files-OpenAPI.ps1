@@ -1,4 +1,4 @@
-﻿<#!
+<#!
     22.9 multipart/form-data with multiple files under the same field name using OpenAPI
 
     Client example (PowerShell):
@@ -50,8 +50,8 @@ Set-KrServerOptions -DefaultUploadPath $uploadRoot
 [KrBindForm(ComputeSha256 = $true)]
 class FilesUpload {
     [KrPart(Required = $true, ContentTypes = 'text/plain', AllowMultiple = $true)]
-    [OpenApiProperty(Description = 'Files to upload', Format = 'binary')]
-    [Kestrun.Forms.KrFilePart[]] $Files
+    [OpenApiProperty(Description = 'Files to upload')]
+    [Kestrun.Forms.KrFilePart[]] $files
 
     [KrPart(Required = $false)]
     [OpenApiProperty(Description = 'Optional note field')]
@@ -70,12 +70,11 @@ class FilesUpload {
 function upload {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/upload')]
     [OpenApiResponse(  StatusCode = '200', Description = 'Parsed fields and files', ContentType = 'application/json')]
-
     param(
         [OpenApiRequestBody(contentType = ('multipart/form-data'), Required = $true)]
         [FilesUpload] $FormPayload
     )
-    $files = @($FormPayload.Files)
+    $files = @($FormPayload.files)
     $result = [pscustomobject]@{
         count = $files.Count
         files = $files | ForEach-Object {

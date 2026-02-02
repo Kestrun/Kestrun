@@ -88,6 +88,11 @@ public abstract class OpenApiProperties : KestrunAnnotation
     /// </summary>
     public bool AdditionalPropertiesAllowed { get; set; } = true;
 
+    /// <summary>
+    /// Type of additionalProperties (if allowed).
+    /// </summary>
+    public Type? AdditionalProperties { get; set; }
+
     // ---- Composition ----
     /// <summary>oneOf refs (by $ref).</summary>
     public string[]? OneOfRefs { get; set; }

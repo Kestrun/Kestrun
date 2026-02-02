@@ -13,7 +13,7 @@ public interface IKrFormPayload { }
 [OpenApiSchemaComponent(
     Description = "Base schema for parsed multipart/form-data payloads. Concrete form models should declare the expected parts as properties.",
     Type = OaSchemaType.Object,
-    AdditionalPropertiesAllowed = true
+    AdditionalPropertiesAllowed = true, AdditionalProperties = typeof(string)
 )]
 public class KrFormData : IKrFormPayload
 {

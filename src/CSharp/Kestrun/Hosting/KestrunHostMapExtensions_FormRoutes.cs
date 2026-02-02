@@ -185,6 +185,7 @@ try {
 
         var multipartProps = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
         var urlEncodedProps = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+        var multipartEncoding = new Dictionary<string, OpenApiEncoding>(StringComparer.Ordinal);
 
         foreach (var rule in options.Rules)
         {
@@ -201,6 +202,14 @@ try {
             var isFile = IsProbablyFileRule(rule);
             var multipartSchema = CreateRuleSchema(isFile, rule.AllowMultiple);
             multipartProps[rule.Name] = multipartSchema;
+
+            if (isFile && rule.AllowedContentTypes.Count > 0)
+            {
+                multipartEncoding[rule.Name] = new OpenApiEncoding
+                {
+                    ContentType = string.Join(", ", rule.AllowedContentTypes)
+                };
+            }
 
             // application/x-www-form-urlencoded can't carry binary file parts; model values as string (or array of strings).
             urlEncodedProps[rule.Name] = CreateRuleSchema(isFile: false, allowMultiple: rule.AllowMultiple);
@@ -228,12 +237,18 @@ try {
                 continue;
             }
 
-            content[ct] = new OpenApiMediaType
+            var isUrlEncoded = ct.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase);
+            var mediaType = new OpenApiMediaType
             {
-                Schema = ct.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase)
-                    ? urlEncodedObject
-                    : multipartObject
+                Schema = isUrlEncoded ? urlEncodedObject : multipartObject
             };
+
+            if (!isUrlEncoded && multipartEncoding.Count > 0)
+            {
+                mediaType.Encoding = multipartEncoding;
+            }
+
+            content[ct] = mediaType;
         }
 
         return new OpenApiRequestBody

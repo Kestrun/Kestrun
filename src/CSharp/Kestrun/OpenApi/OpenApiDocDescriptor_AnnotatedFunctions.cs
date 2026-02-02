@@ -511,7 +511,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="metadata">The OpenAPI metadata to update.</param>
     /// <param name="attribute">The OpenApiProperty attribute containing property details.</param>
     /// <exception cref="InvalidOperationException"></exception>
-    private static void ApplyPropertyAttribute(OpenAPIPathMetadata metadata, OpenApiPropertyAttribute attribute)
+    private void ApplyPropertyAttribute(OpenAPIPathMetadata metadata, OpenApiPropertyAttribute attribute)
     {
         if (attribute.StatusCode is null)
         {
@@ -915,11 +915,35 @@ public partial class OpenApiDocDescriptor
         ParameterMetadata paramInfo,
         OpenApiRequestBodyAttribute attribute)
     {
+        if (routeOptions.FormOptions is null && Host.Runtime.FormOptions.TryGetValue(paramInfo.ParameterType.Name, out var formOptionsValue))
+        {
+            routeOptions.FormOptions = new KrFormOptions(formOptionsValue);
+        }
+        else if (routeOptions.FormOptions is null)
+        {
+            var formAttr = paramInfo.ParameterType.GetCustomAttribute<KrBindFormAttribute>(inherit: true);
+            if (formAttr is not null)
+            {
+                var formOptions = FormHelper.ApplyKrPartAttributes(formAttr);
+                formOptions.Name = paramInfo.ParameterType.FullName ?? paramInfo.ParameterType.Name;
+
+                var rules = FormHelper.BuildFormPartRulesFromType(paramInfo.ParameterType);
+                AddFormPartRules(formOptions, rules);
+
+                routeOptions.FormOptions = formOptions;
+            }
+        }
+
         // Special handling for form payloads
         if (routeOptions.FormOptions is not null)
         // && (paramInfo.ParameterType == typeof(KrFormData) || paramInfo.ParameterType == typeof(KrFormPayload)))
         {
-            var requestBodyContent = KestrunHostMapExtensions.BuildOpenApiRequestBody(routeOptions.FormOptions);
+            var contentTypes = ResolveFormContentTypes(attribute, routeOptions.FormOptions);
+            routeOptions.FormOptions.AllowedRequestContentTypes.Clear();
+            routeOptions.FormOptions.AllowedRequestContentTypes.AddRange(contentTypes);
+
+            var formSchema = InferPrimitiveSchema(type: paramInfo.ParameterType, inline: attribute.Inline);
+            var requestBodyContent = BuildFormRequestBodyWithSchema(formSchema, contentTypes, routeOptions.FormOptions, attribute);
             metadata.RequestBody = requestBodyContent;
             metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
             // Add the parameter for injection
@@ -944,25 +968,6 @@ public partial class OpenApiDocDescriptor
 
         metadata.RequestBody = requestBody;
         metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
-
-        if (routeOptions.FormOptions is null && Host.Runtime.FormOptions.TryGetValue(paramInfo.ParameterType.Name, out var formOptionsValue))
-        {
-            routeOptions.FormOptions = new KrFormOptions(formOptionsValue);
-        }
-        else if (routeOptions.FormOptions is null)
-        {
-            var formAttr = paramInfo.ParameterType.GetCustomAttribute<KrBindFormAttribute>(inherit: true);
-            if (formAttr is not null)
-            {
-                var formOptions = FormHelper.ApplyKrPartAttributes(formAttr);
-                formOptions.Name = paramInfo.ParameterType.FullName ?? paramInfo.ParameterType.Name;
-
-                var rules = FormHelper.BuildFormPartRulesFromType(paramInfo.ParameterType);
-                AddFormPartRules(formOptions, rules);
-
-                routeOptions.FormOptions = formOptions;
-            }
-        }
 
         if (routeOptions.FormOptions is not null && requestBody.Content?.Keys.Count > 0)
         {
@@ -998,6 +1003,122 @@ public partial class OpenApiDocDescriptor
             oamt.Examples ??= new Dictionary<string, IOpenApiExample>();
             _ = TryAddExample(oamt.Examples, attribute);
         }
+    }
+
+    private static OpenApiRequestBody BuildFormRequestBodyWithSchema(
+        IOpenApiSchema schema,
+        string[] contentTypes,
+        KrFormOptions options,
+        OpenApiRequestBodyAttribute attribute)
+    {
+        var requestBody = new OpenApiRequestBody
+        {
+            Description = attribute.Description,
+            Required = attribute.Required,
+            Content = new Dictionary<string, IOpenApiMediaType>(StringComparer.OrdinalIgnoreCase)
+        };
+
+        var encoding = BuildMultipartEncoding(options);
+
+        foreach (var contentType in contentTypes)
+        {
+            if (string.IsNullOrWhiteSpace(contentType))
+            {
+                continue;
+            }
+
+            var mediaType = new OpenApiMediaType
+            {
+                Schema = schema
+            };
+
+            if (IsMultipartContentType(contentType) && encoding is not null)
+            {
+                mediaType.Encoding = encoding;
+            }
+
+            requestBody.Content[contentType] = mediaType;
+        }
+
+        return requestBody;
+    }
+
+    private static string[] ResolveFormContentTypes(OpenApiRequestBodyAttribute attribute, KrFormOptions options)
+    {
+        if (attribute.ContentType is { Length: > 0 })
+        {
+            return attribute.ContentType;
+        }
+
+        if (options.AllowedRequestContentTypes.Count > 0)
+        {
+            return [.. options.AllowedRequestContentTypes];
+        }
+
+        return ["multipart/form-data"];
+    }
+
+    private static bool IsMultipartContentType(string contentType)
+        => contentType.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase);
+
+    private static Dictionary<string, OpenApiEncoding>? BuildMultipartEncoding(KrFormOptions options)
+    {
+        var encoding = new Dictionary<string, OpenApiEncoding>(StringComparer.Ordinal);
+
+        foreach (var rule in options.Rules)
+        {
+            if (string.IsNullOrWhiteSpace(rule.Name))
+            {
+                continue;
+            }
+
+            if (!IsProbablyFileRule(rule))
+            {
+                continue;
+            }
+
+            if (rule.AllowedContentTypes.Count == 0)
+            {
+                continue;
+            }
+
+            encoding[rule.Name] = new OpenApiEncoding
+            {
+                ContentType = string.Join(", ", rule.AllowedContentTypes)
+            };
+        }
+
+        return encoding.Count > 0 ? encoding : null;
+    }
+
+    private static bool IsProbablyFileRule(KrFormPartRule rule)
+    {
+        if (rule.StoreToDisk)
+        {
+            return true;
+        }
+
+        if (rule.AllowedExtensions.Count > 0)
+        {
+            return true;
+        }
+
+        foreach (var ct in rule.AllowedContentTypes)
+        {
+            if (string.IsNullOrWhiteSpace(ct))
+            {
+                continue;
+            }
+
+            if (!ct.StartsWith("text/", StringComparison.OrdinalIgnoreCase)
+                && !ct.Equals("application/json", StringComparison.OrdinalIgnoreCase)
+                && !ct.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>

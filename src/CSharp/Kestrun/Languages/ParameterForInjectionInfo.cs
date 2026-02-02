@@ -434,9 +434,17 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         Type declaringType,
         Serilog.ILogger logger)
     {
-        var props = declaringType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(static p => p.GetIndexParameters().Length == 0)
-            .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
+        var props = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
+        foreach (var prop in declaringType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                     .Where(static p => p.GetIndexParameters().Length == 0))
+        {
+            // PowerShell-emitted classes can surface duplicate properties that differ only by case.
+            // Keep the first occurrence and ignore duplicates to avoid CLS conflicts.
+            if (!props.ContainsKey(prop.Name))
+            {
+                props.Add(prop.Name, prop);
+            }
+        }
 
         foreach (var kvp in source.Fields)
         {
@@ -446,13 +454,32 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             }
 
             var values = kvp.Value ?? [];
-            object? value = prop.PropertyType switch
+            object? value = null;
+            if (prop.PropertyType == typeof(string))
             {
-                var t when t == typeof(string) => values.FirstOrDefault(),
-                var t when t == typeof(string[]) => values,
-                var t when t == typeof(object) => values.Length == 1 ? values[0] : values,
-                _ => null
-            };
+                value = values.FirstOrDefault();
+            }
+            else if (prop.PropertyType == typeof(string[]))
+            {
+                value = values;
+            }
+            else if (prop.PropertyType == typeof(object))
+            {
+                value = values.Length == 1 ? values[0] : values;
+            }
+            else if (prop.PropertyType.IsArray)
+            {
+                var elementType = prop.PropertyType.GetElementType();
+                if (elementType is not null && (elementType == typeof(string) || elementType == typeof(object)))
+                {
+                    var array = Array.CreateInstance(elementType, values.Length);
+                    for (var i = 0; i < values.Length; i++)
+                    {
+                        array.SetValue(values[i], i);
+                    }
+                    value = array;
+                }
+            }
 
             if (value is null)
             {
@@ -470,13 +497,32 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             }
 
             var files = kvp.Value ?? [];
-            object? value = prop.PropertyType switch
+            object? value = null;
+            if (prop.PropertyType == typeof(KrFilePart))
             {
-                var t when t == typeof(KrFilePart) => files.FirstOrDefault(),
-                var t when t == typeof(KrFilePart[]) => files,
-                var t when t == typeof(object) => files.Length == 1 ? files[0] : files,
-                _ => null
-            };
+                value = files.FirstOrDefault();
+            }
+            else if (prop.PropertyType == typeof(KrFilePart[]))
+            {
+                value = files;
+            }
+            else if (prop.PropertyType == typeof(object))
+            {
+                value = files.Length == 1 ? files[0] : files;
+            }
+            else if (prop.PropertyType.IsArray)
+            {
+                var elementType = prop.PropertyType.GetElementType();
+                if (elementType is not null && (elementType == typeof(KrFilePart) || elementType == typeof(object)))
+                {
+                    var array = Array.CreateInstance(elementType, files.Length);
+                    for (var i = 0; i < files.Length; i++)
+                    {
+                        array.SetValue(files[i], i);
+                    }
+                    value = array;
+                }
+            }
 
             if (value is null)
             {

@@ -1,4 +1,4 @@
-﻿<#!
+<#!
     22.4 multipart/mixed (ordered parts)
 
     Client example (PowerShell):

@@ -351,7 +351,7 @@ public class ClassWithDefaults
 /// </summary>
 public class ClassWithAdditionalProperties
 {
-    [OpenApiAdditionalProperties]
+    [OpenApiPatternProperties]
     public string? AdditionalData { get; set; }
 
     public string Name { get; set; } = "test";

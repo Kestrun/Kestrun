@@ -143,11 +143,8 @@ class Order {
     [bool]$complete
 }
 
-[OpenApiSchemaComponent( Description = 'Inventory counts by status')]
-class Inventory {
-    [OpenApiAdditionalProperties()]
-    [int]$AdditionalProperties
-}
+[OpenApiSchemaComponent( Description = 'Inventory counts by status', AdditionalPropertiesAllowed = $true, AdditionalProperties = [OpenApiInt32])]
+class Inventory {}
 
 #region COMPONENT REQUEST BODIES
 # =========================================================

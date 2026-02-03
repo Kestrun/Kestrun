@@ -131,7 +131,8 @@
             "type": "string",
             "description": "Shipping address"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "OrderResponse": {
         "required": [
@@ -187,7 +188,8 @@
             "description": "Expected delivery date",
             "format": "date"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ErrorDetail": {
         "required": [
@@ -214,7 +216,8 @@
             "type": "string",
             "description": "Additional context"
           }
-        }
+        },
+        "additionalProperties": false
       }
     },
     "responses": {

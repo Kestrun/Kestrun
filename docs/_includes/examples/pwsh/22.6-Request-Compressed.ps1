@@ -1,4 +1,4 @@
-﻿<#!
+<#!
     22.6 Upload with request-level compression (RequestDecompression middleware)
 
     Client example (PowerShell):

@@ -16,18 +16,8 @@ Describe 'OpenAPI Petstore Example' -Tag 'OpenApi', 'Slow' {
             Write-KrExampleInstanceOnFailure -Instance $script:instance
         }
     }
-
-    It 'OpenAPI JSON equals expected petstore-api.json' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
-        $result.StatusCode | Should -Be 200
-
-        $actualNormalized = Get-NormalizedJson $result.Content
-        $expectedPath = Join-Path -Path (Get-TutorialExamplesDirectory) -ChildPath 'Assets' -AdditionalChildPath 'OpenAPI', 'petstore-api.json'
-
-        $expectedContent = Get-Content -Path $expectedPath -Raw
-        $expectedNormalized = Get-NormalizedJson $expectedContent
-
-        $actualNormalized | Should -Be $expectedNormalized
+    
+    It 'OpenAPI output matches Petstore JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
     }
 }
-

@@ -269,6 +269,7 @@
             "example": "john.doe@example.com"
           }
         },
+        "additionalProperties": false,
         "description": "User payload (create/update)."
       },
       "UserResourceResponse": {
@@ -289,6 +290,7 @@
             "$ref": "#/components/schemas/UserPayload"
           }
         },
+        "additionalProperties": false,
         "description": "Response payload for user operations. Contains an id and nested user object for link mapping."
       }
     },

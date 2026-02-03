@@ -257,6 +257,7 @@
             "example": "https://client.example.com/callbacks/shipping-order"
           }
         },
+        "additionalProperties": false,
         "description": "Callback URLs supplied by the client for async notifications."
       },
       "CreatePaymentRequest": {
@@ -284,6 +285,7 @@
             "$ref": "#/components/schemas/CallbackUrls"
           }
         },
+        "additionalProperties": false,
         "description": "Request payload to create a payment. Includes callback URLs for async updates."
       },
       "CreatePaymentResponse": {
@@ -310,6 +312,7 @@
             "example": "pending"
           }
         },
+        "additionalProperties": false,
         "description": "Response returned after creating a payment."
       },
       "PaymentStatusChangedEvent": {
@@ -347,6 +350,7 @@
             "example": "authorized"
           }
         },
+        "additionalProperties": false,
         "description": "Callback event payload for payment status changes."
       },
       "ReservationCreatedEvent": {
@@ -379,6 +383,7 @@
             "example": "RSV-12345678"
           }
         },
+        "additionalProperties": false,
         "description": "Callback event payload for reservation creation."
       },
       "ShippingOrderCreatedEvent": {
@@ -411,6 +416,7 @@
             "example": "SHP-12345678"
           }
         },
+        "additionalProperties": false,
         "description": "Callback event payload for shipping order creation."
       }
     },

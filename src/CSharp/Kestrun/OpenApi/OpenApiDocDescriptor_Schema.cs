@@ -4,6 +4,7 @@ using Microsoft.OpenApi;
 using OpenApiXmlModel = Microsoft.OpenApi.OpenApiXml;
 using Kestrun.Runtime;
 using Kestrun.Forms;
+using System.DirectoryServices.ActiveDirectory;
 
 namespace Kestrun.OpenApi;
 
@@ -453,12 +454,15 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     private void ApplyTypeAttributes(Type t, OpenApiSchema schema)
     {
-        foreach (var attr in t.GetCustomAttributes(true)
-          .Where(a => a is OpenApiPropertyAttribute or OpenApiSchemaComponent))
-        {
-            ApplySchemaAttr(attr as OpenApiProperties, schema);
+        var schemaAttribute = t.GetCustomAttributes(true)
+            .OfType<OpenApiSchemaComponent>()
+            .FirstOrDefault();
 
-            if (attr is OpenApiSchemaComponent schemaAttribute && schemaAttribute.Examples is not null)
+        if (schemaAttribute is not null)
+        {
+            ApplySchemaAttr(schemaAttribute, schema);
+
+            if (schemaAttribute.Examples is not null)
             {
                 schema.Examples ??= [];
                 var node = OpenApiJsonNodeFactory.ToNode(schemaAttribute.Examples);
@@ -468,11 +472,63 @@ public partial class OpenApiDocDescriptor
                 }
             }
         }
-    }
+        /* foreach (var attr in t.GetCustomAttributes(true)
+           .Where(a => a is OpenApiSchemaComponent))
+         {
+             ApplySchemaAttr(attr as OpenApiProperties, schema);
 
+             if (attr is OpenApiSchemaComponent schemaAttribute && schemaAttribute.Examples is not null)
+             {
+                 schema.Examples ??= [];
+                 var node = OpenApiJsonNodeFactory.ToNode(schemaAttribute.Examples);
+                 if (node is not null)
+                 {
+                     schema.Examples.Add(node);
+                 }
+             }
+         }*/
+
+        foreach (var p in t.GetCustomAttributes(true)
+                     .OfType<OpenApiPatternPropertiesAttribute>())
+        {
+            schema.PatternProperties ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+            if (p.SchemaType is null)
+            {
+                continue;
+            }
+            var schemaType = p.SchemaType;
+            HashSet<Type>? built = null;
+            IOpenApiSchema? patternSchema;
+            if (schemaType.IsArray)
+            {
+                var item = schemaType.GetElementType()!;
+
+                var itemSchema = BuildSchemaForType(item, built);
+                patternSchema = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.Array,
+                    Items = itemSchema
+                };
+                //        schema.PatternProperties[attr is OpenApiPatternPropertiesAttribute p ? p.KeyPattern : string.Empty] =
+            }
+            else
+            {
+                patternSchema = BuildSchemaForType(schemaType, built);
+            }
+
+            // Add to PatternProperties
+            if (patternSchema is not null && p.KeyPattern is not null)
+            {
+                schema.PatternProperties[p.KeyPattern] = patternSchema;
+            }
+        }
+    }
     /// <summary>
     /// Processes all properties of a type and builds their schemas.
     /// </summary>
+    /// <param name="t">The type being processed.</param>
+    /// <param name="schema">The schema to populate with properties.</param>
+    /// <param name="built">The recursion guard set passed through schema-building.</param>
     private void ProcessTypeProperties(Type t, OpenApiSchema schema, HashSet<Type> built)
     {
         var instance = TryCreateTypeInstance(t);
@@ -495,16 +551,7 @@ public partial class OpenApiDocDescriptor
                 schema.Required ??= new HashSet<string>(StringComparer.Ordinal);
                 _ = schema.Required.Add(prop.Name);
             }
-
-            if (prop.GetCustomAttribute<OpenApiAdditionalPropertiesAttribute>() is not null)
-            {
-                schema.AdditionalPropertiesAllowed = true;
-                schema.AdditionalProperties = propSchema;
-            }
-            else
-            {
-                schema.Properties?.Add(prop.Name, propSchema);
-            }
+            schema.Properties?.Add(prop.Name, propSchema);
         }
     }
 
@@ -818,6 +865,10 @@ public partial class OpenApiDocDescriptor
         ApplyFlags(properties, schema);
         ApplyExamplesAndDefaults(properties, schema);
         ApplyXmlMetadata(properties, schema);
+        if (schema.Type == null && (schema.AdditionalProperties is not null || schema.AdditionalPropertiesAllowed || schema.PatternProperties is not null))
+        {
+            schema.Type = JsonSchemaType.Object;
+        }
     }
 
     /// <summary>
@@ -970,7 +1021,12 @@ public partial class OpenApiDocDescriptor
                 var item = properties.AdditionalProperties.GetElementType()!;
 
                 var itemSchema = BuildSchemaForType(item, built);
-
+                // Handle AdditionalProperties attribute on property
+                if (itemSchema.Type != JsonSchemaType.Object && !itemSchema.AdditionalPropertiesAllowed
+                   && schema.AdditionalProperties is OpenApiSchema apiSchema)
+                {
+                    apiSchema.AdditionalPropertiesAllowed = true;
+                }
                 schema.AdditionalProperties = new OpenApiSchema
                 {
                     Type = JsonSchemaType.Array,
@@ -980,6 +1036,12 @@ public partial class OpenApiDocDescriptor
             else
             {
                 schema.AdditionalProperties = BuildSchemaForType(properties.AdditionalProperties, built);
+                // Handle AdditionalProperties attribute on property
+                if (schema.AdditionalProperties.Type != JsonSchemaType.Object && !schema.AdditionalProperties.AdditionalPropertiesAllowed
+                && schema.AdditionalProperties is OpenApiSchema apiSchema)
+                {
+                    apiSchema.AdditionalPropertiesAllowed = true;
+                }
             }
         }
         schema.UnevaluatedProperties = properties.UnevaluatedProperties;

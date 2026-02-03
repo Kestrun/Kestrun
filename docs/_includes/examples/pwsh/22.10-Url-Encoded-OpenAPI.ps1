@@ -1,4 +1,4 @@
-﻿<#!
+<#!
     22.10-Url-Encoded-OpenAPI application/x-www-form-urlencoded forms
 
     Client example (PowerShell):

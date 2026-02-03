@@ -149,7 +149,8 @@
             "type": "string",
             "description": "Additional error details"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "Article": {
         "required": [
@@ -186,7 +187,8 @@
             "description": "Author name",
             "example": "John Doe"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "SuccessResponse": {
         "required": [
@@ -211,7 +213,8 @@
             "description": "Operation timestamp",
             "format": "date-time"
           }
-        }
+        },
+        "additionalProperties": false
       }
     },
     "responses": {

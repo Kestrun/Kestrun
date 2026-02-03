@@ -247,7 +247,8 @@
               "dock"
             ]
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ProductItem": {
         "required": [
@@ -291,7 +292,8 @@
               "portable"
             ]
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ProductListResponse": {
         "type": "object",
@@ -324,7 +326,8 @@
             },
             "description": "List of products"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ErrorResponse": {
         "required": [
@@ -337,7 +340,8 @@
             "description": "Human-readable error message",
             "example": "Product not found"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ClientContext": {
         "type": "object",
@@ -357,7 +361,8 @@
             "description": "Locale / language hint",
             "example": "en-US"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "CategoryItem": {
         "required": [
@@ -377,7 +382,8 @@
             "format": "int32",
             "example": 3
           }
-        }
+        },
+        "additionalProperties": false
       },
       "CategoryListResponse": {
         "type": "object",
@@ -389,7 +395,8 @@
             },
             "description": "List of categories"
           }
-        }
+        },
+        "additionalProperties": false
       }
     },
     "parameters": {

@@ -191,6 +191,12 @@ class ErrorResponse {
     [string]$message
 }
 
+
+
+[OpenApiSchemaComponent(Description = "Inventory counts by status key.")]
+[OpenApiPatternProperties(KeyPattern = "^[a-z][a-z0-9_]*$", SchemaType = [int])]
+class InventoryCounts {}
+
 # =========================================================
 #                 ROUTES / OPERATIONS
 # =========================================================

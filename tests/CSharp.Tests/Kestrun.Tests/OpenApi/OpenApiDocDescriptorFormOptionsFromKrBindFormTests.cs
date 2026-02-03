@@ -71,7 +71,7 @@ public class OpenApiDocDescriptorFormOptionsFromKrBindFormTests
     [OpenApiSchemaComponent(Description = "Nested multipart request body.")]
     private sealed class OuterControl
     {
-        [OpenApiAdditionalProperties]
+        [OpenApiPatternProperties]
         public object? AdditionalProperties { get; set; }
     }
 

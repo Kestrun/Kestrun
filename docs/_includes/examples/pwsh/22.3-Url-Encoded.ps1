@@ -1,4 +1,4 @@
-﻿<#!
+<#!
     22.3-Url-Encoded application/x-www-form-urlencoded forms
 
     Client example (PowerShell):

@@ -1043,18 +1043,26 @@ public partial class OpenApiDocDescriptor
         return requestBody;
     }
 
+    /// <summary>
+    /// Resolves the content types for a form request body based on the attribute and form options.
+    /// </summary>
+    /// <param name="attribute">The OpenApiRequestBodyAttribute containing request body details.</param>
+    /// <param name="options">The KrFormOptions specifying allowed content types.</param>
+    /// <returns>An array of content type strings to be used for the form request body.</returns>
     private static string[] ResolveFormContentTypes(OpenApiRequestBodyAttribute attribute, KrFormOptions options)
     {
+        // if content type is specified on the attribute, use that
         if (attribute.ContentType is { Length: > 0 })
         {
             return attribute.ContentType;
         }
 
+        // if allowed content types are specified, use those
         if (options.AllowedRequestContentTypes.Count > 0)
         {
             return [.. options.AllowedRequestContentTypes];
         }
-
+        // default to multipart/form-data
         return ["multipart/form-data"];
     }
 

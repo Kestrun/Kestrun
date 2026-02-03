@@ -1,4 +1,4 @@
-﻿<#!
+<#!
     22.2 multipart/form-data with multiple files under the same field name
 
     Client example (PowerShell):

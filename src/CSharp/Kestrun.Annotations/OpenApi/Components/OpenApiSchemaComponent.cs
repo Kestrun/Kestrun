@@ -14,4 +14,9 @@ public sealed class OpenApiSchemaComponent : OpenApiProperties
     /// Inline examples object for the schema (optional).
     /// </summary>
     public object? Examples { get; set; }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="OpenApiSchemaComponent"/> class.
+    /// </summary>
+    public OpenApiSchemaComponent() => AdditionalPropertiesAllowed = false;
 }

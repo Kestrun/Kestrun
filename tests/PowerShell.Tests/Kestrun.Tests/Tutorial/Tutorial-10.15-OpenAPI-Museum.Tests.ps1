@@ -28,5 +28,8 @@ Describe 'OpenAPI Museum Example' -Tag 'OpenApi', 'Slow' {
 
         $actualNormalized | Should -Be $expectedNormalized
     }
-}
 
+     It 'OpenAPI output matches Museum JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
+    }
+}

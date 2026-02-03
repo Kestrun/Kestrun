@@ -115,6 +115,7 @@
     "schemas": {
       "Date": {
         "type": "string",
+        "additionalProperties": false,
         "description": "A calendar date (YYYY-MM-DD).",
         "format": "date",
         "example": "2026-01-13"
@@ -122,12 +123,14 @@
       "Money": {
         "minimum": 0,
         "type": "number",
+        "additionalProperties": false,
         "description": "A monetary amount. Prefer decimals for currency values.",
         "format": "decimal",
         "example": 19.99
       },
       "EmployeeId": {
         "type": "string",
+        "additionalProperties": false,
         "description": "Server-generated employee identifier.",
         "format": "uuid",
         "example": "a54a57ca-36f8-421b-a6b4-2e8f26858a4c"
@@ -137,6 +140,7 @@
         "items": {
           "$ref": "#/components/schemas/Date"
         },
+        "additionalProperties": false,
         "description": "List of visit dates."
       },
       "Address": {
@@ -164,6 +168,7 @@
             "example": "98101"
           }
         },
+        "additionalProperties": false,
         "description": "Postal address.",
         "x-badges": [
           {
@@ -206,6 +211,7 @@
             "example": "Rivera"
           }
         },
+        "additionalProperties": false,
         "description": "Base person identity."
       },
       "Person": {
@@ -232,6 +238,7 @@
                 "example": "+1-206-555-0123"
               }
             },
+            "additionalProperties": false,
             "description": "Person contact information."
           }
         ]
@@ -267,6 +274,7 @@
                 "$ref": "#/components/schemas/Address"
               }
             },
+            "additionalProperties": false,
             "description": "Employee record."
           }
         ]
@@ -294,6 +302,7 @@
                 "example": "2026-01-13T20:15:30.123Z"
               }
             },
+            "additionalProperties": false,
             "description": "Employee response with server-generated fields."
           }
         ]
@@ -303,6 +312,7 @@
         "items": {
           "$ref": "#/components/schemas/EmployeeResponse"
         },
+        "additionalProperties": false,
         "description": "List of employees."
       },
       "TicketType": {
@@ -337,6 +347,7 @@
             "$ref": "#/components/schemas/Money"
           }
         },
+        "additionalProperties": false,
         "description": "A purchasable ticket line item."
       },
       "LineItemList": {
@@ -344,6 +355,7 @@
         "items": {
           "$ref": "#/components/schemas/LineItem"
         },
+        "additionalProperties": false,
         "description": "List of ticket line items."
       },
       "PurchaseRequest": {
@@ -370,6 +382,7 @@
             "$ref": "#/components/schemas/Dates"
           },
           "preferredTicketType": {
+            "type": "object",
             "anyOf": [
               {
                 "$ref": "#/components/schemas/TicketType"
@@ -387,6 +400,7 @@
             "example": "Please email the receipt."
           }
         },
+        "additionalProperties": false,
         "description": "Ticket purchase request."
       },
       "PurchaseResponse": {
@@ -418,6 +432,7 @@
             "example": "2026-01-13T20:15:30.123Z"
           }
         },
+        "additionalProperties": false,
         "description": "Ticket purchase response."
       },
       "ErrorResponse": {
@@ -439,7 +454,18 @@
             "example": "Invalid input"
           }
         },
+        "additionalProperties": false,
         "description": "Standard error response."
+      },
+      "InventoryCounts": {
+        "patternProperties": {
+          "^[a-z][a-z0-9_]*$": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Inventory counts by status key."
       }
     }
   }

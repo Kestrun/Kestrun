@@ -171,6 +171,10 @@ internal static class FormHelper
     /// <summary>
     /// Builds form part rules for a type, scoped under a given parent container name.
     /// </summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <param name="scopeName">The parent multipart scope name.</param>
+    /// <param name="visited">The set of visited types to avoid cycles.</param>
+    /// <returns>A flattened list of rules including nested rules.</returns>
     private static List<KrFormPartRule> BuildFormPartRulesFromType(Type type, string? scopeName, HashSet<Type> visited)
     {
         if (!visited.Add(type))
@@ -182,58 +186,97 @@ internal static class FormHelper
         foreach (var prop in type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
                      .Where(static p => p.DeclaringType == p.ReflectedType))
         {
-            var attr = prop.GetCustomAttribute<KrPartAttribute>(inherit: false);
-            if (attr is null)
+            var ruleInfo = TryBuildRuleInfo(prop, scopeName);
+            if (ruleInfo is not { } info)
             {
                 continue;
             }
 
-            var partName = ResolvePartName(prop);
-            if (string.IsNullOrWhiteSpace(partName))
+            rules.Add(info.Rule);
+            if (info.CanNest)
             {
-                continue;
+                AddNestedRules(info.Rule, info.UnderlyingType!, visited, rules);
             }
-
-            var underlying = UnwrapElementType(prop.PropertyType);
-            var ruleName = IsMultipartContainerRule(attr) && underlying is not null && IsComplexType(underlying)
-                ? underlying.Name
-                : partName;
-
-            var rule = new KrFormPartRule
-            {
-                Name = ruleName,
-                Scope = scopeName,
-                Description = attr.Description,
-                Required = attr.Required,
-                AllowMultiple = attr.AllowMultiple,
-                MaxBytes = attr.MaxBytes > 0 ? attr.MaxBytes : null,
-                DecodeMode = attr.DecodeMode,
-                DestinationPath = attr.DestinationPath,
-                StoreToDisk = attr.StoreToDisk,
-            };
-
-            rule.AllowedContentTypes.AddRange(attr.ContentTypes);
-            rule.AllowedExtensions.AddRange(attr.Extensions);
-
-            rules.Add(rule);
-
-            if (!IsMultipartContainerRule(attr) || underlying is null || !IsComplexType(underlying))
-            {
-                continue;
-            }
-
-            var childRules = BuildFormPartRulesFromType(underlying, scopeName: rule.Name, visited);
-            foreach (var child in childRules)
-            {
-                rule.NestedRules.Add(child);
-            }
-
-            rules.AddRange(childRules);
         }
 
         return rules;
     }
 
+    /// <summary>
+    /// Creates rule metadata for a property decorated with <see cref="KrPartAttribute"/>.
+    /// </summary>
+    /// <param name="prop">The property to inspect.</param>
+    /// <param name="scopeName">The parent multipart scope name.</param>
+    /// <returns>The rule info or null when no rule should be created.</returns>
+    private static RuleInfo? TryBuildRuleInfo(PropertyInfo prop, string? scopeName)
+    {
+        var attr = prop.GetCustomAttribute<KrPartAttribute>(inherit: false);
+        if (attr is null)
+        {
+            return null;
+        }
+
+        var partName = ResolvePartName(prop);
+        if (string.IsNullOrWhiteSpace(partName))
+        {
+            return null;
+        }
+
+        var underlying = UnwrapElementType(prop.PropertyType);
+        var canNest = IsMultipartContainerRule(attr) && underlying is not null && IsComplexType(underlying);
+        var ruleName = canNest ? underlying!.Name : partName;
+
+        var rule = new KrFormPartRule
+        {
+            Name = ruleName,
+            Scope = scopeName,
+            Description = attr.Description,
+            Required = attr.Required,
+            AllowMultiple = attr.AllowMultiple,
+            MaxBytes = attr.MaxBytes > 0 ? attr.MaxBytes : null,
+            DecodeMode = attr.DecodeMode,
+            DestinationPath = attr.DestinationPath,
+            StoreToDisk = attr.StoreToDisk,
+        };
+
+        rule.AllowedContentTypes.AddRange(attr.ContentTypes);
+        rule.AllowedExtensions.AddRange(attr.Extensions);
+
+        return new RuleInfo(rule, underlying, canNest);
+    }
+
+    /// <summary>
+    /// Adds nested rules for a multipart container rule and flattens them into the output list.
+    /// </summary>
+    /// <param name="parent">The parent container rule.</param>
+    /// <param name="underlying">The underlying complex type to inspect.</param>
+    /// <param name="visited">The set of visited types to avoid cycles.</param>
+    /// <param name="rules">The master rules list to append to.</param>
+    private static void AddNestedRules(
+        KrFormPartRule parent,
+        Type underlying,
+        HashSet<Type> visited,
+        List<KrFormPartRule> rules)
+    {
+        var childRules = BuildFormPartRulesFromType(underlying, scopeName: parent.Name, visited);
+        foreach (var child in childRules)
+        {
+            parent.NestedRules.Add(child);
+        }
+
+        rules.AddRange(childRules);
+    }
+
+    /// <summary>
+    /// Holds rule construction details for a property.
+    /// </summary>
+    private readonly record struct RuleInfo(KrFormPartRule Rule, Type? UnderlyingType, bool CanNest);
+
+    /// <summary>
+    /// Unwraps array or nullable types to their element or underlying type.
+    /// </summary>
+    /// <param name="type">The type to unwrap.</param>
+    /// <returns>The unwrapped element or underlying type, or the original type if not an array or nullable.</returns>
     private static Type? UnwrapElementType(Type type)
     {
         var t = type;

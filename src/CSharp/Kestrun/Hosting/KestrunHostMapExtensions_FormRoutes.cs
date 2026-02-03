@@ -84,6 +84,24 @@ public static partial class KestrunHostMapExtensions
         };
     }
 
+    /// <summary>
+    /// Builds map route options for a form route.
+    /// </summary>
+    /// <param name="pattern">The route pattern (e.g. <c>/upload</c>).</param>
+    /// <param name="userScriptBlock">The PowerShell scriptblock to execute after parsing.</param>
+    /// <param name="formOptions">Form parsing options.</param>
+    /// <param name="authorizationSchemes">Authorization schemes (optional).</param>
+    /// <param name="authorizationPolicies">Authorization policies (optional).</param>
+    /// <param name="corsPolicy">CORS policy name (optional).</param>
+    /// <param name="allowAnonymous">Whether to allow anonymous access.</param>
+    /// <param name="disableOpenApi">Whether to disable OpenAPI metadata generation.</param>
+    /// <param name="openApiOperationId">OpenAPI operation ID (optional).</param>
+    /// <param name="openApiTags">OpenAPI tags (optional).</param>
+    /// <param name="openApiSummary">OpenAPI summary (optional).</param>
+    /// <param name="openApiDescription">OpenAPI description (optional).</param>
+    /// <param name="openApiDocumentId">OpenAPI document ID(s) (optional).</param>
+    /// <returns>Map route options configured for the form route.</returns>
+    /// <exception cref="ArgumentException">Thrown when allowAnonymous is true and authorizationSchemes or authorizationPolicies are also specified.</exception>
     private static MapRouteOptions BuildFormRouteMapOptions(
         string pattern,
         ScriptBlock userScriptBlock,
@@ -110,49 +128,107 @@ public static partial class KestrunHostMapExtensions
             FormOptions = formOptions
         };
 
-        if (!allowAnonymous)
-        {
-            if (authorizationSchemes is { Length: > 0 })
-            {
-                routeOptions.RequireSchemes.AddRange(authorizationSchemes ?? []);
-            }
-
-            if (authorizationPolicies is { Length: > 0 })
-            {
-                routeOptions.RequirePolicies.AddRange(authorizationPolicies ?? []);
-            }
-        }
-        else if (authorizationSchemes is { Length: > 0 } || authorizationPolicies is { Length: > 0 })
-        {
-            throw new ArgumentException(
-                "The allowAnonymous flag cannot be used together with authorizationSchemes or authorizationPolicies.");
-        }
-
-        if (!disableOpenApi)
-        {
-            var meta = new OpenAPIPathMetadata(pattern, routeOptions)
-            {
-                PathLikeKind = OpenApiPathLikeKind.Path,
-                OperationId = string.IsNullOrWhiteSpace(openApiOperationId) ? null : openApiOperationId,
-                Summary = string.IsNullOrWhiteSpace(openApiSummary) ? null : openApiSummary,
-                Description = string.IsNullOrWhiteSpace(openApiDescription) ? null : openApiDescription,
-                DocumentId = openApiDocumentId
-            };
-
-            if (openApiTags is { Length: > 0 })
-            {
-                meta.Tags.AddRange(openApiTags ?? []);
-            }
-
-            meta.RequestBody = BuildOpenApiRequestBody(formOptions);
-
-            // Let the descriptor generate a default 200 response.
-            meta.Responses = null;
-
-            routeOptions.OpenAPI[HttpVerb.Post] = meta;
-        }
+        ApplyAuthorizationOptions(routeOptions, allowAnonymous, authorizationSchemes, authorizationPolicies);
+        ApplyOpenApiMetadata(
+            routeOptions,
+            pattern,
+            formOptions,
+            disableOpenApi,
+            openApiOperationId,
+            openApiTags,
+            openApiSummary,
+            openApiDescription,
+            openApiDocumentId);
 
         return routeOptions;
+    }
+
+    /// <summary>
+    /// Applies authorization configuration to the route options.
+    /// </summary>
+    /// <param name="routeOptions">The route options to update.</param>
+    /// <param name="allowAnonymous">Whether to allow anonymous access.</param>
+    /// <param name="authorizationSchemes">Authorization schemes (optional).</param>
+    /// <param name="authorizationPolicies">Authorization policies (optional).</param>
+    /// <exception cref="ArgumentException">
+    /// Thrown when <paramref name="allowAnonymous"/> is true and authorization schemes or policies are specified.
+    /// </exception>
+    private static void ApplyAuthorizationOptions(
+        MapRouteOptions routeOptions,
+        bool allowAnonymous,
+        string[]? authorizationSchemes,
+        string[]? authorizationPolicies)
+    {
+        if (allowAnonymous)
+        {
+            if (authorizationSchemes is { Length: > 0 } || authorizationPolicies is { Length: > 0 })
+            {
+                throw new ArgumentException(
+                    "The allowAnonymous flag cannot be used together with authorizationSchemes or authorizationPolicies.");
+            }
+
+            return;
+        }
+
+        if (authorizationSchemes is { Length: > 0 })
+        {
+            routeOptions.RequireSchemes.AddRange(authorizationSchemes ?? []);
+        }
+
+        if (authorizationPolicies is { Length: > 0 })
+        {
+            routeOptions.RequirePolicies.AddRange(authorizationPolicies ?? []);
+        }
+    }
+
+    /// <summary>
+    /// Applies OpenAPI metadata to the route options when enabled.
+    /// </summary>
+    /// <param name="routeOptions">The route options to update.</param>
+    /// <param name="pattern">The route pattern.</param>
+    /// <param name="formOptions">Form parsing options.</param>
+    /// <param name="disableOpenApi">Whether to disable OpenAPI metadata generation.</param>
+    /// <param name="openApiOperationId">OpenAPI operation ID (optional).</param>
+    /// <param name="openApiTags">OpenAPI tags (optional).</param>
+    /// <param name="openApiSummary">OpenAPI summary (optional).</param>
+    /// <param name="openApiDescription">OpenAPI description (optional).</param>
+    /// <param name="openApiDocumentId">OpenAPI document ID(s) (optional).</param>
+    private static void ApplyOpenApiMetadata(
+        MapRouteOptions routeOptions,
+        string pattern,
+        KrFormOptions formOptions,
+        bool disableOpenApi,
+        string? openApiOperationId,
+        string[]? openApiTags,
+        string? openApiSummary,
+        string? openApiDescription,
+        string[]? openApiDocumentId)
+    {
+        if (disableOpenApi)
+        {
+            return;
+        }
+
+        var meta = new OpenAPIPathMetadata(pattern, routeOptions)
+        {
+            PathLikeKind = OpenApiPathLikeKind.Path,
+            OperationId = string.IsNullOrWhiteSpace(openApiOperationId) ? null : openApiOperationId,
+            Summary = string.IsNullOrWhiteSpace(openApiSummary) ? null : openApiSummary,
+            Description = string.IsNullOrWhiteSpace(openApiDescription) ? null : openApiDescription,
+            DocumentId = openApiDocumentId
+        };
+
+        if (openApiTags is { Length: > 0 })
+        {
+            meta.Tags.AddRange(openApiTags ?? []);
+        }
+
+        meta.RequestBody = BuildOpenApiRequestBody(formOptions);
+
+        // Let the descriptor generate a default 200 response.
+        meta.Responses = null;
+
+        routeOptions.OpenAPI[HttpVerb.Post] = meta;
     }
 
     private static string GetFormRouteWrapperScript(ScriptBlock scriptBlock)

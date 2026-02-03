@@ -266,90 +266,255 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             return payload;
         }
 
-        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        LogCoerceFormPayload(logger, parameterType, payload, ps);
+
+        var exactMatch = TryHandleExactPayloadType(parameterType, formPayload, logger, ps);
+        if (exactMatch is not null)
         {
-            var runspaceId = ps?.Runspace?.InstanceId.ToString() ?? "<null>";
-            logger.Debug(
-                "CoerceFormPayloadForParameter: parameterType={ParameterType} payloadType={PayloadType} runspaceId={RunspaceId}",
-                parameterType,
-                payload?.GetType(),
-                runspaceId);
+            return exactMatch;
         }
 
-        if (parameterType.IsInstanceOfType(formPayload))
+        var boundModel = TryBindFormModel(parameterType, formPayload, logger, ps);
+        if (boundModel is not null)
         {
-            // The parser may have already constructed the exact derived payload type.
-            // Still populate any declared KrMultipart-derived properties (outer/nested/etc) from Parts.
-            if (formPayload is KrMultipart mp)
-            {
-                TryPopulateKrMultipartDerivedModel(mp, logger, ps);
-            }
-
-            return formPayload;
+            return boundModel;
         }
 
-        // Support KrBindForm on types that do not inherit KrMultipart/KrFormData.
-        // The form kind is inferred from MaxNestingDepth (multipart when > 0; otherwise form-data).
-        var bindAttr = parameterType.GetCustomAttribute<KrBindFormAttribute>(inherit: true);
-        if (bindAttr is not null)
+        var coerced = TryCoerceToKrFormPayload(parameterType, formPayload, logger, ps);
+        return coerced ?? formPayload;
+    }
+
+    /// <summary>
+    /// Logs form payload coercion details when debug logging is enabled.
+    /// </summary>
+    /// <param name="logger">The logger to use.</param>
+    /// <param name="parameterType">The parameter type being targeted.</param>
+    /// <param name="payload">The raw payload instance.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    private static void LogCoerceFormPayload(
+        Serilog.ILogger logger,
+        Type parameterType,
+        object? payload,
+        PowerShell? ps)
+    {
+        if (!logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
         {
-            if (bindAttr.MaxNestingDepth > 0 && formPayload is KrMultipart multipartPayload)
-            {
-                var instance = TryCreateObjectInstance(parameterType, logger, ps);
-                if (instance is not null)
-                {
-                    var instanceType = instance.GetType();
-                    TryPopulateMultipartStorage(instance, multipartPayload, logger);
-                    TryPopulateMultipartObjectProperties(instance, multipartPayload, instanceType, logger, ps, depth: 0);
-                    return instance;
-                }
-
-                logger.Warning("Failed to create form payload instance for parameter type {ParameterType}.", parameterType);
-                return null;
-            }
-            else if (bindAttr.MaxNestingDepth <= 0 && formPayload is KrFormData formDataPayload)
-            {
-                var instance = TryCreateObjectInstance(parameterType, logger, ps);
-                if (instance is not null)
-                {
-                    var instanceType = instance.GetType();
-                    TryPopulateFormDataObjectProperties(instance, formDataPayload, instanceType, logger);
-                    return instance;
-                }
-
-                logger.Warning("Failed to create form payload instance for parameter type {ParameterType}.", parameterType);
-                return null;
-            }
+            return;
         }
 
-        if (formPayload is KrFormData formData && typeof(KrFormData).IsAssignableFrom(parameterType))
-        {
-            var instance = IsPowerShellClassType(parameterType) && ps is not null
-                ? TryCreateFormDataInstanceInRunspace(ps, parameterType, logger)
-                : TryCreateFormDataInstance(parameterType, logger);
+        var runspaceId = ps?.Runspace?.InstanceId.ToString() ?? "<null>";
+        logger.Debug(
+            "CoerceFormPayloadForParameter: parameterType={ParameterType} payloadType={PayloadType} runspaceId={RunspaceId}",
+            parameterType,
+            payload?.GetType(),
+            runspaceId);
+    }
 
-            if (instance is not null)
-            {
-                CopyFormData(instance, formData);
-                return instance;
-            }
+    /// <summary>
+    /// Handles the case where the parsed payload already matches the parameter type.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to satisfy.</param>
+    /// <param name="formPayload">The parsed form payload.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>The payload instance when it already matches the target type; otherwise null.</returns>
+    private static object? TryHandleExactPayloadType(
+        Type parameterType,
+        IKrFormPayload formPayload,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        if (!parameterType.IsInstanceOfType(formPayload))
+        {
+            return null;
         }
 
-        if (formPayload is KrMultipart multipart && typeof(KrMultipart).IsAssignableFrom(parameterType))
+        // The parser may have already constructed the exact derived payload type.
+        // Still populate any declared KrMultipart-derived properties (outer/nested/etc) from Parts.
+        if (formPayload is KrMultipart mp)
         {
-            var instance = IsPowerShellClassType(parameterType) && ps is not null
-                ? TryCreateMultipartInstanceInRunspace(ps, parameterType, logger)
-                : TryCreateMultipartInstance(parameterType, logger);
-
-            if (instance is not null)
-            {
-                instance.Parts.AddRange(multipart.Parts);
-                TryPopulateKrMultipartDerivedModel(instance, logger, ps);
-                return instance;
-            }
+            TryPopulateKrMultipartDerivedModel(mp, logger, ps);
         }
 
         return formPayload;
+    }
+
+    /// <summary>
+    /// Attempts to bind a KrBindForm model that does not inherit from payload base classes.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to satisfy.</param>
+    /// <param name="formPayload">The parsed form payload.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>A bound model instance when binding succeeds; otherwise null.</returns>
+    private static object? TryBindFormModel(
+        Type parameterType,
+        IKrFormPayload formPayload,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        // Support KrBindForm on types that do not inherit KrMultipart/KrFormData.
+        // The form kind is inferred from MaxNestingDepth (multipart when > 0; otherwise form-data).
+        var bindAttr = parameterType.GetCustomAttribute<KrBindFormAttribute>(inherit: true);
+        if (bindAttr is null)
+        {
+            return null;
+        }
+        // Decide which binding strategy to use based on MaxNestingDepth.
+        return bindAttr.MaxNestingDepth > 0
+            ? TryBindMultipartModel(parameterType, formPayload as KrMultipart, logger, ps)
+            : TryBindFormDataModel(parameterType, formPayload as KrFormData, logger, ps);
+    }
+
+    /// <summary>
+    /// Attempts to bind a multipart model from a multipart payload.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to satisfy.</param>
+    /// <param name="multipartPayload">The multipart payload, if available.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>A bound model instance when binding succeeds; otherwise null.</returns>
+    private static object? TryBindMultipartModel(
+        Type parameterType,
+        KrMultipart? multipartPayload,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        if (multipartPayload is null)
+        {
+            return null;
+        }
+
+        var instance = TryCreateObjectInstance(parameterType, logger, ps);
+        if (instance is null)
+        {
+            logger.Warning("Failed to create form payload instance for parameter type {ParameterType}.", parameterType);
+            return null;
+        }
+
+        var instanceType = instance.GetType();
+        TryPopulateMultipartStorage(instance, multipartPayload, logger);
+        TryPopulateMultipartObjectProperties(instance, multipartPayload, instanceType, logger, ps, depth: 0);
+        return instance;
+    }
+
+    /// <summary>
+    /// Attempts to bind a form-data model from a form-data payload.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to satisfy.</param>
+    /// <param name="formDataPayload">The form-data payload, if available.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>A bound model instance when binding succeeds; otherwise null.</returns>
+    private static object? TryBindFormDataModel(
+        Type parameterType,
+        KrFormData? formDataPayload,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        if (formDataPayload is null)
+        {
+            return null;
+        }
+
+        var instance = TryCreateObjectInstance(parameterType, logger, ps);
+        if (instance is null)
+        {
+            logger.Warning("Failed to create form payload instance for parameter type {ParameterType}.", parameterType);
+            return null;
+        }
+
+        var instanceType = instance.GetType();
+        TryPopulateFormDataObjectProperties(instance, formDataPayload, instanceType, logger);
+        return instance;
+    }
+
+    /// <summary>
+    /// Attempts to coerce a parsed payload into KrFormData or KrMultipart derived types.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to satisfy.</param>
+    /// <param name="formPayload">The parsed form payload.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>The coerced payload instance when conversion succeeds; otherwise null.</returns>
+    private static object? TryCoerceToKrFormPayload(
+        Type parameterType,
+        IKrFormPayload formPayload,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        var formDataResult = TryCoerceToKrFormData(parameterType, formPayload, logger, ps);
+        if (formDataResult is not null)
+        {
+            return formDataResult;
+        }
+        // Try multipart next
+        return TryCoerceToKrMultipart(parameterType, formPayload, logger, ps);
+    }
+
+    /// <summary>
+    /// Attempts to coerce a parsed payload into a <see cref="KrFormData"/> derived type.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to satisfy.</param>
+    /// <param name="formPayload">The parsed form payload.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>A derived form-data instance when conversion succeeds; otherwise null.</returns>
+    private static KrFormData? TryCoerceToKrFormData(
+        Type parameterType,
+        IKrFormPayload formPayload,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        if (formPayload is not KrFormData formData || !typeof(KrFormData).IsAssignableFrom(parameterType))
+        {
+            return null;
+        }
+
+        var instance = IsPowerShellClassType(parameterType) && ps is not null
+            ? TryCreateFormDataInstanceInRunspace(ps, parameterType, logger)
+            : TryCreateFormDataInstance(parameterType, logger);
+
+        if (instance is null)
+        {
+            return null;
+        }
+
+        CopyFormData(instance, formData);
+        return instance;
+    }
+
+    /// <summary>
+    /// Attempts to coerce a parsed payload into a <see cref="KrMultipart"/> derived type.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to satisfy.</param>
+    /// <param name="formPayload">The parsed form payload.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>A derived multipart instance when conversion succeeds; otherwise null.</returns>
+    private static KrMultipart? TryCoerceToKrMultipart(
+        Type parameterType,
+        IKrFormPayload formPayload,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        if (formPayload is not KrMultipart multipart || !typeof(KrMultipart).IsAssignableFrom(parameterType))
+        {
+            return null;
+        }
+
+        var instance = IsPowerShellClassType(parameterType) && ps is not null
+            ? TryCreateMultipartInstanceInRunspace(ps, parameterType, logger)
+            : TryCreateMultipartInstance(parameterType, logger);
+
+        if (instance is null)
+        {
+            return null;
+        }
+
+        instance.Parts.AddRange(multipart.Parts);
+        TryPopulateKrMultipartDerivedModel(instance, logger, ps);
+        return instance;
     }
 
     /// <summary>
@@ -2079,7 +2244,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         PopulateObjectFromHashtable(instance, targetType, data, depth, Serilog.Log.Logger, ps);
         return instance;
     }
-    
+
     /// <summary>
     /// Attempts to convert a hashtable into an instance of the specified parameter type.
     /// </summary>
@@ -2186,6 +2351,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <param name="value">The value to convert.</param>
     /// <param name="targetType">The target type to convert to.</param>
     /// <param name="depth">The current recursion depth.</param>
+    /// <param name="ps">The current PowerShell instance, if available.</param>
     /// <returns>The converted value, or null if conversion is not possible.</returns>
     private static object? ConvertToTargetType(object? value, Type targetType, int depth, PowerShell? ps)
     {
@@ -2219,6 +2385,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <param name="value">Value to convert.</param>
     /// <param name="targetType">Target type.</param>
     /// <param name="depth">Current recursion depth.</param>
+    /// <param name="ps">The current PowerShell instance, if available.</param>
     /// <param name="converted">Converted result.</param>
     /// <returns><c>true</c> when the value was handled; otherwise <c>false</c>.</returns>
     private static bool TryConvertHashtableValue(object value, Type targetType, int depth, PowerShell? ps, out object? converted)
@@ -2241,6 +2408,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <param name="value">Value to convert.</param>
     /// <param name="targetType">Target type.</param>
     /// <param name="depth">Current recursion depth.</param>
+    /// <param name="ps">The current PowerShell instance, if available.</param>
     /// <param name="converted">Converted result.</param>
     /// <returns><c>true</c> when the value was handled; otherwise <c>false</c>.</returns>
     private static bool TryConvertListOrArrayValue(object value, Type targetType, int depth, PowerShell? ps, out object? converted)

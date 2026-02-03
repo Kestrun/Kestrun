@@ -809,6 +809,12 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <summary>
     /// Builds a single value for a multipart model property from one matching part.
     /// </summary>
+    /// <param name="targetType">The target property type.</param>
+    /// <param name="part">The matching multipart part.</param>
+    /// <param name="logger">Logger for warnings.</param>
+    /// <param name="ps">Current PowerShell runspace, used to instantiate PowerShell class types.</param>
+    /// <param name="depth">Recursion depth for nested multipart binding.</param>
+    /// <returns>The built value, or null if building failed.</returns>
     private static object? TryBuildSingleMultipartValue(
         Type targetType,
         KrRawPart part,
@@ -905,6 +911,9 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <summary>
     /// Reads a stored part payload as UTF-8 text.
     /// </summary>
+    /// <param name="part">The multipart part to read.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <returns>The part payload as a string, or null if reading failed.</returns> 
     private static string? TryReadPartAsString(KrRawPart part, Serilog.ILogger logger)
     {
         try

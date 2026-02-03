@@ -1341,40 +1341,54 @@ public class KestrunResponse
         try
         {
             EnsureStatus(response);
+            // Apply headers, cookies, caching
             ApplyHeadersAndCookies(response);
+            // Caching
             ApplyCachingHeaders(response);
-
+            // Callbacks
             await TryEnqueueCallbacks();
-
-            if (Body is not null)
-            {
-                EnsureContentType(response);
-                ApplyContentDispositionHeader(response);
-                await WriteBodyAsync(response).ConfigureAwait(false);
-            }
-            else
-            {
-                if (!response.HasStarted && string.IsNullOrEmpty(response.ContentType))
-                {
-                    response.ContentType = null;
-                }
-
-                if (!response.HasStarted)
-                {
-                    response.ContentLength = null;
-                }
-                if (Logger.IsEnabled(LogEventLevel.Debug))
-                {
-                    Logger.Debug("Status-only: HasStarted={HasStarted} CL={CL} CT='{CT}'",
-                     response.HasStarted, response.ContentLength, response.ContentType);
-                }
-            }
+            // Body
+            await WriteResponseContent(response);
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "Error applying KestrunResponse to HttpResponse");
             // Optionally, you can log the exception or handle it as needed
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Applies the body content to the HTTP response.  If the body is not null, it ensures the content type,
+    /// applies the content disposition header, and writes the body asynchronously.  If the body is null,
+    /// it clears the content type and content length if the response has not started.  Logs debug information about the response state.
+    /// </summary>
+    /// <param name="response"> The HTTP response to which the body content will be applied. </param>
+    /// <returns> A task representing the asynchronous operation. </returns>
+    private async Task WriteResponseContent(HttpResponse response)
+    {
+        if (Body is not null)
+        {
+            EnsureContentType(response);
+            ApplyContentDispositionHeader(response);
+            await WriteBodyAsync(response).ConfigureAwait(false);
+        }
+        else
+        {
+            if (!response.HasStarted && string.IsNullOrEmpty(response.ContentType))
+            {
+                response.ContentType = null;
+            }
+
+            if (!response.HasStarted)
+            {
+                response.ContentLength = null;
+            }
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("Status-only: HasStarted={HasStarted} CL={CL} CT='{CT}'",
+                 response.HasStarted, response.ContentLength, response.ContentType);
+            }
         }
     }
 

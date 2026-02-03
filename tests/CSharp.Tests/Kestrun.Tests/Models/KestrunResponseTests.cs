@@ -22,7 +22,7 @@ public partial class KestrunResponseTests
     public void IsTextBasedContentType_Detection(string type, bool expected)
     {
         Log.Logger = new LoggerConfiguration().MinimumLevel.Debug().CreateLogger();
-        Assert.Equal(expected, KestrunResponse.IsTextBasedContentType(type));
+        Assert.Equal(expected, NewRes().IsTextBasedContentType(type));
     }
 
     [Fact]
@@ -394,7 +394,7 @@ public partial class KestrunResponseTests
     [InlineData("text/plain", true)]
     [InlineData("application/json", true)]
     [InlineData("application/octet-stream", false)]
-    public void IsTextBasedContentType_Works(string type, bool expected) => Assert.Equal(expected, KestrunResponse.IsTextBasedContentType(type));
+    public void IsTextBasedContentType_Works(string type, bool expected) => Assert.Equal(expected, NewRes().IsTextBasedContentType(type));
 }
 
 public partial class KestrunResponseTests

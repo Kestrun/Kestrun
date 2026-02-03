@@ -637,53 +637,51 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         Type declaringType,
         Serilog.ILogger logger)
     {
+        var props = GetFormDataBindableProperties(declaringType);
+        ApplyFormFieldValues(target, source.Fields, props, logger);
+        ApplyFormFileValues(target, source.Files, props, logger);
+    }
+
+    /// <summary>
+    /// Builds a case-insensitive map of bindable public instance properties for form data binding.
+    /// </summary>
+    /// <param name="declaringType">The type whose properties should be considered.</param>
+    /// <returns>The property map keyed by property name.</returns>
+    private static Dictionary<string, PropertyInfo> GetFormDataBindableProperties(Type declaringType)
+    {
         var props = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
         foreach (var prop in declaringType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
                      .Where(static p => p.GetIndexParameters().Length == 0))
         {
             // PowerShell-emitted classes can surface duplicate properties that differ only by case.
             // Keep the first occurrence and ignore duplicates to avoid CLS conflicts.
-            if (!props.ContainsKey(prop.Name))
-            {
-                props.Add(prop.Name, prop);
-            }
+            _ = props.TryAdd(prop.Name, prop);
         }
 
-        foreach (var kvp in source.Fields)
+        return props;
+    }
+
+    /// <summary>
+    /// Applies form field values to matching properties.
+    /// </summary>
+    /// <param name="target">The object instance to populate.</param>
+    /// <param name="fields">The form field dictionary.</param>
+    /// <param name="props">The property map.</param>
+    /// <param name="logger">Logger for warnings.</param>
+    private static void ApplyFormFieldValues(
+        object target,
+        IReadOnlyDictionary<string, string[]> fields,
+        IReadOnlyDictionary<string, PropertyInfo> props,
+        Serilog.ILogger logger)
+    {
+        foreach (var kvp in fields)
         {
             if (!props.TryGetValue(kvp.Key, out var prop))
             {
                 continue;
             }
 
-            var values = kvp.Value ?? [];
-            object? value = null;
-            if (prop.PropertyType == typeof(string))
-            {
-                value = values.FirstOrDefault();
-            }
-            else if (prop.PropertyType == typeof(string[]))
-            {
-                value = values;
-            }
-            else if (prop.PropertyType == typeof(object))
-            {
-                value = values.Length == 1 ? values[0] : values;
-            }
-            else if (prop.PropertyType.IsArray)
-            {
-                var elementType = prop.PropertyType.GetElementType();
-                if (elementType is not null && (elementType == typeof(string) || elementType == typeof(object)))
-                {
-                    var array = Array.CreateInstance(elementType, values.Length);
-                    for (var i = 0; i < values.Length; i++)
-                    {
-                        array.SetValue(values[i], i);
-                    }
-                    value = array;
-                }
-            }
-
+            var value = BuildFieldPropertyValue(prop.PropertyType, kvp.Value ?? []);
             if (value is null)
             {
                 continue;
@@ -691,42 +689,29 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
             TrySetPropertyValue(target, prop, value, logger);
         }
+    }
 
-        foreach (var kvp in source.Files)
+    /// <summary>
+    /// Applies form file values to matching properties.
+    /// </summary>
+    /// <param name="target">The object instance to populate.</param>
+    /// <param name="files">The form file dictionary.</param>
+    /// <param name="props">The property map.</param>
+    /// <param name="logger">Logger for warnings.</param>
+    private static void ApplyFormFileValues(
+        object target,
+        IReadOnlyDictionary<string, KrFilePart[]> files,
+        IReadOnlyDictionary<string, PropertyInfo> props,
+        Serilog.ILogger logger)
+    {
+        foreach (var kvp in files)
         {
             if (!props.TryGetValue(kvp.Key, out var prop))
             {
                 continue;
             }
 
-            var files = kvp.Value ?? [];
-            object? value = null;
-            if (prop.PropertyType == typeof(KrFilePart))
-            {
-                value = files.FirstOrDefault();
-            }
-            else if (prop.PropertyType == typeof(KrFilePart[]))
-            {
-                value = files;
-            }
-            else if (prop.PropertyType == typeof(object))
-            {
-                value = files.Length == 1 ? files[0] : files;
-            }
-            else if (prop.PropertyType.IsArray)
-            {
-                var elementType = prop.PropertyType.GetElementType();
-                if (elementType is not null && (elementType == typeof(KrFilePart) || elementType == typeof(object)))
-                {
-                    var array = Array.CreateInstance(elementType, files.Length);
-                    for (var i = 0; i < files.Length; i++)
-                    {
-                        array.SetValue(files[i], i);
-                    }
-                    value = array;
-                }
-            }
-
+            var value = BuildFilePropertyValue(prop.PropertyType, kvp.Value ?? []);
             if (value is null)
             {
                 continue;
@@ -734,6 +719,91 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
             TrySetPropertyValue(target, prop, value, logger);
         }
+    }
+
+    /// <summary>
+    /// Builds a value for a field-backed property.
+    /// </summary>
+    /// <param name="propertyType">The target property type.</param>
+    /// <param name="values">The field values.</param>
+    /// <returns>The resolved value or <c>null</c> when no match exists.</returns>
+    private static object? BuildFieldPropertyValue(Type propertyType, string[] values)
+    {
+        if (propertyType == typeof(string))
+        {
+            return values.FirstOrDefault();
+        }
+
+        if (propertyType == typeof(string[]))
+        {
+            return values;
+        }
+
+        if (propertyType == typeof(object))
+        {
+            return values.Length == 1 ? values[0] : values;
+        }
+
+        if (!propertyType.IsArray)
+        {
+            return null;
+        }
+
+        var elementType = propertyType.GetElementType();
+        return elementType is null || (elementType != typeof(string) && elementType != typeof(object))
+            ? null
+            : (object)CreateArrayFromValues(values, elementType);
+    }
+
+    /// <summary>
+    /// Builds a value for a file-backed property.
+    /// </summary>
+    /// <param name="propertyType">The target property type.</param>
+    /// <param name="files">The file values.</param>
+    /// <returns>The resolved value or <c>null</c> when no match exists.</returns>
+    private static object? BuildFilePropertyValue(Type propertyType, KrFilePart[] files)
+    {
+        if (propertyType == typeof(KrFilePart))
+        {
+            return files.FirstOrDefault();
+        }
+
+        if (propertyType == typeof(KrFilePart[]))
+        {
+            return files;
+        }
+
+        if (propertyType == typeof(object))
+        {
+            return files.Length == 1 ? files[0] : files;
+        }
+
+        if (!propertyType.IsArray)
+        {
+            return null;
+        }
+
+        var elementType = propertyType.GetElementType();
+        return elementType is null || (elementType != typeof(KrFilePart) && elementType != typeof(object))
+            ? null
+            : (object)CreateArrayFromValues(files, elementType);
+    }
+
+    /// <summary>
+    /// Creates a strongly-typed array from the provided values.
+    /// </summary>
+    /// <param name="values">The values to copy into the array.</param>
+    /// <param name="elementType">The target element type.</param>
+    /// <returns>A populated array instance.</returns>
+    private static Array CreateArrayFromValues(IReadOnlyList<object?> values, Type elementType)
+    {
+        var array = Array.CreateInstance(elementType, values.Count);
+        for (var i = 0; i < values.Count; i++)
+        {
+            array.SetValue(values[i], i);
+        }
+
+        return array;
     }
 
     /// <summary>
@@ -913,7 +983,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// </summary>
     /// <param name="part">The multipart part to read.</param>
     /// <param name="logger">The logger to use for diagnostic warnings.</param>
-    /// <returns>The part payload as a string, or null if reading failed.</returns> 
+    /// <returns>The part payload as a string, or null if reading failed.</returns>
     private static string? TryReadPartAsString(KrRawPart part, Serilog.ILogger logger)
     {
         try

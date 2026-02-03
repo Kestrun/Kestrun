@@ -194,6 +194,17 @@ public static class KrFormParser
         return payload;
     }
 
+    /// <summary>
+    /// Parses a multipart/form-data payload from the request.
+    /// </summary>
+    /// <param name="context">The HTTP context.</param>
+    /// <param name="mediaType">The media type header value.</param>
+    /// <param name="options">The form parsing options.</param>
+    /// <param name="logger">The logger for diagnostic messages.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The parsed payload.</returns>
+    /// <exception cref="KrFormLimitExceededException">Thrown when the multipart form exceeds configured limits.</exception>
+    /// <exception cref="KrFormException">Thrown when a part is rejected by policy or other form errors occur.</exception>
     private static async Task<IKrFormPayload> ParseMultipartFormDataAsync(HttpContext context, MediaTypeHeaderValue mediaType, KrFormOptions options, Logger logger, CancellationToken cancellationToken)
     {
         var boundary = GetBoundary(mediaType);
@@ -217,91 +228,34 @@ public static class KrFormParser
                 logger.Error("Multipart form exceeded MaxParts limit ({MaxParts}).", options.Limits.MaxParts);
                 throw new KrFormLimitExceededException("Too many multipart sections.");
             }
+            var partContext = BuildFormDataPartContext(section, rules, partIndex, logger);
+            LogFormDataPartDebug(logger, partContext, partIndex - 1);
 
-            var headers = ToHeaderDictionary(section.Headers ?? []);
-            var (name, fileName, contentDisposition) = GetContentDisposition(section, logger);
-            var contentType = section.ContentType ?? (string.IsNullOrWhiteSpace(fileName) ? "text/plain" : "application/octet-stream");
-            var contentEncoding = GetHeaderValue(headers, HeaderNames.ContentEncoding);
-            var declaredLength = GetHeaderLong(headers, HeaderNames.ContentLength);
-
-            var rule = name != null && rules.TryGetValue(name, out var match) ? match : null;
-            var partContext = new KrPartContext
+            var contentEncoding = partContext.ContentEncoding;
+            if (await HandleFormDataPartActionAsync(section, options, partContext, logger, contentEncoding, cancellationToken).ConfigureAwait(false))
             {
-                Index = partIndex - 1,
-                Name = name,
-                FileName = fileName,
-                ContentType = contentType,
-                ContentEncoding = contentEncoding,
-                DeclaredLength = declaredLength,
-                Headers = headers,
-                Rule = rule
-            };
-
-            if (logger.IsEnabled(LogEventLevel.Debug))
-            {
-                logger.Debug("Multipart part {Index} name={Name} filename={FileName} contentType={ContentType} contentEncoding={ContentEncoding} declaredLength={DeclaredLength}",
-                    partIndex - 1,
-                    name,
-                    fileName,
-                    contentType,
-                    string.IsNullOrWhiteSpace(contentEncoding) ? "<none>" : contentEncoding,
-                    declaredLength);
-            }
-
-            var action = await InvokeOnPartAsync(options, partContext, logger).ConfigureAwait(false);
-            if (action == KrPartAction.Reject)
-            {
-                logger.Error("Part rejected by hook: {PartIndex}", partIndex - 1);
-                throw new KrFormException("Part rejected by policy.", StatusCodes.Status400BadRequest);
-            }
-
-            if (action == KrPartAction.Skip)
-            {
-                logger.Warning("Part skipped by hook: {PartIndex}", partIndex - 1);
-                await DrainSectionAsync(section.Body, options, contentEncoding, logger, cancellationToken).ConfigureAwait(false);
                 continue;
             }
 
-            if (!string.IsNullOrWhiteSpace(fileName))
+            if (IsFilePart(partContext.FileName))
             {
-                ValidateFilePart(name, fileName, contentType, rule, payload, logger);
-                var result = await StorePartAsync(section.Body, options, rule, fileName, contentEncoding, logger, cancellationToken).ConfigureAwait(false);
-                totalBytes += result.Length;
-
-                var filePart = new KrFilePart
-                {
-                    Name = name!,
-                    OriginalFileName = fileName,
-                    ContentType = contentType,
-                    Length = result.Length,
-                    TempPath = result.TempPath,
-                    Sha256 = result.Sha256,
-                    Headers = headers
-                };
-
-                AppendFile(payload.Files, filePart, rule, logger);
-                if (string.IsNullOrWhiteSpace(result.TempPath))
-                {
-                    logger.Warning("File part {Index} name={Name} was not stored to disk (bytes={Bytes}).", partIndex - 1, name, result.Length);
-                }
-                else
-                {
-                    logger.Information("Stored file part {Index} name={Name} filename={FileName} contentType={ContentType} bytes={Bytes}",
-                        partIndex - 1, name, fileName, contentType, result.Length);
-                }
+                totalBytes += await ProcessFormDataFilePartAsync(
+                    section,
+                    options,
+                    payload,
+                    partContext,
+                    logger,
+                    cancellationToken).ConfigureAwait(false);
+                continue;
             }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(name))
-                {
-                    logger.Error("Field part missing name.");
-                    throw new KrFormException("Field part must include a name.", StatusCodes.Status400BadRequest);
-                }
-                var value = await ReadFieldValueAsync(section.Body, options, contentEncoding, logger, cancellationToken).ConfigureAwait(false);
-                AppendField(payload.Fields, name ?? string.Empty, value);
-                totalBytes += Encoding.UTF8.GetByteCount(value);
-                logger.Debug("Parsed field part {Index} name={Name} bytes={Bytes}", partIndex - 1, name, Encoding.UTF8.GetByteCount(value));
-            }
+
+            totalBytes += await ProcessFormDataFieldPartAsync(
+                section,
+                options,
+                payload,
+                partContext,
+                logger,
+                cancellationToken).ConfigureAwait(false);
         }
 
         ValidateRequiredRules(payload, rules, logger);
@@ -310,6 +264,197 @@ public static class KrFormParser
             partIndex, payload.Files.Sum(k => k.Value.Length), totalBytes, stopwatch.ElapsedMilliseconds);
 
         return payload;
+    }
+
+    /// <summary>
+    /// Builds the part context for multipart/form-data sections.
+    /// </summary>
+    /// <param name="section">The multipart section.</param>
+    /// <param name="rules">The form part rule map.</param>
+    /// <param name="partIndex">The current part index (1-based).</param>
+    /// <param name="logger">The logger instance.</param>
+    /// <returns>The constructed part context.</returns>
+    private static KrPartContext BuildFormDataPartContext(
+        MultipartSection section,
+        IReadOnlyDictionary<string, KrFormPartRule> rules,
+        int partIndex,
+        Logger logger)
+    {
+        var headers = ToHeaderDictionary(section.Headers ?? []);
+        var (name, fileName, _) = GetContentDisposition(section, logger);
+        var contentType = section.ContentType ?? (string.IsNullOrWhiteSpace(fileName) ? "text/plain" : "application/octet-stream");
+        var contentEncoding = GetHeaderValue(headers, HeaderNames.ContentEncoding);
+        var declaredLength = GetHeaderLong(headers, HeaderNames.ContentLength);
+
+        var rule = name != null && rules.TryGetValue(name, out var match) ? match : null;
+        return new KrPartContext
+        {
+            Index = partIndex - 1,
+            Name = name,
+            FileName = fileName,
+            ContentType = contentType,
+            ContentEncoding = contentEncoding,
+            DeclaredLength = declaredLength,
+            Headers = headers,
+            Rule = rule
+        };
+    }
+
+    /// <summary>
+    /// Logs multipart/form-data part details when debug logging is enabled.
+    /// </summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="partContext">The part context.</param>
+    /// <param name="index">The 0-based part index.</param>
+    private static void LogFormDataPartDebug(Logger logger, KrPartContext partContext, int index)
+    {
+        if (!logger.IsEnabled(LogEventLevel.Debug))
+        {
+            return;
+        }
+
+        logger.Debug("Multipart part {Index} name={Name} filename={FileName} contentType={ContentType} contentEncoding={ContentEncoding} declaredLength={DeclaredLength}",
+            index,
+            partContext.Name,
+            partContext.FileName,
+            partContext.ContentType,
+            string.IsNullOrWhiteSpace(partContext.ContentEncoding) ? "<none>" : partContext.ContentEncoding,
+            partContext.DeclaredLength);
+    }
+
+    /// <summary>
+    /// Handles the OnPart hook for multipart/form-data sections.
+    /// </summary>
+    /// <param name="section">The multipart section.</param>
+    /// <param name="options">The form options.</param>
+    /// <param name="partContext">The part context.</param>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="contentEncoding">The content encoding.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns><c>true</c> when the caller should skip further processing for this section.</returns>
+    private static async Task<bool> HandleFormDataPartActionAsync(
+        MultipartSection section,
+        KrFormOptions options,
+        KrPartContext partContext,
+        Logger logger,
+        string? contentEncoding,
+        CancellationToken cancellationToken)
+    {
+        var action = await InvokeOnPartAsync(options, partContext, logger).ConfigureAwait(false);
+        if (action == KrPartAction.Reject)
+        {
+            logger.Error("Part rejected by hook: {PartIndex}", partContext.Index);
+            throw new KrFormException("Part rejected by policy.", StatusCodes.Status400BadRequest);
+        }
+
+        if (action == KrPartAction.Skip)
+        {
+            logger.Warning("Part skipped by hook: {PartIndex}", partContext.Index);
+            await DrainSectionAsync(section.Body, options, contentEncoding, logger, cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Determines whether a part represents a file based on the file name.
+    /// </summary>
+    /// <param name="fileName">The file name from the part.</param>
+    /// <returns><c>true</c> if the part is a file; otherwise <c>false</c>.</returns>
+    private static bool IsFilePart(string? fileName)
+        => !string.IsNullOrWhiteSpace(fileName);
+
+    /// <summary>
+    /// Processes a file part in multipart/form-data payloads.
+    /// </summary>
+    /// <param name="section">The multipart section.</param>
+    /// <param name="options">The form options.</param>
+    /// <param name="payload">The form payload to populate.</param>
+    /// <param name="partContext">The part context.</param>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of bytes processed.</returns>
+    private static async Task<long> ProcessFormDataFilePartAsync(
+        MultipartSection section,
+        KrFormOptions options,
+        KrFormData payload,
+        KrPartContext partContext,
+        Logger logger,
+        CancellationToken cancellationToken)
+    {
+        ValidateFilePart(partContext.Name, partContext.FileName!, partContext.ContentType, partContext.Rule, payload, logger);
+        var result = await StorePartAsync(section.Body, options, partContext.Rule, partContext.FileName, partContext.ContentEncoding, logger, cancellationToken)
+            .ConfigureAwait(false);
+
+        var filePart = new KrFilePart
+        {
+            Name = partContext.Name!,
+            OriginalFileName = partContext.FileName!,
+            ContentType = partContext.ContentType,
+            Length = result.Length,
+            TempPath = result.TempPath,
+            Sha256 = result.Sha256,
+            Headers = partContext.Headers
+        };
+
+        AppendFile(payload.Files, filePart, partContext.Rule, logger);
+        LogStoredFilePart(logger, partContext, result);
+        return result.Length;
+    }
+
+    /// <summary>
+    /// Processes a field part in multipart/form-data payloads.
+    /// </summary>
+    /// <param name="section">The multipart section.</param>
+    /// <param name="options">The form options.</param>
+    /// <param name="payload">The form payload to populate.</param>
+    /// <param name="partContext">The part context.</param>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The number of bytes processed.</returns>
+    private static async Task<long> ProcessFormDataFieldPartAsync(
+        MultipartSection section,
+        KrFormOptions options,
+        KrFormData payload,
+        KrPartContext partContext,
+        Logger logger,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(partContext.Name))
+        {
+            logger.Error("Field part missing name.");
+            throw new KrFormException("Field part must include a name.", StatusCodes.Status400BadRequest);
+        }
+
+        var value = await ReadFieldValueAsync(section.Body, options, partContext.ContentEncoding, logger, cancellationToken)
+            .ConfigureAwait(false);
+        AppendField(payload.Fields, partContext.Name ?? string.Empty, value);
+        var bytes = Encoding.UTF8.GetByteCount(value);
+        logger.Debug("Parsed field part {Index} name={Name} bytes={Bytes}", partContext.Index, partContext.Name, bytes);
+        return bytes;
+    }
+
+    /// <summary>
+    /// Logs file-part storage results for multipart/form-data payloads.
+    /// </summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="partContext">The part context.</param>
+    /// <param name="result">The stored part result.</param>
+    private static void LogStoredFilePart(Logger logger, KrPartContext partContext, KrPartWriteResult result)
+    {
+        if (string.IsNullOrWhiteSpace(result.TempPath))
+        {
+            logger.Warning("File part {Index} name={Name} was not stored to disk (bytes={Bytes}).", partContext.Index, partContext.Name, result.Length);
+            return;
+        }
+
+        logger.Information("Stored file part {Index} name={Name} filename={FileName} contentType={ContentType} bytes={Bytes}",
+            partContext.Index,
+            partContext.Name,
+            partContext.FileName,
+            partContext.ContentType,
+            result.Length);
     }
 
     /// <summary>

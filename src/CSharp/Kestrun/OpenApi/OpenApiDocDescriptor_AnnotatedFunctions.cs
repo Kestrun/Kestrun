@@ -915,39 +915,13 @@ public partial class OpenApiDocDescriptor
         ParameterMetadata paramInfo,
         OpenApiRequestBodyAttribute attribute)
     {
-        if (routeOptions.FormOptions is null && Host.Runtime.FormOptions.TryGetValue(paramInfo.ParameterType.Name, out var formOptionsValue))
-        {
-            routeOptions.FormOptions = new KrFormOptions(formOptionsValue);
-        }
-        else if (routeOptions.FormOptions is null)
-        {
-            var formAttr = paramInfo.ParameterType.GetCustomAttribute<KrBindFormAttribute>(inherit: true);
-            if (formAttr is not null)
-            {
-                var formOptions = FormHelper.ApplyKrPartAttributes(formAttr);
-                formOptions.Name = paramInfo.ParameterType.FullName ?? paramInfo.ParameterType.Name;
-
-                var rules = FormHelper.BuildFormPartRulesFromType(paramInfo.ParameterType);
-                AddFormPartRules(formOptions, rules);
-
-                routeOptions.FormOptions = formOptions;
-            }
-        }
+        ResolveFormOptions(routeOptions, paramInfo);
 
         // Special handling for form payloads
         if (routeOptions.FormOptions is not null)
         // && (paramInfo.ParameterType == typeof(KrFormData) || paramInfo.ParameterType == typeof(KrFormPayload)))
         {
-            var contentTypes = ResolveFormContentTypes(attribute, routeOptions.FormOptions);
-            routeOptions.FormOptions.AllowedRequestContentTypes.Clear();
-            routeOptions.FormOptions.AllowedRequestContentTypes.AddRange(contentTypes);
-
-            var formSchema = InferPrimitiveSchema(type: paramInfo.ParameterType, inline: attribute.Inline);
-            var requestBodyContent = BuildFormRequestBodyWithSchema(formSchema, contentTypes, routeOptions.FormOptions, attribute);
-            metadata.RequestBody = requestBodyContent;
-            metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
-            // Add the parameter for injection
-            routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBodyContent, routeOptions.FormOptions));
+            ApplyFormRequestBody(help, routeOptions, metadata, paramInfo, attribute);
             return;
         }
         // Check for preferred request body in components
@@ -976,6 +950,66 @@ public partial class OpenApiDocDescriptor
         }
         // Add the parameter for injection
         routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBody, routeOptions.FormOptions));
+    }
+
+    /// <summary>
+    /// Resolves form options for the request body parameter when form binding is configured.
+    /// </summary>
+    /// <param name="routeOptions">The route options to update.</param>
+    /// <param name="paramInfo">The parameter metadata.</param>
+    private void ResolveFormOptions(MapRouteOptions routeOptions, ParameterMetadata paramInfo)
+    {
+        if (routeOptions.FormOptions is not null)
+        {
+            return;
+        }
+
+        if (Host.Runtime.FormOptions.TryGetValue(paramInfo.ParameterType.Name, out var formOptionsValue))
+        {
+            routeOptions.FormOptions = new KrFormOptions(formOptionsValue);
+            return;
+        }
+
+        var formAttr = paramInfo.ParameterType.GetCustomAttribute<KrBindFormAttribute>(inherit: true);
+        if (formAttr is null)
+        {
+            return;
+        }
+
+        var formOptions = FormHelper.ApplyKrPartAttributes(formAttr);
+        formOptions.Name = paramInfo.ParameterType.FullName ?? paramInfo.ParameterType.Name;
+
+        var rules = FormHelper.BuildFormPartRulesFromType(paramInfo.ParameterType);
+        AddFormPartRules(formOptions, rules);
+
+        routeOptions.FormOptions = formOptions;
+    }
+
+    /// <summary>
+    /// Applies request body metadata for form payload parameters.
+    /// </summary>
+    /// <param name="help">The comment help information.</param>
+    /// <param name="routeOptions">The route options to update.</param>
+    /// <param name="metadata">The OpenAPI metadata to update.</param>
+    /// <param name="paramInfo">The parameter information.</param>
+    /// <param name="attribute">The OpenApiRequestBody attribute containing request body details.</param>
+    private void ApplyFormRequestBody(
+        CommentHelpInfo help,
+        MapRouteOptions routeOptions,
+        OpenAPIPathMetadata metadata,
+        ParameterMetadata paramInfo,
+        OpenApiRequestBodyAttribute attribute)
+    {
+        var contentTypes = ResolveFormContentTypes(attribute, routeOptions.FormOptions!);
+        routeOptions.FormOptions!.AllowedRequestContentTypes.Clear();
+        routeOptions.FormOptions.AllowedRequestContentTypes.AddRange(contentTypes);
+
+        var formSchema = InferPrimitiveSchema(type: paramInfo.ParameterType, inline: attribute.Inline);
+        var requestBodyContent = BuildFormRequestBodyWithSchema(formSchema, contentTypes, routeOptions.FormOptions, attribute);
+        metadata.RequestBody = requestBodyContent;
+        metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
+        // Add the parameter for injection
+        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBodyContent, routeOptions.FormOptions));
     }
 
     /// <summary>

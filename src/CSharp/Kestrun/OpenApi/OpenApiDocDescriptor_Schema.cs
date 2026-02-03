@@ -451,76 +451,101 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Applies type-level attributes to a schema.
     /// </summary>
+    /// <param name="t">The type being processed.</param>
+    /// <param name="schema">The schema to apply attributes to.</param>
     private void ApplyTypeAttributes(Type t, OpenApiSchema schema)
+    {
+        ApplySchemaComponentAttributes(t, schema);
+        ApplyPatternProperties(t, schema);
+    }
+
+    /// <summary>
+    /// Applies OpenApiSchemaComponent attributes and related examples to the schema.
+    /// </summary>
+    /// <param name="t">The type being processed.</param>
+    /// <param name="schema">The schema to apply attributes to.</param>
+    private void ApplySchemaComponentAttributes(Type t, OpenApiSchema schema)
     {
         var schemaAttribute = t.GetCustomAttributes(true)
             .OfType<OpenApiSchemaComponent>()
             .FirstOrDefault();
 
-        if (schemaAttribute is not null)
+        if (schemaAttribute is null)
         {
-            ApplySchemaAttr(schemaAttribute, schema);
-
-            if (schemaAttribute.Examples is not null)
-            {
-                schema.Examples ??= [];
-                var node = OpenApiJsonNodeFactory.ToNode(schemaAttribute.Examples);
-                if (node is not null)
-                {
-                    schema.Examples.Add(node);
-                }
-            }
+            return;
         }
-        /* foreach (var attr in t.GetCustomAttributes(true)
-           .Where(a => a is OpenApiSchemaComponent))
-         {
-             ApplySchemaAttr(attr as OpenApiProperties, schema);
 
-             if (attr is OpenApiSchemaComponent schemaAttribute && schemaAttribute.Examples is not null)
-             {
-                 schema.Examples ??= [];
-                 var node = OpenApiJsonNodeFactory.ToNode(schemaAttribute.Examples);
-                 if (node is not null)
-                 {
-                     schema.Examples.Add(node);
-                 }
-             }
-         }*/
+        ApplySchemaAttr(schemaAttribute, schema);
+        ApplySchemaComponentExamples(schemaAttribute, schema);
+    }
 
-        foreach (var p in t.GetCustomAttributes(true)
+    /// <summary>
+    /// Applies OpenApiSchemaComponent example metadata to the schema.
+    /// </summary>
+    /// <param name="schemaAttribute">The schema component attribute.</param>
+    /// <param name="schema">The schema to update.</param>
+    private static void ApplySchemaComponentExamples(OpenApiSchemaComponent schemaAttribute, OpenApiSchema schema)
+    {
+        if (schemaAttribute.Examples is null)
+        {
+            return;
+        }
+
+        schema.Examples ??= [];
+        var node = OpenApiJsonNodeFactory.ToNode(schemaAttribute.Examples);
+        if (node is not null)
+        {
+            schema.Examples.Add(node);
+        }
+    }
+
+    /// <summary>
+    /// Applies OpenApiPatternProperties attributes to the schema.
+    /// </summary>
+    /// <param name="t">The type being processed.</param>
+    /// <param name="schema">The schema to update.</param>
+    private void ApplyPatternProperties(Type t, OpenApiSchema schema)
+    {
+        foreach (var pattern in t.GetCustomAttributes(true)
                      .OfType<OpenApiPatternPropertiesAttribute>())
         {
-            schema.PatternProperties ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
-            if (p.SchemaType is null)
+            var patternSchema = BuildPatternSchema(pattern);
+            if (patternSchema is null || string.IsNullOrWhiteSpace(pattern.KeyPattern))
             {
                 continue;
             }
-            var schemaType = p.SchemaType;
-            HashSet<Type>? built = null;
-            IOpenApiSchema? patternSchema;
-            if (schemaType.IsArray)
-            {
-                var item = schemaType.GetElementType()!;
 
-                var itemSchema = BuildSchemaForType(item, built);
-                patternSchema = new OpenApiSchema
-                {
-                    Type = JsonSchemaType.Array,
-                    Items = itemSchema
-                };
-                //        schema.PatternProperties[attr is OpenApiPatternPropertiesAttribute p ? p.KeyPattern : string.Empty] =
-            }
-            else
-            {
-                patternSchema = BuildSchemaForType(schemaType, built);
-            }
-
-            // Add to PatternProperties
-            if (patternSchema is not null && p.KeyPattern is not null)
-            {
-                schema.PatternProperties[p.KeyPattern] = patternSchema;
-            }
+            schema.PatternProperties ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+            schema.PatternProperties[pattern.KeyPattern] = patternSchema;
         }
+    }
+
+    /// <summary>
+    /// Builds the pattern schema for a pattern properties attribute.
+    /// </summary>
+    /// <param name="pattern">The pattern properties attribute.</param>
+    /// <returns>The resolved pattern schema or <c>null</c> when no schema type is specified.</returns>
+    private IOpenApiSchema? BuildPatternSchema(OpenApiPatternPropertiesAttribute pattern)
+    {
+        if (pattern.SchemaType is null)
+        {
+            return null;
+        }
+
+        var schemaType = pattern.SchemaType;
+        HashSet<Type>? built = null;
+        if (!schemaType.IsArray)
+        {
+            return BuildSchemaForType(schemaType, built);
+        }
+
+        var item = schemaType.GetElementType()!;
+        var itemSchema = BuildSchemaForType(item, built);
+        return new OpenApiSchema
+        {
+            Type = JsonSchemaType.Array,
+            Items = itemSchema
+        };
     }
     /// <summary>
     /// Processes all properties of a type and builds their schemas.

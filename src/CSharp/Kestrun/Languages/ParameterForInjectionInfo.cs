@@ -924,45 +924,53 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// Attempts to create an instance of the requested type, using the current PowerShell runspace
     /// for PowerShell-emitted class types.
     /// </summary>
+    /// <param name="type">The type to instantiate.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>The created instance, or null if instantiation failed.</returns>
     private static object? TryCreateObjectInstance(Type type, Serilog.ILogger logger, PowerShell? ps)
+    {
+        if (IsPowerShellClassType(type) && ps?.Runspace is not null)
+        {
+            return TryCreatePowerShellClassInstance(type, logger, ps);
+        }
+
+        return TryCreateStandardInstance(type, logger);
+    }
+
+    /// <summary>
+    /// Attempts to create a PowerShell-emitted class instance using the current runspace.
+    /// </summary>
+    /// <param name="type">The type to instantiate.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance.</param>
+    /// <returns>The created instance, or null if instantiation failed.</returns>
+    private static object? TryCreatePowerShellClassInstance(Type type, Serilog.ILogger logger, PowerShell ps)
     {
         // For PowerShell-emitted classes, create instances inside the current runspace only.
         // This avoids cross-runspace type identity mismatches.
-        if (IsPowerShellClassType(type) && ps?.Runspace is not null)
+        var runspaceInstance = TryCreateObjectInstanceInRunspace(ps, type, logger);
+        if (runspaceInstance is not null)
         {
-            var runspaceInstance = TryCreateObjectInstanceInRunspace(ps, type, logger);
-            if (runspaceInstance is not null)
-            {
-                return runspaceInstance;
-            }
-
-            if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-            {
-                logger.Debug("Failed to create PowerShell class instance in the current runspace for type {Type}.", type);
-            }
-
-            // As a fallback, create an uninitialized instance so we can still populate properties.
-            // This avoids returning null when runspace construction fails for PowerShell-emitted types.
-            if (!type.IsValueType && !type.IsAbstract)
-            {
-                try
-                {
-#pragma warning disable SYSLIB0050
-                    return FormatterServices.GetUninitializedObject(type);
-#pragma warning restore SYSLIB0050
-                }
-                catch (Exception ex)
-                {
-                    if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-                    {
-                        logger.Debug(ex, "Failed to create uninitialized instance for PowerShell class type {Type}.", type);
-                    }
-                }
-            }
-
-            return null;
+            return runspaceInstance;
         }
 
+        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            logger.Debug("Failed to create PowerShell class instance in the current runspace for type {Type}.", type);
+        }
+
+        return TryCreateUninitializedInstance(type, logger, "PowerShell class type");
+    }
+
+    /// <summary>
+    /// Attempts to create a standard instance via Activator with a fallback to an uninitialized instance.
+    /// </summary>
+    /// <param name="type">The type to instantiate.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <returns>The created instance, or null if instantiation failed.</returns>
+    private static object? TryCreateStandardInstance(Type type, Serilog.ILogger logger)
+    {
         try
         {
             return Activator.CreateInstance(type, nonPublic: true);
@@ -977,20 +985,34 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
         // PowerShell-emitted types sometimes fail Activator-based construction even though they are otherwise usable.
         // As a fallback, create an uninitialized instance so we can still populate properties.
-        if (!type.IsValueType && !type.IsAbstract)
+        return TryCreateUninitializedInstance(type, logger, "type");
+    }
+
+    /// <summary>
+    /// Attempts to create an uninitialized instance when the type is a non-abstract reference type.
+    /// </summary>
+    /// <param name="type">The type to instantiate.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="typeDescription">A short description of the type for logging.</param>
+    /// <returns>The uninitialized instance, or null if instantiation failed.</returns>
+    private static object? TryCreateUninitializedInstance(Type type, Serilog.ILogger logger, string typeDescription)
+    {
+        if (type.IsValueType || type.IsAbstract)
         {
-            try
-            {
+            return null;
+        }
+
+        try
+        {
 #pragma warning disable SYSLIB0050
-                return FormatterServices.GetUninitializedObject(type);
+            return FormatterServices.GetUninitializedObject(type);
 #pragma warning restore SYSLIB0050
-            }
-            catch (Exception ex)
+        }
+        catch (Exception ex)
+        {
+            if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
             {
-                if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-                {
-                    logger.Debug(ex, "Failed to create uninitialized instance for type {Type}.", type);
-                }
+                logger.Debug(ex, "Failed to create uninitialized instance for {TypeDescription} {Type}.", typeDescription, type);
             }
         }
 

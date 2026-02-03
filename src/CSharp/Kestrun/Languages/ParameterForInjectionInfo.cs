@@ -930,12 +930,9 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <returns>The created instance, or null if instantiation failed.</returns>
     private static object? TryCreateObjectInstance(Type type, Serilog.ILogger logger, PowerShell? ps)
     {
-        if (IsPowerShellClassType(type) && ps?.Runspace is not null)
-        {
-            return TryCreatePowerShellClassInstance(type, logger, ps);
-        }
-
-        return TryCreateStandardInstance(type, logger);
+        return IsPowerShellClassType(type) && ps?.Runspace is not null
+            ? TryCreatePowerShellClassInstance(type, logger, ps)
+            : TryCreateStandardInstance(type, logger);
     }
 
     /// <summary>
@@ -2301,6 +2298,15 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         return instance;
     }
 
+    /// <summary>
+    /// Populates an object's properties and fields from a hashtable.
+    /// </summary>
+    /// <param name="instance">The object instance to populate.</param>
+    /// <param name="targetType">The target type of the object.</param>
+    /// <param name="data">The hashtable data to populate from.</param>
+    /// <param name="depth">The current recursion depth.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, if available.</param>
     private static void PopulateObjectFromHashtable(
         object instance,
         Type targetType,
@@ -2309,15 +2315,8 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         Serilog.ILogger logger,
         PowerShell? ps)
     {
-        var props = targetType
-            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(p => p.CanWrite && p.SetMethod is not null)
-            .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
-
-        var fields = targetType
-            .GetFields(BindingFlags.Public | BindingFlags.Instance)
-            .ToDictionary(f => f.Name, StringComparer.OrdinalIgnoreCase);
-
+        var props = GetWritableProperties(targetType);
+        var fields = GetPublicFields(targetType);
         var extras = new Hashtable(StringComparer.OrdinalIgnoreCase);
 
         foreach (DictionaryEntry entry in data)
@@ -2327,44 +2326,119 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
                 continue;
             }
 
-            var key = rawKey.StartsWith('@') ? rawKey[1..] : rawKey;
-
-            if (props.TryGetValue(key, out var prop))
+            var key = NormalizeMemberKey(rawKey);
+            if (TrySetMemberValue(instance, entry.Value, key, props, fields, depth, ps))
             {
-                var converted = ConvertToTargetType(entry.Value, prop.PropertyType, depth + 1, ps);
-                prop.SetValue(instance, converted);
-                continue;
-            }
-
-            if (fields.TryGetValue(key, out var field))
-            {
-                var converted = ConvertToTargetType(entry.Value, field.FieldType, depth + 1, ps);
-                field.SetValue(instance, converted);
                 continue;
             }
 
             extras[key] = entry.Value;
         }
 
-        if (extras.Count > 0)
-        {
-            if (TryGetHashtableValue(data, "AdditionalProperties", out var existingBag)
-                && existingBag is Hashtable existingHash)
-            {
-                foreach (DictionaryEntry entry in extras)
-                {
-                    existingHash[entry.Key] = entry.Value;
-                }
+        ApplyAdditionalPropertiesExtras(instance, data, extras, logger);
+    }
 
-                _ = TrySetAdditionalPropertiesBag(instance, existingHash, logger);
-            }
-            else
-            {
-                _ = TrySetAdditionalPropertiesBag(instance, extras, logger);
-            }
+    /// <summary>
+    /// Builds a case-insensitive map of writable public instance properties.
+    /// </summary>
+    /// <param name="targetType">The target type.</param>
+    /// <returns>The property map keyed by property name.</returns>
+    private static Dictionary<string, PropertyInfo> GetWritableProperties(Type targetType)
+    {
+        return targetType
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.CanWrite && p.SetMethod is not null)
+            .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Builds a case-insensitive map of public instance fields.
+    /// </summary>
+    /// <param name="targetType">The target type.</param>
+    /// <returns>The field map keyed by field name.</returns>
+    private static Dictionary<string, FieldInfo> GetPublicFields(Type targetType)
+    {
+        return targetType
+            .GetFields(BindingFlags.Public | BindingFlags.Instance)
+            .ToDictionary(f => f.Name, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Normalizes a member key by trimming the PowerShell @ prefix when present.
+    /// </summary>
+    /// <param name="rawKey">The raw key.</param>
+    /// <returns>The normalized key.</returns>
+    private static string NormalizeMemberKey(string rawKey)
+        => rawKey.StartsWith('@') ? rawKey[1..] : rawKey;
+
+    /// <summary>
+    /// Attempts to set a property or field value on the target instance.
+    /// </summary>
+    /// <param name="instance">The target instance.</param>
+    /// <param name="value">The value to assign.</param>
+    /// <param name="key">The member name.</param>
+    /// <param name="props">The property map.</param>
+    /// <param name="fields">The field map.</param>
+    /// <param name="depth">The current recursion depth.</param>
+    /// <param name="ps">The current PowerShell instance, if available.</param>
+    /// <returns><c>true</c> if a property or field was set; otherwise <c>false</c>.</returns>
+    private static bool TrySetMemberValue(
+        object instance,
+        object? value,
+        string key,
+        IReadOnlyDictionary<string, PropertyInfo> props,
+        IReadOnlyDictionary<string, FieldInfo> fields,
+        int depth,
+        PowerShell? ps)
+    {
+        if (props.TryGetValue(key, out var prop))
+        {
+            var converted = ConvertToTargetType(value, prop.PropertyType, depth + 1, ps);
+            prop.SetValue(instance, converted);
+            return true;
         }
 
-        return;
+        if (fields.TryGetValue(key, out var field))
+        {
+            var converted = ConvertToTargetType(value, field.FieldType, depth + 1, ps);
+            field.SetValue(instance, converted);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Applies unmatched entries to the AdditionalProperties bag when present.
+    /// </summary>
+    /// <param name="instance">The target instance.</param>
+    /// <param name="data">The original hashtable data.</param>
+    /// <param name="extras">Unmatched entries to apply.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    private static void ApplyAdditionalPropertiesExtras(
+        object instance,
+        Hashtable data,
+        Hashtable extras,
+        Serilog.ILogger logger)
+    {
+        if (extras.Count == 0)
+        {
+            return;
+        }
+
+        if (TryGetHashtableValue(data, "AdditionalProperties", out var existingBag)
+            && existingBag is Hashtable existingHash)
+        {
+            foreach (DictionaryEntry entry in extras)
+            {
+                existingHash[entry.Key] = entry.Value;
+            }
+
+            _ = TrySetAdditionalPropertiesBag(instance, existingHash, logger);
+            return;
+        }
+
+        _ = TrySetAdditionalPropertiesBag(instance, extras, logger);
     }
 
     /// <summary>

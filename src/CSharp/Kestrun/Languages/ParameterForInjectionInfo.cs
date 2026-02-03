@@ -897,85 +897,194 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             return TryReadPartAsString(part, logger);
         }
 
-        if (part.NestedPayload is KrMultipart nested)
-        {
-            var nestedInstance = TryCreateObjectInstance(targetType, logger, ps);
-            if (nestedInstance is null)
-            {
-                if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-                {
-                    logger.Debug(
-                        "Multipart bind: failed to create nested instance for targetType={TargetType} partName={PartName} contentType={ContentType} runspaceId={RunspaceId}",
-                        targetType,
-                        part.Name,
-                        part.ContentType,
-                        ps?.Runspace?.InstanceId.ToString() ?? "<null>");
-                }
-                return null;
-            }
+        var nestedResult = TryBuildNestedMultipartValue(targetType, part, logger, ps, depth);
+        return nestedResult is not null ? nestedResult : TryBuildJsonMultipartValue(targetType, part, logger, ps);
+    }
 
-            TryPopulateMultipartObjectProperties(nestedInstance, nested, targetType, logger, ps, depth + 1);
-            return nestedInstance;
+    /// <summary>
+    /// Attempts to build a multipart value from a nested multipart payload.
+    /// </summary>
+    /// <param name="targetType">The target property type.</param>
+    /// <param name="part">The matching multipart part.</param>
+    /// <param name="logger">Logger for warnings.</param>
+    /// <param name="ps">Current PowerShell runspace, used to instantiate PowerShell class types.</param>
+    /// <param name="depth">Recursion depth for nested multipart binding.</param>
+    /// <returns>The nested instance or <c>null</c> when the part is not nested or cannot be bound.</returns>
+    private static object? TryBuildNestedMultipartValue(
+        Type targetType,
+        KrRawPart part,
+        Serilog.ILogger logger,
+        PowerShell? ps,
+        int depth)
+    {
+        if (part.NestedPayload is not KrMultipart nested)
+        {
+            return null;
         }
 
-        if (MediaTypeHelper.Canonicalize(part.ContentType).Equals("application/json", StringComparison.OrdinalIgnoreCase))
+        var nestedInstance = TryCreateObjectInstance(targetType, logger, ps);
+        if (nestedInstance is null)
         {
-            var json = TryReadPartAsString(part, logger);
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return null;
-            }
-
-            Hashtable? ht;
-            try
-            {
-                ht = ConvertJsonToHashtable(json) as Hashtable;
-            }
-            catch (JsonException ex)
-            {
-                logger.Warning(ex, "Invalid JSON payload for multipart part '{PartName}'.", part.Name);
-                throw new KrFormException("Invalid JSON payload for form part.", StatusCodes.Status400BadRequest);
-            }
-
-            if (ht is null)
-            {
-                return targetType == typeof(object) ? ConvertJsonToHashtable(json) : null;
-            }
-
-            // If the target is object-like, try to stash JSON into an AdditionalProperties bag.
-            var obj = TryCreateObjectInstance(targetType, logger, ps);
-            if (obj is not null)
-            {
-                if (TrySetAdditionalPropertiesBag(obj, ht, logger))
-                {
-                    return obj;
-                }
-
-                if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-                {
-                    logger.Debug(
-                        "Multipart bind: created instance for json part but could not set AdditionalProperties for targetType={TargetType} partName={PartName} runspaceId={RunspaceId}",
-                        targetType,
-                        part.Name,
-                        ps?.Runspace?.InstanceId.ToString() ?? "<null>");
-                }
-
-                // If it isn't a bag model, fall back to returning the hashtable when possible.
-            }
-
-            if (obj is null && logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
-            {
-                logger.Debug(
-                    "Multipart bind: failed to create instance for json part targetType={TargetType} partName={PartName} runspaceId={RunspaceId}",
-                    targetType,
-                    part.Name,
-                    ps?.Runspace?.InstanceId.ToString() ?? "<null>");
-            }
-
-            return targetType == typeof(object) ? ht : null;
+            LogNestedMultipartCreateFailure(logger, targetType, part, ps);
+            return null;
         }
 
-        return null;
+        TryPopulateMultipartObjectProperties(nestedInstance, nested, targetType, logger, ps, depth + 1);
+        return nestedInstance;
+    }
+
+    /// <summary>
+    /// Attempts to build a multipart value from a JSON part payload.
+    /// </summary>
+    /// <param name="targetType">The target property type.</param>
+    /// <param name="part">The matching multipart part.</param>
+    /// <param name="logger">Logger for warnings.</param>
+    /// <param name="ps">Current PowerShell runspace, used to instantiate PowerShell class types.</param>
+    /// <returns>The resolved value or <c>null</c> when no match exists.</returns>
+    private static object? TryBuildJsonMultipartValue(
+        Type targetType,
+        KrRawPart part,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        if (!IsJsonPart(part))
+        {
+            return null;
+        }
+
+        var json = TryReadPartAsString(part, logger);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        var ht = TryParseJsonToHashtable(json, part, logger);
+        if (ht is null)
+        {
+            return targetType == typeof(object) ? ConvertJsonToHashtable(json) : null;
+        }
+
+        var obj = TryCreateObjectInstance(targetType, logger, ps);
+        if (obj is not null)
+        {
+            if (TrySetAdditionalPropertiesBag(obj, ht, logger))
+            {
+                return obj;
+            }
+
+            LogJsonAdditionalPropertiesFailure(logger, targetType, part, ps);
+        }
+
+        if (obj is null)
+        {
+            LogJsonInstanceCreateFailure(logger, targetType, part, ps);
+        }
+
+        return targetType == typeof(object) ? ht : null;
+    }
+
+    /// <summary>
+    /// Determines whether a multipart part contains JSON content.
+    /// </summary>
+    /// <param name="part">The multipart part.</param>
+    /// <returns><c>true</c> if the part is JSON; otherwise <c>false</c>.</returns>
+    private static bool IsJsonPart(KrRawPart part)
+        => MediaTypeHelper.Canonicalize(part.ContentType).Equals("application/json", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Attempts to parse JSON text into a hashtable, throwing a form exception on invalid JSON.
+    /// </summary>
+    /// <param name="json">The JSON string.</param>
+    /// <param name="part">The multipart part.</param>
+    /// <param name="logger">Logger for warnings.</param>
+    /// <returns>The parsed hashtable or <c>null</c> when parsing yields a non-hashtable.</returns>
+    private static Hashtable? TryParseJsonToHashtable(string json, KrRawPart part, Serilog.ILogger logger)
+    {
+        try
+        {
+            return ConvertJsonToHashtable(json) as Hashtable;
+        }
+        catch (JsonException ex)
+        {
+            logger.Warning(ex, "Invalid JSON payload for multipart part '{PartName}'.", part.Name);
+            throw new KrFormException("Invalid JSON payload for form part.", StatusCodes.Status400BadRequest);
+        }
+    }
+
+    /// <summary>
+    /// Logs a failure to create a nested multipart instance when debug logging is enabled.
+    /// </summary>
+    /// <param name="logger">Logger for warnings.</param>
+    /// <param name="targetType">The target property type.</param>
+    /// <param name="part">The multipart part.</param>
+    /// <param name="ps">Current PowerShell runspace, if available.</param>
+    private static void LogNestedMultipartCreateFailure(
+        Serilog.ILogger logger,
+        Type targetType,
+        KrRawPart part,
+        PowerShell? ps)
+    {
+        if (!logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            return;
+        }
+
+        logger.Debug(
+            "Multipart bind: failed to create nested instance for targetType={TargetType} partName={PartName} contentType={ContentType} runspaceId={RunspaceId}",
+            targetType,
+            part.Name,
+            part.ContentType,
+            ps?.Runspace?.InstanceId.ToString() ?? "<null>");
+    }
+
+    /// <summary>
+    /// Logs a failure to set AdditionalProperties for JSON parts when debug logging is enabled.
+    /// </summary>
+    /// <param name="logger">Logger for warnings.</param>
+    /// <param name="targetType">The target property type.</param>
+    /// <param name="part">The multipart part.</param>
+    /// <param name="ps">Current PowerShell runspace, if available.</param>
+    private static void LogJsonAdditionalPropertiesFailure(
+        Serilog.ILogger logger,
+        Type targetType,
+        KrRawPart part,
+        PowerShell? ps)
+    {
+        if (!logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            return;
+        }
+
+        logger.Debug(
+            "Multipart bind: created instance for json part but could not set AdditionalProperties for targetType={TargetType} partName={PartName} runspaceId={RunspaceId}",
+            targetType,
+            part.Name,
+            ps?.Runspace?.InstanceId.ToString() ?? "<null>");
+    }
+
+    /// <summary>
+    /// Logs a failure to create an instance for a JSON part when debug logging is enabled.
+    /// </summary>
+    /// <param name="logger">Logger for warnings.</param>
+    /// <param name="targetType">The target property type.</param>
+    /// <param name="part">The multipart part.</param>
+    /// <param name="ps">Current PowerShell runspace, if available.</param>
+    private static void LogJsonInstanceCreateFailure(
+        Serilog.ILogger logger,
+        Type targetType,
+        KrRawPart part,
+        PowerShell? ps)
+    {
+        if (!logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            return;
+        }
+
+        logger.Debug(
+            "Multipart bind: failed to create instance for json part targetType={TargetType} partName={PartName} runspaceId={RunspaceId}",
+            targetType,
+            part.Name,
+            ps?.Runspace?.InstanceId.ToString() ?? "<null>");
     }
 
     /// <summary>

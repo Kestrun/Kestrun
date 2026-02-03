@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using Kestrun.Logging;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Net.Http.Headers;
@@ -34,12 +35,14 @@ public static class KrFormParser
         var contentTypeHeader = context.Request.ContentType;
         var contentEncoding = context.Request.Headers[HeaderNames.ContentEncoding].ToString();
         var requestDecompressionEnabled = DetectRequestDecompressionEnabled(context);
-
-        logger.Information(
-            "Form route start: Content-Type={ContentType}, Content-Encoding={ContentEncoding}, RequestDecompressionEnabled={RequestDecompressionEnabled}",
-            contentTypeHeader,
-            string.IsNullOrWhiteSpace(contentEncoding) ? "<none>" : contentEncoding,
-            requestDecompressionEnabled);
+        if (logger.IsEnabled(LogEventLevel.Debug))
+        {
+            logger.DebugSanitized(
+                "Form route start: Content-Type={ContentType}, Content-Encoding={ContentEncoding}, RequestDecompressionEnabled={RequestDecompressionEnabled}",
+                contentTypeHeader,
+                string.IsNullOrWhiteSpace(contentEncoding) ? "<none>" : contentEncoding,
+                requestDecompressionEnabled);
+        }
 
         if (string.IsNullOrWhiteSpace(contentTypeHeader))
         {
@@ -49,7 +52,7 @@ public static class KrFormParser
 
         if (!MediaTypeHeaderValue.TryParse(contentTypeHeader, out var mediaType))
         {
-            logger.Error("Invalid Content-Type header: {ContentType}", contentTypeHeader);
+            logger.WarningSanitized("Invalid Content-Type header: {ContentType}", contentTypeHeader);
             throw new KrFormException("Invalid Content-Type header.", StatusCodes.Status415UnsupportedMediaType);
         }
 

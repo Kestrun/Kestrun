@@ -35,6 +35,7 @@ Browse the step-by-step guides below to learn OpenAPI features in Kestrun:
 20. **[SignalR (OpenAPI)](./22.SignalR)** — Document SignalR-adjacent HTTP routes with OpenAPI
 21. **[XML Modeling](./23.XML-Modeling)** — OpenAPI 3.2 XML metadata (`OpenApiXml`) for schemas
 22. **[RFC 6570 Variable Mapping](./24.RFC6570-Variable-Mapping)** — RFC6570 path expressions (`{+path}`) mapped from ASP.NET route values
+23. **[Additional and Pattern Properties](./25.Additional-Pattern-Properties)** — Model dynamic keys with `additionalProperties` and `patternProperties`
 
 ## Quick start: run the samples
 

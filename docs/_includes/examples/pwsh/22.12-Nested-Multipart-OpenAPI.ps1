@@ -118,7 +118,7 @@ function nested {
         [OpenApiRequestBody(contentType = ('multipart/mixed'), Required = $true )]
         [NestedMultipartRequest]$FormPayload
     )
-
+    $FormPayload | ConvertTo-Json -Depth 5 | Write-Host
     # If you want to return counts, compute from bound model:
     $outerParts = $FormPayload.Parts
     $nestedSummary = @()

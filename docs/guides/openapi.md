@@ -714,6 +714,17 @@ components:
 
 > **Note:** `OpenApiSchemaComponent` defaults `AdditionalPropertiesAllowed` to `$false`. Setting `AdditionalProperties` automatically enables it.
 
+**How it works at runtime**
+
+- Dynamic key/value pairs are stored in the model’s `AdditionalProperties` hashtable.
+- When binding JSON or form data, keys that don’t match declared properties are added to `AdditionalProperties`.
+- Values are converted to the declared `AdditionalProperties` schema type when possible.
+
+**Using it in routes**
+
+- When returning data, you can return the model or return `AdditionalProperties` directly to emit a flat object.
+- When accepting data, include extra keys in the request payload; they will be available in `AdditionalProperties`.
+
 #### 4.5.7 Pattern properties (regex keys)
 
 To constrain allowed property names by regex, apply `OpenApiPatternProperties` on the class and supply a `KeyPattern` (ECMA-262):
@@ -733,6 +744,12 @@ components:
         "^x-":
           type: string
 ```
+
+**How it works at runtime**
+
+- Pattern property rules populate `AdditionalProperties` only with keys that match the regex.
+- Keys that do not match any pattern are ignored during binding.
+- When multiple patterns exist, the first matching rule determines the value type conversion.
 
 #### 4.5.8 Composition via refs (oneOf / anyOf / allOf)
 

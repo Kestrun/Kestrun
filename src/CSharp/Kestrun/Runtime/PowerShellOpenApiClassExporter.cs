@@ -601,12 +601,14 @@ public static class PowerShellOpenApiClassExporter
     /// <param name="sb"></param>
     private static void AppendClass(Type type, HashSet<Type> componentSet, StringBuilder sb)
     {
-        var bindFormAttribute = TryBuildKrBindFormAttribute(type);
+        var bindFormAttribute = TryBuildKrBindFormAttribute(type, out var formMaxDepth);
+        var additionalPropertiesMetadata = BuildAdditionalPropertiesMetadata(type);
 
         // Detect base type (for parenting). For OpenAPI form models, base type is chosen
         // by KrBindForm.MaxNestingDepth rather than requiring inheritance on the original class.
         var baseClause = string.Empty;
-        if (bindFormAttribute is null && TryGetFormPayloadBasePsName(type, out var formBasePsName))
+        if ((bindFormAttribute is null || formMaxDepth > 0)
+            && TryGetFormPayloadBasePsName(type, out var formBasePsName))
         {
             baseClause = $" : {formBasePsName}";
         }
@@ -631,6 +633,20 @@ public static class PowerShellOpenApiClassExporter
         var props = type.GetProperties(
             BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
 
+        if (ShouldEmitAdditionalProperties(type, props))
+        {
+            _ = sb.AppendLine("    [hashtable]$AdditionalProperties");
+        }
+
+        if (!string.IsNullOrWhiteSpace(additionalPropertiesMetadata))
+        {
+            _ = sb.AppendLine();
+            _ = sb.AppendLine("    # Static AdditionalProperties metadata for this class");
+            _ = sb.AppendLine("    static [hashtable] $AdditionalPropertiesMetadata = @{");
+            _ = sb.Append(additionalPropertiesMetadata);
+            _ = sb.AppendLine("    }");
+        }
+
         foreach (var p in props)
         {
             var psType = ToPowerShellTypeName(p.PropertyType, componentSet, collapseToUnderlyingPrimitives: true);
@@ -643,8 +659,9 @@ public static class PowerShellOpenApiClassExporter
         _ = sb.AppendLine("}");
     }
 
-    private static string? TryBuildKrBindFormAttribute(Type type)
+    private static string? TryBuildKrBindFormAttribute(Type type, out int maxDepth)
     {
+        maxDepth = 0;
         var bindAttr = type.GetCustomAttributes(inherit: false)
             .FirstOrDefault(a => a.GetType().Name.Equals("KrBindFormAttribute", StringComparison.OrdinalIgnoreCase));
 
@@ -654,11 +671,82 @@ public static class PowerShellOpenApiClassExporter
         }
 
         var maxDepthProp = bindAttr.GetType().GetProperty("MaxNestingDepth");
-        var maxDepth = maxDepthProp?.GetValue(bindAttr) as int? ?? 0;
+        maxDepth = maxDepthProp?.GetValue(bindAttr) as int? ?? 0;
 
         return maxDepth > 0
             ? $"[KrBindForm(MaxNestingDepth = {maxDepth})]"
             : "[KrBindForm()]";
+    }
+
+    private static bool ShouldEmitAdditionalProperties(Type type, PropertyInfo[] props)
+    {
+        if (props.Any(p => string.Equals(p.Name, "AdditionalProperties", StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        var hasPatternProps = type.GetCustomAttributes(inherit: false)
+            .Any(a => a.GetType().Name.Equals("OpenApiPatternPropertiesAttribute", StringComparison.OrdinalIgnoreCase));
+
+        if (hasPatternProps)
+        {
+            return true;
+        }
+
+        var schemaAttr = type.GetCustomAttributes(inherit: false)
+            .FirstOrDefault(a => a.GetType().Name.Equals("OpenApiSchemaComponent", StringComparison.OrdinalIgnoreCase));
+
+        if (schemaAttr is null)
+        {
+            return false;
+        }
+
+        var allowProp = schemaAttr.GetType().GetProperty("AdditionalPropertiesAllowed");
+        return allowProp?.GetValue(schemaAttr) as bool? == true;
+    }
+
+    private static string BuildAdditionalPropertiesMetadata(Type type)
+    {
+        var schemaAttr = type.GetCustomAttributes(inherit: false)
+            .FirstOrDefault(a => a.GetType().Name.Equals("OpenApiSchemaComponent", StringComparison.OrdinalIgnoreCase));
+
+        var additionalType = schemaAttr?.GetType().GetProperty("AdditionalProperties")?.GetValue(schemaAttr) as Type;
+
+        var patternAttrs = type.GetCustomAttributes(inherit: false)
+            .Where(a => a.GetType().Name.Equals("OpenApiPatternPropertiesAttribute", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        if (additionalType is null && patternAttrs.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        var sb = new StringBuilder();
+
+        if (additionalType is not null)
+        {
+            _ = sb.AppendLine($"        AdditionalPropertiesType = '{additionalType.FullName ?? additionalType.Name}'");
+        }
+
+        if (patternAttrs.Length > 0)
+        {
+            _ = sb.AppendLine("        PatternProperties = @(");
+
+            foreach (var attr in patternAttrs)
+            {
+                var keyPattern = attr.GetType().GetProperty("KeyPattern")?.GetValue(attr) as string ?? string.Empty;
+                var schemaType = attr.GetType().GetProperty("SchemaType")?.GetValue(attr) as Type ?? typeof(string);
+
+                _ = sb.AppendLine("            @{");
+                _ = sb.AppendLine($"                KeyPattern = '{EscapePowerShellString(keyPattern)}'");
+                _ = sb.AppendLine($"                SchemaType = '{schemaType.FullName ?? schemaType.Name}'");
+                _ = sb.AppendLine("            }");
+            }
+
+            _ = sb.AppendLine("        )");
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>

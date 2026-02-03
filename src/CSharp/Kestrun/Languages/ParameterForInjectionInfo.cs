@@ -4,6 +4,7 @@ using System.Management.Automation;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using CsvHelper;
@@ -206,6 +207,15 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             converted = GetConvertedParameterValue(context, param, out var shouldLog);
             converted = ConvertBodyParameterIfNeeded(context, param, converted);
             LogAddingParameter(logger, name, converted, shouldLog);
+        }
+
+        if (converted is Hashtable ht && param.ParameterType is not null)
+        {
+            var coerced = TryConvertHashtableToParameterType(param.ParameterType, ht, logger, ps);
+            if (coerced is not null)
+            {
+                converted = coerced;
+            }
         }
         _ = ps.AddParameter(name, converted);
         StoreResolvedParameter(context, param, name, converted);
@@ -917,6 +927,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     {
         try
         {
+            ht = NormalizeAdditionalPropertiesBag(target, ht, logger);
             var prop = target.GetType().GetProperty("AdditionalProperties", BindingFlags.Public | BindingFlags.Instance);
             if (prop is null)
             {
@@ -946,6 +957,222 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             logger.Warning(ex, "Failed to set AdditionalProperties on type {Type}.", target.GetType());
             return false;
         }
+    }
+
+    private static Hashtable NormalizeAdditionalPropertiesBag(object target, Hashtable ht, Serilog.ILogger logger)
+    {
+        if (!TryGetAdditionalPropertiesMetadata(target, out var additionalTypeName, out var patterns))
+        {
+            return ht;
+        }
+
+        if (patterns.Count > 0)
+        {
+            var filtered = new Hashtable(StringComparer.OrdinalIgnoreCase);
+            foreach (DictionaryEntry entry in ht)
+            {
+                if (entry.Key is not string key)
+                {
+                    continue;
+                }
+
+                var match = patterns.FirstOrDefault(p => p.IsMatch(key));
+                if (match is null)
+                {
+                    continue;
+                }
+
+                var targetType = ResolveAdditionalPropertiesType(target.GetType(), match.SchemaTypeName);
+                filtered[key] = targetType is null
+                    ? entry.Value
+                    : ConvertAdditionalPropertyValue(entry.Value, targetType, logger);
+            }
+
+            return filtered;
+        }
+
+        if (!string.IsNullOrWhiteSpace(additionalTypeName))
+        {
+            var targetType = ResolveAdditionalPropertiesType(target.GetType(), additionalTypeName);
+            if (targetType is null)
+            {
+                return ht;
+            }
+
+            var converted = new Hashtable(StringComparer.OrdinalIgnoreCase);
+            foreach (DictionaryEntry entry in ht)
+            {
+                converted[entry.Key] = ConvertAdditionalPropertyValue(entry.Value, targetType, logger);
+            }
+
+            return converted;
+        }
+
+        return ht;
+    }
+
+    private static object ConvertAdditionalPropertyValue(object? value, Type targetType, Serilog.ILogger logger)
+    {
+        if (value is null)
+        {
+            return value!;
+        }
+
+        if (targetType.IsInstanceOfType(value))
+        {
+            return value;
+        }
+
+        if (targetType == typeof(object))
+        {
+            return value;
+        }
+
+        if (value is Hashtable ht)
+        {
+            return ConvertHashtableToObject(ht, targetType, depth: 0) ?? value;
+        }
+
+        if (targetType == typeof(string))
+        {
+            return value.ToString() ?? string.Empty;
+        }
+
+        if (targetType.IsEnum && value is string s)
+        {
+            try
+            {
+                return Enum.Parse(targetType, s, ignoreCase: true);
+            }
+            catch
+            {
+                return value;
+            }
+        }
+
+        try
+        {
+            return Convert.ChangeType(value, targetType, CultureInfo.InvariantCulture) ?? value;
+        }
+        catch (Exception ex)
+        {
+            logger.Debug(ex, "Failed to convert additional property to {TargetType}.", targetType);
+            return value;
+        }
+    }
+
+    private static bool TryGetAdditionalPropertiesMetadata(
+        object target,
+        out string? additionalTypeName,
+        out List<PatternPropertyRule> patterns)
+    {
+        additionalTypeName = null;
+        patterns = [];
+
+        var metaProp = target.GetType().GetProperty(
+            "AdditionalPropertiesMetadata",
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+
+        if (metaProp?.GetValue(null) is not Hashtable meta)
+        {
+            return false;
+        }
+
+        additionalTypeName = meta["AdditionalPropertiesType"] as string;
+
+        if (meta["PatternProperties"] is IEnumerable list)
+        {
+            foreach (var entry in list)
+            {
+                if (entry is not Hashtable pattern)
+                {
+                    continue;
+                }
+
+                var keyPattern = pattern["KeyPattern"] as string;
+                var schemaType = pattern["SchemaType"] as string;
+                if (string.IsNullOrWhiteSpace(keyPattern))
+                {
+                    continue;
+                }
+
+                patterns.Add(new PatternPropertyRule(keyPattern, schemaType));
+            }
+        }
+
+        return !string.IsNullOrWhiteSpace(additionalTypeName) || patterns.Count > 0;
+    }
+
+    private static Type? ResolveAdditionalPropertiesType(Type targetType, string? typeName)
+    {
+        if (string.IsNullOrWhiteSpace(typeName))
+        {
+            return null;
+        }
+
+        var trimmed = typeName.Trim();
+
+        var alias = trimmed.ToLowerInvariant() switch
+        {
+            "string" => typeof(string),
+            "int" or "int32" => typeof(int),
+            "long" or "int64" => typeof(long),
+            "double" => typeof(double),
+            "float" => typeof(float),
+            "decimal" => typeof(decimal),
+            "bool" or "boolean" => typeof(bool),
+            "object" => typeof(object),
+            "hashtable" => typeof(Hashtable),
+            _ => null
+        };
+
+        if (alias is not null)
+        {
+            return alias;
+        }
+
+        var resolved = System.Type.GetType(trimmed, throwOnError: false, ignoreCase: true);
+        if (resolved is not null)
+        {
+            return resolved;
+        }
+
+        var asmType = targetType.Assembly.GetTypes()
+            .FirstOrDefault(t => string.Equals(t.FullName, trimmed, StringComparison.OrdinalIgnoreCase)
+                              || string.Equals(t.Name, trimmed, StringComparison.OrdinalIgnoreCase));
+        if (asmType is not null)
+        {
+            return asmType;
+        }
+
+        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            var match = asm.GetTypes()
+                .FirstOrDefault(t => string.Equals(t.FullName, trimmed, StringComparison.OrdinalIgnoreCase)
+                                  || string.Equals(t.Name, trimmed, StringComparison.OrdinalIgnoreCase));
+            if (match is not null)
+            {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    private sealed class PatternPropertyRule
+    {
+        public PatternPropertyRule(string keyPattern, string? schemaTypeName)
+        {
+            KeyPattern = keyPattern;
+            SchemaTypeName = schemaTypeName;
+        }
+
+        public string KeyPattern { get; }
+
+        public string? SchemaTypeName { get; }
+
+        public bool IsMatch(string key)
+            => Regex.IsMatch(key, KeyPattern, RegexOptions.CultureInvariant);
     }
 
     /// <summary>
@@ -1764,6 +1991,43 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             return null;
         }
 
+        PopulateObjectFromHashtable(instance, targetType, data, depth, Serilog.Log.Logger);
+        return instance;
+    }
+
+    private static object? TryConvertHashtableToParameterType(
+        Type parameterType,
+        Hashtable data,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        if (parameterType == typeof(object) || typeof(IDictionary).IsAssignableFrom(parameterType))
+        {
+            return null;
+        }
+
+        if (!parameterType.IsClass)
+        {
+            return null;
+        }
+
+        var instance = TryCreateObjectInstance(parameterType, logger, ps);
+        if (instance is null)
+        {
+            return null;
+        }
+
+        PopulateObjectFromHashtable(instance, instance.GetType(), data, depth: 0, logger);
+        return instance;
+    }
+
+    private static void PopulateObjectFromHashtable(
+        object instance,
+        Type targetType,
+        Hashtable data,
+        int depth,
+        Serilog.ILogger logger)
+    {
         var props = targetType
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Where(p => p.CanWrite && p.SetMethod is not null)
@@ -1772,6 +2036,8 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         var fields = targetType
             .GetFields(BindingFlags.Public | BindingFlags.Instance)
             .ToDictionary(f => f.Name, StringComparer.OrdinalIgnoreCase);
+
+        var extras = new Hashtable(StringComparer.OrdinalIgnoreCase);
 
         foreach (DictionaryEntry entry in data)
         {
@@ -1793,10 +2059,31 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             {
                 var converted = ConvertToTargetType(entry.Value, field.FieldType, depth + 1);
                 field.SetValue(instance, converted);
+                continue;
+            }
+
+            extras[key] = entry.Value;
+        }
+
+        if (extras.Count > 0)
+        {
+            if (TryGetHashtableValue(data, "AdditionalProperties", out var existingBag)
+                && existingBag is Hashtable existingHash)
+            {
+                foreach (DictionaryEntry entry in extras)
+                {
+                    existingHash[entry.Key] = entry.Value;
+                }
+
+                _ = TrySetAdditionalPropertiesBag(instance, existingHash, logger);
+            }
+            else
+            {
+                _ = TrySetAdditionalPropertiesBag(instance, extras, logger);
             }
         }
 
-        return instance;
+        return;
     }
 
     /// <summary>

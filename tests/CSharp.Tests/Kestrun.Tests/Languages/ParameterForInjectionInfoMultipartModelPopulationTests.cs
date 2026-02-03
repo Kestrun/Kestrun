@@ -1,6 +1,4 @@
-using System;
 using System.Collections;
-using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using System.Reflection;
@@ -46,16 +44,16 @@ class NestedMultipartRequest : KrMultipart {
 [NestedMultipartRequest]
 ";
 
-        ps.AddScript(script);
+        _ = ps.AddScript(script);
         var typeResult = ps.Invoke();
         Assert.False(ps.HadErrors);
-        Assert.Single(typeResult);
+        _ = Assert.Single(typeResult);
 
         var nestedMultipartRequestType = Assert.IsAssignableFrom<Type>(typeResult[0].BaseObject);
 
-        var outerJsonPath = CreateTempFile("{\"stage\":\"outer\"}");
+        var outerJsonPath = CreateTempFile(/*lang=json,strict*/ "{\"stage\":\"outer\"}");
         var innerTextPath = CreateTempFile("inner-1");
-        var innerJsonPath = CreateTempFile("{\"nested\":true}");
+        var innerJsonPath = CreateTempFile(/*lang=json,strict*/ "{\"nested\":true}");
         var outerNestedContainerPath = CreateTempFile("(container)");
 
         try
@@ -100,7 +98,7 @@ class NestedMultipartRequest : KrMultipart {
 
             var nestedValue = nestedProp!.GetValue(typed);
             var nestedArr = Assert.IsAssignableFrom<Array>(nestedValue);
-            Assert.Single(nestedArr);
+            _ = Assert.Single(nestedArr);
 
             var nestedItem = nestedArr.GetValue(0);
             Assert.NotNull(nestedItem);
@@ -111,7 +109,7 @@ class NestedMultipartRequest : KrMultipart {
             Assert.NotNull(jsonProp);
 
             Assert.Equal("inner-1", textProp!.GetValue(nestedItem));
-            Assert.Equal("{\"nested\":true}", jsonProp!.GetValue(nestedItem));
+            Assert.Equal(/*lang=json,strict*/ "{\"nested\":true}", jsonProp!.GetValue(nestedItem));
         }
         finally
         {

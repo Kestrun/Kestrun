@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: OpenAPI AdditionalProperties + PatternProperties
     Purpose: Demonstrate schema components that allow arbitrary keys and pattern-constrained keys.
     File:    10.24-OpenAPI-Additional-Pattern-Properties.ps1

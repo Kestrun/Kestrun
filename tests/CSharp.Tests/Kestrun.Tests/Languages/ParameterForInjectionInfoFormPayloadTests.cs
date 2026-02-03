@@ -16,7 +16,7 @@ public sealed class ParameterForInjectionInfoFormPayloadTests
         var result = ParameterForInjectionInfo.CoerceFormPayloadForParameter(typeof(CustomMultipart), payload, Log.Logger);
 
         var converted = Assert.IsType<CustomMultipart>(result);
-        Assert.Single(converted.Parts);
+        _ = Assert.Single(converted.Parts);
         Assert.Same(payload.Parts[0], converted.Parts[0]);
     }
 

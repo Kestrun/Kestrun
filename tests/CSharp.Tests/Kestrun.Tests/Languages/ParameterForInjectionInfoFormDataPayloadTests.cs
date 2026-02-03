@@ -26,7 +26,7 @@ public sealed class ParameterForInjectionInfoFormDataPayloadTests
 
         var converted = Assert.IsType<CustomFormData>(result);
         Assert.Equal("hello", converted.Fields["note"][0]);
-        Assert.Single(converted.Files["file"]);
+        _ = Assert.Single(converted.Files["file"]);
         Assert.Equal("hello.txt", converted.Files["file"][0].OriginalFileName);
     }
 

@@ -4,7 +4,6 @@ using Microsoft.OpenApi;
 using OpenApiXmlModel = Microsoft.OpenApi.OpenApiXml;
 using Kestrun.Runtime;
 using Kestrun.Forms;
-using System.DirectoryServices.ActiveDirectory;
 
 namespace Kestrun.OpenApi;
 

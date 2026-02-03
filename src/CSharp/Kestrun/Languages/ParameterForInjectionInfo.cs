@@ -29,6 +29,34 @@ namespace Kestrun.Languages;
 /// </summary>
 public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 {
+    /// <summary>
+    /// Content types associated with the parameter.
+    /// </summary>
+    /// <remarks>Typically used for body parameters.</remarks>
+    private sealed class PatternPropertyRule(string keyPattern, string? schemaTypeName)
+    {
+        /// <summary>
+        /// Regex pattern to match property keys.
+        /// </summary>
+        public string KeyPattern { get; } = keyPattern;
+
+        /// <summary>
+        /// Type name of the schema for matched properties.
+        /// </summary>
+        public string? SchemaTypeName { get; } = schemaTypeName;
+
+        /// <summary>
+        /// Determines if the given key matches the pattern.
+        /// </summary>
+        public bool IsMatch(string key)
+            => Regex.IsMatch(key, KeyPattern, RegexOptions.CultureInvariant);
+    }
+
+    /// <summary>
+    /// Validates the ParameterMetadata instance.
+    /// </summary>
+    /// <param name="paramInfo">The parameter metadata to validate.</param>
+    /// <returns>The validated ParameterMetadata.</returns>
     private static ParameterMetadata Validate(ParameterMetadata? paramInfo)
     {
         ArgumentNullException.ThrowIfNull(paramInfo);
@@ -959,56 +987,94 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         }
     }
 
+    /// <summary>
+    /// Attempts to set an <c>AdditionalProperties</c> backing field on a model instance.
+    /// </summary>
+    /// <param name="target">The target instance.</param>
+    /// <param name="ht">The hashtable to assign.</param>
+    /// <param name="logger">Logger for diagnostics.</param>
+    /// <returns>True if the backing field was set; otherwise false.</returns>
     private static Hashtable NormalizeAdditionalPropertiesBag(object target, Hashtable ht, Serilog.ILogger logger)
     {
         if (!TryGetAdditionalPropertiesMetadata(target, out var additionalTypeName, out var patterns))
         {
             return ht;
         }
-
+        // If there are pattern rules, apply those first.
         if (patterns.Count > 0)
         {
-            var filtered = new Hashtable(StringComparer.OrdinalIgnoreCase);
-            foreach (DictionaryEntry entry in ht)
-            {
-                if (entry.Key is not string key)
-                {
-                    continue;
-                }
-
-                var match = patterns.FirstOrDefault(p => p.IsMatch(key));
-                if (match is null)
-                {
-                    continue;
-                }
-
-                var targetType = ResolveAdditionalPropertiesType(target.GetType(), match.SchemaTypeName);
-                filtered[key] = targetType is null
-                    ? entry.Value
-                    : ConvertAdditionalPropertyValue(entry.Value, targetType, logger);
-            }
-
-            return filtered;
+            return FilterPatternedAdditionalProperties(target, ht, patterns, logger);
         }
+        // Otherwise, if there's a single type name, convert all properties to that type.
+        return string.IsNullOrWhiteSpace(additionalTypeName)
+            ? ht
+            : ConvertAdditionalPropertiesByType(target, ht, additionalTypeName, logger);
+    }
 
-        if (!string.IsNullOrWhiteSpace(additionalTypeName))
+    /// <summary>
+    /// Filters and converts additional properties based on pattern rules.
+    /// </summary>
+    /// <param name="target">The target instance.</param>
+    /// <param name="ht">The original properties hashtable.</param>
+    /// <param name="patterns">The pattern rules to apply.</param>
+    /// <param name="logger">Logger for diagnostics.</param>
+    /// <returns>The filtered and converted properties.</returns>
+    private static Hashtable FilterPatternedAdditionalProperties(
+        object target,
+        Hashtable ht,
+        IReadOnlyList<PatternPropertyRule> patterns,
+        Serilog.ILogger logger)
+    {
+        var filtered = new Hashtable(StringComparer.OrdinalIgnoreCase);
+        foreach (DictionaryEntry entry in ht)
         {
-            var targetType = ResolveAdditionalPropertiesType(target.GetType(), additionalTypeName);
-            if (targetType is null)
+            if (entry.Key is not string key)
             {
-                return ht;
+                continue;
             }
 
-            var converted = new Hashtable(StringComparer.OrdinalIgnoreCase);
-            foreach (DictionaryEntry entry in ht)
+            var match = patterns.FirstOrDefault(p => p.IsMatch(key));
+            if (match is null)
             {
-                converted[entry.Key] = ConvertAdditionalPropertyValue(entry.Value, targetType, logger);
+                continue;
             }
 
-            return converted;
+            var targetType = ResolveAdditionalPropertiesType(target.GetType(), match.SchemaTypeName);
+            filtered[key] = targetType is null
+                ? entry.Value
+                : ConvertAdditionalPropertyValue(entry.Value, targetType, logger);
         }
 
-        return ht;
+        return filtered;
+    }
+
+    /// <summary>
+    /// Converts additional properties using a single resolved target type.
+    /// </summary>
+    /// <param name="target">The target instance.</param>
+    /// <param name="ht">The original properties hashtable.</param>
+    /// <param name="typeName">The additional properties type name.</param>
+    /// <param name="logger">Logger for diagnostics.</param>
+    /// <returns>The converted properties.</returns>
+    private static Hashtable ConvertAdditionalPropertiesByType(
+        object target,
+        Hashtable ht,
+        string typeName,
+        Serilog.ILogger logger)
+    {
+        var targetType = ResolveAdditionalPropertiesType(target.GetType(), typeName);
+        if (targetType is null)
+        {
+            return ht;
+        }
+
+        var converted = new Hashtable(StringComparer.OrdinalIgnoreCase);
+        foreach (DictionaryEntry entry in ht)
+        {
+            converted[entry.Key] = ConvertAdditionalPropertyValue(entry.Value, targetType, logger);
+        }
+
+        return converted;
     }
 
     private static object ConvertAdditionalPropertyValue(object? value, Type targetType, Serilog.ILogger logger)
@@ -1030,7 +1096,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
         if (value is Hashtable ht)
         {
-            return ConvertHashtableToObject(ht, targetType, depth: 0) ?? value;
+            return ConvertHashtableToObject(ht, targetType, depth: 0, ps: null) ?? value;
         }
 
         if (targetType == typeof(string))
@@ -1103,6 +1169,12 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         return !string.IsNullOrWhiteSpace(additionalTypeName) || patterns.Count > 0;
     }
 
+    /// <summary>
+    /// Resolves a type for additional properties based on a type name or alias.
+    /// </summary>
+    /// <param name="targetType">The target type requesting the additional properties type.</param>
+    /// <param name="typeName">The type name or alias to resolve.</param>
+    /// <returns>The resolved type, or null if resolution failed.</returns>
     private static Type? ResolveAdditionalPropertiesType(Type targetType, string? typeName)
     {
         if (string.IsNullOrWhiteSpace(typeName))
@@ -1112,7 +1184,20 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
         var trimmed = typeName.Trim();
 
-        var alias = trimmed.ToLowerInvariant() switch
+        return TryResolveAlias(trimmed)
+            ?? TryResolveByTypeName(trimmed)
+            ?? TryResolveInAssembly(targetType.Assembly, trimmed)
+            ?? TryResolveInLoadedAssemblies(trimmed);
+    }
+
+    /// <summary>
+    /// Attempts to resolve a known type alias (e.g., string, int32).
+    /// </summary>
+    /// <param name="typeName">The candidate alias.</param>
+    /// <returns>The resolved CLR type, or null if no alias matched.</returns>
+    private static Type? TryResolveAlias(string typeName)
+    {
+        return typeName.ToLowerInvariant() switch
         {
             "string" => typeof(string),
             "int" or "int32" => typeof(int),
@@ -1125,31 +1210,39 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             "hashtable" => typeof(Hashtable),
             _ => null
         };
+    }
 
-        if (alias is not null)
-        {
-            return alias;
-        }
+    /// <summary>
+    /// Attempts to resolve a type using <see cref="Type.GetType(string, bool, bool)"/>.
+    /// </summary>
+    /// <param name="typeName">The fully qualified type name.</param>
+    /// <returns>The resolved CLR type, or null when resolution failed.</returns>
+    private static Type? TryResolveByTypeName(string typeName)
+        => System.Type.GetType(typeName, throwOnError: false, ignoreCase: true);
 
-        var resolved = System.Type.GetType(trimmed, throwOnError: false, ignoreCase: true);
-        if (resolved is not null)
-        {
-            return resolved;
-        }
+    /// <summary>
+    /// Attempts to resolve a type by searching within the provided assembly.
+    /// </summary>
+    /// <param name="assembly">The assembly to search.</param>
+    /// <param name="typeName">The type name or full name to match.</param>
+    /// <returns>The resolved CLR type, or null if no match exists.</returns>
+    private static Type? TryResolveInAssembly(Assembly assembly, string typeName)
+    {
+        return assembly.GetTypes()
+            .FirstOrDefault(t => string.Equals(t.FullName, typeName, StringComparison.OrdinalIgnoreCase)
+                              || string.Equals(t.Name, typeName, StringComparison.OrdinalIgnoreCase));
+    }
 
-        var asmType = targetType.Assembly.GetTypes()
-            .FirstOrDefault(t => string.Equals(t.FullName, trimmed, StringComparison.OrdinalIgnoreCase)
-                              || string.Equals(t.Name, trimmed, StringComparison.OrdinalIgnoreCase));
-        if (asmType is not null)
-        {
-            return asmType;
-        }
-
+    /// <summary>
+    /// Attempts to resolve a type by searching all loaded assemblies.
+    /// </summary>
+    /// <param name="typeName">The type name or full name to match.</param>
+    /// <returns>The resolved CLR type, or null if no match exists.</returns>
+    private static Type? TryResolveInLoadedAssemblies(string typeName)
+    {
         foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
         {
-            var match = asm.GetTypes()
-                .FirstOrDefault(t => string.Equals(t.FullName, trimmed, StringComparison.OrdinalIgnoreCase)
-                                  || string.Equals(t.Name, trimmed, StringComparison.OrdinalIgnoreCase));
+            var match = TryResolveInAssembly(asm, typeName);
             if (match is not null)
             {
                 return match;
@@ -1159,21 +1252,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         return null;
     }
 
-    private sealed class PatternPropertyRule
-    {
-        public PatternPropertyRule(string keyPattern, string? schemaTypeName)
-        {
-            KeyPattern = keyPattern;
-            SchemaTypeName = schemaTypeName;
-        }
 
-        public string KeyPattern { get; }
-
-        public string? SchemaTypeName { get; }
-
-        public bool IsMatch(string key)
-            => Regex.IsMatch(key, KeyPattern, RegexOptions.CultureInvariant);
-    }
 
     /// <summary>
     /// Attempts to set a backing field for an <c>AdditionalProperties</c> auto-property.
@@ -1818,7 +1897,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             return rootMap;
         }
         // Otherwise, attempt to convert to the target type.
-        return ConvertHashtableToObject(rootMap, parameterType, depth: 0);
+        return ConvertHashtableToObject(rootMap, parameterType, depth: 0, ps: null);
     }
 
     private static Hashtable? ExtractRootMapForBinding(Hashtable wrapped, string rootLocalName)
@@ -1978,23 +2057,39 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
                 : null;
     }
 
-    private static object? ConvertHashtableToObject(Hashtable data, Type targetType, int depth)
+    /// <summary>
+    /// Converts a hashtable into an object of the specified target type.
+    /// </summary>
+    /// <param name="data">The hashtable data to convert.</param>
+    /// <param name="targetType">The target type to convert to.</param>
+    /// <param name="depth">The current recursion depth.</param>
+    /// <param name="ps">The current PowerShell instance, if available.</param>
+    /// <returns>The converted object, or null if conversion is not possible.</returns>
+    private static object? ConvertHashtableToObject(Hashtable data, Type targetType, int depth, PowerShell? ps)
     {
         if (depth >= MaxObjectBindingDepth)
         {
             return null;
         }
 
-        var instance = Activator.CreateInstance(targetType, nonPublic: true);
+        var instance = TryCreateObjectInstance(targetType, Serilog.Log.Logger, ps);
         if (instance is null)
         {
             return null;
         }
 
-        PopulateObjectFromHashtable(instance, targetType, data, depth, Serilog.Log.Logger);
+        PopulateObjectFromHashtable(instance, targetType, data, depth, Serilog.Log.Logger, ps);
         return instance;
     }
-
+    
+    /// <summary>
+    /// Attempts to convert a hashtable into an instance of the specified parameter type.
+    /// </summary>
+    /// <param name="parameterType">The target parameter type.</param>
+    /// <param name="data">The hashtable data to convert.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, if available.</param>
+    /// <returns>The converted object, or null if conversion is not possible.</returns>
     private static object? TryConvertHashtableToParameterType(
         Type parameterType,
         Hashtable data,
@@ -2017,7 +2112,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             return null;
         }
 
-        PopulateObjectFromHashtable(instance, instance.GetType(), data, depth: 0, logger);
+        PopulateObjectFromHashtable(instance, instance.GetType(), data, depth: 0, logger, ps);
         return instance;
     }
 
@@ -2026,7 +2121,8 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         Type targetType,
         Hashtable data,
         int depth,
-        Serilog.ILogger logger)
+        Serilog.ILogger logger,
+        PowerShell? ps)
     {
         var props = targetType
             .GetProperties(BindingFlags.Public | BindingFlags.Instance)
@@ -2050,14 +2146,14 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
             if (props.TryGetValue(key, out var prop))
             {
-                var converted = ConvertToTargetType(entry.Value, prop.PropertyType, depth + 1);
+                var converted = ConvertToTargetType(entry.Value, prop.PropertyType, depth + 1, ps);
                 prop.SetValue(instance, converted);
                 continue;
             }
 
             if (fields.TryGetValue(key, out var field))
             {
-                var converted = ConvertToTargetType(entry.Value, field.FieldType, depth + 1);
+                var converted = ConvertToTargetType(entry.Value, field.FieldType, depth + 1, ps);
                 field.SetValue(instance, converted);
                 continue;
             }
@@ -2093,7 +2189,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <param name="targetType">The target type to convert to.</param>
     /// <param name="depth">The current recursion depth.</param>
     /// <returns>The converted value, or null if conversion is not possible.</returns>
-    private static object? ConvertToTargetType(object? value, Type targetType, int depth)
+    private static object? ConvertToTargetType(object? value, Type targetType, int depth, PowerShell? ps)
     {
         if (value is null)
         {
@@ -2104,9 +2200,9 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
         return targetType.IsInstanceOfType(value)
             ? value
-            : TryConvertHashtableValue(value, targetType, depth, out var convertedFromHashtable)
+            : TryConvertHashtableValue(value, targetType, depth, ps, out var convertedFromHashtable)
                 ? convertedFromHashtable
-                : TryConvertListOrArrayValue(value, targetType, depth, out var convertedFromEnumerable)
+                : TryConvertListOrArrayValue(value, targetType, depth, ps, out var convertedFromEnumerable)
                     ? convertedFromEnumerable
                     : ConvertScalarValue(value, targetType);
     }
@@ -2127,7 +2223,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <param name="depth">Current recursion depth.</param>
     /// <param name="converted">Converted result.</param>
     /// <returns><c>true</c> when the value was handled; otherwise <c>false</c>.</returns>
-    private static bool TryConvertHashtableValue(object value, Type targetType, int depth, out object? converted)
+    private static bool TryConvertHashtableValue(object value, Type targetType, int depth, PowerShell? ps, out object? converted)
     {
         if (value is not Hashtable ht)
         {
@@ -2137,7 +2233,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
         converted = typeof(IDictionary).IsAssignableFrom(targetType)
             ? ht
-            : ConvertHashtableToObject(ht, targetType, depth);
+            : ConvertHashtableToObject(ht, targetType, depth, ps);
         return true;
     }
 
@@ -2149,17 +2245,17 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <param name="depth">Current recursion depth.</param>
     /// <param name="converted">Converted result.</param>
     /// <returns><c>true</c> when the value was handled; otherwise <c>false</c>.</returns>
-    private static bool TryConvertListOrArrayValue(object value, Type targetType, int depth, out object? converted)
+    private static bool TryConvertListOrArrayValue(object value, Type targetType, int depth, PowerShell? ps, out object? converted)
     {
         if (value is List<object?> list)
         {
-            converted = ConvertEnumerableToTargetType(list, targetType, depth);
+            converted = ConvertEnumerableToTargetType(list, targetType, depth, ps);
             return true;
         }
 
         if (value is object?[] arr)
         {
-            converted = ConvertEnumerableToTargetType(arr, targetType, depth);
+            converted = ConvertEnumerableToTargetType(arr, targetType, depth, ps);
             return true;
         }
 
@@ -2322,7 +2418,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         }
     }
 
-    private static object? ConvertEnumerableToTargetType(IEnumerable enumerable, Type targetType, int depth)
+    private static object? ConvertEnumerableToTargetType(IEnumerable enumerable, Type targetType, int depth, PowerShell? ps)
     {
         if (targetType.IsArray)
         {
@@ -2330,7 +2426,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             var items = new List<object?>();
             foreach (var item in enumerable)
             {
-                items.Add(ConvertToTargetType(item, elementType, depth + 1));
+                items.Add(ConvertToTargetType(item, elementType, depth + 1, ps));
             }
 
             var arr = Array.CreateInstance(elementType, items.Count);
@@ -2353,7 +2449,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
                 var list = (IList)Activator.CreateInstance(listType)!;
                 foreach (var item in enumerable)
                 {
-                    _ = list.Add(ConvertToTargetType(item, elementType, depth + 1));
+                    _ = list.Add(ConvertToTargetType(item, elementType, depth + 1, ps));
                 }
                 return list;
             }

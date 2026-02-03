@@ -1,7 +1,4 @@
-using System.IO;
-using System.Linq;
 using System.Text;
-using System.Threading;
 using Kestrun.Forms;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,8 +14,8 @@ public class KrFormParserMultipartMixedTests
     public async Task ParseMultipartMixed_WithoutContentDisposition_ThrowsBadRequest()
     {
         var boundary = "mixed-boundary";
-        var body = string.Join("\r\n", new[]
-        {
+        var body = string.Join("\r\n",
+        [
             $"--{boundary}",
             "Content-Type: text/plain",
             string.Empty,
@@ -30,7 +27,7 @@ public class KrFormParserMultipartMixedTests
                                  "{\"value\":42}",
             $"--{boundary}--",
             string.Empty
-        });
+        ]);
 
         var context = CreateContext(body, boundary);
         var options = CreateOptions();
@@ -46,8 +43,8 @@ public class KrFormParserMultipartMixedTests
     public async Task ParseMultipartMixed_WithContentDisposition_ReturnsOrderedParts()
     {
         var boundary = "mixed-boundary";
-        var body = string.Join("\r\n", new[]
-        {
+        var body = string.Join("\r\n",
+        [
             $"--{boundary}",
             "Content-Disposition: form-data; name=\"text\"",
             "Content-Type: text/plain",
@@ -61,7 +58,7 @@ public class KrFormParserMultipartMixedTests
                                  "{\"value\":42}",
             $"--{boundary}--",
             string.Empty
-        });
+        ]);
 
         var context = CreateContext(body, boundary);
         var options = CreateOptions();
@@ -79,8 +76,8 @@ public class KrFormParserMultipartMixedTests
     public async Task ParseMultipartMixed_WithoutBoundary_ThrowsBadRequest()
     {
         var boundary = "mixed-boundary";
-        var body = string.Join("\r\n", new[]
-        {
+        var body = string.Join("\r\n",
+        [
             $"--{boundary}",
             "Content-Disposition: form-data; name=\"text\"",
             "Content-Type: text/plain",
@@ -88,7 +85,7 @@ public class KrFormParserMultipartMixedTests
             "first",
             $"--{boundary}--",
             string.Empty
-        });
+        ]);
 
         var context = CreateContext(body, boundary, includeBoundary: false);
         var options = CreateOptions();
@@ -105,8 +102,8 @@ public class KrFormParserMultipartMixedTests
     {
         var outer = "outer-boundary";
         var inner = "inner-boundary";
-        var innerBody = string.Join("\r\n", new[]
-        {
+        var innerBody = string.Join("\r\n",
+        [
             $"--{inner}",
             "Content-Disposition: form-data; name=\"text\"",
             "Content-Type: text/plain",
@@ -114,10 +111,10 @@ public class KrFormParserMultipartMixedTests
             "inner",
             $"--{inner}--",
             string.Empty
-        });
+        ]);
 
-        var outerBody = string.Join("\r\n", new[]
-        {
+        var outerBody = string.Join("\r\n",
+        [
             $"--{outer}",
             "Content-Disposition: form-data; name=\"nested\"",
             $"Content-Type: multipart/mixed; boundary={inner}",
@@ -125,7 +122,7 @@ public class KrFormParserMultipartMixedTests
             innerBody,
             $"--{outer}--",
             string.Empty
-        });
+        ]);
 
         var context = CreateContext(outerBody, outer);
         var options = new KrFormOptions

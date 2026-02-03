@@ -702,7 +702,7 @@ public static class PowerShellOpenApiClassExporter
         }
 
         var allowProp = schemaAttr.GetType().GetProperty("AdditionalPropertiesAllowed");
-        return allowProp?.GetValue(schemaAttr) as bool? == true;
+        return (allowProp?.GetValue(schemaAttr) as bool?) == true;
     }
 
     private static string BuildAdditionalPropertiesMetadata(Type type)

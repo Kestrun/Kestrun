@@ -17,19 +17,7 @@ Describe 'OpenAPI Museum Example' -Tag 'OpenApi', 'Slow' {
         }
     }
 
-    It 'OpenAPI JSON equals expected museum-api.json' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
-        $result.StatusCode | Should -Be 200
-
-        $actualNormalized = Get-NormalizedJson $result.Content
-        $expectedPath = Join-Path -Path (Get-TutorialExamplesDirectory) -ChildPath 'Assets' -AdditionalChildPath 'OpenAPI', 'museum-api.json'
-        $expectedContent = Get-Content -Path $expectedPath -Raw
-        $expectedNormalized = Get-NormalizedJson $expectedContent
-
-        $actualNormalized | Should -Be $expectedNormalized
-    }
-
-     It 'OpenAPI output matches Museum JSON' {
+    It 'OpenAPI output matches Museum JSON' {
         Test-OpenApiDocumentMatchesExpected -Instance $script:instance
     }
 }

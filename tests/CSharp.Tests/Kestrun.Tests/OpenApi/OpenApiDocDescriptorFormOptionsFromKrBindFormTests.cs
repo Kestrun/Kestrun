@@ -68,10 +68,10 @@ public class OpenApiDocDescriptorFormOptionsFromKrBindFormTests
         public void Emit(LogEvent logEvent) { }
     }
 
-    [OpenApiSchemaComponent(Description = "Nested multipart request body.")]
+    [OpenApiSchemaComponent(Description = "Nested multipart request body.", AdditionalPropertiesAllowed = true)]
+    [OpenApiPatternProperties(KeyPattern = "^x-")]
     private sealed class OuterControl
     {
-        [OpenApiPatternProperties]
         public object? AdditionalProperties { get; set; }
     }
 

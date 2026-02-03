@@ -995,6 +995,25 @@ components:
 - Use PowerShell `enum` types for values that should be **reused across your API**
 - Use `[ValidateSet('value1', 'value2')]` for **one-off property constraints** that won't be shared
 
+### AdditionalProperties and PatternProperties
+
+- `OpenApiSchemaComponent` defaults `AdditionalPropertiesAllowed` to **false**.
+- To model a dictionary/object map, set `AdditionalPropertiesAllowed = $true` and (optionally) set `AdditionalProperties` to a type (this auto-enables).
+- Use `OpenApiPatternProperties` **only on classes**. It requires `KeyPattern` (ECMA-262 regex) and can be repeated for multiple patterns.
+
+```powershell
+[OpenApiSchemaComponent(
+  Description = 'Inventory counts by status',
+  AdditionalPropertiesAllowed = $true,
+  AdditionalProperties = [OpenApiInt32]
+)]
+class Inventory {}
+
+[OpenApiSchemaComponent(Description = 'Feature flags by prefix')]
+[OpenApiPatternProperties(KeyPattern = '^x-')]
+class FeatureFlags {}
+```
+
 ### Modeling operations
 
 - Use `[OpenApiPath(...)]` on the route function to describe the operation.

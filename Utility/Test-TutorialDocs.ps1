@@ -5,6 +5,13 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+function Get-TextFileContent {
+    param([string]$Path)
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    return [System.Text.Encoding]::UTF8.GetString($bytes)
+}
+
+
 <#
 .SYNOPSIS
 Validates tutorial docs under docs/pwsh/tutorial according to the authoring guide.
@@ -48,7 +55,7 @@ Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
     $itemPath = $_.FullName
     $rel = $itemPath.Substring($docs.Length).TrimStart('\/')
     $name = $_.Name
-    $text = Get-Content -Path $itemPath -Raw
+    $text = [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($itemPath))
 
     # Normalize content across platforms/editors (BOM + CRLF) so section checks are stable.
     if ($text -and $text.StartsWith([char]0xFEFF)) {
@@ -65,10 +72,22 @@ Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
     }
 
     # Extract front matter
-    if ($text -notmatch '(?s)^---\s*\n(.*?)\n---\s*') {
+    $fmMatches = [regex]::Matches($text, '(?s)---\s*\r?\n(.*?)\r?\n---\s*')
+    $fmMatch = $fmMatches | Where-Object { $_.Groups[1].Value -match '(?m)^title:\s*.+$' } | Select-Object -First 1
+    $fm = $null
+    if ($fmMatch) {
+        $fm = $fmMatch.Groups[1].Value
+    } else {
+        $fmLines = ($text -split "`n") | Select-Object -First 12
+        $fmCandidate = $fmLines -join "`n"
+        if ($fmCandidate -match '(?m)^title:\s*.+$' -and $fmCandidate -match '(?m)^parent:\s*.+$' -and $fmCandidate -match '(?m)^nav_order:\s*.+$') {
+            $fm = $fmCandidate
+        }
+    }
+
+    if (-not $fm) {
         $failures += "[FrontMatter] $rel missing YAML front matter"
     } else {
-        $fm = [regex]::Match($text, '(?s)^---\s*\n(.*?)\n---\s*').Groups[1].Value
         $title = ([regex]::Match($fm, '(?m)^title:\s*(.+)$')).Groups[1].Value
         $parent = ([regex]::Match($fm, '(?m)^parent:\s*(.+)$')).Groups[1].Value
         $nav = ([regex]::Match($fm, '(?m)^nav_order:\s*(.+)$')).Groups[1].Value
@@ -207,7 +226,7 @@ try {
             [hashtable]$RefMap
         )
 
-        $v = ($Value ?? '').Trim()
+        $v = (($null -ne $Value)?$Value : '' ).Trim()
         if (-not $v) { return $null }
 
         $inline = [regex]::Match($v, '^\[(?<text>[^\]]+)\]\((?<href>[^\)]+)\)$')
@@ -284,8 +303,13 @@ try {
             Where-Object { $_.Name -ne 'index.md' -and $_.Name -match '^\d+\..+\.md$' }
 
         foreach ($f in $files) {
-            $m = [regex]::Match($f.BaseName, '^(\d+)\.')
-            $chapterNum = if ($m.Success) { [int]$m.Groups[1].Value } else { 9999 }
+            $m = [regex]::Match($f.BaseName, '^(\d+)\.(\d+)')
+            if ($m.Success -and [int]$m.Groups[1].Value -eq $sectionNum) {
+                $chapterNum = [int]$m.Groups[2].Value
+            } else {
+                $n = [regex]::Match($f.BaseName, '^(\d+)\.')
+                $chapterNum = if ($n.Success) { [int]$n.Groups[1].Value } else { 9999 }
+            }
             $chapters += [pscustomobject]@{
                 SectionDir = $sectionDir
                 SectionNum = $sectionNum
@@ -295,7 +319,7 @@ try {
         }
     }
 
-    $chapters = $chapters | Sort-Object SectionNum, ChapterNum, @{ Expression = { $_.File.Name } }
+    $chapters = @($chapters | Sort-Object SectionNum, ChapterNum, @{ Expression = { $_.File.Name } })
 
     for ($i = 0; $i -lt $chapters.Count; $i++) {
         $c = $chapters[$i]
@@ -334,7 +358,7 @@ try {
             $prevExpected = [pscustomobject]@{ Kind = 'file'; Path = $prevChapter.File.FullName }
         }
 
-        $text = Normalize-TutorialText (Get-Content -Path $c.File.FullName -Raw)
+        $text = Normalize-TutorialText (Get-TextFileContent -Path $c.File.FullName)
         $refMap = Get-TutorialRefMap -Text $text
 
         $rel = $c.File.FullName.Substring($docs.Length).TrimStart('\\').TrimStart('/')

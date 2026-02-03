@@ -232,7 +232,7 @@ public class BuildSchemaForTypeTests
         // Assert
         var concreteSchema = schema as OpenApiSchema;
         Assert.NotNull(concreteSchema);
-        // When a property has OpenApiAdditionalProperties attribute, the schema marks it
+        // When a schema component allows additional properties, the schema marks it
         if (concreteSchema.AdditionalPropertiesAllowed)
         {
             // If additional properties are marked, the AdditionalProperties schema should be set
@@ -347,13 +347,11 @@ public class ClassWithDefaults
 }
 
 /// <summary>
-/// Class with additional properties attribute.
+/// Class with additional properties metadata.
 /// </summary>
+[OpenApiSchemaComponent(AdditionalPropertiesAllowed = true, AdditionalProperties = typeof(string))]
 public class ClassWithAdditionalProperties
 {
-    [OpenApiPatternProperties]
-    public string? AdditionalData { get; set; }
-
     public string Name { get; set; } = "test";
 }
 

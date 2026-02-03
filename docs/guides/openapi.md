@@ -689,13 +689,16 @@ components:
 
 #### 4.5.6 Dictionary / additionalProperties
 
-To model an “object map” (keys → values), use `[OpenApiAdditionalProperties]`:
+To model an “object map” (keys → values), set `AdditionalPropertiesAllowed` and (optionally) the value type on `OpenApiSchemaComponent`:
 
 ```powershell
-[OpenApiSchemaComponent(Description = 'Inventory counts by status')]
+[OpenApiSchemaComponent(
+    Description = 'Inventory counts by status',
+    AdditionalPropertiesAllowed = $true,
+    AdditionalProperties = [OpenApiInt32]
+)]
 class Inventory {
-    [OpenApiAdditionalProperties()]
-    [int]$AdditionalProperties
+    [string]$help
 }
 ```
 
@@ -706,9 +709,32 @@ components:
       type: object
       additionalProperties:
         type: integer
+        format: int32
 ```
 
-#### 4.5.7 Composition via refs (oneOf / anyOf / allOf)
+> **Note:** `OpenApiSchemaComponent` defaults `AdditionalPropertiesAllowed` to `$false`. Setting `AdditionalProperties` automatically enables it.
+
+#### 4.5.7 Pattern properties (regex keys)
+
+To constrain allowed property names by regex, apply `OpenApiPatternProperties` on the class and supply a `KeyPattern` (ECMA-262):
+
+```powershell
+[OpenApiSchemaComponent(Description = 'Feature flags by prefix')]
+[OpenApiPatternProperties(KeyPattern = '^x-')]
+class FeatureFlags {}
+```
+
+```yaml
+components:
+  schemas:
+    FeatureFlags:
+      type: object
+      patternProperties:
+        "^x-":
+          type: string
+```
+
+#### 4.5.8 Composition via refs (oneOf / anyOf / allOf)
 
 For explicit composition (beyond inheritance), you can use the composition properties on `OpenApiProperties`:
 

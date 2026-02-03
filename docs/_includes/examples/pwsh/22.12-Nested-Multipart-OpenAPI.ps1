@@ -74,11 +74,8 @@ class NonARule {
     [string] $somejson  # or a real class if you want strict JSON
 }
 
-[OpenApiSchemaComponent(Description = 'Nested multipart request body.' )]
-class OuterControl {
-    [OpenApiAdditionalProperties()]
-    $AdditionalProperties
-}
+[OpenApiSchemaComponent(Description = 'Nested multipart request body.' , AdditionalPropertiesAllowed = $true )]
+class OuterControl {}
 
 [OpenApiSchemaComponent(Description = 'Inner nested multipart payload.')]
 class NestedParts {

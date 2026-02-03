@@ -27,11 +27,41 @@ public static class KrFormParser
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(options);
 
-        var logger = options.Logger
-            ?? context.RequestServices.GetService(typeof(Serilog.ILogger)) as Serilog.ILogger
-            ?? Log.Logger;
+        var logger = ResolveLogger(context, options);
         using var _ = logger.BeginTimedOperation("KrFormParser.ParseAsync");
 
+        var (mediaType, normalizedMediaType) = ValidateAndNormalizeMediaType(context, options, logger);
+        ApplyRequestBodyLimit(context, options, logger);
+
+        return await ParseByContentTypeAsync(context, mediaType, normalizedMediaType, options, logger, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Resolves the logger to use for form parsing.
+    /// </summary>
+    /// <param name="context">The HTTP context.</param>
+    /// <param name="options">The form parsing options.</param>
+    /// <returns>The resolved logger.</returns>
+    private static Logger ResolveLogger(HttpContext context, KrFormOptions options)
+    {
+        return options.Logger
+            ?? context.RequestServices.GetService(typeof(Serilog.ILogger)) as Serilog.ILogger
+            ?? Log.Logger;
+    }
+
+    /// <summary>
+    /// Validates the Content-Type header and returns the parsed and normalized media type.
+    /// </summary>
+    /// <param name="context">The HTTP context.</param>
+    /// <param name="options">The form parsing options.</param>
+    /// <param name="logger">The logger.</param>
+    /// <returns>The parsed media type and normalized media type string.</returns>
+    private static (MediaTypeHeaderValue MediaType, string NormalizedMediaType) ValidateAndNormalizeMediaType(
+        HttpContext context,
+        KrFormOptions options,
+        Logger logger)
+    {
         var contentTypeHeader = context.Request.ContentType;
         var contentEncoding = context.Request.Headers[HeaderNames.ContentEncoding].ToString();
         var requestDecompressionEnabled = DetectRequestDecompressionEnabled(context);
@@ -74,15 +104,44 @@ public static class KrFormParser
             throw new KrFormException("Missing multipart boundary.", StatusCodes.Status400BadRequest);
         }
 
-        ApplyRequestBodyLimit(context, options, logger);
+        return (mediaType, normalizedMediaType);
+    }
 
-        return normalizedMediaType.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase)
-            ? await ParseUrlEncodedAsync(context, options, logger, cancellationToken).ConfigureAwait(false)
-            : normalizedMediaType.Equals("multipart/form-data", StringComparison.OrdinalIgnoreCase)
-                ? await ParseMultipartFormDataAsync(context, mediaType, options, logger, cancellationToken).ConfigureAwait(false)
-                : normalizedMediaType.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase)
-                    ? await ParseMultipartOrderedAsync(context, mediaType, options, logger, 0, cancellationToken).ConfigureAwait(false)
-                    : throw new KrFormException("Unsupported Content-Type for form parsing.", StatusCodes.Status415UnsupportedMediaType);
+    /// <summary>
+    /// Parses the request body based on the normalized content type.
+    /// </summary>
+    /// <param name="context">The HTTP context.</param>
+    /// <param name="mediaType">The parsed media type.</param>
+    /// <param name="normalizedMediaType">The normalized media type string.</param>
+    /// <param name="options">The form parsing options.</param>
+    /// <param name="logger">The logger.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The parsed payload.</returns>
+    private static Task<IKrFormPayload> ParseByContentTypeAsync(
+        HttpContext context,
+        MediaTypeHeaderValue mediaType,
+        string normalizedMediaType,
+        KrFormOptions options,
+        Logger logger,
+        CancellationToken cancellationToken)
+    {
+        // application/x-www-form-urlencoded
+        if (normalizedMediaType.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
+        {
+            return ParseUrlEncodedAsync(context, options, logger, cancellationToken);
+        }
+        // multipart/form-data
+        if (normalizedMediaType.Equals("multipart/form-data", StringComparison.OrdinalIgnoreCase))
+        {
+            return ParseMultipartFormDataAsync(context, mediaType, options, logger, cancellationToken);
+        }
+        // ordered multipart types
+        if (normalizedMediaType.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase))
+        {
+            return ParseMultipartOrderedAsync(context, mediaType, options, logger, 0, cancellationToken);
+        }
+        // unsupported content type
+        throw new KrFormException("Unsupported Content-Type for form parsing.", StatusCodes.Status415UnsupportedMediaType);
     }
 
     /// <summary>

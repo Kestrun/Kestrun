@@ -432,6 +432,12 @@ try {
         return $"{parentPattern}/{childPattern}".Replace("//", "/", StringComparison.Ordinal);
     }
 
+    /// <summary>
+    ///  Merges two string arrays into a single array with unique values.
+    /// </summary>
+    /// <param name="a">The first array of strings.</param>
+    /// <param name="b">The second array of strings.</param>
+    /// <returns>A merged array containing unique strings from both input arrays.</returns>
     private static string[]? MergeUnique(string[]? a, string[]? b)
     {
         if (a is null && b is null)
@@ -440,29 +446,31 @@ try {
         }
 
         var set = new HashSet<string>(StringComparer.Ordinal);
-        if (a is not null)
-        {
-            foreach (var s in a)
-            {
-                if (!string.IsNullOrWhiteSpace(s))
-                {
-                    _ = set.Add(s);
-                }
-            }
-        }
-
-        if (b is not null)
-        {
-            foreach (var s in b)
-            {
-                if (!string.IsNullOrWhiteSpace(s))
-                {
-                    _ = set.Add(s);
-                }
-            }
-        }
+        AddNonEmptyValues(set, a);
+        AddNonEmptyValues(set, b);
 
         return set.Count == 0 ? [] : [.. set];
+    }
+
+    /// <summary>
+    /// Adds non-empty values from the source array into the destination set.
+    /// </summary>
+    /// <param name="destination">The target set to populate.</param>
+    /// <param name="source">The source array of strings.</param>
+    private static void AddNonEmptyValues(HashSet<string> destination, string[]? source)
+    {
+        if (source is null)
+        {
+            return;
+        }
+
+        foreach (var s in source)
+        {
+            if (!string.IsNullOrWhiteSpace(s))
+            {
+                _ = destination.Add(s);
+            }
+        }
     }
 
     private static System.Reflection.Assembly[]? MergeRefs(System.Reflection.Assembly[]? a, System.Reflection.Assembly[]? b)

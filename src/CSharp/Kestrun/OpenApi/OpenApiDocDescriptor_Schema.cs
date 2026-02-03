@@ -1007,42 +1007,17 @@ public partial class OpenApiDocDescriptor
         }
     }
 
+    /// <summary>
+    /// Applies flags to an OpenApiSchema.
+    /// </summary>
+    /// <param name="properties"> The OpenApiProperties containing flags to apply.</param>
+    /// <param name="schema">The OpenApiSchema to apply flags to.</param>
     private void ApplyFlags(OpenApiProperties properties, OpenApiSchema schema)
     {
         schema.ReadOnly = properties.ReadOnly;
         schema.WriteOnly = properties.WriteOnly;
         schema.AdditionalPropertiesAllowed = properties.AdditionalPropertiesAllowed;
-        if (properties.AdditionalPropertiesAllowed && properties.AdditionalProperties is not null)
-        {
-            HashSet<Type>? built = null;
-            if (properties.AdditionalProperties.IsArray)
-            {
-                var item = properties.AdditionalProperties.GetElementType()!;
-
-                var itemSchema = BuildSchemaForType(item, built);
-                // Handle AdditionalProperties attribute on property
-                if (itemSchema.Type != JsonSchemaType.Object && !itemSchema.AdditionalPropertiesAllowed
-                   && schema.AdditionalProperties is OpenApiSchema apiSchema)
-                {
-                    apiSchema.AdditionalPropertiesAllowed = true;
-                }
-                schema.AdditionalProperties = new OpenApiSchema
-                {
-                    Type = JsonSchemaType.Array,
-                    Items = itemSchema
-                };
-            }
-            else
-            {
-                schema.AdditionalProperties = BuildSchemaForType(properties.AdditionalProperties, built);
-                // Handle AdditionalProperties attribute on property
-                if (schema.AdditionalProperties.Type != JsonSchemaType.Object && !schema.AdditionalProperties.AdditionalPropertiesAllowed
-                && schema.AdditionalProperties is OpenApiSchema apiSchema)
-                {
-                    apiSchema.AdditionalPropertiesAllowed = true;
-                }
-            }
-        }
+        ApplyAdditionalProperties(properties, schema);
         schema.UnevaluatedProperties = properties.UnevaluatedProperties;
         if (properties is not OpenApiParameterComponentAttribute)
         {
@@ -1050,6 +1025,69 @@ public partial class OpenApiDocDescriptor
         }
     }
 
+    /// <summary>
+    /// Applies additional properties schema settings when enabled.
+    /// </summary>
+    /// <param name="properties">The OpenApiProperties containing flags to apply.</param>
+    /// <param name="schema">The OpenApiSchema to apply additional properties to.</param>
+    private void ApplyAdditionalProperties(OpenApiProperties properties, OpenApiSchema schema)
+    {
+        if (!properties.AdditionalPropertiesAllowed || properties.AdditionalProperties is null)
+        {
+            return;
+        }
+
+        HashSet<Type>? built = null;
+        if (properties.AdditionalProperties.IsArray)
+        {
+            ApplyArrayAdditionalProperties(properties, schema, built);
+            return;
+        }
+
+        schema.AdditionalProperties = BuildSchemaForType(properties.AdditionalProperties, built);
+        EnsureAdditionalPropertiesAllowed(schema.AdditionalProperties, schema);
+    }
+
+    /// <summary>
+    /// Applies array-based additional properties schema settings.
+    /// </summary>
+    /// <param name="properties">The OpenApiProperties containing array metadata.</param>
+    /// <param name="schema">The OpenApiSchema to apply additional properties to.</param>
+    /// <param name="built">The recursion guard set passed through schema-building.</param>
+    private void ApplyArrayAdditionalProperties(OpenApiProperties properties, OpenApiSchema schema, HashSet<Type>? built)
+    {
+        var item = properties.AdditionalProperties!.GetElementType()!;
+
+        var itemSchema = BuildSchemaForType(item, built);
+        EnsureAdditionalPropertiesAllowed(itemSchema, schema);
+        schema.AdditionalProperties = new OpenApiSchema
+        {
+            Type = JsonSchemaType.Array,
+            Items = itemSchema
+        };
+    }
+
+    /// <summary>
+    /// Ensures additional properties are allowed on non-object additional property schemas when applicable.
+    /// </summary>
+    /// <param name="additionalSchema">The additional properties schema.</param>
+    /// <param name="targetSchema">The target schema.</param>
+    private static void EnsureAdditionalPropertiesAllowed(IOpenApiSchema? additionalSchema, OpenApiSchema targetSchema)
+    {
+        if (additionalSchema is OpenApiSchema apiSchema
+            && apiSchema.Type != JsonSchemaType.Object
+            && !apiSchema.AdditionalPropertiesAllowed
+            && targetSchema.AdditionalProperties is OpenApiSchema targetAdditional)
+        {
+            targetAdditional.AdditionalPropertiesAllowed = true;
+        }
+    }
+
+    /// <summary>
+    /// Applies examples and default values to an OpenApiSchema.
+    /// </summary>
+    /// <param name="properties">The OpenApiProperties containing example and default values.</param>
+    /// <param name="schema">The OpenApiSchema to apply examples and defaults to.</param>
     private static void ApplyExamplesAndDefaults(OpenApiProperties properties, OpenApiSchema schema)
     {
         if (properties.Default is not null)
@@ -1147,6 +1185,5 @@ public partial class OpenApiDocDescriptor
         // Example/Default/Enum aren’t typically set on the ref node itself;
         // attach such metadata to the component target instead if you need it.
     }
-
     #endregion
 }

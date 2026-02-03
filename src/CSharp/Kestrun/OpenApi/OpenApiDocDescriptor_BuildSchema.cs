@@ -83,54 +83,19 @@ public partial class OpenApiDocDescriptor
     /// <returns>The constructed OpenAPI schema for the property.</returns>
     private IOpenApiSchema BuildPropertySchema(PropertyInfo p, HashSet<Type> built)
     {
-        var pt = p.PropertyType;
-        var allowNull = false;
-        var underlying = Nullable.GetUnderlyingType(pt);
-        if (underlying != null)
-        {
-            allowNull = true;
-            pt = underlying;
-        }
-        if (pt == typeof(KrFilePart))
-        {
-            var fileSchema = new OpenApiSchema
-            {
-                Type = JsonSchemaType.String,
-                Format = "binary"
-            };
-            ApplySchemaAttr(MergeXmlAttributes(p), fileSchema);
-            PowerShellAttributes.ApplyPowerShellAttributes(p, fileSchema);
-            return allowNull ? MakeNullable(fileSchema, isNullable: true) : fileSchema;
-        }
-        var currentScope = _formPartScopeStack.Count > 0 ? _formPartScopeStack.Peek() : null;
-        FormHelper.ApplyKrPartAttributes(Host, p, currentScope);
+        var (propertyType, allowNull) = UnwrapNullableType(p.PropertyType);
 
-        var hasKrPartAttribute = p.IsDefined(typeof(KrPartAttribute), inherit: false);
-        var partName = hasKrPartAttribute ? FormHelper.ResolvePartName(p) : null;
-        var pushScope = hasKrPartAttribute && !string.IsNullOrWhiteSpace(partName) && ShouldPushNestedScope(pt);
-        if (pushScope)
+        if (propertyType == typeof(KrFilePart))
         {
-            _formPartScopeStack.Push(partName);
+            return BuildFilePartSchema(p, allowNull);
         }
+
+        ApplyKrPartScope(p, propertyType, out var pushScope);
+
         IOpenApiSchema schema;
         try
         {
-#pragma warning disable IDE0045
-            // Convert to conditional expression
-            if (PrimitiveSchemaMap.TryGetValue(pt, out var getSchema))
-            {
-                schema = getSchema();
-            }
-            else if (pt.IsArray)
-            {
-                schema = BuildArraySchema(pt, p, built);
-            }
-            else
-            {
-                // Treat enums and complex types the same: register as component and reference
-                schema = BuildComplexTypeSchema(pt, p, built);
-            }
-#pragma warning restore IDE0045
+            schema = BuildPropertyTypeSchema(propertyType, p, built);
         }
         finally
         {
@@ -139,35 +104,128 @@ public partial class OpenApiDocDescriptor
                 _ = _formPartScopeStack.Pop();
             }
         }
-        // Convert to conditional expression
-        // Apply nullable flag if needed
-        if (allowNull)
-        {
-            if (schema is OpenApiSchema s)
-            {
-                // For inline schemas, add null type directly
-                s.Type |= JsonSchemaType.Null;
-            }
-            else if (schema is OpenApiSchemaReference refSchema)
-            {
-                var modifiedRefSchema = refSchema.Clone();
-                modifiedRefSchema.Description = null; // clear description to avoid duplication
-                // For $ref schemas (enums/complex types), wrap in anyOf with null
-                schema = new OpenApiSchema
-                {
-                    AnyOf =
-                    [
-                        modifiedRefSchema,
-                        new OpenApiSchema { Type = JsonSchemaType.Null }
-                    ]
-                };
-            }
-        }
+
+        schema = ApplyNullableSchema(schema, allowNull);
         ApplySchemaAttr(MergeXmlAttributes(p), schema);
         PowerShellAttributes.ApplyPowerShellAttributes(p, schema);
         return schema;
     }
 
+    /// <summary>
+    /// Unwraps nullable types and returns the underlying type and nullable flag.
+    /// </summary>
+    /// <param name="propertyType">The original property type.</param>
+    /// <returns>A tuple containing the non-nullable type and a nullable flag.</returns>
+    private static (Type PropertyType, bool AllowNull) UnwrapNullableType(Type propertyType)
+    {
+        var underlying = Nullable.GetUnderlyingType(propertyType);
+        return underlying is null ? (propertyType, false) : (underlying, true);
+    }
+
+    /// <summary>
+    /// Builds the schema for a <see cref="KrFilePart"/> property, including nullability when needed.
+    /// </summary>
+    /// <param name="p">The property info.</param>
+    /// <param name="allowNull">Whether the property allows null.</param>
+    /// <returns>The constructed OpenAPI schema for the file part.</returns>
+    private IOpenApiSchema BuildFilePartSchema(PropertyInfo p, bool allowNull)
+    {
+        var fileSchema = new OpenApiSchema
+        {
+            Type = JsonSchemaType.String,
+            Format = "binary"
+        };
+        ApplySchemaAttr(MergeXmlAttributes(p), fileSchema);
+        PowerShellAttributes.ApplyPowerShellAttributes(p, fileSchema);
+        return allowNull ? MakeNullable(fileSchema, isNullable: true) : fileSchema;
+    }
+
+    /// <summary>
+    /// Applies form part attributes and pushes nested scope when required.
+    /// </summary>
+    /// <param name="p">The property info.</param>
+    /// <param name="propertyType">The resolved property type.</param>
+    /// <param name="pushScope">Set to <c>true</c> when a new scope was pushed.</param>
+    private void ApplyKrPartScope(PropertyInfo p, Type propertyType, out bool pushScope)
+    {
+        var currentScope = _formPartScopeStack.Count > 0 ? _formPartScopeStack.Peek() : null;
+        FormHelper.ApplyKrPartAttributes(Host, p, currentScope);
+
+        var hasKrPartAttribute = p.IsDefined(typeof(KrPartAttribute), inherit: false);
+        var partName = hasKrPartAttribute ? FormHelper.ResolvePartName(p) : null;
+        pushScope = hasKrPartAttribute && !string.IsNullOrWhiteSpace(partName) && ShouldPushNestedScope(propertyType);
+        if (pushScope)
+        {
+            _formPartScopeStack.Push(partName);
+        }
+    }
+
+    /// <summary>
+    /// Builds the schema for the resolved property type.
+    /// </summary>
+    /// <param name="propertyType">The resolved property type.</param>
+    /// <param name="p">The property info.</param>
+    /// <param name="built">The set of already built types to avoid recursion.</param>
+    /// <returns>The constructed OpenAPI schema for the property type.</returns>
+    private IOpenApiSchema BuildPropertyTypeSchema(Type propertyType, PropertyInfo p, HashSet<Type> built)
+    {
+        if (PrimitiveSchemaMap.TryGetValue(propertyType, out var getSchema))
+        {
+            return getSchema();
+        }
+
+        if (propertyType.IsArray)
+        {
+            return BuildArraySchema(propertyType, p, built);
+        }
+
+        // Treat enums and complex types the same: register as component and reference
+        return BuildComplexTypeSchema(propertyType, p, built);
+    }
+
+    /// <summary>
+    /// Applies nullable behavior to the schema when required.
+    /// </summary>
+    /// <param name="schema">The schema to update.</param>
+    /// <param name="allowNull">Whether the property allows null.</param>
+    /// <returns>The updated schema.</returns>
+    private static IOpenApiSchema ApplyNullableSchema(IOpenApiSchema schema, bool allowNull)
+    {
+        if (!allowNull)
+        {
+            return schema;
+        }
+
+        if (schema is OpenApiSchema s)
+        {
+            // For inline schemas, add null type directly
+            s.Type |= JsonSchemaType.Null;
+            return s;
+        }
+
+        if (schema is OpenApiSchemaReference refSchema)
+        {
+            var modifiedRefSchema = refSchema.Clone();
+            modifiedRefSchema.Description = null; // clear description to avoid duplication
+            // For $ref schemas (enums/complex types), wrap in anyOf with null
+            return new OpenApiSchema
+            {
+                AnyOf =
+                [
+                    modifiedRefSchema,
+                    new OpenApiSchema { Type = JsonSchemaType.Null }
+                ]
+            };
+        }
+
+        return schema;
+    }
+
+    /// <summary>
+    /// Determines whether to push a new nested scope based on the property type.
+    /// </summary>
+    /// <param name="propertyType">The type of the property to evaluate.</param>
+    /// <returns><c>true</c> if a new nested scope should be pushed; otherwise, <c>false</c>.</returns>
     private static bool ShouldPushNestedScope(Type propertyType)
     {
         var candidate = propertyType;
@@ -344,4 +402,3 @@ public partial class OpenApiDocDescriptor
     private bool TryGetSchemaItem(string schemaName, out OpenApiSchema? schema) =>
     TryGetSchemaItem(schemaName, out schema, out _);
 }
-

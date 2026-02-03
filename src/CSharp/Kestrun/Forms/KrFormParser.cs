@@ -312,12 +312,34 @@ public static class KrFormParser
         return payload;
     }
 
+    /// <summary>
+    /// Parses an ordered multipart payload from the request.
+    /// </summary>
+    /// <param name="context">The current HTTP context.</param>
+    /// <param name="mediaType">The media type of the request.</param>
+    /// <param name="options">The form options for parsing.</param>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="nestingDepth">The current nesting depth for multipart parsing.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>Returns the parsed multipart form payload.</returns>
     private static async Task<IKrFormPayload> ParseMultipartOrderedAsync(HttpContext context, MediaTypeHeaderValue mediaType, KrFormOptions options, Logger logger, int nestingDepth, CancellationToken cancellationToken)
     {
         var boundary = GetBoundary(mediaType);
         return await ParseMultipartFromStreamAsync(context.Request.Body, boundary, options, logger, nestingDepth, isRoot: true, scopeName: null, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Parses a multipart payload from the provided stream.
+    /// </summary>
+    /// <param name="body">The input stream containing the multipart payload.</param>
+    /// <param name="boundary">The multipart boundary string.</param>
+    /// <param name="options">The form options for parsing.</param>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="nestingDepth">The current nesting depth for multipart parsing.</param>
+    /// <param name="isRoot">Indicates if this is the root multipart payload.</param>
+    /// <param name="scopeName">The current scope name, or null if root.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>Returns the parsed multipart form payload.</returns>
     private static async Task<IKrFormPayload> ParseMultipartFromStreamAsync(Stream body, string boundary, KrFormOptions options, Logger logger, int nestingDepth, bool isRoot, string? scopeName, CancellationToken cancellationToken)
     {
         var reader = new MultipartReader(boundary, body)
@@ -340,105 +362,228 @@ public static class KrFormParser
                 throw new KrFormLimitExceededException("Too many multipart sections.");
             }
 
-            var headers = ToHeaderDictionary(section.Headers ?? []);
-            var contentType = section.ContentType ?? "application/octet-stream";
-            var allowMissingDisposition = IsMultipartContentType(contentType);
-            var (name, fileName, _) = GetContentDisposition(section, logger, allowMissing: allowMissingDisposition);
-            var contentEncoding = GetHeaderValue(headers, HeaderNames.ContentEncoding);
-            var declaredLength = GetHeaderLong(headers, HeaderNames.ContentLength);
+            var partContext = BuildOrderedPartContext(section, rules, partIndex, logger);
+            LogOrderedPartDebug(logger, partContext, partIndex - 1);
 
-            var rule = name != null && rules.TryGetValue(name, out var match) ? match : null;
-            var partContext = new KrPartContext
+            var contentEncoding = partContext.ContentEncoding;
+            if (await HandleOrderedPartActionAsync(section, options, partContext, logger, contentEncoding, cancellationToken).ConfigureAwait(false))
             {
-                Index = partIndex - 1,
-                Name = name,
-                FileName = fileName,
-                ContentType = contentType,
-                ContentEncoding = contentEncoding,
-                DeclaredLength = declaredLength,
-                Headers = headers,
-                Rule = rule
-            };
-
-            if (logger.IsEnabled(LogEventLevel.Debug))
-            {
-                logger.Debug("Ordered part {Index} name={Name} filename={FileName} contentType={ContentType} contentEncoding={ContentEncoding} declaredLength={DeclaredLength}",
-                    partIndex - 1,
-                    name,
-                    fileName,
-                    contentType,
-                    string.IsNullOrWhiteSpace(contentEncoding) ? "<none>" : contentEncoding,
-                    declaredLength);
-            }
-
-            var action = await InvokeOnPartAsync(options, partContext, logger).ConfigureAwait(false);
-            if (action == KrPartAction.Reject)
-            {
-                logger.Error("Ordered part rejected by hook: {PartIndex}", partIndex - 1);
-                throw new KrFormException("Part rejected by policy.", StatusCodes.Status400BadRequest);
-            }
-
-            if (action == KrPartAction.Skip)
-            {
-                logger.Warning("Ordered part skipped by hook: {PartIndex}", partIndex - 1);
-                await DrainSectionAsync(section.Body, options, contentEncoding, logger, cancellationToken).ConfigureAwait(false);
                 continue;
             }
 
-            var result = await StorePartAsync(section.Body, options, rule, null, contentEncoding, logger, cancellationToken).ConfigureAwait(false);
+            var result = await StorePartAsync(section.Body, options, partContext.Rule, null, contentEncoding, logger, cancellationToken).ConfigureAwait(false);
             totalBytes += result.Length;
 
-            IKrFormPayload? nested = null;
-            if (IsMultipartContentType(contentType))
-            {
-                if (nestingDepth >= options.Limits.MaxNestingDepth)
-                {
-                    logger.Error("Nested multipart depth exceeded limit {MaxDepth}.", options.Limits.MaxNestingDepth);
-                    throw new KrFormLimitExceededException("Nested multipart depth exceeded.");
-                }
+            var nested = await TryParseNestedPayloadAsync(
+                partContext,
+                result,
+                options,
+                logger,
+                nestingDepth,
+                cancellationToken).ConfigureAwait(false);
 
-                if (TryGetBoundary(contentType, out var nestedBoundary))
-                {
-                    if (!string.IsNullOrWhiteSpace(result.TempPath))
-                    {
-                        await using var nestedStream = File.OpenRead(result.TempPath);
-                        nested = await ParseMultipartFromStreamAsync(nestedStream, nestedBoundary, options, logger, nestingDepth + 1, isRoot: false, scopeName: name, cancellationToken).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        logger.Warning("Nested multipart part was not stored to disk; skipping nested parse.");
-                    }
-                }
-                else
-                {
-                    logger.Warning("Nested multipart part missing boundary header.");
-                }
-            }
-
-            payload.Parts.Add(new KrRawPart
-            {
-                Name = name,
-                ContentType = contentType,
-                Length = result.Length,
-                TempPath = result.TempPath,
-                Headers = headers,
-                NestedPayload = nested
-            });
-
-            if (string.IsNullOrWhiteSpace(result.TempPath))
-            {
-                logger.Warning("Ordered part {Index} name={Name} was not stored to disk (bytes={Bytes}).", partIndex - 1, name, result.Length);
-            }
-            else
-            {
-                logger.Information("Stored ordered part {Index} name={Name} contentType={ContentType} bytes={Bytes}", partIndex - 1, name, contentType, result.Length);
-            }
+            AddOrderedPart(payload, partContext, result, nested);
+            LogStoredOrderedPart(logger, partContext, partIndex - 1, result);
         }
 
         logger.Information("Parsed multipart ordered payload with {Parts} parts and {Bytes} bytes.", partIndex, totalBytes);
         return payload;
     }
 
+    /// <summary>
+    /// Builds the part context for an ordered multipart section.
+    /// </summary>
+    /// <param name="section">The multipart section.</param>
+    /// <param name="rules">The form part rule map.</param>
+    /// <param name="partIndex">The current part index (1-based).</param>
+    /// <param name="logger">The logger instance.</param>
+    /// <returns>The constructed part context.</returns>
+    private static KrPartContext BuildOrderedPartContext(
+        MultipartSection section,
+        IReadOnlyDictionary<string, KrFormPartRule> rules,
+        int partIndex,
+        Logger logger)
+    {
+        var headers = ToHeaderDictionary(section.Headers ?? []);
+        var contentType = section.ContentType ?? "application/octet-stream";
+        var allowMissingDisposition = IsMultipartContentType(contentType);
+        var (name, fileName, _) = GetContentDisposition(section, logger, allowMissing: allowMissingDisposition);
+        var contentEncoding = GetHeaderValue(headers, HeaderNames.ContentEncoding);
+        var declaredLength = GetHeaderLong(headers, HeaderNames.ContentLength);
+
+        var rule = name != null && rules.TryGetValue(name, out var match) ? match : null;
+        return new KrPartContext
+        {
+            Index = partIndex - 1,
+            Name = name,
+            FileName = fileName,
+            ContentType = contentType,
+            ContentEncoding = contentEncoding,
+            DeclaredLength = declaredLength,
+            Headers = headers,
+            Rule = rule
+        };
+    }
+
+    /// <summary>
+    /// Logs ordered multipart part details when debug logging is enabled.
+    /// </summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="partContext">The part context.</param>
+    /// <param name="index">The 0-based part index.</param>
+    private static void LogOrderedPartDebug(Logger logger, KrPartContext partContext, int index)
+    {
+        if (!logger.IsEnabled(LogEventLevel.Debug))
+        {
+            return;
+        }
+
+        logger.Debug("Ordered part {Index} name={Name} filename={FileName} contentType={ContentType} contentEncoding={ContentEncoding} declaredLength={DeclaredLength}",
+            index,
+            partContext.Name,
+            partContext.FileName,
+            partContext.ContentType,
+            string.IsNullOrWhiteSpace(partContext.ContentEncoding) ? "<none>" : partContext.ContentEncoding,
+            partContext.DeclaredLength);
+    }
+
+    /// <summary>
+    /// Handles the OnPart hook for ordered multipart sections.
+    /// </summary>
+    /// <param name="section">The multipart section.</param>
+    /// <param name="options">The form options.</param>
+    /// <param name="partContext">The part context.</param>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="contentEncoding">The content encoding.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns><c>true</c> when the caller should skip further processing for this section.</returns>
+    private static async Task<bool> HandleOrderedPartActionAsync(
+        MultipartSection section,
+        KrFormOptions options,
+        KrPartContext partContext,
+        Logger logger,
+        string? contentEncoding,
+        CancellationToken cancellationToken)
+    {
+        var action = await InvokeOnPartAsync(options, partContext, logger).ConfigureAwait(false);
+        if (action == KrPartAction.Reject)
+        {
+            logger.Error("Ordered part rejected by hook: {PartIndex}", partContext.Index);
+            throw new KrFormException("Part rejected by policy.", StatusCodes.Status400BadRequest);
+        }
+
+        if (action == KrPartAction.Skip)
+        {
+            logger.Warning("Ordered part skipped by hook: {PartIndex}", partContext.Index);
+            await DrainSectionAsync(section.Body, options, contentEncoding, logger, cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Attempts to parse a nested multipart payload when the part content type is multipart.
+    /// </summary>
+    /// <param name="partContext">The part context.</param>
+    /// <param name="result">The stored part result.</param>
+    /// <param name="options">The form options.</param>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="nestingDepth">The current nesting depth.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The nested payload, or null if none was parsed.</returns>
+    private static async Task<IKrFormPayload?> TryParseNestedPayloadAsync(
+        KrPartContext partContext,
+        KrPartWriteResult result,
+        KrFormOptions options,
+        Logger logger,
+        int nestingDepth,
+        CancellationToken cancellationToken)
+    {
+        if (!IsMultipartContentType(partContext.ContentType))
+        {
+            return null;
+        }
+
+        if (nestingDepth >= options.Limits.MaxNestingDepth)
+        {
+            logger.Error("Nested multipart depth exceeded limit {MaxDepth}.", options.Limits.MaxNestingDepth);
+            throw new KrFormLimitExceededException("Nested multipart depth exceeded.");
+        }
+
+        if (!TryGetBoundary(partContext.ContentType, out var nestedBoundary))
+        {
+            logger.Warning("Nested multipart part missing boundary header.");
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(result.TempPath))
+        {
+            logger.Warning("Nested multipart part was not stored to disk; skipping nested parse.");
+            return null;
+        }
+
+        await using var nestedStream = File.OpenRead(result.TempPath);
+        return await ParseMultipartFromStreamAsync(
+            nestedStream,
+            nestedBoundary,
+            options,
+            logger,
+            nestingDepth + 1,
+            isRoot: false,
+            scopeName: partContext.Name,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Adds a parsed ordered part to the payload.
+    /// </summary>
+    /// <param name="payload">The multipart payload.</param>
+    /// <param name="partContext">The part context.</param>
+    /// <param name="result">The stored part result.</param>
+    /// <param name="nested">The nested payload.</param>
+    private static void AddOrderedPart(KrMultipart payload, KrPartContext partContext, KrPartWriteResult result, IKrFormPayload? nested)
+    {
+        payload.Parts.Add(new KrRawPart
+        {
+            Name = partContext.Name,
+            ContentType = partContext.ContentType,
+            Length = result.Length,
+            TempPath = result.TempPath,
+            Headers = partContext.Headers,
+            NestedPayload = nested
+        });
+    }
+
+    /// <summary>
+    /// Logs ordered multipart part storage results.
+    /// </summary>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="partContext">The part context.</param>
+    /// <param name="index">The 0-based part index.</param>
+    /// <param name="result">The stored part result.</param>
+    private static void LogStoredOrderedPart(Logger logger, KrPartContext partContext, int index, KrPartWriteResult result)
+    {
+        if (string.IsNullOrWhiteSpace(result.TempPath))
+        {
+            logger.Warning("Ordered part {Index} name={Name} was not stored to disk (bytes={Bytes}).", index, partContext.Name, result.Length);
+            return;
+        }
+
+        logger.Information("Stored ordered part {Index} name={Name} contentType={ContentType} bytes={Bytes}", index, partContext.Name, partContext.ContentType, result.Length);
+    }
+
+    /// <summary>
+    /// Stores a multipart part to disk or consumes it based on the provided options and rules.
+    /// </summary>
+    /// <param name="body">The input stream of the multipart part.</param>
+    /// <param name="options">The form options for parsing.</param>
+    /// <param name="rule">The form part rule, if any.</param>
+    /// <param name="originalFileName">The original file name of the part, if any.</param>
+    /// <param name="contentEncoding">The content encoding of the part, if any.</param>
+    /// <param name="logger">The logger instance.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>Returns the result of storing the part.</returns>
     private static async Task<KrPartWriteResult> StorePartAsync(Stream body, KrFormOptions options, KrFormPartRule? rule, string? originalFileName, string? contentEncoding, Logger logger, CancellationToken cancellationToken)
     {
         var maxBytes = rule?.MaxBytes ?? options.Limits.MaxPartBodyBytes;

@@ -1252,8 +1252,6 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         return null;
     }
 
-
-
     /// <summary>
     /// Attempts to set a backing field for an <c>AdditionalProperties</c> auto-property.
     /// </summary>

@@ -1,4 +1,6 @@
 // OpenApiSchemaDiscovery.cs
+using Kestrun.Forms;
+
 namespace Kestrun.OpenApi;
 
 /// <summary>
@@ -54,8 +56,8 @@ public static class OpenApiSchemaDiscovery
     private static bool IsFormPayloadBaseType(Type t)
     {
         // Avoid emitting base form payload schemas unless explicitly referenced.
-        return string.Equals(t.Name, "KrFormData", StringComparison.Ordinal)
-            || string.Equals(t.Name, "KrMultipart", StringComparison.Ordinal);
+        return t == typeof(KrFormData)
+       || t == typeof(KrMultipart);
     }
 
 #if EXTENDED_OPENAPI

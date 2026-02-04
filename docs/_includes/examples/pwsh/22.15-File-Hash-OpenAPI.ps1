@@ -1,4 +1,4 @@
-﻿<#
+<#
     22.15 File hash upload (OpenAPI)
 
     Client example (PowerShell):

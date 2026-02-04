@@ -1,4 +1,4 @@
-﻿<#
+<#
     22.16 File hash upload (rules)
 
     Client example (PowerShell):

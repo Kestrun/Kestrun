@@ -51,7 +51,7 @@ Add-KrOpenApiInfo -Title 'Uploads 22.13 - Request Compressed' `
 
 Add-KrOpenApiContact -Email 'support@example.com'
 
-Add-KrRequestDecompressionMiddleware -AllowedEncoding gzip | Out-Null
+Add-KrRequestDecompressionMiddleware -AllowedEncoding gzip
 
 # Set default upload path for form parts
 $uploadRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.13-request-compressed'

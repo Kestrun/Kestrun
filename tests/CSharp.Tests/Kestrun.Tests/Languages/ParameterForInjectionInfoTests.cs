@@ -113,6 +113,8 @@ public class ParameterForInjectionInfoTests
     public void Ctor_FromOpenApiParameter_ThrowsOnNulls()
     {
         var metadata = new ParameterMetadata("id", typeof(int));
+        // ReSharper disable once AssignNullToNotNullAttribute
+        // Testing a null OpenApiParameter to ensure the ctor throws
         _ = Assert.Throws<ArgumentNullException>(() => new ParameterForInjectionInfo(metadata, null!));
         _ = Assert.Throws<ArgumentNullException>(() => new ParameterForInjectionInfo(null!, new OpenApiParameter()));
     }

@@ -13,7 +13,7 @@ public sealed class OpenApiSchemaDiscoveryTests
     }
 
     [Fact]
-    [Trait("Category", "OpenApi")]
+    [Trait("Category", "OpenAPI")]
     public void GetOpenApiTypesAuto_ExcludesBaseFormPayloadTypes_ButIncludesUserSchemaComponents()
     {
         var components = OpenApiSchemaDiscovery.GetOpenApiTypesAuto();

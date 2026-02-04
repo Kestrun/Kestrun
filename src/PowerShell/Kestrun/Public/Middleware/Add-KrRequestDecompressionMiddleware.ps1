@@ -17,10 +17,7 @@ function Add-KrRequestDecompressionMiddleware {
     [CmdletBinding()]
     [OutputType([Kestrun.Hosting.KestrunHost])]
     param(
-        [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
-        [Kestrun.Hosting.KestrunHost]$Server,
-        [string[]]$AllowedEncoding,
-        [switch]$PassThru
+        [string[]]$AllowedEncoding
     )
 
     $Server = Resolve-KestrunServer

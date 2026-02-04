@@ -151,7 +151,7 @@ public class KrFormEndpointsIntegrationTests
 
         Assert.Equal(HttpStatusCode.UnsupportedMediaType, resp.StatusCode);
         Assert.False(handlerCalled);
-        Assert.Equal("Form parsing failed.", await resp.Content.ReadAsStringAsync(cts.Token));
+        Assert.Equal("Invalid form data.", await resp.Content.ReadAsStringAsync(cts.Token));
 
         await host.StopAsync(cts.Token);
     }
@@ -173,7 +173,7 @@ public class KrFormEndpointsIntegrationTests
         var resp = await started.client.PostAsync("form4", new FormUrlEncodedContent(new Dictionary<string, string> { ["a"] = "1" }), cts.Token);
 
         Assert.Equal(HttpStatusCode.InternalServerError, resp.StatusCode);
-        Assert.Equal("Form parsing failed.", await resp.Content.ReadAsStringAsync(cts.Token));
+        Assert.Equal("Internal server error.", await resp.Content.ReadAsStringAsync(cts.Token));
 
         await host.StopAsync(cts.Token);
     }

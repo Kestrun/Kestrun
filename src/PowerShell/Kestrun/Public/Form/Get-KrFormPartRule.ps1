@@ -18,7 +18,7 @@ function Get-KrFormPartRule {
     [CmdletBinding()]
     [OutputType([Kestrun.Forms.KrFormPartRule])]
     param(
-        [Parameter()]
+        [Parameter(Mandatory = $true)]
         [string] $Name
     )
     $Server = Resolve-KestrunServer

@@ -124,89 +124,84 @@ function Add-KrFormOption {
         [switch] $PassThru
 
     )
-    begin {
-        $Server = Resolve-KestrunServer
-        if (-not $Server) { throw 'Server is not initialized. Call New-KrServer and Enable-KrConfiguration first.' }
+    $Server = Resolve-KestrunServer
+    $Options = [Kestrun.Forms.KrFormOptions]::new()
+
+    if ($PSBoundParameters.ContainsKey('Description')) {
+        $Options.Description = $Description
     }
-    process {
-        $Options = [Kestrun.Forms.KrFormOptions]::new()
-
-        if ($PSBoundParameters.ContainsKey('Description')) {
-            $Options.Description = $Description
-        }
-        if ($PSBoundParameters.ContainsKey('AllowedRequestContentTypes')) {
-            $Options.AllowedRequestContentTypes.Clear()
-            $Options.AllowedRequestContentTypes.AddRange($AllowedRequestContentTypes)
-        }
-        if ($PSBoundParameters.ContainsKey('AllowUnknownRequestContentType')) {
-            $Options.RejectUnknownRequestContentType = -not $AllowUnknownRequestContentType.IsPresent
-        }
-        if ($PSBoundParameters.ContainsKey('DefaultUploadPath')) {
-            $Options.DefaultUploadPath = $DefaultUploadPath
-        }
-        if ($PSBoundParameters.ContainsKey('ComputeSha256')) {
-            $Options.ComputeSha256 = $ComputeSha256.IsPresent
-        }
-        if ($PSBoundParameters.ContainsKey('EnablePartDecompression')) {
-            $Options.EnablePartDecompression = $EnablePartDecompression.IsPresent
-        }
-        if ($PSBoundParameters.ContainsKey('AllowedPartContentEncodings')) {
-            $Options.AllowedPartContentEncodings.Clear()
-            $Options.AllowedPartContentEncodings.AddRange($AllowedPartContentEncodings)
-        }
-        if ($PSBoundParameters.ContainsKey('MaxDecompressedBytesPerPart')) {
-            $Options.MaxDecompressedBytesPerPart = $MaxDecompressedBytesPerPart
-        }
-        if ($PSBoundParameters.ContainsKey('RejectUnknownContentEncoding')) {
-            $Options.RejectUnknownContentEncoding = $RejectUnknownContentEncoding.IsPresent
-        }
-        if ($PSBoundParameters.ContainsKey('PartRules')) {
-            $Options.Rules.Clear()
-            foreach ($rule in $PartRules) {
-                $Options.Rules.Add($rule)
-            }
-        }
-        if ($PSBoundParameters.ContainsKey('Logger')) {
-            $Options.Logger = $Logger
-        } else {
-            $Options.Logger = $Server.Logger
-        }
-
-        # Limits
-        if ($PSBoundParameters.ContainsKey('MaxRequestBodyBytes')) {
-            $Options.Limits.MaxRequestBodyBytes = $MaxRequestBodyBytes
-        }
-        if ($PSBoundParameters.ContainsKey('MaxPartBodyBytes')) {
-            $Options.Limits.MaxPartBodyBytes = $MaxPartBodyBytes
-        }
-        if ($PSBoundParameters.ContainsKey('MaxParts')) {
-            $Options.Limits.MaxParts = $MaxParts
-        }
-        if ($PSBoundParameters.ContainsKey('MaxHeaderBytesPerPart')) {
-            $Options.Limits.MaxHeaderBytesPerPart = $MaxHeaderBytesPerPart
-        }
-        if ($PSBoundParameters.ContainsKey('MaxFieldValueBytes')) {
-            $Options.Limits.MaxFieldValueBytes = $MaxFieldValueBytes
-        }
-        if ($PSBoundParameters.ContainsKey('MaxNestingDepth')) {
-            $Options.Limits.MaxNestingDepth = $MaxNestingDepth
-        }
-
-        # Register the option
-        if ($PSBoundParameters.ContainsKey('Name')) {
-            $Options.Name = $Name
-            # Register the option in the server's form options collection
-            if (-not $Server.AddFormOption($Options)) {
-                return $null
-            }
-            # Return the created options if PassThru is specified
-            if (-not $PassThru.IsPresent) {
-                return
-            }
-        } else {
-            # Generate a unique name if not provided
-            $Options.Name = "FormOption_$([System.Guid]::NewGuid().ToString())"
-        }
-        return $Options
+    if ($PSBoundParameters.ContainsKey('AllowedRequestContentTypes')) {
+        $Options.AllowedRequestContentTypes.Clear()
+        $Options.AllowedRequestContentTypes.AddRange($AllowedRequestContentTypes)
     }
+    if ($PSBoundParameters.ContainsKey('AllowUnknownRequestContentType')) {
+        $Options.RejectUnknownRequestContentType = -not $AllowUnknownRequestContentType.IsPresent
+    }
+    if ($PSBoundParameters.ContainsKey('DefaultUploadPath')) {
+        $Options.DefaultUploadPath = $DefaultUploadPath
+    }
+    if ($PSBoundParameters.ContainsKey('ComputeSha256')) {
+        $Options.ComputeSha256 = $ComputeSha256.IsPresent
+    }
+    if ($PSBoundParameters.ContainsKey('EnablePartDecompression')) {
+        $Options.EnablePartDecompression = $EnablePartDecompression.IsPresent
+    }
+    if ($PSBoundParameters.ContainsKey('AllowedPartContentEncodings')) {
+        $Options.AllowedPartContentEncodings.Clear()
+        $Options.AllowedPartContentEncodings.AddRange($AllowedPartContentEncodings)
+    }
+    if ($PSBoundParameters.ContainsKey('MaxDecompressedBytesPerPart')) {
+        $Options.MaxDecompressedBytesPerPart = $MaxDecompressedBytesPerPart
+    }
+    if ($PSBoundParameters.ContainsKey('RejectUnknownContentEncoding')) {
+        $Options.RejectUnknownContentEncoding = $RejectUnknownContentEncoding.IsPresent
+    }
+    if ($PSBoundParameters.ContainsKey('PartRules')) {
+        $Options.Rules.Clear()
+        foreach ($rule in $PartRules) {
+            $Options.Rules.Add($rule)
+        }
+    }
+    if ($PSBoundParameters.ContainsKey('Logger')) {
+        $Options.Logger = $Logger
+    } else {
+        $Options.Logger = $Server.Logger
+    }
+
+    # Limits
+    if ($PSBoundParameters.ContainsKey('MaxRequestBodyBytes')) {
+        $Options.Limits.MaxRequestBodyBytes = $MaxRequestBodyBytes
+    }
+    if ($PSBoundParameters.ContainsKey('MaxPartBodyBytes')) {
+        $Options.Limits.MaxPartBodyBytes = $MaxPartBodyBytes
+    }
+    if ($PSBoundParameters.ContainsKey('MaxParts')) {
+        $Options.Limits.MaxParts = $MaxParts
+    }
+    if ($PSBoundParameters.ContainsKey('MaxHeaderBytesPerPart')) {
+        $Options.Limits.MaxHeaderBytesPerPart = $MaxHeaderBytesPerPart
+    }
+    if ($PSBoundParameters.ContainsKey('MaxFieldValueBytes')) {
+        $Options.Limits.MaxFieldValueBytes = $MaxFieldValueBytes
+    }
+    if ($PSBoundParameters.ContainsKey('MaxNestingDepth')) {
+        $Options.Limits.MaxNestingDepth = $MaxNestingDepth
+    }
+
+    # Register the option
+    if ($PSBoundParameters.ContainsKey('Name')) {
+        $Options.Name = $Name
+        # Register the option in the server's form options collection
+        if (-not $Server.AddFormOption($Options)) {
+            return $null
+        }
+        # Return the created options if PassThru is specified
+        if (-not $PassThru.IsPresent) {
+            return
+        }
+    } else {
+        # Generate a unique name if not provided
+        $Options.Name = "FormOption_$([System.Guid]::NewGuid().ToString())"
+    }
+    return $Options
 }

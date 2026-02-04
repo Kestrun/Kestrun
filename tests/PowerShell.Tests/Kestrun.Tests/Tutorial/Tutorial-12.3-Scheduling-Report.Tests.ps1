@@ -1,10 +1,20 @@
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingEmptyCatchBlock', '')]
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Tutorial 12.3 Scheduling Report' -Tag 'Tutorial' {
     BeforeAll {
-        . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
         $script:instance = Start-ExampleScript -Name '12.3-Scheduling-Report.ps1'
     }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll { if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     It '/schedule/report lists jobs' {
         $base = $script:instance.Url
@@ -30,7 +40,7 @@ Describe 'Tutorial 12.3 Scheduling Report' -Tag 'Tutorial' {
                     $json.generatedAt | Should -Not -BeNullOrEmpty
                     $ok = $true; break
                 }
-            } catch { 
+            } catch {
                 # Exception intentionally ignored to allow trying other timezone candidates.
             }
         }

@@ -1,7 +1,9 @@
 using System.Management.Automation;
+using System.Reflection;
 using System.Management.Automation.Internal;
 using System.Management.Automation.Language;
 using System.Text.Json.Nodes;
+using Kestrun.Forms;
 using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Languages;
@@ -136,6 +138,9 @@ public partial class OpenApiDocDescriptor
                     case OpenApiCallbackRefAttribute callbackRefAttr:
                         ApplyCallbackRefAttribute(openApiMetadata, callbackRefAttr);
                         break;
+                    case KrBindFormAttribute formAttr:
+                        ApplyFormBindingAttribute(routeOptions, formAttr);
+                        break;
                     case KestrunAnnotation ka:
                         throw new InvalidOperationException($"Unhandled Kestrun annotation: {ka.GetType().Name}");
                 }
@@ -151,6 +156,27 @@ public partial class OpenApiDocDescriptor
         }
 
         return parsedVerb;
+    }
+
+    private void ApplyFormBindingAttribute(MapRouteOptions routeOptions, KrBindFormAttribute formAttr)
+    {
+        if (formAttr.Template is not null)
+        {
+            if (!Host.Runtime.FormOptions.TryGetValue(formAttr.Template, out var template))
+            {
+                throw new InvalidOperationException($"Form options template '{formAttr.Template}' not found.");
+            }
+
+            // Clone the template to avoid modifying the original
+            routeOptions.FormOptions = new KrFormOptions(template);
+            return;
+        }
+
+        // If no template is specified, apply the attribute properties directly
+        var formOptions = FormHelper.ApplyKrPartAttributes(formAttr);
+
+        // Assign the form options to the route options
+        routeOptions.FormOptions = formOptions;
     }
 
     /// <summary>
@@ -485,7 +511,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="metadata">The OpenAPI metadata to update.</param>
     /// <param name="attribute">The OpenApiProperty attribute containing property details.</param>
     /// <exception cref="InvalidOperationException"></exception>
-    private static void ApplyPropertyAttribute(OpenAPIPathMetadata metadata, OpenApiPropertyAttribute attribute)
+    private void ApplyPropertyAttribute(OpenAPIPathMetadata metadata, OpenApiPropertyAttribute attribute)
     {
         if (attribute.StatusCode is null)
         {
@@ -771,7 +797,7 @@ public partial class OpenApiDocDescriptor
         metadata.RequestBody = attribute.Inline ? componentRequestBody.Clone() : new OpenApiRequestBodyReference(referenceId);
         metadata.RequestBody.Description = attribute.Description ?? help.GetParameterDescription(paramInfo.Name);
 
-        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody));
+        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody, routeOptions.FormOptions));
     }
 
     /// <summary>
@@ -889,8 +915,17 @@ public partial class OpenApiDocDescriptor
         ParameterMetadata paramInfo,
         OpenApiRequestBodyAttribute attribute)
     {
-        var requestBodyPreferred = ComponentRequestBodiesExists(paramInfo.ParameterType.Name);
+        ResolveFormOptions(routeOptions, paramInfo);
 
+        // Special handling for form payloads
+        if (routeOptions.FormOptions is not null)
+        // && (paramInfo.ParameterType == typeof(KrFormData) || paramInfo.ParameterType == typeof(KrFormPayload)))
+        {
+            ApplyFormRequestBody(help, routeOptions, metadata, paramInfo, attribute);
+            return;
+        }
+        // Check for preferred request body in components
+        var requestBodyPreferred = ComponentRequestBodiesExists(paramInfo.ParameterType.Name);
         if (requestBodyPreferred)
         {
             ApplyPreferredRequestBody(help, routeOptions, metadata, paramInfo, attribute);
@@ -907,7 +942,74 @@ public partial class OpenApiDocDescriptor
 
         metadata.RequestBody = requestBody;
         metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
-        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBody));
+
+        if (routeOptions.FormOptions is not null && requestBody.Content?.Keys.Count > 0)
+        {
+            routeOptions.FormOptions.AllowedRequestContentTypes.Clear();
+            routeOptions.FormOptions.AllowedRequestContentTypes.AddRange(requestBody.Content?.Keys ?? []);
+        }
+        // Add the parameter for injection
+        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBody, routeOptions.FormOptions));
+    }
+
+    /// <summary>
+    /// Resolves form options for the request body parameter when form binding is configured.
+    /// </summary>
+    /// <param name="routeOptions">The route options to update.</param>
+    /// <param name="paramInfo">The parameter metadata.</param>
+    private void ResolveFormOptions(MapRouteOptions routeOptions, ParameterMetadata paramInfo)
+    {
+        if (routeOptions.FormOptions is not null)
+        {
+            return;
+        }
+
+        if (Host.Runtime.FormOptions.TryGetValue(paramInfo.ParameterType.Name, out var formOptionsValue))
+        {
+            routeOptions.FormOptions = new KrFormOptions(formOptionsValue);
+            return;
+        }
+
+        var formAttr = paramInfo.ParameterType.GetCustomAttribute<KrBindFormAttribute>(inherit: true);
+        if (formAttr is null)
+        {
+            return;
+        }
+
+        var formOptions = FormHelper.ApplyKrPartAttributes(formAttr);
+        formOptions.Name = paramInfo.ParameterType.FullName ?? paramInfo.ParameterType.Name;
+
+        var rules = FormHelper.BuildFormPartRulesFromType(paramInfo.ParameterType);
+        AddFormPartRules(formOptions, rules);
+
+        routeOptions.FormOptions = formOptions;
+    }
+
+    /// <summary>
+    /// Applies request body metadata for form payload parameters.
+    /// </summary>
+    /// <param name="help">The comment help information.</param>
+    /// <param name="routeOptions">The route options to update.</param>
+    /// <param name="metadata">The OpenAPI metadata to update.</param>
+    /// <param name="paramInfo">The parameter information.</param>
+    /// <param name="attribute">The OpenApiRequestBody attribute containing request body details.</param>
+    private void ApplyFormRequestBody(
+        CommentHelpInfo help,
+        MapRouteOptions routeOptions,
+        OpenAPIPathMetadata metadata,
+        ParameterMetadata paramInfo,
+        OpenApiRequestBodyAttribute attribute)
+    {
+        var contentTypes = ResolveFormContentTypes(attribute, routeOptions.FormOptions!);
+        routeOptions.FormOptions!.AllowedRequestContentTypes.Clear();
+        routeOptions.FormOptions.AllowedRequestContentTypes.AddRange(contentTypes);
+
+        var formSchema = InferPrimitiveSchema(type: paramInfo.ParameterType, inline: attribute.Inline);
+        var requestBodyContent = BuildFormRequestBodyWithSchema(formSchema, contentTypes, routeOptions.FormOptions, attribute);
+        metadata.RequestBody = requestBodyContent;
+        metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
+        // Add the parameter for injection
+        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBodyContent, routeOptions.FormOptions));
     }
 
     /// <summary>
@@ -937,6 +1039,130 @@ public partial class OpenApiDocDescriptor
         }
     }
 
+    private static OpenApiRequestBody BuildFormRequestBodyWithSchema(
+        IOpenApiSchema schema,
+        string[] contentTypes,
+        KrFormOptions options,
+        OpenApiRequestBodyAttribute attribute)
+    {
+        var requestBody = new OpenApiRequestBody
+        {
+            Description = attribute.Description,
+            Required = attribute.Required,
+            Content = new Dictionary<string, IOpenApiMediaType>(StringComparer.OrdinalIgnoreCase)
+        };
+
+        var encoding = BuildMultipartEncoding(options);
+
+        foreach (var contentType in contentTypes)
+        {
+            if (string.IsNullOrWhiteSpace(contentType))
+            {
+                continue;
+            }
+
+            var mediaType = new OpenApiMediaType
+            {
+                Schema = schema
+            };
+
+            if (IsMultipartContentType(contentType) && encoding is not null)
+            {
+                mediaType.Encoding = encoding;
+            }
+
+            requestBody.Content[contentType] = mediaType;
+        }
+
+        return requestBody;
+    }
+
+    /// <summary>
+    /// Resolves the content types for a form request body based on the attribute and form options.
+    /// </summary>
+    /// <param name="attribute">The OpenApiRequestBodyAttribute containing request body details.</param>
+    /// <param name="options">The KrFormOptions specifying allowed content types.</param>
+    /// <returns>An array of content type strings to be used for the form request body.</returns>
+    private static string[] ResolveFormContentTypes(OpenApiRequestBodyAttribute attribute, KrFormOptions options)
+    {
+        // if content type is specified on the attribute, use that
+        if (attribute.ContentType is { Length: > 0 })
+        {
+            return attribute.ContentType;
+        }
+
+        // if allowed content types are specified, use those
+        if (options.AllowedRequestContentTypes.Count > 0)
+        {
+            return [.. options.AllowedRequestContentTypes];
+        }
+        // default to multipart/form-data
+        return ["multipart/form-data"];
+    }
+
+    private static bool IsMultipartContentType(string contentType)
+        => contentType.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase);
+
+    private static Dictionary<string, OpenApiEncoding>? BuildMultipartEncoding(KrFormOptions options)
+    {
+        var encoding = new Dictionary<string, OpenApiEncoding>(StringComparer.Ordinal);
+
+        foreach (var rule in options.Rules)
+        {
+            if (string.IsNullOrWhiteSpace(rule.Name))
+            {
+                continue;
+            }
+
+            if (!IsProbablyFileRule(rule))
+            {
+                continue;
+            }
+
+            if (rule.AllowedContentTypes.Count == 0)
+            {
+                continue;
+            }
+
+            encoding[rule.Name] = new OpenApiEncoding
+            {
+                ContentType = string.Join(", ", rule.AllowedContentTypes)
+            };
+        }
+
+        return encoding.Count > 0 ? encoding : null;
+    }
+
+    private static bool IsProbablyFileRule(KrFormPartRule rule)
+    {
+        if (rule.StoreToDisk)
+        {
+            return true;
+        }
+
+        if (rule.AllowedExtensions.Count > 0)
+        {
+            return true;
+        }
+
+        foreach (var ct in rule.AllowedContentTypes)
+        {
+            if (string.IsNullOrWhiteSpace(ct))
+            {
+                continue;
+            }
+
+            if (!ct.StartsWith("text/", StringComparison.OrdinalIgnoreCase)
+                && !ct.Equals("application/json", StringComparison.OrdinalIgnoreCase)
+                && !ct.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Applies the preferred request body from components to the function's OpenAPI metadata.
     /// </summary>
@@ -959,7 +1185,7 @@ public partial class OpenApiDocDescriptor
             : new OpenApiRequestBodyReference(paramInfo.ParameterType.Name);
 
         metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);
-        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody));
+        routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody, routeOptions.FormOptions));
     }
     #endregion
 
@@ -1047,10 +1273,12 @@ public partial class OpenApiDocDescriptor
             routeOptions.CorsPolicy = metadata.CorsPolicy;
         }
 
+        // Set the script block or wrap for form options
         routeOptions.ScriptCode.ScriptBlock = sb;
         routeOptions.DefaultResponseContentType = "application/json";
         _ = Host.AddMapRoute(routeOptions);
     }
+
     /// <summary>
     /// Registers a webhook in the OpenAPI document descriptors.
     /// </summary>

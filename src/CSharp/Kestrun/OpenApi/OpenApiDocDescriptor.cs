@@ -6,6 +6,8 @@ using Kestrun.Hosting.Options;
 using Kestrun.Utilities;
 using System.Collections;
 using System.Text.Json.Nodes;
+using Kestrun.Forms;
+using System.Reflection;
 
 namespace Kestrun.OpenApi;
 
@@ -124,8 +126,78 @@ public partial class OpenApiDocDescriptor
         // Generate components from the discovered types
         GenerateComponents(components);
 
+        AddFormOptions(components);
+
         // Process variable annotations from the host
         ProcessVariableAnnotations(Host.ComponentAnnotations);
+    }
+
+    private void AddFormOptions(OpenApiComponentSet components)
+    {
+        foreach (var type in components.SchemaTypes)
+        {
+            if (type is null || !type.IsDefined(typeof(KrBindFormAttribute), inherit: false))
+            {
+                continue;
+            }
+
+            var formOptions = BuildFormOptionsSchema(type.FullName, type);
+            if (formOptions is null)
+            {
+                continue;
+            }
+
+            var rules = FormHelper.BuildFormPartRulesFromType(type);
+            AddFormPartRules(formOptions, rules);
+
+            // Register the option in the host.
+            _ = Host.AddFormOption(formOptions);
+
+            // Register part rules in the host runtime (best-effort: host rule store is keyed by name).
+            foreach (var rule in rules)
+            {
+                _ = Host.AddFormPartRule(rule);
+            }
+        }
+    }
+
+    private static void AddFormPartRules(KrFormOptions options, IEnumerable<KrFormPartRule> rules)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var rule in rules)
+        {
+            if (string.IsNullOrWhiteSpace(rule.Name))
+            {
+                continue;
+            }
+
+            var key = string.IsNullOrWhiteSpace(rule.Scope)
+                ? rule.Name
+                : $"{rule.Scope}::{rule.Name}";
+
+            if (!seen.Add(key))
+            {
+                continue;
+            }
+
+            options.Rules.Add(rule);
+        }
+    }
+
+    private KrFormOptions? BuildFormOptionsSchema(string? typeName, Type type)
+    {
+        if (typeName is null)
+        {
+            return null;
+        }
+
+        foreach (var attr in type.GetCustomAttributes<KrBindFormAttribute>(inherit: false))
+        {
+            var formOptions = FormHelper.ApplyKrPartAttributes(attr);
+            formOptions.Name = typeName;
+            return formOptions;
+        }
+        return null;
     }
 
     /// <summary>

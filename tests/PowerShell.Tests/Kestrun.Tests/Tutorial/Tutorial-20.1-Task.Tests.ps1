@@ -1,12 +1,26 @@
 param()
-
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
 Describe 'Tutorial 20.1 - Tasks' -Tag 'Tutorial' {
     BeforeAll {
-        . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
         $script:instance = Start-ExampleScript -Name '20.1-Task.ps1' -StartupTimeoutSeconds 45
-
-        # No JSON helpers needed; we work directly with PSCustomObject from Invoke-RestMethod
-
+ 
+        <#
+        .SYNOPSIS
+            Waits until the specified task reaches one of the specified states, or times out.
+        .PARAMETER Id
+            The task ID.
+        .PARAMETER States
+            An array of acceptable states to wait for.
+        .PARAMETER TimeoutSec
+            Maximum time to wait, in seconds. Default is 20.
+        .PARAMETER PollMs
+            Milliseconds between polling attempts. Default is 250.
+        .EXAMPLE
+            Wait-UntilTaskState -Id 'task-id' -States @('Completed', 'Stopped') -TimeoutSec 30
+            This example waits until the task with ID 'task-id' reaches either the 'Completed' or 'Stopped' state, or until 30 seconds have elapsed.
+        #>
         function Wait-UntilTaskState {
             param(
                 [Parameter(Mandatory)][string]$Id,
@@ -37,7 +51,12 @@ Describe 'Tutorial 20.1 - Tasks' -Tag 'Tutorial' {
     }
 
     AfterAll {
-        if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
     }
 
     It '/hello responds with greeting' {

@@ -90,6 +90,7 @@
             "example": "79.99"
           }
         },
+        "additionalProperties": false,
         "description": "Individual item in an order."
       },
       "OrderData": {
@@ -145,6 +146,7 @@
             "description": "List of items in the order"
           }
         },
+        "additionalProperties": false,
         "description": "Order details for webhook events."
       },
       "OrderEventPayload": {
@@ -176,6 +178,7 @@
             "$ref": "#/components/schemas/OrderData"
           }
         },
+        "additionalProperties": false,
         "description": "Webhook payload for order-related events."
       },
       "PaymentData": {
@@ -239,6 +242,7 @@
             "example": "TXN-1a2b3c4d"
           }
         },
+        "additionalProperties": false,
         "description": "Payment transaction details for webhook events."
       },
       "PaymentEventPayload": {
@@ -270,6 +274,7 @@
             "$ref": "#/components/schemas/PaymentData"
           }
         },
+        "additionalProperties": false,
         "description": "Webhook payload for payment-related events."
       },
       "InventoryData": {
@@ -315,6 +320,7 @@
             "example": "Warehouse A, Aisle 3, Shelf 2"
           }
         },
+        "additionalProperties": false,
         "description": "Inventory level details for webhook events."
       },
       "InventoryEventPayload": {
@@ -346,6 +352,7 @@
             "$ref": "#/components/schemas/InventoryData"
           }
         },
+        "additionalProperties": false,
         "description": "Webhook payload for inventory-related events."
       }
     }

@@ -30,6 +30,20 @@ function Get-KrRequestBody {
 
     if ($null -ne $Context.Request) {
         $body = $Context.Request.Body
+        $contentType = $Context.Request.ContentType
+        # Check if we need to read the stream (e.g., for compressed requests)
+        $hasEncoding = -not [string]::IsNullOrWhiteSpace($Context.Request.Headers['Content-Encoding'])
+        $bodyIsString = $body -is [string]
+        $needsStreamRead = $hasEncoding -and (-not $bodyIsString -or [string]::IsNullOrEmpty($body))
+        # Need to read the stream if not already read
+        if ($needsStreamRead) {
+            $reader = [System.IO.StreamReader]::new($Context.HttpContext.Request.Body, [System.Text.Encoding]::UTF8, $false, 1024, $true)
+            try {
+                $body = $reader.ReadToEndAsync().GetAwaiter().GetResult()
+            } finally {
+                $reader.Dispose()
+            }
+        }
         # Return the raw body if specified
         if ($Raw) {
             # Get the raw request body value from the request
@@ -40,7 +54,7 @@ function Get-KrRequestBody {
             return [Kestrun.Utilities.Json.JsonSerializerHelper]::FromJson($body, $Type)
         }
         # Parse based on Content-Type
-        switch ($Context.Request.ContentType) {
+        switch ($contentType) {
             'application/json' {
                 return $body | ConvertFrom-Json -AsHashtable
             }

@@ -9,7 +9,12 @@ Describe 'Example 11.2-RazorPages-Antiforgery' -Tag 'Tutorial' {
     }
 
     AfterAll {
-        if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
     }
 
     It 'Serves the Razor home page (HTTPS)' {

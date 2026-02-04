@@ -1,3 +1,5 @@
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+param()
 <#
 .SYNOPSIS
     Shared helper functions for tutorial example tests.
@@ -370,7 +372,13 @@ function Stop-ExampleScript {
         }
     } finally {
         if (-not $Instance.Process.HasExited) { $Instance.Process | Stop-Process -Force }
+        $p = [pscustomobject]@{
+            Id = $Instance.Process.Id
+            HasExited = $Instance.Process.HasExited
+            ExitCode = $Instance.Process.ExitCode
+        }
         $Instance.Process.Dispose()
+        $Instance.Process = $p
         Remove-Item -Path $Instance.TempPath -Force -ErrorAction SilentlyContinue
         if ($Instance.PushedLocation) {
             try { Pop-Location -ErrorAction Stop } catch { Write-Warning "Pop-Location failed: $($_.Exception.Message)" }
@@ -2323,4 +2331,460 @@ function Test-OpenApiDocumentMatchesExpected {
     $expectedNormalized = Get-NormalizedJson $expectedContent
 
     $actualNormalized | Should -Be $expectedNormalized
+}
+
+<#
+.SYNOPSIS
+    Create a Gzip-compressed multipart/form-data body for testing.
+.DESCRIPTION
+    This function constructs a multipart/form-data body with a text note and a text file,
+    then compresses it using Gzip and returns the resulting byte array.
+.PARAMETER boundary
+    The boundary string to use for the multipart/form-data body.
+.OUTPUTS
+    A byte array containing the Gzip-compressed multipart/form-data body.
+#>
+function New-GzipMultipartBody {
+    param(
+        [string]$boundary
+    )
+    $body = @(
+        "--$boundary",
+        'Content-Disposition: form-data; name=note',
+        '',
+        'compressed',
+        "--$boundary",
+        'Content-Disposition: form-data; name=file; filename=hello.txt',
+        'Content-Type: text/plain',
+        '',
+        'hello',
+        "--$boundary--",
+        ''
+    ) -join "`r`n"
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($body)
+    $ms = [System.IO.MemoryStream]::new()
+    try {
+        $gzip = [System.IO.Compression.GZipStream]::new($ms, [System.IO.Compression.CompressionMode]::Compress, $true)
+        try {
+            $gzip.Write($bytes, 0, $bytes.Length)
+        } finally {
+            $gzip.Dispose()
+        }
+
+        # IMPORTANT: prevent PowerShell from enumerating the byte[] on output.
+        # Invoke-WebRequest expects a single byte[] object for raw bodies.
+        return , $ms.ToArray()
+    } finally {
+        $ms.Dispose()
+    }
+}
+
+<#
+.SYNOPSIS
+    Create a Gzip-compressed byte array from input data.
+.DESCRIPTION
+    This function takes a byte array as input, compresses it using Gzip, and returns
+    the resulting compressed byte array.
+.PARAMETER data
+    The input byte array to compress.
+.OUTPUTS
+    A byte array containing the Gzip-compressed data.
+#>
+function New-GzipBinaryData {
+    param(
+        [byte[]]$data
+    )
+    $ms = [System.IO.MemoryStream]::new()
+    try {
+        $gzip = [System.IO.Compression.GZipStream]::new($ms, [System.IO.Compression.CompressionMode]::Compress, $true)
+        try {
+            $gzip.Write($data, 0, $data.Length)
+        } finally {
+            $gzip.Dispose()
+        }
+
+        # Prevent byte[] enumeration on output.
+        return , $ms.ToArray()
+    } finally {
+        $ms.Dispose()
+    }
+}
+
+<#
+.SYNOPSIS
+    Create a multipart/form-data body from parts.
+.DESCRIPTION
+    This function constructs a multipart/form-data body using the specified boundary and parts.
+    Each part is defined by a hashtable containing Headers and Content.
+.PARAMETER Boundary
+    The boundary string to use for the multipart/form-data body.
+.PARAMETER Parts
+    An array of hashtables, each representing a part with Headers and Content.
+.OUTPUTS
+    A string containing the multipart/form-data body.
+#>
+function New-MultipartBody {
+    param(
+        [string]$Boundary,
+        [hashtable[]]$Parts
+    )
+
+    $body = ''
+    foreach ($part in $Parts) {
+        $body += "--$Boundary`r`n"
+
+        if ($part.Headers) {
+            foreach ($header in $part.Headers.GetEnumerator()) {
+                $body += "$($header.Key): $($header.Value)`r`n"
+            }
+        }
+
+        $body += "`r`n$($part.Content)`r`n"
+    }
+    $body += "--$Boundary--`r`n"
+
+    return $body
+}
+
+<#
+.SYNOPSIS
+    Compress a string using Gzip compression.
+.DESCRIPTION
+    This function takes a string as input, compresses it using Gzip, and returns
+    the resulting compressed byte array.
+.PARAMETER Data
+    The input string to compress.
+.OUTPUTS
+    A byte array containing the Gzip-compressed data.
+#>
+function Compress-Gzip {
+    param([string]$Data)
+
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Data)
+    $ms = [System.IO.MemoryStream]::new()
+    $gzip = [System.IO.Compression.GzipStream]::new($ms, [System.IO.Compression.CompressionMode]::Compress)
+    $gzip.Write($bytes, 0, $bytes.Length)
+    $gzip.Close()
+    $compressed = $ms.ToArray()
+    $ms.Dispose()
+
+    return $compressed
+}
+
+<#
+.SYNOPSIS
+    Create a nested multipart/mixed body for testing.
+.DESCRIPTION
+    This function constructs a multipart/mixed body with an outer and inner boundary,
+    allowing for nested multipart content. It supports optional Content-Disposition headers
+    for the outer and nested parts, as well as for the inner text and JSON parts.
+.PARAMETER OuterBoundary
+    The boundary string for the outer multipart section.
+.PARAMETER InnerBoundary
+    The boundary string for the inner multipart section.
+.PARAMETER IncludeOuterDisposition
+    If specified, includes a Content-Disposition header for the outer part.
+.PARAMETER IncludeNestedDisposition
+    If specified, includes a Content-Disposition header for the nested part.
+.PARAMETER IncludeInnerDispositions
+    If specified, includes Content-Disposition headers for the inner text and JSON parts.
+.PARAMETER OuterName
+    The name to use in the Content-Disposition header for the outer part.
+.PARAMETER NestedName
+    The name to use in the Content-Disposition header for the nested part.
+.PARAMETER TextName
+    The name to use in the Content-Disposition header for the inner text part.
+.PARAMETER JsonName
+    The name to use in the Content-Disposition header for the inner JSON part.
+.PARAMETER OuterJson
+    The JSON content for the outer part.
+.PARAMETER InnerJson
+    The JSON content for the inner part.
+.PARAMETER InnerText
+    The text content for the inner text part.
+.PARAMETER NestedContentTypeHeader
+    The Content-Type header to use for the nested part. If not specified, defaults to multipart/mixed with the inner boundary.
+.OUTPUTS
+    A string containing the nested multipart/mixed body.
+#>
+function New-NestedMultipartBody {
+    param(
+        [string] $OuterBoundary = 'outer-boundary',
+        [string] $InnerBoundary = 'inner-boundary',
+        [switch] $IncludeOuterDisposition,
+        [switch] $IncludeNestedDisposition,
+        [switch] $IncludeInnerDispositions,
+        [string] $OuterName = 'outer',
+        [string] $NestedName = 'nested',
+        [string] $TextName = 'text',
+        [string] $JsonName = 'json',
+        [string] $OuterJson = '{"stage":"outer"}',
+        [string] $InnerJson = '{"nested":true}',
+        [string] $InnerText = 'inner-1',
+        [string] $NestedContentTypeHeader = $null
+    )
+
+    if (-not $NestedContentTypeHeader) {
+        $NestedContentTypeHeader = "Content-Type: multipart/mixed; boundary=$InnerBoundary"
+    }
+
+    $innerBody = @(
+        "--$InnerBoundary"
+        if ($IncludeInnerDispositions) { "Content-Disposition: form-data; name=""$TextName""" }
+        'Content-Type: text/plain'
+        ''
+        $InnerText
+
+        "--$InnerBoundary"
+        if ($IncludeInnerDispositions) { "Content-Disposition: form-data; name=""$JsonName""" }
+        'Content-Type: application/json'
+        ''
+        $InnerJson
+
+        "--$InnerBoundary--"
+        ''
+    ) -join "`r`n"
+
+    $outerBody = @(
+        "--$OuterBoundary"
+        if ($IncludeOuterDisposition) { "Content-Disposition: form-data; name=""$OuterName""" }
+        'Content-Type: application/json'
+        ''
+        $OuterJson
+
+        "--$OuterBoundary"
+        if ($IncludeNestedDisposition) { "Content-Disposition: form-data; name=""$NestedName""" }
+        $NestedContentTypeHeader
+        ''
+        $innerBody
+
+        "--$OuterBoundary--"
+        ''
+    ) -join "`r`n"
+
+    return $outerBody
+}
+
+<#
+.SYNOPSIS
+    Write detailed diagnostics of a Kestrun example instance on test failure.
+.DESCRIPTION
+    This function checks the Pester test result and, if the test has failed,
+    it outputs detailed information about the provided Kestrun example instance.
+    This includes core metadata, process information, standard error/output,
+    and a full JSON dump of the instance for debugging purposes.
+.PARAMETER Instance
+    The Kestrun example instance object to output diagnostics for.
+.PARAMETER Label
+    An optional label to identify the instance in the output. Default is 'Example instance'.
+#>
+function Write-KrExampleInstanceOnFailure {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [psobject] $Instance,
+
+        [Parameter()]
+        [string] $Label
+    )
+
+    $failedTests = Get-KrPesterFailedTestsInCurrentBlock
+    if ($failedTests.Count -eq 0) { return }
+
+    if (-not $Label) {
+        $Label = $Instance.Name
+    }
+
+    Write-Host ''
+    Write-Host "=== $Label (failure diagnostics) ===" -ForegroundColor Yellow
+
+    # Core metadata (keep readable)
+    $Instance |
+        Select-Object `
+            Name,
+        BaseName,
+        Url,
+        Host,
+        Port,
+        TempPath,
+        Ready,
+        ExitedEarly,
+        Https |
+        Format-List * |
+        Out-String |
+        Write-Host
+
+    # Process info (after Stop-ExampleScript)
+    if ($Instance.Process) {
+        try {
+            Write-Host '=== Process ===' -ForegroundColor Yellow
+            $p = $Instance.Process
+            "Id=$($p.Id) HasExited=$($p.HasExited) ExitCode=$($p.ExitCode)" |
+                Write-Host
+        } catch {
+            Write-Host "Failed to retrieve process info: $_" -ForegroundColor Red
+        }
+    }
+
+    # STDERR / STDOUT (super useful after stop)
+    if ($Instance.StdErr) {
+        Write-Host '=== StdErr ===' -ForegroundColor Red
+        $Instance.StdErr | Write-Host
+    }
+
+    if ($Instance.StdOut) {
+        Write-Host '=== StdOut ===' -ForegroundColor DarkGray
+        $Instance.StdOut | Write-Host
+    }
+
+    # Full JSON dump (for CI / copy-paste)
+    Write-Host '=== Full instance (JSON) ===' -ForegroundColor Yellow
+
+    $diag = [pscustomobject]@{
+        Name = $Instance.Name
+        BaseName = $Instance.BaseName
+        Url = $Instance.Url
+        Port = $Instance.Port
+        Ready = $Instance.Ready
+        ExitedEarly = $Instance.ExitedEarly
+        Https = $Instance.Https
+        StdErr = $Instance.StdErr
+        StdOut = $Instance.StdOut
+    }
+
+    $diag | ConvertTo-Json -Depth 4 | Write-Host
+}
+
+<#
+.SYNOPSIS
+    Get the failed Pester tests in the current test block.
+.DESCRIPTION
+    This function retrieves the list of failed tests from the current Pester test block.
+    It checks the test results and filters for tests that have failed or have an associated error record.
+.OUTPUTS
+    An array of objects representing the failed tests.
+#>
+function Get-KrPesterFailedTestsInCurrentBlock {
+    [CmdletBinding()]
+    [outputtype([object[]])]
+    param()
+
+    try {
+        $items = @(
+            $____Pester.CurrentBlock.Tests |
+                Where-Object { $_.Result -eq 'Failed' -or $_.ErrorRecord }
+        )
+
+        return , $items   # <-- ALWAYS returns an array (0/1/many)
+    } catch {
+        return , @()      # <-- ALSO always array
+    }
+}
+
+<#
+.SYNOPSIS
+    Create a test file with specified size and mode (text or binary).
+.DESCRIPTION
+    This function generates a file at the specified path with the desired size in megabytes.
+    The file can be created in either text mode (compressible data) or binary mode (random data).
+.PARAMETER Path
+    The file path where the test file will be created.
+.PARAMETER Mode
+    The mode of the file to create: 'Text' for compressible text data, 'Binary' for random binary data. Default is 'Text'.
+.PARAMETER SizeMB
+    The size of the file to create in megabytes. Default is 100 MB.
+.NOTES
+    This function will overwrite any existing file at the specified path.
+#>
+function New-TestFile {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingWriteHost', '')]
+    param(
+        [parameter(Mandatory = $true)]
+        [string]$Path,
+        [parameter()]
+        [ValidateSet('Text', 'Binary')]
+        [string]$Mode = 'Text',
+        [parameter()]
+        [long]$SizeMB = 100,
+        [Parameter()]
+        [switch]$Force,
+        [Parameter()]
+        [switch]$Quiet
+    )
+
+    # ─── Setup ────────────────────────────────────────────────────────
+    $targetBytes = $SizeMB * 1MB
+
+    if (-not $Quiet) {
+        Write-Host "Generating $Mode test file of size $SizeMB MB at $Path ..."
+        Write-Host -NoNewline 'Progress: '
+    }
+
+    if (Test-Path $Path) {
+        if (-not $Force) {
+            throw "File already exists at $Path. Use -Force to overwrite."
+        }
+        Remove-Item $Path
+    }
+
+    # ─── Generate Binary File ─────────────────────────────────────────
+    if ($Mode -eq 'Binary') {
+        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+        $buffer = [byte[]]::new(1MB)
+        $written = 0
+        try {
+            $fs = [System.IO.File]::OpenWrite($Path)
+
+            while ($written -lt $targetBytes) {
+                $rng.GetBytes($buffer)
+                $remaining = $targetBytes - $written
+                $bytesToWrite = if ($buffer.Length -lt $remaining) { $buffer.Length } else { [long]$remaining }
+                $fs.Write($buffer, 0, $bytesToWrite)
+                $written += $bytesToWrite
+                if ($written % (10MB) -eq 0) {
+                    # Print progress every 10MB
+                    Write-Host '#' -NoNewline
+                }
+            }
+        } finally {
+            $fs.Close()
+        }
+        if (-not $Quiet) {
+            Write-Host ' ✅' -ForegroundColor Green
+        }
+    }
+
+    # ─── Generate Compressible Text File ──────────────────────────────
+    if ($Mode -eq 'Text') {
+        $baseLine = 'COMPRESSIBLE-DATA-LINE-1234567890'
+        $entropyRate = 1000  # Inject entropy every N lines
+        $lineTemplate = $baseLine * 5 + "`n"  # ~180–200 bytes
+        $lineBytes = [System.Text.Encoding]::UTF8.GetByteCount($lineTemplate)
+        $lineCount = [math]::Ceiling($targetBytes / $lineBytes)
+
+        $rand = [System.Random]::new()
+        try {
+            $writer = [System.IO.StreamWriter]::new($Path, $false, [System.Text.Encoding]::UTF8)
+
+            for ($i = 0; $i -lt $lineCount; $i++) {
+                if ($i % $entropyRate -eq 0) {
+                    # Inject a small random string
+                    $randomSuffix = $rand.Next(100000, 999999)
+                    $line = "$baseLine-$randomSuffix" * 5 + "`n"
+                } else {
+                    $line = $lineTemplate
+                }
+                # Write the line to the file
+                $writer.Write($line)
+                if (($i % (63700) -eq 0 ) -and (-not $Quiet)) {
+                    Write-Host '#' -NoNewline
+                }
+            }
+        } finally {
+            $writer.Close()
+        }
+        if (-not $Quiet) {
+            Write-Host ' ✅' -ForegroundColor Green
+        }
+    }
 }

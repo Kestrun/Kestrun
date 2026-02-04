@@ -1,7 +1,17 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
 Describe 'Example 5.4-Sinks' -Tag 'Tutorial', 'Logging', 'Sinks' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '5.4-Sinks.ps1' }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    BeforeAll { $script:instance = Start-ExampleScript -Name '5.4-Sinks.ps1' }
+    AfterAll {
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     It 'GET /text returns text' {
         $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/text" -UseBasicParsing -TimeoutSec 6 -Method Get

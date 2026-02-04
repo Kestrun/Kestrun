@@ -186,6 +186,22 @@ public class BuildSchemaForTypeTests
 
     [Fact]
     [Trait("Category", "OpenAPI")]
+    public void RegistersScopedFormRulesFromNestedKrPartAttributes()
+    {
+        // Act
+        _ = InvokeBuildSchemaForType(typeof(FormWithNestedParts));
+
+        // Assert
+        Assert.True(_descriptor.Host.Runtime.FormPartRules.TryGetValue("Nested", out var parentRule));
+        Assert.True(_descriptor.Host.Runtime.FormPartRules.TryGetValue("Text", out var childRule));
+        Assert.Equal("Nested", childRule.Scope);
+        Assert.Contains(parentRule.NestedRules, rule =>
+            string.Equals(rule.Name, "Text", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(rule.Scope, "Nested", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    [Trait("Category", "OpenAPI")]
     public void CapturesDefaultPropertyValues()
     {
         // Arrange
@@ -215,7 +231,7 @@ public class BuildSchemaForTypeTests
         // Assert
         var concreteSchema = schema as OpenApiSchema;
         Assert.NotNull(concreteSchema);
-        // When a property has OpenApiAdditionalProperties attribute, the schema marks it
+        // When a schema component allows additional properties, the schema marks it
         if (concreteSchema.AdditionalPropertiesAllowed)
         {
             // If additional properties are marked, the AdditionalProperties schema should be set
@@ -330,13 +346,11 @@ public class ClassWithDefaults
 }
 
 /// <summary>
-/// Class with additional properties attribute.
+/// Class with additional properties metadata.
 /// </summary>
+[OpenApiSchemaComponent(AdditionalPropertiesAllowed = true, AdditionalProperties = typeof(string))]
 public class ClassWithAdditionalProperties
 {
-    [OpenApiAdditionalProperties]
-    public string? AdditionalData { get; set; }
-
     public string Name { get; set; } = "test";
 }
 
@@ -346,6 +360,18 @@ public class ClassWithAdditionalProperties
 public class ClassWithoutDefaultConstructor(string name)
 {
     public string Name { get; set; } = name;
+}
+
+public class FormWithNestedParts
+{
+    [KrPart(Required = true, ContentTypes = ["multipart/mixed"])]
+    public NestedFormParts Nested { get; set; } = new();
+}
+
+public class NestedFormParts
+{
+    [KrPart(Required = true, ContentTypes = ["text/plain"])]
+    public string Text { get; set; } = string.Empty;
 }
 
 /// <summary>

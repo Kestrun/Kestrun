@@ -1,10 +1,20 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
 
 Describe 'Example 19.2-Sessions-Redis' -Tag 'Tutorial', 'Middleware', 'Sessions' -Skip:(-not $env:UPSTASH_REDIS_URL) {
 
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '19.2-Sessions-Redis.ps1'; }
-
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    BeforeAll {
+        $script:instance = Start-ExampleScript -Name '19.2-Sessions-Redis.ps1';
+    }
+    AfterAll { if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     Context 'hello endpoint (non-session)' {
         It 'GET /hello returns greeting text' {

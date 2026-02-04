@@ -18,6 +18,11 @@ public class KestrunOptions
     private const string DefaultResponseMediaTypeValue = "text/plain";
 
     /// <summary>
+    /// Default upload path value for form parts.
+    /// </summary>
+    private static readonly string DefaultUploadPathValue = Path.Combine(Path.GetTempPath(), "kestrun-uploads");
+
+    /// <summary>
     /// Gets or sets the Kestrel server options.
     /// </summary>
     public KestrelServerOptions ServerOptions { get; set; }
@@ -80,6 +85,11 @@ public class KestrunOptions
     /// Gets or sets the default media type to use for responses when no Accept header is provided.
     /// </summary>
     public string? DefaultResponseMediaType { get; set; } = DefaultResponseMediaTypeValue;
+
+    /// <summary>
+    /// Gets or sets the default upload path for form parts.
+    /// </summary>
+    public string DefaultUploadPath { get; set; } = DefaultUploadPathValue;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="KestrunOptions"/> class with default values.

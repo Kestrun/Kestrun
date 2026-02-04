@@ -1,9 +1,20 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
 
 Describe 'Example 19.1-Sessions' -Tag 'Tutorial', 'Middleware', 'Sessions' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '19.1-Sessions.ps1'; }
+    BeforeAll {
+        $script:instance = Start-ExampleScript -Name '19.1-Sessions.ps1';
+    }
 
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll { if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     Context 'hello endpoint (non-session)' {
         It 'GET /hello returns greeting text' {

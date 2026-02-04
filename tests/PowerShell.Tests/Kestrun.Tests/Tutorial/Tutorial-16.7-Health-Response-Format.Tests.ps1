@@ -1,7 +1,20 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Example 16.7-Health-Response-Format' -Tag 'Tutorial', 'Health' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '16.7-Health-Response-Format.ps1' }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    BeforeAll {
+        $script:instance = Start-ExampleScript -Name '16.7-Health-Response-Format.ps1'
+    }
+    AfterAll {
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     Context 'Auto(Json) format' {
         It 'GET /healthz (JSON) includes Database and Cache probes for core tag' {

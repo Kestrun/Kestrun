@@ -2,11 +2,15 @@ using System.Collections;
 using System.Globalization;
 using System.Management.Automation;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Linq;
 using CsvHelper;
 using CsvHelper.Configuration;
+using System.Runtime.Serialization;
+using Kestrun.Forms;
 using Kestrun.Logging;
 using Kestrun.Models;
 using Kestrun.Utilities;
@@ -25,6 +29,34 @@ namespace Kestrun.Languages;
 /// </summary>
 public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 {
+    /// <summary>
+    /// Content types associated with the parameter.
+    /// </summary>
+    /// <remarks>Typically used for body parameters.</remarks>
+    private sealed class PatternPropertyRule(string keyPattern, string? schemaTypeName)
+    {
+        /// <summary>
+        /// Regex pattern to match property keys.
+        /// </summary>
+        public string KeyPattern { get; } = keyPattern;
+
+        /// <summary>
+        /// Type name of the schema for matched properties.
+        /// </summary>
+        public string? SchemaTypeName { get; } = schemaTypeName;
+
+        /// <summary>
+        /// Determines if the given key matches the pattern.
+        /// </summary>
+        public bool IsMatch(string key)
+            => Regex.IsMatch(key, KeyPattern, RegexOptions.CultureInvariant);
+    }
+
+    /// <summary>
+    /// Validates the ParameterMetadata instance.
+    /// </summary>
+    /// <param name="paramInfo">The parameter metadata to validate.</param>
+    /// <returns>The validated ParameterMetadata.</returns>
     private static ParameterMetadata Validate(ParameterMetadata? paramInfo)
     {
         ArgumentNullException.ThrowIfNull(paramInfo);
@@ -61,7 +93,8 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// </summary>
     /// <param name="paramInfo">The parameter metadata.</param>
     /// <param name="requestBody">The OpenApiRequestBody to construct from.</param>
-    public ParameterForInjectionInfo(ParameterMetadata paramInfo, OpenApiRequestBody requestBody) :
+    /// <param name="formOptions">The form options for handling form data.</param>
+    public ParameterForInjectionInfo(ParameterMetadata paramInfo, OpenApiRequestBody requestBody, KrFormOptions? formOptions) :
         base(Validate(paramInfo).Name, Validate(paramInfo).ParameterType)
     {
         ArgumentNullException.ThrowIfNull(requestBody);
@@ -84,6 +117,8 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
                 ContentTypes.Add(key);
             }
         }
+        // Default to "form" style with explode for request bodies.
+        FormOptions = formOptions;
     }
 
     /// <summary>
@@ -188,17 +223,1608 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     {
         var logger = context.Host.Logger;
         var name = param.Name;
-
+        object? converted;
         LogInjectingParameter(logger, param);
+        if (param.FormOptions is not null)
+        {
+            converted = KrFormParser.Parse(context.HttpContext, param.FormOptions, context.Ct);
+            converted = CoerceFormPayloadForParameter(param.ParameterType, converted, logger, ps);
+        }
+        else
+        {
+            converted = GetConvertedParameterValue(context, param, out var shouldLog);
+            converted = ConvertBodyParameterIfNeeded(context, param, converted);
+            LogAddingParameter(logger, name, converted, shouldLog);
+        }
 
-        var converted = GetConvertedParameterValue(context, param, out var shouldLog);
-        converted = ConvertBodyParameterIfNeeded(context, param, converted);
-
-        LogAddingParameter(logger, name, converted, shouldLog);
-
+        if (converted is Hashtable ht && param.ParameterType is not null)
+        {
+            var coerced = TryConvertHashtableToParameterType(param.ParameterType, ht, logger, ps);
+            if (coerced is not null)
+            {
+                converted = coerced;
+            }
+        }
         _ = ps.AddParameter(name, converted);
         StoreResolvedParameter(context, param, name, converted);
     }
+
+    /// <summary>
+    /// Coerces a parsed form payload to the expected parameter type when possible.
+    /// This supports parameters typed as <see cref="IKrFormPayload"/> as well as PowerShell
+    /// classes derived from <see cref="KrMultipart"/>.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to satisfy.</param>
+    /// <param name="payload">The parsed form payload.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>The original payload or a new instance compatible with the parameter type.</returns>
+    internal static object? CoerceFormPayloadForParameter(Type? parameterType, object? payload, Serilog.ILogger logger, PowerShell? ps = null)
+    {
+        if (parameterType is null || payload is not IKrFormPayload formPayload)
+        {
+            return payload;
+        }
+
+        LogCoerceFormPayload(logger, parameterType, payload, ps);
+
+        var exactMatch = TryHandleExactPayloadType(parameterType, formPayload, logger, ps);
+        if (exactMatch is not null)
+        {
+            return exactMatch;
+        }
+
+        var boundModel = TryBindFormModel(parameterType, formPayload, logger, ps);
+        if (boundModel is not null)
+        {
+            return boundModel;
+        }
+
+        var coerced = TryCoerceToKrFormPayload(parameterType, formPayload, logger, ps);
+        return coerced ?? formPayload;
+    }
+
+    /// <summary>
+    /// Logs form payload coercion details when debug logging is enabled.
+    /// </summary>
+    /// <param name="logger">The logger to use.</param>
+    /// <param name="parameterType">The parameter type being targeted.</param>
+    /// <param name="payload">The raw payload instance.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    private static void LogCoerceFormPayload(
+        Serilog.ILogger logger,
+        Type parameterType,
+        object? payload,
+        PowerShell? ps)
+    {
+        if (!logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            return;
+        }
+
+        var runspaceId = ps?.Runspace?.InstanceId.ToString() ?? "<null>";
+        logger.Debug(
+            "CoerceFormPayloadForParameter: parameterType={ParameterType} payloadType={PayloadType} runspaceId={RunspaceId}",
+            parameterType,
+            payload?.GetType(),
+            runspaceId);
+    }
+
+    /// <summary>
+    /// Handles the case where the parsed payload already matches the parameter type.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to satisfy.</param>
+    /// <param name="formPayload">The parsed form payload.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>The payload instance when it already matches the target type; otherwise null.</returns>
+    private static object? TryHandleExactPayloadType(
+        Type parameterType,
+        IKrFormPayload formPayload,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        if (!parameterType.IsInstanceOfType(formPayload))
+        {
+            return null;
+        }
+
+        // The parser may have already constructed the exact derived payload type.
+        // Still populate any declared KrMultipart-derived properties (outer/nested/etc) from Parts.
+        if (formPayload is KrMultipart mp)
+        {
+            TryPopulateKrMultipartDerivedModel(mp, logger, ps);
+        }
+
+        return formPayload;
+    }
+
+    /// <summary>
+    /// Attempts to bind a KrBindForm model that does not inherit from payload base classes.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to satisfy.</param>
+    /// <param name="formPayload">The parsed form payload.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>A bound model instance when binding succeeds; otherwise null.</returns>
+    private static object? TryBindFormModel(
+        Type parameterType,
+        IKrFormPayload formPayload,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        // Support KrBindForm on types that do not inherit KrMultipart/KrFormData.
+        // The form kind is inferred from MaxNestingDepth (multipart when > 0; otherwise form-data).
+        var bindAttr = parameterType.GetCustomAttribute<KrBindFormAttribute>(inherit: true);
+        if (bindAttr is null)
+        {
+            return null;
+        }
+        // Decide which binding strategy to use based on MaxNestingDepth.
+        return bindAttr.MaxNestingDepth > 0
+            ? TryBindMultipartModel(parameterType, formPayload as KrMultipart, logger, ps)
+            : TryBindFormDataModel(parameterType, formPayload as KrFormData, logger, ps);
+    }
+
+    /// <summary>
+    /// Attempts to bind a multipart model from a multipart payload.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to satisfy.</param>
+    /// <param name="multipartPayload">The multipart payload, if available.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>A bound model instance when binding succeeds; otherwise null.</returns>
+    private static object? TryBindMultipartModel(
+        Type parameterType,
+        KrMultipart? multipartPayload,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        if (multipartPayload is null)
+        {
+            return null;
+        }
+
+        var instance = TryCreateObjectInstance(parameterType, logger, ps);
+        if (instance is null)
+        {
+            logger.Warning("Failed to create form payload instance for parameter type {ParameterType}.", parameterType);
+            return null;
+        }
+
+        var instanceType = instance.GetType();
+        TryPopulateMultipartStorage(instance, multipartPayload, logger);
+        TryPopulateMultipartObjectProperties(instance, multipartPayload, instanceType, logger, ps, depth: 0);
+        return instance;
+    }
+
+    /// <summary>
+    /// Attempts to bind a form-data model from a form-data payload.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to satisfy.</param>
+    /// <param name="formDataPayload">The form-data payload, if available.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>A bound model instance when binding succeeds; otherwise null.</returns>
+    private static object? TryBindFormDataModel(
+        Type parameterType,
+        KrFormData? formDataPayload,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        if (formDataPayload is null)
+        {
+            return null;
+        }
+
+        var instance = TryCreateObjectInstance(parameterType, logger, ps);
+        if (instance is null)
+        {
+            logger.Warning("Failed to create form payload instance for parameter type {ParameterType}.", parameterType);
+            return null;
+        }
+
+        var instanceType = instance.GetType();
+        TryPopulateFormDataObjectProperties(instance, formDataPayload, instanceType, logger);
+        return instance;
+    }
+
+    /// <summary>
+    /// Attempts to coerce a parsed payload into KrFormData or KrMultipart derived types.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to satisfy.</param>
+    /// <param name="formPayload">The parsed form payload.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>The coerced payload instance when conversion succeeds; otherwise null.</returns>
+    private static object? TryCoerceToKrFormPayload(
+        Type parameterType,
+        IKrFormPayload formPayload,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        var formDataResult = TryCoerceToKrFormData(parameterType, formPayload, logger, ps);
+        if (formDataResult is not null)
+        {
+            return formDataResult;
+        }
+        // Try multipart next
+        return TryCoerceToKrMultipart(parameterType, formPayload, logger, ps);
+    }
+
+    /// <summary>
+    /// Attempts to coerce a parsed payload into a <see cref="KrFormData"/> derived type.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to satisfy.</param>
+    /// <param name="formPayload">The parsed form payload.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>A derived form-data instance when conversion succeeds; otherwise null.</returns>
+    private static KrFormData? TryCoerceToKrFormData(
+        Type parameterType,
+        IKrFormPayload formPayload,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        if (formPayload is not KrFormData formData || !typeof(KrFormData).IsAssignableFrom(parameterType))
+        {
+            return null;
+        }
+
+        var instance = IsPowerShellClassType(parameterType) && ps is not null
+            ? TryCreateFormDataInstanceInRunspace(ps, parameterType, logger)
+            : TryCreateFormDataInstance(parameterType, logger);
+
+        if (instance is null)
+        {
+            return null;
+        }
+
+        CopyFormData(instance, formData);
+        return instance;
+    }
+
+    /// <summary>
+    /// Attempts to coerce a parsed payload into a <see cref="KrMultipart"/> derived type.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to satisfy.</param>
+    /// <param name="formPayload">The parsed form payload.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>A derived multipart instance when conversion succeeds; otherwise null.</returns>
+    private static KrMultipart? TryCoerceToKrMultipart(
+        Type parameterType,
+        IKrFormPayload formPayload,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        if (formPayload is not KrMultipart multipart || !typeof(KrMultipart).IsAssignableFrom(parameterType))
+        {
+            return null;
+        }
+
+        var instance = IsPowerShellClassType(parameterType) && ps is not null
+            ? TryCreateMultipartInstanceInRunspace(ps, parameterType, logger)
+            : TryCreateMultipartInstance(parameterType, logger);
+
+        if (instance is null)
+        {
+            return null;
+        }
+
+        instance.Parts.AddRange(multipart.Parts);
+        TryPopulateKrMultipartDerivedModel(instance, logger, ps);
+        return instance;
+    }
+
+    /// <summary>
+    /// Attempts to populate properties declared on a <see cref="KrMultipart"/>-derived model
+    /// from the underlying ordered <see cref="KrMultipart.Parts"/> list.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The multipart parser produces a runtime container (<see cref="KrMultipart"/>) with ordered parts.
+    /// This helper performs a best-effort mapping for properties decorated with <see cref="KrPartAttribute"/>
+    /// so PowerShell model classes (e.g., <c>NestedMultipartRequest : KrMultipart</c>) expose populated
+    /// <c>$outer</c>/<c>$nested</c> properties in addition to the raw <c>Parts</c> list.
+    /// </para>
+    /// <para>
+    /// Mapping is intentionally conservative: unknown shapes are skipped rather than causing request failure.
+    /// Validation/limits are still enforced by the parser via rules.
+    /// </para>
+    /// </remarks>
+    /// <param name="model">The model instance to populate.</param>
+    /// <param name="logger">Logger for warnings.</param>
+    /// <param name="ps">Current runspace PowerShell, used for PowerShell class instantiation when needed.</param>
+    private static void TryPopulateKrMultipartDerivedModel(KrMultipart model, Serilog.ILogger logger, PowerShell? ps)
+    {
+        try
+        {
+            // Only attempt to populate properties declared on the derived type.
+            var t = model.GetType();
+            if (t == typeof(KrMultipart))
+            {
+                return;
+            }
+
+            TryPopulateMultipartObjectProperties(model, model, t, logger, ps, depth: 0);
+        }
+        catch (Exception ex)
+        {
+            logger.Warning(ex, "Failed to populate KrMultipart-derived model properties for type {ParameterType}.", model.GetType());
+        }
+    }
+
+    /// <summary>
+    /// Populates KrPart-decorated properties declared on <paramref name="declaringType"/> from a multipart payload.
+    /// </summary>
+    /// <param name="target">The object instance to populate.</param>
+    /// <param name="source">The multipart payload providing parts.</param>
+    /// <param name="declaringType">The type whose declared properties should be considered.</param>
+    /// <param name="logger">Logger for warnings.</param>
+    /// <param name="ps">Current PowerShell runspace, used to instantiate PowerShell class types.</param>
+    /// <param name="depth">Recursion depth for nested multipart binding.</param>
+    private static void TryPopulateMultipartObjectProperties(
+        object target,
+        KrMultipart source,
+        Type declaringType,
+        Serilog.ILogger logger,
+        PowerShell? ps,
+        int depth)
+    {
+        if (depth > 4)
+        {
+            return;
+        }
+
+        // Build a case-insensitive map of public instance properties.
+        // PowerShell-emitted classes can surface properties in ways that make DeclaringType/CanWrite checks unreliable.
+        // We bind by part name (Content-Disposition: name="...") to property name.
+        var props = declaringType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(static p => p.GetIndexParameters().Length == 0)
+            .Where(static p => !string.Equals(p.Name, "Parts", StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var group in source.Parts
+                     .Where(static p => !string.IsNullOrWhiteSpace(p.Name))
+                     .GroupBy(p => p.Name!, StringComparer.OrdinalIgnoreCase))
+        {
+            if (!props.TryGetValue(group.Key, out var prop))
+            {
+                continue;
+            }
+
+            // Avoid stomping values that were already set.
+            try
+            {
+                var existing = prop.GetValue(target);
+                if (existing is not null)
+                {
+                    continue;
+                }
+            }
+            catch
+            {
+                // Ignore read failures; we can still attempt to set.
+            }
+
+            var matches = group.ToList();
+            if (matches.Count == 0)
+            {
+                continue;
+            }
+
+            var value = TryBuildValueForMultipartProperty(prop.PropertyType, matches, logger, ps, depth);
+            if (value is null)
+            {
+                continue;
+            }
+
+            TrySetPropertyValue(target, prop, value, logger);
+        }
+    }
+
+    /// <summary>
+    /// Populates simple form-data properties (fields/files) on a model that does not inherit <see cref="KrFormData"/>.
+    /// </summary>
+    /// <param name="target">The object instance to populate.</param>
+    /// <param name="source">The parsed form-data payload.</param>
+    /// <param name="declaringType">The type whose declared properties should be considered.</param>
+    /// <param name="logger">Logger for warnings.</param>
+    private static void TryPopulateFormDataObjectProperties(
+        object target,
+        KrFormData source,
+        Type declaringType,
+        Serilog.ILogger logger)
+    {
+        var props = GetFormDataBindableProperties(declaringType);
+        ApplyFormFieldValues(target, source.Fields, props, logger);
+        ApplyFormFileValues(target, source.Files, props, logger);
+    }
+
+    /// <summary>
+    /// Builds a case-insensitive map of bindable public instance properties for form data binding.
+    /// </summary>
+    /// <param name="declaringType">The type whose properties should be considered.</param>
+    /// <returns>The property map keyed by property name.</returns>
+    private static Dictionary<string, PropertyInfo> GetFormDataBindableProperties(Type declaringType)
+    {
+        var props = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
+        foreach (var prop in declaringType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                     .Where(static p => p.GetIndexParameters().Length == 0))
+        {
+            // PowerShell-emitted classes can surface duplicate properties that differ only by case.
+            // Keep the first occurrence and ignore duplicates to avoid CLS conflicts.
+            _ = props.TryAdd(prop.Name, prop);
+        }
+
+        return props;
+    }
+
+    /// <summary>
+    /// Applies form field values to matching properties.
+    /// </summary>
+    /// <param name="target">The object instance to populate.</param>
+    /// <param name="fields">The form field dictionary.</param>
+    /// <param name="props">The property map.</param>
+    /// <param name="logger">Logger for warnings.</param>
+    private static void ApplyFormFieldValues(
+        object target,
+        IReadOnlyDictionary<string, string[]> fields,
+        IReadOnlyDictionary<string, PropertyInfo> props,
+        Serilog.ILogger logger)
+    {
+        foreach (var kvp in fields)
+        {
+            if (!props.TryGetValue(kvp.Key, out var prop))
+            {
+                continue;
+            }
+
+            var value = BuildFieldPropertyValue(prop.PropertyType, kvp.Value ?? []);
+            if (value is null)
+            {
+                continue;
+            }
+
+            TrySetPropertyValue(target, prop, value, logger);
+        }
+    }
+
+    /// <summary>
+    /// Applies form file values to matching properties.
+    /// </summary>
+    /// <param name="target">The object instance to populate.</param>
+    /// <param name="files">The form file dictionary.</param>
+    /// <param name="props">The property map.</param>
+    /// <param name="logger">Logger for warnings.</param>
+    private static void ApplyFormFileValues(
+        object target,
+        IReadOnlyDictionary<string, KrFilePart[]> files,
+        IReadOnlyDictionary<string, PropertyInfo> props,
+        Serilog.ILogger logger)
+    {
+        foreach (var kvp in files)
+        {
+            if (!props.TryGetValue(kvp.Key, out var prop))
+            {
+                continue;
+            }
+
+            var value = BuildFilePropertyValue(prop.PropertyType, kvp.Value ?? []);
+            if (value is null)
+            {
+                continue;
+            }
+
+            TrySetPropertyValue(target, prop, value, logger);
+        }
+    }
+
+    /// <summary>
+    /// Builds a value for a field-backed property.
+    /// </summary>
+    /// <param name="propertyType">The target property type.</param>
+    /// <param name="values">The field values.</param>
+    /// <returns>The resolved value or <c>null</c> when no match exists.</returns>
+    private static object? BuildFieldPropertyValue(Type propertyType, string[] values)
+    {
+        if (propertyType == typeof(string))
+        {
+            return values.FirstOrDefault();
+        }
+
+        if (propertyType == typeof(string[]))
+        {
+            return values;
+        }
+
+        if (propertyType == typeof(object))
+        {
+            return values.Length == 1 ? values[0] : values;
+        }
+
+        if (!propertyType.IsArray)
+        {
+            return null;
+        }
+
+        var elementType = propertyType.GetElementType();
+        return elementType is null || (elementType != typeof(string) && elementType != typeof(object))
+            ? null
+            : (object)CreateArrayFromValues(values, elementType);
+    }
+
+    /// <summary>
+    /// Builds a value for a file-backed property.
+    /// </summary>
+    /// <param name="propertyType">The target property type.</param>
+    /// <param name="files">The file values.</param>
+    /// <returns>The resolved value or <c>null</c> when no match exists.</returns>
+    private static object? BuildFilePropertyValue(Type propertyType, KrFilePart[] files)
+    {
+        if (propertyType == typeof(KrFilePart))
+        {
+            return files.FirstOrDefault();
+        }
+
+        if (propertyType == typeof(KrFilePart[]))
+        {
+            return files;
+        }
+
+        if (propertyType == typeof(object))
+        {
+            return files.Length == 1 ? files[0] : files;
+        }
+
+        if (!propertyType.IsArray)
+        {
+            return null;
+        }
+
+        var elementType = propertyType.GetElementType();
+        return elementType is null || (elementType != typeof(KrFilePart) && elementType != typeof(object))
+            ? null
+            : (object)CreateArrayFromValues(files, elementType);
+    }
+
+    /// <summary>
+    /// Creates a strongly-typed array from the provided values.
+    /// </summary>
+    /// <param name="values">The values to copy into the array.</param>
+    /// <param name="elementType">The target element type.</param>
+    /// <returns>A populated array instance.</returns>
+    private static Array CreateArrayFromValues(IReadOnlyList<object?> values, Type elementType)
+    {
+        var array = Array.CreateInstance(elementType, values.Count);
+        for (var i = 0; i < values.Count; i++)
+        {
+            array.SetValue(values[i], i);
+        }
+
+        return array;
+    }
+
+    /// <summary>
+    /// Populates the raw multipart storage list (Parts) when the target exposes it.
+    /// </summary>
+    /// <param name="target">The object instance to populate.</param>
+    /// <param name="source">The parsed multipart payload.</param>
+    /// <param name="logger">Logger for warnings.</param>
+    private static void TryPopulateMultipartStorage(object target, KrMultipart source, Serilog.ILogger logger)
+    {
+        if (target is KrMultipart typedTarget)
+        {
+            typedTarget.Parts.AddRange(source.Parts);
+            return;
+        }
+
+        try
+        {
+            var prop = target.GetType().GetProperty(nameof(KrMultipart.Parts), BindingFlags.Public | BindingFlags.Instance);
+            if (prop?.GetValue(target) is IList list)
+            {
+                foreach (var part in source.Parts)
+                {
+                    _ = list.Add(part);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.Debug(ex, "Failed to populate multipart storage Parts for type {Type}.", target.GetType());
+        }
+    }
+
+    /// <summary>
+    /// Builds a value for a multipart model property from matching parts.
+    /// </summary>
+    private static object? TryBuildValueForMultipartProperty(
+        Type propertyType,
+        List<KrRawPart> matchingParts,
+        Serilog.ILogger logger,
+        PowerShell? ps,
+        int depth)
+    {
+        if (propertyType.IsArray)
+        {
+            var elementType = propertyType.GetElementType();
+            if (elementType is null)
+            {
+                return null;
+            }
+
+            var items = new List<object?>();
+            foreach (var part in matchingParts)
+            {
+                items.Add(TryBuildSingleMultipartValue(elementType, part, logger, ps, depth));
+            }
+
+            var typed = Array.CreateInstance(elementType, items.Count);
+            for (var i = 0; i < items.Count; i++)
+            {
+                if (items[i] is not null)
+                {
+                    typed.SetValue(items[i], i);
+                }
+            }
+
+            return typed;
+        }
+
+        return TryBuildSingleMultipartValue(propertyType, matchingParts[0], logger, ps, depth);
+    }
+
+    /// <summary>
+    /// Builds a single value for a multipart model property from one matching part.
+    /// </summary>
+    /// <param name="targetType">The target property type.</param>
+    /// <param name="part">The matching multipart part.</param>
+    /// <param name="logger">Logger for warnings.</param>
+    /// <param name="ps">Current PowerShell runspace, used to instantiate PowerShell class types.</param>
+    /// <param name="depth">Recursion depth for nested multipart binding.</param>
+    /// <returns>The built value, or null if building failed.</returns>
+    private static object? TryBuildSingleMultipartValue(
+        Type targetType,
+        KrRawPart part,
+        Serilog.ILogger logger,
+        PowerShell? ps,
+        int depth)
+    {
+        if (targetType == typeof(string))
+        {
+            return TryReadPartAsString(part, logger);
+        }
+
+        var nestedResult = TryBuildNestedMultipartValue(targetType, part, logger, ps, depth);
+        return nestedResult is not null ? nestedResult : TryBuildJsonMultipartValue(targetType, part, logger, ps);
+    }
+
+    /// <summary>
+    /// Attempts to build a multipart value from a nested multipart payload.
+    /// </summary>
+    /// <param name="targetType">The target property type.</param>
+    /// <param name="part">The matching multipart part.</param>
+    /// <param name="logger">Logger for warnings.</param>
+    /// <param name="ps">Current PowerShell runspace, used to instantiate PowerShell class types.</param>
+    /// <param name="depth">Recursion depth for nested multipart binding.</param>
+    /// <returns>The nested instance or <c>null</c> when the part is not nested or cannot be bound.</returns>
+    private static object? TryBuildNestedMultipartValue(
+        Type targetType,
+        KrRawPart part,
+        Serilog.ILogger logger,
+        PowerShell? ps,
+        int depth)
+    {
+        if (part.NestedPayload is not KrMultipart nested)
+        {
+            return null;
+        }
+
+        var nestedInstance = TryCreateObjectInstance(targetType, logger, ps);
+        if (nestedInstance is null)
+        {
+            LogNestedMultipartCreateFailure(logger, targetType, part, ps);
+            return null;
+        }
+
+        TryPopulateMultipartObjectProperties(nestedInstance, nested, targetType, logger, ps, depth + 1);
+        return nestedInstance;
+    }
+
+    /// <summary>
+    /// Attempts to build a multipart value from a JSON part payload.
+    /// </summary>
+    /// <param name="targetType">The target property type.</param>
+    /// <param name="part">The matching multipart part.</param>
+    /// <param name="logger">Logger for warnings.</param>
+    /// <param name="ps">Current PowerShell runspace, used to instantiate PowerShell class types.</param>
+    /// <returns>The resolved value or <c>null</c> when no match exists.</returns>
+    private static object? TryBuildJsonMultipartValue(
+        Type targetType,
+        KrRawPart part,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        if (!IsJsonPart(part))
+        {
+            return null;
+        }
+
+        var json = TryReadPartAsString(part, logger);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        var ht = TryParseJsonToHashtable(json, part, logger);
+        if (ht is null)
+        {
+            return targetType == typeof(object) ? ConvertJsonToHashtable(json) : null;
+        }
+
+        var obj = TryCreateObjectInstance(targetType, logger, ps);
+        if (obj is not null)
+        {
+            if (TrySetAdditionalPropertiesBag(obj, ht, logger))
+            {
+                return obj;
+            }
+
+            LogJsonAdditionalPropertiesFailure(logger, targetType, part, ps);
+        }
+
+        if (obj is null)
+        {
+            LogJsonInstanceCreateFailure(logger, targetType, part, ps);
+        }
+
+        return targetType == typeof(object) ? ht : null;
+    }
+
+    /// <summary>
+    /// Determines whether a multipart part contains JSON content.
+    /// </summary>
+    /// <param name="part">The multipart part.</param>
+    /// <returns><c>true</c> if the part is JSON; otherwise <c>false</c>.</returns>
+    private static bool IsJsonPart(KrRawPart part)
+        => MediaTypeHelper.Canonicalize(part.ContentType).Equals("application/json", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Attempts to parse JSON text into a hashtable, throwing a form exception on invalid JSON.
+    /// </summary>
+    /// <param name="json">The JSON string.</param>
+    /// <param name="part">The multipart part.</param>
+    /// <param name="logger">Logger for warnings.</param>
+    /// <returns>The parsed hashtable or <c>null</c> when parsing yields a non-hashtable.</returns>
+    private static Hashtable? TryParseJsonToHashtable(string json, KrRawPart part, Serilog.ILogger logger)
+    {
+        try
+        {
+            return ConvertJsonToHashtable(json) as Hashtable;
+        }
+        catch (JsonException ex)
+        {
+            logger.Warning(ex, "Invalid JSON payload for multipart part '{PartName}'.", part.Name);
+            throw new KrFormException("Invalid JSON payload for form part.", StatusCodes.Status400BadRequest);
+        }
+    }
+
+    /// <summary>
+    /// Logs a failure to create a nested multipart instance when debug logging is enabled.
+    /// </summary>
+    /// <param name="logger">Logger for warnings.</param>
+    /// <param name="targetType">The target property type.</param>
+    /// <param name="part">The multipart part.</param>
+    /// <param name="ps">Current PowerShell runspace, if available.</param>
+    private static void LogNestedMultipartCreateFailure(
+        Serilog.ILogger logger,
+        Type targetType,
+        KrRawPart part,
+        PowerShell? ps)
+    {
+        if (!logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            return;
+        }
+
+        logger.Debug(
+            "Multipart bind: failed to create nested instance for targetType={TargetType} partName={PartName} contentType={ContentType} runspaceId={RunspaceId}",
+            targetType,
+            part.Name,
+            part.ContentType,
+            ps?.Runspace?.InstanceId.ToString() ?? "<null>");
+    }
+
+    /// <summary>
+    /// Logs a failure to set AdditionalProperties for JSON parts when debug logging is enabled.
+    /// </summary>
+    /// <param name="logger">Logger for warnings.</param>
+    /// <param name="targetType">The target property type.</param>
+    /// <param name="part">The multipart part.</param>
+    /// <param name="ps">Current PowerShell runspace, if available.</param>
+    private static void LogJsonAdditionalPropertiesFailure(
+        Serilog.ILogger logger,
+        Type targetType,
+        KrRawPart part,
+        PowerShell? ps)
+    {
+        if (!logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            return;
+        }
+
+        logger.Debug(
+            "Multipart bind: created instance for json part but could not set AdditionalProperties for targetType={TargetType} partName={PartName} runspaceId={RunspaceId}",
+            targetType,
+            part.Name,
+            ps?.Runspace?.InstanceId.ToString() ?? "<null>");
+    }
+
+    /// <summary>
+    /// Logs a failure to create an instance for a JSON part when debug logging is enabled.
+    /// </summary>
+    /// <param name="logger">Logger for warnings.</param>
+    /// <param name="targetType">The target property type.</param>
+    /// <param name="part">The multipart part.</param>
+    /// <param name="ps">Current PowerShell runspace, if available.</param>
+    private static void LogJsonInstanceCreateFailure(
+        Serilog.ILogger logger,
+        Type targetType,
+        KrRawPart part,
+        PowerShell? ps)
+    {
+        if (!logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            return;
+        }
+
+        logger.Debug(
+            "Multipart bind: failed to create instance for json part targetType={TargetType} partName={PartName} runspaceId={RunspaceId}",
+            targetType,
+            part.Name,
+            ps?.Runspace?.InstanceId.ToString() ?? "<null>");
+    }
+
+    /// <summary>
+    /// Reads a stored part payload as UTF-8 text.
+    /// </summary>
+    /// <param name="part">The multipart part to read.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <returns>The part payload as a string, or null if reading failed.</returns>
+    private static string? TryReadPartAsString(KrRawPart part, Serilog.ILogger logger)
+    {
+        try
+        {
+            return string.IsNullOrWhiteSpace(part.TempPath) || !File.Exists(part.TempPath)
+                ? null
+                : File.ReadAllText(part.TempPath, Encoding.UTF8);
+        }
+        catch (Exception ex)
+        {
+            logger.Warning(ex, "Failed to read multipart part payload from '{TempPath}'.", part.TempPath);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to create an instance of the requested type, using the current PowerShell runspace
+    /// for PowerShell-emitted class types.
+    /// </summary>
+    /// <param name="type">The type to instantiate.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, when available.</param>
+    /// <returns>The created instance, or null if instantiation failed.</returns>
+    private static object? TryCreateObjectInstance(Type type, Serilog.ILogger logger, PowerShell? ps)
+    {
+        return IsPowerShellClassType(type) && ps?.Runspace is not null
+            ? TryCreatePowerShellClassInstance(type, logger, ps)
+            : TryCreateStandardInstance(type, logger);
+    }
+
+    /// <summary>
+    /// Attempts to create a PowerShell-emitted class instance using the current runspace.
+    /// </summary>
+    /// <param name="type">The type to instantiate.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance.</param>
+    /// <returns>The created instance, or null if instantiation failed.</returns>
+    private static object? TryCreatePowerShellClassInstance(Type type, Serilog.ILogger logger, PowerShell ps)
+    {
+        // For PowerShell-emitted classes, create instances inside the current runspace only.
+        // This avoids cross-runspace type identity mismatches.
+        var runspaceInstance = TryCreateObjectInstanceInRunspace(ps, type, logger);
+        if (runspaceInstance is not null)
+        {
+            return runspaceInstance;
+        }
+
+        if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+        {
+            logger.Debug("Failed to create PowerShell class instance in the current runspace for type {Type}.", type);
+        }
+
+        return TryCreateUninitializedInstance(type, logger, "PowerShell class type");
+    }
+
+    /// <summary>
+    /// Attempts to create a standard instance via Activator with a fallback to an uninitialized instance.
+    /// </summary>
+    /// <param name="type">The type to instantiate.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <returns>The created instance, or null if instantiation failed.</returns>
+    private static object? TryCreateStandardInstance(Type type, Serilog.ILogger logger)
+    {
+        try
+        {
+            return Activator.CreateInstance(type, nonPublic: true);
+        }
+        catch (Exception ex)
+        {
+            if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+            {
+                logger.Debug(ex, "Failed to create instance via Activator for type {Type}.", type);
+            }
+        }
+
+        // PowerShell-emitted types sometimes fail Activator-based construction even though they are otherwise usable.
+        // As a fallback, create an uninitialized instance so we can still populate properties.
+        return TryCreateUninitializedInstance(type, logger, "type");
+    }
+
+    /// <summary>
+    /// Attempts to create an uninitialized instance when the type is a non-abstract reference type.
+    /// </summary>
+    /// <param name="type">The type to instantiate.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="typeDescription">A short description of the type for logging.</param>
+    /// <returns>The uninitialized instance, or null if instantiation failed.</returns>
+    private static object? TryCreateUninitializedInstance(Type type, Serilog.ILogger logger, string typeDescription)
+    {
+        if (type.IsValueType || type.IsAbstract)
+        {
+            return null;
+        }
+
+        try
+        {
+#pragma warning disable SYSLIB0050
+            return FormatterServices.GetUninitializedObject(type);
+#pragma warning restore SYSLIB0050
+        }
+        catch (Exception ex)
+        {
+            if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+            {
+                logger.Debug(ex, "Failed to create uninitialized instance for {TypeDescription} {Type}.", typeDescription, type);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Creates an instance of <paramref name="type"/> using the current PowerShell runspace.
+    /// </summary>
+    private static object? TryCreateObjectInstanceInRunspace(PowerShell ps, Type type, Serilog.ILogger logger)
+    {
+        try
+        {
+            if (ps.Runspace is null)
+            {
+                if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+                {
+                    logger.Debug("Runspace instance creation skipped: PowerShell.Runspace is null for type {ParameterType}.", type);
+                }
+                return null;
+            }
+
+            using var localPs = PowerShell.Create();
+            localPs.Runspace = ps.Runspace;
+
+            var candidates = new[]
+            {
+                type.AssemblyQualifiedName,
+                type.FullName,
+                type.Name
+            };
+
+            foreach (var candidate in candidates.Where(static c => !string.IsNullOrWhiteSpace(c)).Distinct(StringComparer.Ordinal))
+            {
+                localPs.Commands.Clear();
+                localPs.Streams.ClearStreams();
+
+                var escapedName = EscapePowerShellString(candidate!);
+                _ = localPs.AddScript($"[Activator]::CreateInstance([type]'{escapedName}')");
+
+                var results = localPs.Invoke();
+                if (!localPs.HadErrors && results.Count > 0)
+                {
+                    return results[0]?.BaseObject;
+                }
+
+                // Keep trying other names; some PowerShell types resolve better via FullName/Name than AQN.
+                if (logger.IsEnabled(Serilog.Events.LogEventLevel.Debug))
+                {
+                    logger.Debug("Failed to create instance for type {ParameterType} using type name '{TypeName}'.", type, candidate);
+                }
+            }
+
+            logger.Warning("Failed to resolve PowerShell class type {ParameterType} in the current runspace.", type);
+            return null;
+        }
+        catch (Exception ex)
+        {
+            logger.Warning(ex, "Failed to create PowerShell class instance for type {ParameterType}.", type);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to assign <paramref name="value"/> to the given property.
+    /// </summary>
+    private static void TrySetPropertyValue(object target, PropertyInfo prop, object value, Serilog.ILogger logger)
+    {
+        try
+        {
+            if (prop.PropertyType.IsInstanceOfType(value))
+            {
+                prop.SetValue(target, value);
+                return;
+            }
+
+            // Allow assigning any value into [object].
+            if (prop.PropertyType == typeof(object))
+            {
+                prop.SetValue(target, value);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.Warning(ex, "Failed to set property {PropertyName} on type {Type}.", prop.Name, target.GetType());
+
+            // Best-effort fallback for dynamically-emitted types: try writing the auto-property backing field.
+            _ = TrySetPropertyBackingFieldValue(target, prop, value, logger);
+        }
+    }
+
+    /// <summary>
+    /// Attempts to set an auto-property backing field for a property on a target instance.
+    /// </summary>
+    private static bool TrySetPropertyBackingFieldValue(object target, PropertyInfo prop, object value, Serilog.ILogger logger)
+    {
+        try
+        {
+            var t = target.GetType();
+            var field = t.GetField($"<{prop.Name}>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)
+                        ?? t.GetField(prop.Name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            if (field is null)
+            {
+                return false;
+            }
+
+            if (field.FieldType.IsInstanceOfType(value) || field.FieldType == typeof(object))
+            {
+                field.SetValue(target, value);
+                return true;
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            logger.Debug(ex, "Failed to set backing field for property {PropertyName} on type {Type}.", prop.Name, target.GetType());
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to set an <c>AdditionalProperties</c> bag (or similarly named) on a model instance.
+    /// </summary>
+    private static bool TrySetAdditionalPropertiesBag(object target, Hashtable ht, Serilog.ILogger logger)
+    {
+        try
+        {
+            ht = NormalizeAdditionalPropertiesBag(target, ht, logger);
+            var prop = target.GetType().GetProperty("AdditionalProperties", BindingFlags.Public | BindingFlags.Instance);
+            if (prop is null)
+            {
+                return TrySetAdditionalPropertiesBackingField(target, ht, logger);
+            }
+
+            if (prop.CanWrite && (prop.PropertyType == typeof(object) || prop.PropertyType.IsInstanceOfType(ht)))
+            {
+                try
+                {
+                    prop.SetValue(target, ht);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    // Some dynamically-emitted types have setters that can throw; fall back to backing field.
+                    logger.Debug(ex, "Failed to set AdditionalProperties via setter on type {Type}; trying backing field.", target.GetType());
+                    return TrySetAdditionalPropertiesBackingField(target, ht, logger);
+                }
+            }
+
+            // Some PowerShell-emitted properties can be effectively read-only to reflection.
+            return TrySetAdditionalPropertiesBackingField(target, ht, logger);
+        }
+        catch (Exception ex)
+        {
+            logger.Warning(ex, "Failed to set AdditionalProperties on type {Type}.", target.GetType());
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to set an <c>AdditionalProperties</c> backing field on a model instance.
+    /// </summary>
+    /// <param name="target">The target instance.</param>
+    /// <param name="ht">The hashtable to assign.</param>
+    /// <param name="logger">Logger for diagnostics.</param>
+    /// <returns>True if the backing field was set; otherwise false.</returns>
+    private static Hashtable NormalizeAdditionalPropertiesBag(object target, Hashtable ht, Serilog.ILogger logger)
+    {
+        if (!TryGetAdditionalPropertiesMetadata(target, out var additionalTypeName, out var patterns))
+        {
+            return ht;
+        }
+        // If there are pattern rules, apply those first.
+        if (patterns.Count > 0)
+        {
+            return FilterPatternedAdditionalProperties(target, ht, patterns, logger);
+        }
+        // Otherwise, if there's a single type name, convert all properties to that type.
+        return string.IsNullOrWhiteSpace(additionalTypeName)
+            ? ht
+            : ConvertAdditionalPropertiesByType(target, ht, additionalTypeName, logger);
+    }
+
+    /// <summary>
+    /// Filters and converts additional properties based on pattern rules.
+    /// </summary>
+    /// <param name="target">The target instance.</param>
+    /// <param name="ht">The original properties hashtable.</param>
+    /// <param name="patterns">The pattern rules to apply.</param>
+    /// <param name="logger">Logger for diagnostics.</param>
+    /// <returns>The filtered and converted properties.</returns>
+    private static Hashtable FilterPatternedAdditionalProperties(
+        object target,
+        Hashtable ht,
+        IReadOnlyList<PatternPropertyRule> patterns,
+        Serilog.ILogger logger)
+    {
+        var filtered = new Hashtable(StringComparer.OrdinalIgnoreCase);
+        foreach (DictionaryEntry entry in ht)
+        {
+            if (entry.Key is not string key)
+            {
+                continue;
+            }
+
+            var match = patterns.FirstOrDefault(p => p.IsMatch(key));
+            if (match is null)
+            {
+                continue;
+            }
+
+            var targetType = ResolveAdditionalPropertiesType(target.GetType(), match.SchemaTypeName);
+            filtered[key] = targetType is null
+                ? entry.Value
+                : ConvertAdditionalPropertyValue(entry.Value, targetType, logger);
+        }
+
+        return filtered;
+    }
+
+    /// <summary>
+    /// Converts additional properties using a single resolved target type.
+    /// </summary>
+    /// <param name="target">The target instance.</param>
+    /// <param name="ht">The original properties hashtable.</param>
+    /// <param name="typeName">The additional properties type name.</param>
+    /// <param name="logger">Logger for diagnostics.</param>
+    /// <returns>The converted properties.</returns>
+    private static Hashtable ConvertAdditionalPropertiesByType(
+        object target,
+        Hashtable ht,
+        string typeName,
+        Serilog.ILogger logger)
+    {
+        var targetType = ResolveAdditionalPropertiesType(target.GetType(), typeName);
+        if (targetType is null)
+        {
+            return ht;
+        }
+
+        var converted = new Hashtable(StringComparer.OrdinalIgnoreCase);
+        foreach (DictionaryEntry entry in ht)
+        {
+            converted[entry.Key] = ConvertAdditionalPropertyValue(entry.Value, targetType, logger);
+        }
+
+        return converted;
+    }
+
+    private static object ConvertAdditionalPropertyValue(object? value, Type targetType, Serilog.ILogger logger)
+    {
+        if (value is null)
+        {
+            return value!;
+        }
+
+        if (targetType.IsInstanceOfType(value))
+        {
+            return value;
+        }
+
+        if (targetType == typeof(object))
+        {
+            return value;
+        }
+
+        if (value is Hashtable ht)
+        {
+            return ConvertHashtableToObject(ht, targetType, depth: 0, ps: null) ?? value;
+        }
+
+        if (targetType == typeof(string))
+        {
+            return value.ToString() ?? string.Empty;
+        }
+
+        if (targetType.IsEnum && value is string s)
+        {
+            try
+            {
+                return Enum.Parse(targetType, s, ignoreCase: true);
+            }
+            catch
+            {
+                return value;
+            }
+        }
+
+        try
+        {
+            return Convert.ChangeType(value, targetType, CultureInfo.InvariantCulture) ?? value;
+        }
+        catch (Exception ex)
+        {
+            logger.Debug(ex, "Failed to convert additional property to {TargetType}.", targetType);
+            return value;
+        }
+    }
+
+    private static bool TryGetAdditionalPropertiesMetadata(
+        object target,
+        out string? additionalTypeName,
+        out List<PatternPropertyRule> patterns)
+    {
+        additionalTypeName = null;
+        patterns = [];
+
+        var metaProp = target.GetType().GetProperty(
+            "AdditionalPropertiesMetadata",
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+
+        if (metaProp?.GetValue(null) is not Hashtable meta)
+        {
+            return false;
+        }
+
+        additionalTypeName = meta["AdditionalPropertiesType"] as string;
+
+        if (meta["PatternProperties"] is IEnumerable list)
+        {
+            foreach (var entry in list)
+            {
+                if (entry is not Hashtable pattern)
+                {
+                    continue;
+                }
+
+                var keyPattern = pattern["KeyPattern"] as string;
+                var schemaType = pattern["SchemaType"] as string;
+                if (string.IsNullOrWhiteSpace(keyPattern))
+                {
+                    continue;
+                }
+
+                patterns.Add(new PatternPropertyRule(keyPattern, schemaType));
+            }
+        }
+
+        return !string.IsNullOrWhiteSpace(additionalTypeName) || patterns.Count > 0;
+    }
+
+    /// <summary>
+    /// Resolves a type for additional properties based on a type name or alias.
+    /// </summary>
+    /// <param name="targetType">The target type requesting the additional properties type.</param>
+    /// <param name="typeName">The type name or alias to resolve.</param>
+    /// <returns>The resolved type, or null if resolution failed.</returns>
+    private static Type? ResolveAdditionalPropertiesType(Type targetType, string? typeName)
+    {
+        if (string.IsNullOrWhiteSpace(typeName))
+        {
+            return null;
+        }
+
+        var trimmed = typeName.Trim();
+
+        return TryResolveAlias(trimmed)
+            ?? TryResolveByTypeName(trimmed)
+            ?? TryResolveInAssembly(targetType.Assembly, trimmed)
+            ?? TryResolveInLoadedAssemblies(trimmed);
+    }
+
+    /// <summary>
+    /// Attempts to resolve a known type alias (e.g., string, int32).
+    /// </summary>
+    /// <param name="typeName">The candidate alias.</param>
+    /// <returns>The resolved CLR type, or null if no alias matched.</returns>
+    private static Type? TryResolveAlias(string typeName)
+    {
+        return typeName.ToLowerInvariant() switch
+        {
+            "string" => typeof(string),
+            "int" or "int32" => typeof(int),
+            "long" or "int64" => typeof(long),
+            "double" => typeof(double),
+            "float" => typeof(float),
+            "decimal" => typeof(decimal),
+            "bool" or "boolean" => typeof(bool),
+            "object" => typeof(object),
+            "hashtable" => typeof(Hashtable),
+            _ => null
+        };
+    }
+
+    /// <summary>
+    /// Attempts to resolve a type using <see cref="Type.GetType(string, bool, bool)"/>.
+    /// </summary>
+    /// <param name="typeName">The fully qualified type name.</param>
+    /// <returns>The resolved CLR type, or null when resolution failed.</returns>
+    private static Type? TryResolveByTypeName(string typeName)
+        => System.Type.GetType(typeName, throwOnError: false, ignoreCase: true);
+
+    /// <summary>
+    /// Attempts to resolve a type by searching within the provided assembly.
+    /// </summary>
+    /// <param name="assembly">The assembly to search.</param>
+    /// <param name="typeName">The type name or full name to match.</param>
+    /// <returns>The resolved CLR type, or null if no match exists.</returns>
+    private static Type? TryResolveInAssembly(Assembly assembly, string typeName)
+    {
+        return assembly.GetTypes()
+            .FirstOrDefault(t => string.Equals(t.FullName, typeName, StringComparison.OrdinalIgnoreCase)
+                              || string.Equals(t.Name, typeName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Attempts to resolve a type by searching all loaded assemblies.
+    /// </summary>
+    /// <param name="typeName">The type name or full name to match.</param>
+    /// <returns>The resolved CLR type, or null if no match exists.</returns>
+    private static Type? TryResolveInLoadedAssemblies(string typeName)
+    {
+        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            var match = TryResolveInAssembly(asm, typeName);
+            if (match is not null)
+            {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Attempts to set a backing field for an <c>AdditionalProperties</c> auto-property.
+    /// </summary>
+    private static bool TrySetAdditionalPropertiesBackingField(object target, Hashtable ht, Serilog.ILogger logger)
+    {
+        try
+        {
+            var t = target.GetType();
+            var field = t.GetField("<AdditionalProperties>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)
+                        ?? t.GetField("AdditionalProperties", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            if (field is null)
+            {
+                return false;
+            }
+
+            if (field.FieldType == typeof(object) || field.FieldType.IsInstanceOfType(ht))
+            {
+                field.SetValue(target, ht);
+                return true;
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            logger.Debug(ex, "Failed to set AdditionalProperties backing field on type {Type}.", target.GetType());
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Returns true when the type is a PowerShell class emitted in a dynamic assembly.
+    /// </summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <returns>True when the type originates from a PowerShell class assembly.</returns>
+    private static bool IsPowerShellClassType(Type type)
+    {
+        var asm = type.Assembly;
+        if (!asm.IsDynamic)
+        {
+            return false;
+        }
+
+        var fullName = asm.FullName;
+        return fullName is not null && fullName.StartsWith("PowerShell Class Assembly", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Attempts to create a <see cref="KrMultipart"/> instance for a derived parameter type.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to construct.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <returns>A new multipart instance or null if creation failed.</returns>
+    private static KrMultipart? TryCreateMultipartInstance(Type parameterType, Serilog.ILogger logger)
+    {
+        try
+        {
+            var instance = Activator.CreateInstance(parameterType, nonPublic: true) as KrMultipart;
+            if (instance is null)
+            {
+                logger.Warning("Failed to create form payload instance for parameter type {ParameterType}.", parameterType);
+            }
+            return instance;
+        }
+        catch (Exception ex)
+        {
+            logger.Warning(ex, "Failed to create form payload instance for parameter type {ParameterType}.", parameterType);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to create a <see cref="KrFormData"/> instance for a derived parameter type.
+    /// </summary>
+    /// <param name="parameterType">The parameter type to construct.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <returns>A new form data instance or null if creation failed.</returns>
+    private static KrFormData? TryCreateFormDataInstance(Type parameterType, Serilog.ILogger logger)
+    {
+        try
+        {
+            var instance = Activator.CreateInstance(parameterType, nonPublic: true) as KrFormData;
+            if (instance is null)
+            {
+                logger.Warning("Failed to create form payload instance for parameter type {ParameterType}.", parameterType);
+            }
+            return instance;
+        }
+        catch (Exception ex)
+        {
+            logger.Warning(ex, "Failed to create form payload instance for parameter type {ParameterType}.", parameterType);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to create a derived <see cref="KrMultipart"/> instance using the current PowerShell runspace.
+    /// </summary>
+    /// <param name="ps">The current PowerShell instance.</param>
+    /// <param name="parameterType">The parameter type to construct.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <returns>A new multipart instance or null if creation failed.</returns>
+    private static KrMultipart? TryCreateMultipartInstanceInRunspace(PowerShell ps, Type parameterType, Serilog.ILogger logger)
+    {
+        try
+        {
+            using var localPs = PowerShell.Create();
+            localPs.Runspace = ps.Runspace;
+
+            var typeName = parameterType.FullName ?? parameterType.Name;
+            var escapedName = EscapePowerShellString(typeName);
+            _ = localPs.AddScript($"[Activator]::CreateInstance([type]'{escapedName}')");
+
+            var results = localPs.Invoke();
+            if (localPs.HadErrors || results.Count == 0)
+            {
+                logger.Warning("Failed to resolve PowerShell class type {ParameterType} in the current runspace.", parameterType);
+                return null;
+            }
+
+            var instance = results[0]?.BaseObject as KrMultipart;
+            if (instance is null)
+            {
+                logger.Warning("Resolved PowerShell class type {ParameterType} is not a KrMultipart instance.", parameterType);
+            }
+
+            return instance;
+        }
+        catch (Exception ex)
+        {
+            logger.Warning(ex, "Failed to create PowerShell class instance for parameter type {ParameterType}.", parameterType);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to create a derived <see cref="KrFormData"/> instance using the current PowerShell runspace.
+    /// </summary>
+    /// <param name="ps">The current PowerShell instance.</param>
+    /// <param name="parameterType">The parameter type to construct.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <returns>A new form data instance or null if creation failed.</returns>
+    private static KrFormData? TryCreateFormDataInstanceInRunspace(PowerShell ps, Type parameterType, Serilog.ILogger logger)
+    {
+        try
+        {
+            using var localPs = PowerShell.Create();
+            localPs.Runspace = ps.Runspace;
+
+            var typeName = parameterType.FullName ?? parameterType.Name;
+            var escapedName = EscapePowerShellString(typeName);
+            _ = localPs.AddScript($"[Activator]::CreateInstance([type]'{escapedName}')");
+
+            var results = localPs.Invoke();
+            if (localPs.HadErrors || results.Count == 0)
+            {
+                logger.Warning("Failed to resolve PowerShell class type {ParameterType} in the current runspace.", parameterType);
+                return null;
+            }
+
+            var instance = results[0]?.BaseObject as KrFormData;
+            if (instance is null)
+            {
+                logger.Warning("Resolved PowerShell class type {ParameterType} is not a KrFormData instance.", parameterType);
+            }
+
+            return instance;
+        }
+        catch (Exception ex)
+        {
+            logger.Warning(ex, "Failed to create PowerShell class instance for parameter type {ParameterType}.", parameterType);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Copies fields and files from a parsed form payload into a derived <see cref="KrFormData"/> instance.
+    /// </summary>
+    /// <param name="target">The instance to populate.</param>
+    /// <param name="source">The parsed payload to copy from.</param>
+    private static void CopyFormData(KrFormData target, KrFormData source)
+    {
+        foreach (var kvp in source.Fields)
+        {
+            target.Fields[kvp.Key] = kvp.Value;
+        }
+
+        foreach (var kvp in source.Files)
+        {
+            target.Files[kvp.Key] = kvp.Value;
+        }
+    }
+
+    /// <summary>
+    /// Escapes a string for inclusion in a single-quoted PowerShell string literal.
+    /// </summary>
+    /// <param name="value">The raw string value.</param>
+    /// <returns>An escaped string safe for single-quoted PowerShell literals.</returns>
+    private static string EscapePowerShellString(string value)
+        => value.Replace("'", "''", StringComparison.Ordinal);
 
     /// <summary>
     /// Logs the injection of a parameter when debug logging is enabled.
@@ -641,7 +2267,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             return rootMap;
         }
         // Otherwise, attempt to convert to the target type.
-        return ConvertHashtableToObject(rootMap, parameterType, depth: 0);
+        return ConvertHashtableToObject(rootMap, parameterType, depth: 0, ps: null);
     }
 
     private static Hashtable? ExtractRootMapForBinding(Hashtable wrapped, string rootLocalName)
@@ -801,27 +2427,85 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
                 : null;
     }
 
-    private static object? ConvertHashtableToObject(Hashtable data, Type targetType, int depth)
+    /// <summary>
+    /// Converts a hashtable into an object of the specified target type.
+    /// </summary>
+    /// <param name="data">The hashtable data to convert.</param>
+    /// <param name="targetType">The target type to convert to.</param>
+    /// <param name="depth">The current recursion depth.</param>
+    /// <param name="ps">The current PowerShell instance, if available.</param>
+    /// <returns>The converted object, or null if conversion is not possible.</returns>
+    private static object? ConvertHashtableToObject(Hashtable data, Type targetType, int depth, PowerShell? ps)
     {
         if (depth >= MaxObjectBindingDepth)
         {
             return null;
         }
 
-        var instance = Activator.CreateInstance(targetType, nonPublic: true);
+        var instance = TryCreateObjectInstance(targetType, Serilog.Log.Logger, ps);
         if (instance is null)
         {
             return null;
         }
 
-        var props = targetType
-            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(p => p.CanWrite && p.SetMethod is not null)
-            .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
+        PopulateObjectFromHashtable(instance, targetType, data, depth, Serilog.Log.Logger, ps);
+        return instance;
+    }
 
-        var fields = targetType
-            .GetFields(BindingFlags.Public | BindingFlags.Instance)
-            .ToDictionary(f => f.Name, StringComparer.OrdinalIgnoreCase);
+    /// <summary>
+    /// Attempts to convert a hashtable into an instance of the specified parameter type.
+    /// </summary>
+    /// <param name="parameterType">The target parameter type.</param>
+    /// <param name="data">The hashtable data to convert.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, if available.</param>
+    /// <returns>The converted object, or null if conversion is not possible.</returns>
+    private static object? TryConvertHashtableToParameterType(
+        Type parameterType,
+        Hashtable data,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        if (parameterType == typeof(object) || typeof(IDictionary).IsAssignableFrom(parameterType))
+        {
+            return null;
+        }
+
+        if (!parameterType.IsClass)
+        {
+            return null;
+        }
+
+        var instance = TryCreateObjectInstance(parameterType, logger, ps);
+        if (instance is null)
+        {
+            return null;
+        }
+
+        PopulateObjectFromHashtable(instance, instance.GetType(), data, depth: 0, logger, ps);
+        return instance;
+    }
+
+    /// <summary>
+    /// Populates an object's properties and fields from a hashtable.
+    /// </summary>
+    /// <param name="instance">The object instance to populate.</param>
+    /// <param name="targetType">The target type of the object.</param>
+    /// <param name="data">The hashtable data to populate from.</param>
+    /// <param name="depth">The current recursion depth.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <param name="ps">The current PowerShell instance, if available.</param>
+    private static void PopulateObjectFromHashtable(
+        object instance,
+        Type targetType,
+        Hashtable data,
+        int depth,
+        Serilog.ILogger logger,
+        PowerShell? ps)
+    {
+        var props = GetWritableProperties(targetType);
+        var fields = GetPublicFields(targetType);
+        var extras = new Hashtable(StringComparer.OrdinalIgnoreCase);
 
         foreach (DictionaryEntry entry in data)
         {
@@ -830,23 +2514,119 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
                 continue;
             }
 
-            var key = rawKey.StartsWith('@') ? rawKey[1..] : rawKey;
-
-            if (props.TryGetValue(key, out var prop))
+            var key = NormalizeMemberKey(rawKey);
+            if (TrySetMemberValue(instance, entry.Value, key, props, fields, depth, ps))
             {
-                var converted = ConvertToTargetType(entry.Value, prop.PropertyType, depth + 1);
-                prop.SetValue(instance, converted);
                 continue;
             }
 
-            if (fields.TryGetValue(key, out var field))
-            {
-                var converted = ConvertToTargetType(entry.Value, field.FieldType, depth + 1);
-                field.SetValue(instance, converted);
-            }
+            extras[key] = entry.Value;
         }
 
-        return instance;
+        ApplyAdditionalPropertiesExtras(instance, data, extras, logger);
+    }
+
+    /// <summary>
+    /// Builds a case-insensitive map of writable public instance properties.
+    /// </summary>
+    /// <param name="targetType">The target type.</param>
+    /// <returns>The property map keyed by property name.</returns>
+    private static Dictionary<string, PropertyInfo> GetWritableProperties(Type targetType)
+    {
+        return targetType
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.CanWrite && p.SetMethod is not null)
+            .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Builds a case-insensitive map of public instance fields.
+    /// </summary>
+    /// <param name="targetType">The target type.</param>
+    /// <returns>The field map keyed by field name.</returns>
+    private static Dictionary<string, FieldInfo> GetPublicFields(Type targetType)
+    {
+        return targetType
+            .GetFields(BindingFlags.Public | BindingFlags.Instance)
+            .ToDictionary(f => f.Name, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Normalizes a member key by trimming the PowerShell @ prefix when present.
+    /// </summary>
+    /// <param name="rawKey">The raw key.</param>
+    /// <returns>The normalized key.</returns>
+    private static string NormalizeMemberKey(string rawKey)
+        => rawKey.StartsWith('@') ? rawKey[1..] : rawKey;
+
+    /// <summary>
+    /// Attempts to set a property or field value on the target instance.
+    /// </summary>
+    /// <param name="instance">The target instance.</param>
+    /// <param name="value">The value to assign.</param>
+    /// <param name="key">The member name.</param>
+    /// <param name="props">The property map.</param>
+    /// <param name="fields">The field map.</param>
+    /// <param name="depth">The current recursion depth.</param>
+    /// <param name="ps">The current PowerShell instance, if available.</param>
+    /// <returns><c>true</c> if a property or field was set; otherwise <c>false</c>.</returns>
+    private static bool TrySetMemberValue(
+        object instance,
+        object? value,
+        string key,
+        IReadOnlyDictionary<string, PropertyInfo> props,
+        IReadOnlyDictionary<string, FieldInfo> fields,
+        int depth,
+        PowerShell? ps)
+    {
+        if (props.TryGetValue(key, out var prop))
+        {
+            var converted = ConvertToTargetType(value, prop.PropertyType, depth + 1, ps);
+            prop.SetValue(instance, converted);
+            return true;
+        }
+
+        if (fields.TryGetValue(key, out var field))
+        {
+            var converted = ConvertToTargetType(value, field.FieldType, depth + 1, ps);
+            field.SetValue(instance, converted);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Applies unmatched entries to the AdditionalProperties bag when present.
+    /// </summary>
+    /// <param name="instance">The target instance.</param>
+    /// <param name="data">The original hashtable data.</param>
+    /// <param name="extras">Unmatched entries to apply.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    private static void ApplyAdditionalPropertiesExtras(
+        object instance,
+        Hashtable data,
+        Hashtable extras,
+        Serilog.ILogger logger)
+    {
+        if (extras.Count == 0)
+        {
+            return;
+        }
+
+        if (TryGetHashtableValue(data, "AdditionalProperties", out var existingBag)
+            && existingBag is Hashtable existingHash)
+        {
+            foreach (DictionaryEntry entry in extras)
+            {
+                existingHash[entry.Key] = entry.Value;
+            }
+
+            _ = TrySetAdditionalPropertiesBag(instance, existingHash, logger);
+            return;
+        }
+
+        _ = TrySetAdditionalPropertiesBag(instance, extras, logger);
     }
 
     /// <summary>
@@ -855,8 +2635,9 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <param name="value">The value to convert.</param>
     /// <param name="targetType">The target type to convert to.</param>
     /// <param name="depth">The current recursion depth.</param>
+    /// <param name="ps">The current PowerShell instance, if available.</param>
     /// <returns>The converted value, or null if conversion is not possible.</returns>
-    private static object? ConvertToTargetType(object? value, Type targetType, int depth)
+    private static object? ConvertToTargetType(object? value, Type targetType, int depth, PowerShell? ps)
     {
         if (value is null)
         {
@@ -867,9 +2648,9 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
         return targetType.IsInstanceOfType(value)
             ? value
-            : TryConvertHashtableValue(value, targetType, depth, out var convertedFromHashtable)
+            : TryConvertHashtableValue(value, targetType, depth, ps, out var convertedFromHashtable)
                 ? convertedFromHashtable
-                : TryConvertListOrArrayValue(value, targetType, depth, out var convertedFromEnumerable)
+                : TryConvertListOrArrayValue(value, targetType, depth, ps, out var convertedFromEnumerable)
                     ? convertedFromEnumerable
                     : ConvertScalarValue(value, targetType);
     }
@@ -888,9 +2669,10 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <param name="value">Value to convert.</param>
     /// <param name="targetType">Target type.</param>
     /// <param name="depth">Current recursion depth.</param>
+    /// <param name="ps">The current PowerShell instance, if available.</param>
     /// <param name="converted">Converted result.</param>
     /// <returns><c>true</c> when the value was handled; otherwise <c>false</c>.</returns>
-    private static bool TryConvertHashtableValue(object value, Type targetType, int depth, out object? converted)
+    private static bool TryConvertHashtableValue(object value, Type targetType, int depth, PowerShell? ps, out object? converted)
     {
         if (value is not Hashtable ht)
         {
@@ -900,7 +2682,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
         converted = typeof(IDictionary).IsAssignableFrom(targetType)
             ? ht
-            : ConvertHashtableToObject(ht, targetType, depth);
+            : ConvertHashtableToObject(ht, targetType, depth, ps);
         return true;
     }
 
@@ -910,19 +2692,20 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <param name="value">Value to convert.</param>
     /// <param name="targetType">Target type.</param>
     /// <param name="depth">Current recursion depth.</param>
+    /// <param name="ps">The current PowerShell instance, if available.</param>
     /// <param name="converted">Converted result.</param>
     /// <returns><c>true</c> when the value was handled; otherwise <c>false</c>.</returns>
-    private static bool TryConvertListOrArrayValue(object value, Type targetType, int depth, out object? converted)
+    private static bool TryConvertListOrArrayValue(object value, Type targetType, int depth, PowerShell? ps, out object? converted)
     {
         if (value is List<object?> list)
         {
-            converted = ConvertEnumerableToTargetType(list, targetType, depth);
+            converted = ConvertEnumerableToTargetType(list, targetType, depth, ps);
             return true;
         }
 
         if (value is object?[] arr)
         {
-            converted = ConvertEnumerableToTargetType(arr, targetType, depth);
+            converted = ConvertEnumerableToTargetType(arr, targetType, depth, ps);
             return true;
         }
 
@@ -1085,7 +2868,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         }
     }
 
-    private static object? ConvertEnumerableToTargetType(IEnumerable enumerable, Type targetType, int depth)
+    private static object? ConvertEnumerableToTargetType(IEnumerable enumerable, Type targetType, int depth, PowerShell? ps)
     {
         if (targetType.IsArray)
         {
@@ -1093,7 +2876,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             var items = new List<object?>();
             foreach (var item in enumerable)
             {
-                items.Add(ConvertToTargetType(item, elementType, depth + 1));
+                items.Add(ConvertToTargetType(item, elementType, depth + 1, ps));
             }
 
             var arr = Array.CreateInstance(elementType, items.Count);
@@ -1116,7 +2899,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
                 var list = (IList)Activator.CreateInstance(listType)!;
                 foreach (var item in enumerable)
                 {
-                    _ = list.Add(ConvertToTargetType(item, elementType, depth + 1));
+                    _ = list.Add(ConvertToTargetType(item, elementType, depth + 1, ps));
                 }
                 return list;
             }
@@ -1432,7 +3215,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         }
 
         // Fallback: interpret as UTF-8 text (best-effort).
-        return System.Text.Encoding.UTF8.GetBytes(trimmed);
+        return Encoding.UTF8.GetBytes(trimmed);
     }
 
     private static bool TryDecodeBase64(string input, out byte[] bytes)

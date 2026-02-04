@@ -1,5 +1,4 @@
 param()
-
 BeforeAll {
     . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
 }
@@ -39,13 +38,17 @@ Describe 'Enable-KrConfiguration variable capture' -Tag 'Integration' {
         }
 
         AfterAll {
-            if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+            if ($script:instance) {
+                # Stop the example script
+                Stop-ExampleScript -Instance $script:instance
+                # Diagnostic info on failure
+                Write-KrExampleInstanceOnFailure -Instance $script:instance
+            }
         }
 
         It 'includes typed variables without attributes' {
             $response = Invoke-RestMethod -Uri "$($script:instance.Url)/vars" -Method Get
             $response.sharedValue | Should -Be 5000
-
         }
 
         It 'excludes variables decorated with attributes (WithoutAttributesOnly)' {

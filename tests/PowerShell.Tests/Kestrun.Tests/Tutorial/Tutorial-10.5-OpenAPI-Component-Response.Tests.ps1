@@ -7,7 +7,14 @@ Describe 'Example 10.5 OpenAPI Component Response' -Tag 'OpenApi', 'Tutorial', '
     BeforeAll {
         $script:instance = Start-ExampleScript -Name '10.5-OpenAPI-Component-Response.ps1'
     }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll {
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     It 'Get Article (GET Success)' {
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/articles/1" -SkipCertificateCheck -SkipHttpErrorCheck

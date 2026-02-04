@@ -8,7 +8,12 @@ Describe 'Example 15.6-Host-Filtering' -Tag 'Tutorial', 'Middleware', 'HostFilte
         $script:instance = Start-ExampleScript -Name '15.6-HostFiltering.ps1'
     }
     AfterAll {
-        if ($script:instance) { Stop-ExampleScript -Instance $script:instance }
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
     }
 
     It 'Allows allowed host example.com (200)' {

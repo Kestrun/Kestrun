@@ -1,7 +1,20 @@
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+}
+
 Describe 'Tutorial 17.3-StatusCodePages-CustomPowerShell' -Tag 'Tutorial' {
-    BeforeAll { . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1'); $script:instance = Start-ExampleScript -Name '17.3-StatusCodePages-CustomPowerShell.ps1' }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    BeforeAll {
+        $script:instance = Start-ExampleScript -Name '17.3-StatusCodePages-CustomPowerShell.ps1'
+    }
+    AfterAll {
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     It 'Hello route returns JSON success' {
         $r = Invoke-ExampleRequest -Uri "$($script:instance.Url)/hello" -ReturnRaw

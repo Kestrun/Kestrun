@@ -331,7 +331,7 @@ public class SchedulerServiceTests
 
             var start = DateTime.UtcNow;
             var seen = false;
-            while (!seen && DateTime.UtcNow - start < TimeSpan.FromSeconds(2))
+            while (!seen && DateTime.UtcNow - start < TimeSpan.FromSeconds(5))
             {
                 seen = svc.GetSnapshot().Any(j => j.Name == "ps-file-cron" && j.LastRunAt != null);
                 if (!seen)

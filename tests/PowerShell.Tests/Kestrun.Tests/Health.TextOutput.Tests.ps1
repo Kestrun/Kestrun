@@ -4,9 +4,12 @@
 # Assert: numeric data fields are numbers, not strings
 #>
 param()
-Describe 'Example 16.3-Health-Http-Probe' -Tag 'Tutorial', 'Health' {
-    BeforeAll { . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
+BeforeAll {
+    . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
+}
 
+Describe 'Example 16.3-Health-Http-Probe' -Tag 'Tutorial', 'Health' {
+    BeforeAll {
         $scriptBlock = {
             param(
                 [int]$Port = 5000,
@@ -19,7 +22,7 @@ Describe 'Example 16.3-Health-Http-Probe' -Tag 'Tutorial', 'Health' {
             Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
             # Add a simple health probe that returns numeric data
-            Add-KrHealthProbe -Name 'QuickProbe' -ScriptBlock {
+            Add-KrHealthProbe -Name 'QuickProbe' -Scriptblock {
                 New-KrProbeResult Healthy 'All good' -Data @{ latencyMs = 5 }
             }
 
@@ -31,9 +34,15 @@ Describe 'Example 16.3-Health-Http-Probe' -Tag 'Tutorial', 'Health' {
             # Start the server asynchronously
             Start-KrServer -CloseLogsOnExit
         }
-        $script:instance = Start-ExampleScript -ScriptBlock $scriptBlock
+        $script:instance = Start-ExampleScript -Scriptblock $scriptBlock
     }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll { if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
 
     It 'GET /healthz returns numeric probe data as numbers in plain text' {

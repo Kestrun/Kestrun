@@ -39,7 +39,7 @@ public static class PowerShellOpenApiClassExporter
     {
         // 1. Collect all component classes
         var componentTypes = assemblies
-            .SelectMany(a => a.GetTypes())
+            .SelectMany(GetLoadableTypes)
             .Where(t => t.IsClass && !t.IsAbstract)
             .Where(HasOpenApiComponentAttribute)
             .ToList();
@@ -106,6 +106,27 @@ public static class PowerShellOpenApiClassExporter
         }
         // 4. Write to temp script file
         return WriteOpenApiTempScript(sb.ToString());
+    }
+
+    /// <summary>
+    /// Safely retrieves loadable types from an assembly, handling partial load failures.
+    /// </summary>
+    /// <param name="assembly">The assembly to inspect.</param>
+    /// <returns>All loadable types from the assembly.</returns>
+    private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            return ex.Types.Where(static t => t is not null).Cast<Type>();
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     /// <summary>
@@ -601,15 +622,30 @@ public static class PowerShellOpenApiClassExporter
     /// <param name="sb"></param>
     private static void AppendClass(Type type, HashSet<Type> componentSet, StringBuilder sb)
     {
-        // Detect base type (for parenting)
-        var baseType = type.BaseType;
-        var baseClause = string.Empty;
+        var bindFormAttribute = TryBuildKrBindFormAttribute(type, out var formMaxDepth);
+        var additionalPropertiesMetadata = BuildAdditionalPropertiesMetadata(type);
 
-        if (baseType != null && baseType != typeof(object))
+        // Detect base type (for parenting). For OpenAPI form models, base type is chosen
+        // by KrBindForm.MaxNestingDepth rather than requiring inheritance on the original class.
+        var baseClause = string.Empty;
+        if ((bindFormAttribute is null || formMaxDepth > 0)
+            && TryGetFormPayloadBasePsName(type, out var formBasePsName))
         {
-            // Use PS-friendly type name for the base
-            var basePsName = ToPowerShellTypeName(baseType, componentSet, collapseToUnderlyingPrimitives: false);
-            baseClause = $" : {basePsName}";
+            baseClause = $" : {formBasePsName}";
+        }
+        else
+        {
+            var baseType = type.BaseType;
+            if (baseType != null && baseType != typeof(object))
+            {
+                // Use PS-friendly type name for the base
+                var basePsName = ToPowerShellTypeName(baseType, componentSet, collapseToUnderlyingPrimitives: false);
+                baseClause = $" : {basePsName}";
+            }
+        }
+        if (bindFormAttribute is not null)
+        {
+            _ = sb.AppendLine(bindFormAttribute);
         }
         _ = sb.AppendLine("[NoRunspaceAffinity()]");
         _ = sb.AppendLine($"class {type.Name}{baseClause} {{");
@@ -617,6 +653,20 @@ public static class PowerShellOpenApiClassExporter
         // Only properties *declared* on this type (no inherited ones)
         var props = type.GetProperties(
             BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
+
+        if (ShouldEmitAdditionalProperties(type, props))
+        {
+            _ = sb.AppendLine("    [hashtable]$AdditionalProperties");
+        }
+
+        if (!string.IsNullOrWhiteSpace(additionalPropertiesMetadata))
+        {
+            _ = sb.AppendLine();
+            _ = sb.AppendLine("    # Static AdditionalProperties metadata for this class");
+            _ = sb.AppendLine("    static [hashtable] $AdditionalPropertiesMetadata = @{");
+            _ = sb.Append(additionalPropertiesMetadata);
+            _ = sb.AppendLine("    }");
+        }
 
         foreach (var p in props)
         {
@@ -628,6 +678,96 @@ public static class PowerShellOpenApiClassExporter
         AppendOpenApiXmlMetadataProperty(type, props, sb);
 
         _ = sb.AppendLine("}");
+    }
+
+    private static string? TryBuildKrBindFormAttribute(Type type, out int maxDepth)
+    {
+        maxDepth = 0;
+        var bindAttr = type.GetCustomAttributes(inherit: false)
+            .FirstOrDefault(a => a.GetType().Name.Equals("KrBindFormAttribute", StringComparison.OrdinalIgnoreCase));
+
+        if (bindAttr is null)
+        {
+            return null;
+        }
+
+        var maxDepthProp = bindAttr.GetType().GetProperty("MaxNestingDepth");
+        maxDepth = maxDepthProp?.GetValue(bindAttr) as int? ?? 0;
+
+        return maxDepth > 0
+            ? $"[KrBindForm(MaxNestingDepth = {maxDepth})]"
+            : "[KrBindForm()]";
+    }
+
+    private static bool ShouldEmitAdditionalProperties(Type type, PropertyInfo[] props)
+    {
+        if (props.Any(p => string.Equals(p.Name, "AdditionalProperties", StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        var hasPatternProps = type.GetCustomAttributes(inherit: false)
+            .Any(a => a.GetType().Name.Equals("OpenApiPatternPropertiesAttribute", StringComparison.OrdinalIgnoreCase));
+
+        if (hasPatternProps)
+        {
+            return true;
+        }
+
+        var schemaAttr = type.GetCustomAttributes(inherit: false)
+            .FirstOrDefault(a => a.GetType().Name.Equals("OpenApiSchemaComponent", StringComparison.OrdinalIgnoreCase));
+
+        if (schemaAttr is null)
+        {
+            return false;
+        }
+
+        var allowProp = schemaAttr.GetType().GetProperty("AdditionalPropertiesAllowed");
+        return (allowProp?.GetValue(schemaAttr) as bool?) == true;
+    }
+
+    private static string BuildAdditionalPropertiesMetadata(Type type)
+    {
+        var schemaAttr = type.GetCustomAttributes(inherit: false)
+            .FirstOrDefault(a => a.GetType().Name.Equals("OpenApiSchemaComponent", StringComparison.OrdinalIgnoreCase));
+
+        var additionalType = schemaAttr?.GetType().GetProperty("AdditionalProperties")?.GetValue(schemaAttr) as Type;
+
+        var patternAttrs = type.GetCustomAttributes(inherit: false)
+            .Where(a => a.GetType().Name.Equals("OpenApiPatternPropertiesAttribute", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        if (additionalType is null && patternAttrs.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        var sb = new StringBuilder();
+
+        if (additionalType is not null)
+        {
+            _ = sb.AppendLine($"        AdditionalPropertiesType = '{additionalType.FullName ?? additionalType.Name}'");
+        }
+
+        if (patternAttrs.Length > 0)
+        {
+            _ = sb.AppendLine("        PatternProperties = @(");
+
+            foreach (var attr in patternAttrs)
+            {
+                var keyPattern = attr.GetType().GetProperty("KeyPattern")?.GetValue(attr) as string ?? string.Empty;
+                var schemaType = attr.GetType().GetProperty("SchemaType")?.GetValue(attr) as Type ?? typeof(string);
+
+                _ = sb.AppendLine("            @{");
+                _ = sb.AppendLine($"                KeyPattern = '{EscapePowerShellString(keyPattern)}'");
+                _ = sb.AppendLine($"                SchemaType = '{schemaType.FullName ?? schemaType.Name}'");
+                _ = sb.AppendLine("            }");
+            }
+
+            _ = sb.AppendLine("        )");
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>
@@ -1180,6 +1320,34 @@ public static class PowerShellOpenApiClassExporter
         }
 
         return componentSet.Contains(propertyType) ? propertyType : null;
+    }
+
+    /// <summary>
+    /// Determines the PowerShell base type for form payload exports based on KrBindForm.MaxNestingDepth.
+    /// </summary>
+    /// <param name="type">The OpenAPI component type.</param>
+    /// <param name="basePsName">The resolved PowerShell base type name.</param>
+    /// <returns>True if a form payload base should be applied; otherwise false.</returns>
+    private static bool TryGetFormPayloadBasePsName(Type type, out string? basePsName)
+    {
+        basePsName = null;
+
+        var bindAttr = type.GetCustomAttributes(inherit: false)
+            .FirstOrDefault(a => a.GetType().Name.Equals("KrBindFormAttribute", StringComparison.OrdinalIgnoreCase));
+
+        if (bindAttr is null)
+        {
+            return false;
+        }
+
+        var maxDepthProp = bindAttr.GetType().GetProperty("MaxNestingDepth");
+        var maxDepth = maxDepthProp?.GetValue(bindAttr) as int?;
+
+        // If MaxNestingDepth > 0, treat as multipart; otherwise form data.
+        basePsName = (maxDepth.GetValueOrDefault(0) > 0)
+            ? "Kestrun.Forms.KrMultipart"
+            : "Kestrun.Forms.KrFormData";
+        return true;
     }
 
     /// <summary>

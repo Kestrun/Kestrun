@@ -6,7 +6,6 @@ using System.Text.Json.Serialization;
 using Kestrun.Utilities.Json;
 using Microsoft.AspNetCore.StaticFiles;
 using System.Text;
-using Serilog;
 using Serilog.Events;
 using System.Buffers;
 using Microsoft.Extensions.FileProviders;
@@ -182,11 +181,11 @@ public class KestrunResponse
     /// </summary>
     /// <param name="type">The MIME content type to check.</param>
     /// <returns>True if the content type is text-based; otherwise, false.</returns>
-    public static bool IsTextBasedContentType(string type)
+    public bool IsTextBasedContentType(string type)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Checking if content type is text-based: {ContentType}", type);
+            Logger.Debug("Checking if content type is text-based: {ContentType}", type);
         }
 
         // Check if the content type is text-based or has a charset
@@ -259,9 +258,9 @@ public class KestrunResponse
         int statusCode = StatusCodes.Status200OK
     )
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing file response,FilePath={FilePath} StatusCode={StatusCode}, ContentType={ContentType}, CurrentDirectory={CurrentDirectory}",
+            Logger.Debug("Writing file response,FilePath={FilePath} StatusCode={StatusCode}, ContentType={ContentType}, CurrentDirectory={CurrentDirectory}",
                 filePath, statusCode, contentType, GetSafeCurrentDirectoryForLogging());
         }
 
@@ -290,9 +289,9 @@ public class KestrunResponse
         var directory = Path.GetDirectoryName(fullPath)
                        ?? throw new InvalidOperationException("Could not determine directory from file path");
 
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Serving file: {FilePath}", fullPath);
+            Logger.Debug("Serving file: {FilePath}", fullPath);
         }
 
         // Create a physical file provider for the directory
@@ -307,7 +306,7 @@ public class KestrunResponse
         // headers & metadata
         StatusCode = statusCode;
         ContentType = contentType;
-        Log.Debug("File response prepared: FileName={FileName}, Length={Length}, ContentType={ContentType}",
+        Logger.Debug("File response prepared: FileName={FileName}, Length={Length}, ContentType={ContentType}",
             fi.Name, fi.Length, ContentType);
     }
 
@@ -344,9 +343,9 @@ public class KestrunResponse
     /// <param name="contentType">The MIME type of the response content.</param>
     public async Task WriteJsonResponseAsync(object? inputObject, JsonSerializerOptions serializerOptions, int statusCode = StatusCodes.Status200OK, string? contentType = null)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing JSON response (async), StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
+            Logger.Debug("Writing JSON response (async), StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
         }
 
         ArgumentNullException.ThrowIfNull(serializerOptions);
@@ -376,9 +375,9 @@ public class KestrunResponse
     /// <param name="contentType">The MIME type of the response content.</param>
     public async Task WriteJsonResponseAsync(object? inputObject, int depth, bool compress, int statusCode = StatusCodes.Status200OK, string? contentType = null)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing JSON response (async), StatusCode={StatusCode}, ContentType={ContentType}, Depth={Depth}, Compress={Compress}",
+            Logger.Debug("Writing JSON response (async), StatusCode={StatusCode}, ContentType={ContentType}, Depth={Depth}, Compress={Compress}",
                 statusCode, contentType, depth, compress);
         }
 
@@ -399,9 +398,9 @@ public class KestrunResponse
     /// </summary>
     public async Task WriteCborResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing CBOR response, StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
+            Logger.Debug("Writing CBOR response, StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
         }
 
         // Serialize to CBOR using PeterO.Cbor
@@ -428,9 +427,9 @@ public class KestrunResponse
     /// <param name="contentType">The MIME type of the response content.</param>
     public async Task WriteBsonResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing BSON response, StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
+            Logger.Debug("Writing BSON response, StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
         }
 
         // Serialize to BSON (as byte[])
@@ -464,9 +463,9 @@ public class KestrunResponse
     /// <returns>A task that represents the asynchronous write operation.</returns>
     public async Task WriteResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing response, StatusCode={StatusCode}", statusCode);
+            Logger.Debug("Writing response, StatusCode={StatusCode}", statusCode);
         }
 
         Body = inputObject;
@@ -484,9 +483,9 @@ public class KestrunResponse
                 return;
             }
 
-            if (Log.IsEnabled(LogEventLevel.Verbose))
+            if (Logger.IsEnabled(LogEventLevel.Verbose))
             {
-                Log.Verbose("Selected response media type={MediaType}", selected);
+                Logger.Verbose("Selected response media type={MediaType}", selected);
             }
 
             // Dispatch based on selected media type
@@ -494,7 +493,7 @@ public class KestrunResponse
         }
         catch (Exception ex)
         {
-            Log.Error("Error in WriteResponseAsync: {Message}", ex.Message);
+            Logger.Error("Error in WriteResponseAsync: {Message}", ex.Message);
             await WriteErrorResponseAsync($"Internal server error: {ex.Message}", StatusCodes.Status500InternalServerError);
         }
     }
@@ -625,9 +624,9 @@ public class KestrunResponse
         string? contentType = null,
         Action<CsvConfiguration>? tweak = null)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing CSV response (async), StatusCode={StatusCode}, ContentType={ContentType}",
+            Logger.Debug("Writing CSV response (async), StatusCode={StatusCode}, ContentType={ContentType}",
                       statusCode, contentType);
         }
 
@@ -682,9 +681,9 @@ public class KestrunResponse
     /// <param name="contentType">The MIME type of the response content.</param>
     public async Task WriteYamlResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing YAML response (async), StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
+            Logger.Debug("Writing YAML response (async), StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
         }
 
         Body = await Task.Run(() => YamlHelper.ToYaml(inputObject));
@@ -713,9 +712,9 @@ public class KestrunResponse
     /// <param name="compress">If true, emits compact XML (no indentation); if false (default) output is human readable.</param>
     public async Task WriteXmlResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null, string? rootElementName = null, bool compress = false)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing XML response (async), StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
+            Logger.Debug("Writing XML response (async), StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
         }
 
         var root = string.IsNullOrWhiteSpace(rootElementName) ? "Response" : rootElementName.Trim();
@@ -742,9 +741,9 @@ public class KestrunResponse
     /// <param name="contentType">The MIME type of the response content.</param>
     public async Task WriteTextResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK, string? contentType = null)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing text response (async), StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
+            Logger.Debug("Writing text response (async), StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
         }
 
         if (inputObject is null)
@@ -793,9 +792,9 @@ public class KestrunResponse
     /// <param name="message">An optional message to include in the response body.</param>
     public void WriteRedirectResponse(string url, string? message = null)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing redirect response, StatusCode={StatusCode}, Location={Location}", StatusCode, url);
+            Logger.Debug("Writing redirect response, StatusCode={StatusCode}, Location={Location}", StatusCode, url);
         }
 
         if (string.IsNullOrEmpty(url))
@@ -832,9 +831,9 @@ public class KestrunResponse
     /// <param name="contentType">The MIME type of the response content.</param>
     public void WriteBinaryResponse(byte[] data, int statusCode = StatusCodes.Status200OK, string contentType = "application/octet-stream")
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing binary response, StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
+            Logger.Debug("Writing binary response, StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
         }
 
         Body = data ?? throw new ArgumentNullException(nameof(data), "Data cannot be null for binary response.");
@@ -849,9 +848,9 @@ public class KestrunResponse
     /// <param name="contentType">The MIME type of the response content.</param>
     public void WriteStreamResponse(Stream stream, int statusCode = StatusCodes.Status200OK, string contentType = "application/octet-stream")
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing stream response, StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
+            Logger.Debug("Writing stream response, StatusCode={StatusCode}, ContentType={ContentType}", statusCode, contentType);
         }
 
         Body = stream;
@@ -887,9 +886,9 @@ public class KestrunResponse
         string? contentType = null,
         string? details = null)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing error response, StatusCode={StatusCode}, ContentType={ContentType}, Message={Message}",
+            Logger.Debug("Writing error response, StatusCode={StatusCode}, ContentType={ContentType}, Message={Message}",
                 statusCode, contentType, message);
         }
 
@@ -898,7 +897,7 @@ public class KestrunResponse
             throw new ArgumentNullException(nameof(message));
         }
 
-        Log.Warning("Writing error response with status {StatusCode}: {Message}", statusCode, message);
+        Logger.Warning("Writing error response with status {StatusCode}: {Message}", statusCode, message);
 
         var payload = new ErrorPayload
         {
@@ -944,15 +943,15 @@ public class KestrunResponse
         string? contentType = null,
         bool includeStack = true)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing error response from exception, StatusCode={StatusCode}, ContentType={ContentType}, IncludeStack={IncludeStack}",
+            Logger.Debug("Writing error response from exception, StatusCode={StatusCode}, ContentType={ContentType}, IncludeStack={IncludeStack}",
                 statusCode, contentType, includeStack);
         }
 
         ArgumentNullException.ThrowIfNull(ex);
 
-        Log.Warning(ex, "Writing error response with status {StatusCode}", statusCode);
+        Logger.Warning(ex, "Writing error response with status {StatusCode}", statusCode);
 
         var payload = new ErrorPayload
         {
@@ -988,9 +987,9 @@ public class KestrunResponse
     /// </summary>
     private async Task WriteFormattedErrorResponseAsync(ErrorPayload payload, string? contentType = null)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing formatted error response, ContentType={ContentType}, Status={Status}", contentType, payload.Status);
+            Logger.Debug("Writing formatted error response, ContentType={ContentType}, Status={Status}", contentType, payload.Status);
         }
 
         if (string.IsNullOrWhiteSpace(contentType))
@@ -1050,13 +1049,13 @@ public class KestrunResponse
     /// <param name="template">The template string containing placeholders.</param>
     /// <param name="vars">A dictionary of variables to replace in the template.</param>
     /// <returns>The rendered string with placeholders replaced by variable values.</returns>
-    private static string RenderInlineTemplate(
+    private string RenderInlineTemplate(
      string template,
      IReadOnlyDictionary<string, object?> vars)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Rendering inline template, TemplateLength={TemplateLength}, VarsCount={VarsCount}",
+            Logger.Debug("Rendering inline template, TemplateLength={TemplateLength}, VarsCount={VarsCount}",
                       template?.Length ?? 0, vars?.Count ?? 0);
         }
 
@@ -1072,9 +1071,9 @@ public class KestrunResponse
 
         var render = RenderInline(template, vars);
 
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Rendered template length: {RenderedLength}", render.Length);
+            Logger.Debug("Rendered template length: {RenderedLength}", render.Length);
         }
 
         return render;
@@ -1214,9 +1213,9 @@ public class KestrunResponse
         IReadOnlyDictionary<string, object?>? vars,
         int statusCode = 200)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing HTML response (async), StatusCode={StatusCode}, TemplateLength={TemplateLength}", statusCode, template.Length);
+            Logger.Debug("Writing HTML response (async), StatusCode={StatusCode}, TemplateLength={TemplateLength}", statusCode, template.Length);
         }
 
         if (vars is null || vars.Count == 0)
@@ -1263,9 +1262,9 @@ public class KestrunResponse
         IReadOnlyDictionary<string, object?> vars,
         int statusCode = 200)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Writing HTML response from file (async), FilePath={FilePath}, StatusCode={StatusCode}", filePath, statusCode);
+            Logger.Debug("Writing HTML response from file (async), FilePath={FilePath}, StatusCode={StatusCode}", filePath, statusCode);
         }
 
         if (!File.Exists(filePath))
@@ -1319,17 +1318,17 @@ public class KestrunResponse
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task ApplyTo(HttpResponse response)
     {
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Applying KestrunResponse to HttpResponse, StatusCode={StatusCode}, ContentType={ContentType}, BodyType={BodyType}",
-                StatusCode, ContentType, Body?.GetType().Name ?? "null");
+            Logger.Debug("Applying KestrunResponse to HttpResponse, StatusCode={StatusCode}, ContentType={ContentType}, BodyType={BodyType}",
+             StatusCode, ContentType, Body?.GetType().Name ?? "null");
         }
 
         if (response.StatusCode == StatusCodes.Status304NotModified)
         {
-            if (Log.IsEnabled(LogEventLevel.Debug))
+            if (Logger.IsEnabled(LogEventLevel.Debug))
             {
-                Log.Debug("Response already has status code 304 Not Modified, skipping ApplyTo");
+                Logger.Debug("Response already has status code 304 Not Modified, skipping ApplyTo");
             }
             return;
         }
@@ -1342,33 +1341,54 @@ public class KestrunResponse
         try
         {
             EnsureStatus(response);
+            // Apply headers, cookies, caching
             ApplyHeadersAndCookies(response);
+            // Caching
             ApplyCachingHeaders(response);
-
+            // Callbacks
             await TryEnqueueCallbacks();
-
-            if (Body is not null)
-            {
-                EnsureContentType(response);
-                ApplyContentDispositionHeader(response);
-                await WriteBodyAsync(response).ConfigureAwait(false);
-            }
-            else
-            {
-                response.ContentType = null;
-                response.ContentLength = null;
-                if (Log.IsEnabled(LogEventLevel.Debug))
-                {
-                    Log.Debug("Status-only: HasStarted={HasStarted} CL={CL} CT='{CT}'",
-                        response.HasStarted, response.ContentLength, response.ContentType);
-                }
-            }
+            // Body
+            await WriteResponseContent(response);
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error applying response: {ex.Message}");
+            Logger.Error(ex, "Error applying KestrunResponse to HttpResponse");
             // Optionally, you can log the exception or handle it as needed
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Applies the body content to the HTTP response.  If the body is not null, it ensures the content type,
+    /// applies the content disposition header, and writes the body asynchronously.  If the body is null,
+    /// it clears the content type and content length if the response has not started.  Logs debug information about the response state.
+    /// </summary>
+    /// <param name="response"> The HTTP response to which the body content will be applied. </param>
+    /// <returns> A task representing the asynchronous operation. </returns>
+    private async Task WriteResponseContent(HttpResponse response)
+    {
+        if (Body is not null)
+        {
+            EnsureContentType(response);
+            ApplyContentDispositionHeader(response);
+            await WriteBodyAsync(response).ConfigureAwait(false);
+        }
+        else
+        {
+            if (!response.HasStarted && string.IsNullOrEmpty(response.ContentType))
+            {
+                response.ContentType = null;
+            }
+
+            if (!response.HasStarted)
+            {
+                response.ContentLength = null;
+            }
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("Status-only: HasStarted={HasStarted} CL={CL} CT='{CT}'",
+                 response.HasStarted, response.ContentLength, response.ContentType);
+            }
         }
     }
 
@@ -1388,10 +1408,9 @@ public class KestrunResponse
             return;
         }
 
-        var log = KrContext.Host.Logger;
-        if (log.IsEnabled(LogEventLevel.Information))
+        if (Logger.IsEnabled(LogEventLevel.Information))
         {
-            log.Information("Enqueuing {Count} callbacks for dispatch.", CallbackPlan.Count);
+            Logger.Information("Enqueuing {Count} callbacks for dispatch.", CallbackPlan.Count);
         }
 
         try
@@ -1402,7 +1421,7 @@ public class KestrunResponse
             var dispatcher = httpCtx.RequestServices.GetService<ICallbackDispatcher>();
             if (dispatcher is null)
             {
-                log.Warning("Callbacks present but no ICallbackDispatcher registered. Count={Count}", CallbackPlan.Count);
+                Logger.Warning("Callbacks present but no ICallbackDispatcher registered. Count={Count}", CallbackPlan.Count);
                 return;
             }
 
@@ -1416,22 +1435,22 @@ public class KestrunResponse
                 {
                     var req = CallbackRequestFactory.FromPlan(plan, KrContext, urlResolver, serializer, options);
 
-                    if (log.IsEnabled(LogEventLevel.Debug))
+                    if (Logger.IsEnabled(LogEventLevel.Debug))
                     {
-                        log.Debug("Enqueue callback. CallbackId={CallbackId} Url={Url}", req.CallbackId, req.TargetUrl);
+                        Logger.Debug("Enqueue callback. CallbackId={CallbackId} Url={Url}", req.CallbackId, req.TargetUrl);
                     }
 
                     await dispatcher.EnqueueAsync(req, CancellationToken.None).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
-                    log.Error(ex, "Failed to enqueue callback. CallbackId={CallbackId}", plan.CallbackId);
+                    Logger.Error(ex, "Failed to enqueue callback. CallbackId={CallbackId}", plan.CallbackId);
                 }
             }
         }
         catch (Exception ex)
         {
-            log.Error(ex, "Unexpected error while scheduling callbacks.");
+            Logger.Error(ex, "Unexpected error while scheduling callbacks.");
         }
     }
 
@@ -1489,9 +1508,9 @@ public class KestrunResponse
             return;
         }
 
-        if (Log.IsEnabled(LogEventLevel.Debug))
+        if (Logger.IsEnabled(LogEventLevel.Debug))
         {
-            Log.Debug("Setting Content-Disposition header, Type={Type}, FileName={FileName}",
+            Logger.Debug("Setting Content-Disposition header, Type={Type}, FileName={FileName}",
                       ContentDisposition.Type, ContentDisposition.FileName);
         }
 
@@ -1550,7 +1569,10 @@ public class KestrunResponse
         switch (bodyValue)
         {
             case IFileInfo fileInfo:
-                Log.Debug("Sending file {FileName} (Length={Length})", fileInfo.Name, fileInfo.Length);
+                if (Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    Logger.Debug("Sending file {FileName} (Length={Length})", fileInfo.Name, fileInfo.Length);
+                }
                 response.ContentLength = fileInfo.Length;
                 response.Headers.LastModified = fileInfo.LastModified.ToString("R");
                 await response.SendFileAsync(
@@ -1569,9 +1591,11 @@ public class KestrunResponse
 
             case Stream stream:
                 var seekable = stream.CanSeek;
-                Log.Debug("Sending stream (seekable={Seekable}, len={Len})",
+                if (Logger.IsEnabled(LogEventLevel.Debug))
+                {
+                    Logger.Debug("Sending stream (seekable={Seekable}, len={Len})",
                           seekable, seekable ? stream.Length : -1);
-
+                }
                 if (seekable)
                 {
                     response.ContentLength = stream.Length;
@@ -1609,7 +1633,7 @@ public class KestrunResponse
             default:
                 var bodyType = bodyValue?.GetType().Name ?? "null";
                 Body = "Unsupported body type: " + bodyType;
-                Log.Warning("Unsupported body type: {BodyType}", bodyType);
+                Logger.Warning("Unsupported body type: {BodyType}", bodyType);
                 response.StatusCode = StatusCodes.Status500InternalServerError;
                 response.ContentType = "text/plain; charset=utf-8";
                 response.ContentLength = Body.ToString()?.Length ?? null;

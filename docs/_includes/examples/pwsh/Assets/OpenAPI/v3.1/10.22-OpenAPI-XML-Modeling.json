@@ -161,6 +161,7 @@
             ]
           }
         },
+        "additionalProperties": false,
         "description": "A product with XML-specific serialization"
       }
     }

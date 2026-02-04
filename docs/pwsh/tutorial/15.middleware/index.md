@@ -30,6 +30,7 @@ Core goals:
 | Upcoming | Rate Limiting | Planned |
 | Upcoming | Compression | Planned |
 | Security | CORS | [Tutorial](./8.Cors) |
+| Compression | Request Decompression (Content-Encoding) | [Tutorial](./11.Request-Decompression) |
 
 ## Quick Start: Antiforgery
 

@@ -44,19 +44,17 @@ public class VBNetAndPowerShellDelegateBuilderTests
 
     [Fact]
     [Trait("Category", "Languages")]
-    public async Task PowerShell_ErrorStream_Triggers_Error_Response()
+    public async Task PowerShell_ErrorStream_DoesNotOverride_Response()
     {
         var host = new KestrunHost("Tests", Log.Logger);
-        // Arrange: build trivial PS delegate and inject a PS instance with an error
-        var del = PowerShellDelegateBuilder.Build(host, "Write-Host 'noop'", null);
+        // Arrange: build PS delegate that writes to the error stream
+        var del = PowerShellDelegateBuilder.Build(host, "Write-Error 'boom'", null);
         var ctx = new DefaultHttpContext();
 
         using var ps = PowerShell.Create();
         // Force a runspace to satisfy GetPowerShellFromContext's checks
         ps.Runspace = System.Management.Automation.Runspaces.RunspaceFactory.CreateRunspace();
         ps.Runspace.Open();
-        // Add an error to Streams to trigger BuildError.ResponseAsync
-        ps.Streams.Error.Add(new ErrorRecord(new Exception("boom"), "BoomId", ErrorCategory.InvalidOperation, targetObject: null));
 
         ctx.Items[PowerShellDelegateBuilder.PS_INSTANCE_KEY] = ps;
         ctx.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = new Kestrun.Models.KestrunContext(host, ctx);
@@ -64,9 +62,8 @@ public class VBNetAndPowerShellDelegateBuilderTests
         // Act
         await del(ctx);
 
-        // Assert: BuildError.ResponseAsync should have applied a non-200 status and text/plain
-        Assert.NotEqual(200, ctx.Response.StatusCode);
-        Assert.Equal("text/plain; charset=utf-8", ctx.Response.ContentType);
+        // Assert: error stream does not override the response status by default
+        Assert.Equal(200, ctx.Response.StatusCode);
     }
 
     [Fact]

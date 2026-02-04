@@ -232,6 +232,7 @@
             "example": "jane.doe@example.com"
           }
         },
+        "additionalProperties": false,
         "description": "Create user request"
       },
       "UserResponse": {
@@ -272,6 +273,7 @@
             "format": "date-time"
           }
         },
+        "additionalProperties": false,
         "description": "User resource"
       }
     },

@@ -3,10 +3,13 @@ Validates numeric probe data representation in XML health response.
 * Ensures <intVal>42</intVal> and <floatVal>12.5</floatVal> appear and when parsed values can be cast to numeric.
 * Mirrors JSON & YAML parity tests.
 #>
+param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
+}
 
 Describe 'Validates numeric probe data representation in XML health response' -Tag 'Health' {
-    BeforeAll { . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
-
+    BeforeAll {
         $scriptBlock = {
             param(
                 [int]$Port = 5000,
@@ -19,7 +22,7 @@ Describe 'Validates numeric probe data representation in XML health response' -T
             Add-KrEndpoint -Port $Port -IPAddress $IPAddress
 
             # Add a simple health probe that returns numeric data
-            Add-KrHealthProbe -Name 'NumProbe' -ScriptBlock {
+            Add-KrHealthProbe -Name 'NumProbe' -Scriptblock {
                 New-KrProbeResult Healthy 'OK' -Data @{ intVal = 42; floatVal = 12.5 }
             }
 
@@ -31,9 +34,15 @@ Describe 'Validates numeric probe data representation in XML health response' -T
             # Start the server asynchronously
             Start-KrServer -CloseLogsOnExit
         }
-        $script:instance = Start-ExampleScript -ScriptBlock $scriptBlock
+        $script:instance = Start-ExampleScript -Scriptblock $scriptBlock
     }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll { if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     It 'GET /healthz returns numeric probe data as numbers in XML' {
         $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/healthz" -Headers @{ Accept = 'application/xml' } -SkipHttpErrorCheck

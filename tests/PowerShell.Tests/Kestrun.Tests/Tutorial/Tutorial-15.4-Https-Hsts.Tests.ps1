@@ -5,7 +5,13 @@ BeforeAll {
 
 Describe 'Example 15.4-Https-Hsts' -Tag 'Tutorial', 'Middleware', 'Https', 'Hsts' {
     BeforeAll { $script:instance = Start-ExampleScript -Name '15.4-Https-Hsts.ps1' }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll { if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     It 'Redirects HTTP to HTTPS with expected status code' {
         $uri = "http://$($script:instance.Host):$($script:instance.Port)/"

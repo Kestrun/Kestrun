@@ -114,7 +114,99 @@ Set-KrSharedState -Name 'Visits' -Value @{Count = 0}
 # Available in all routes as $Visits
 ```
 
-### 5. SSE (Server-Sent Events)
+### 5. FormData & Multipart Binding (PowerShell)
+
+Kestrun supports request form parsing for `multipart/form-data` (files + fields) and `multipart/mixed` (ordered parts). Prefer **KrBindForm + KrPart** on PowerShell classes for explicit, OpenAPI-friendly models.
+
+**Core types (namespace):**
+- `Kestrun.Forms.KrFormData` — parsed fields + files (dictionary-based).
+- `Kestrun.Forms.KrMultipart` — ordered parts (`Parts` list).
+- `Kestrun.Forms.KrFilePart` — file metadata (name, filename, content type, length, sha256, temp path).
+
+**Recommended model pattern (no inheritance required):**
+- Decorate the model with `[KrBindForm(...)]`.
+- Use `[KrPart(...)]` on properties to describe required parts, allowed content types, and multiplicity.
+- Prefer typed properties (`[string]`, `[string[]]`, `[KrFilePart]`, `[KrFilePart[]]`) so binding is direct and predictable.
+
+**Form kind selection:**
+- `KrBindForm.MaxNestingDepth > 0` → multipart/mixed binding (ordered parts, nested allowed).
+- `KrBindForm.MaxNestingDepth <= 0` → multipart/form-data binding (fields + files).
+
+**Binding behavior:**
+- Form fields bind by part name → property name (case-insensitive).
+- File parts bind to `KrFilePart` or `KrFilePart[]` properties.
+- When using `KrFormData`, access dictionaries: `$FormPayload.Fields['note']`, `$FormPayload.Files['file']`.
+- When using `KrBindForm` models, access bound properties directly (e.g., `$FormPayload.note`, `$FormPayload.file`).
+
+**OpenAPI notes:**
+- Models with `KrBindForm` should be composed with `KrFormData` or `KrMultipart` using `allOf`.
+- `KrFormData` / `KrMultipart` should not appear as standalone components unless referenced.
+- Use `Kestrun.Forms.KrFilePart` for file properties so OpenAPI treats them as binary parts.
+
+**Errors:**
+- Invalid JSON in multipart JSON parts should map to **400** (not 500).
+- Required parts / content-type restrictions should map to **400** or **415** as appropriate.
+
+#### Limits & large uploads (important)
+
+Kestrun enforces multiple layers of limits; when you allow big uploads, set them consistently:
+
+- Total request size: `KrBindForm.MaxRequestBodyBytes` (or `KrFormOptions.Limits.MaxRequestBodyBytes`).
+- Default per-part size: `KrBindForm.MaxPartBodyBytes` (or `KrFormOptions.Limits.MaxPartBodyBytes`).
+- Per-part override: `KrPart.MaxBytes` (or `KrPartRule.MaxBytes`).
+
+If a test/example is meant to support ~500MB uploads, ensure all three are high enough.
+
+#### Per-part decompression limits (the common 20MB trap)
+
+`KrFormOptions.MaxDecompressedBytesPerPart` defaults to **20 MB**.
+If per-part decompression is enabled and the client sends `Content-Encoding` on a part, Kestrun caps the effective bytes for that part at:
+
+- `min( MaxPartBodyBytes (or KrPart.MaxBytes), MaxDecompressedBytesPerPart )`
+
+So for large compressed parts, you must raise `MaxDecompressedBytesPerPart` as well.
+
+#### Compression: request-level vs part-level
+
+There are two distinct compression knobs; pick the one that matches what the client sends:
+
+- **Request-level decompression** (whole request body compressed):
+  - Enable middleware with `Add-KrRequestDecompressionMiddleware -AllowedEncoding gzip`.
+  - Client sends `Content-Encoding: gzip` and compresses the entire request body (multipart boundaries included).
+- **Per-part decompression** (individual multipart parts compressed):
+  - Enable with `KrBindForm.EnablePartDecompression = $true` (or `KrFormOptions.EnablePartDecompression = $true`).
+  - Govern with `AllowedPartContentEncodings`, `RejectUnknownContentEncoding`, and `MaxDecompressedBytesPerPart`.
+
+Security guidance:
+- Keep decompression limits conservative unless required; compression can amplify payload size (zip-bomb style).
+
+#### `KrBindForm.Template` precedence
+
+If `KrBindForm.Template` is set, Kestrun clones the named `KrFormOptions` template and uses it as-is for binding.
+In the current implementation, other `KrBindForm` property overrides are not applied when a template is used.
+If you need custom limits/content-types with a template, put them on the template via `Add-KrFormOption`.
+
+#### Preferred route patterns
+
+- **Rule-based routes** (fast to iterate, explicit constraints):
+  - `New-KrFormPartRule | Add-KrFormOption | Add-KrFormRoute`
+- **Annotation-based routes** (typed binding + OpenAPI-friendly):
+  - `[KrBindForm(...)]` on the payload class + `[KrPart(...)]` on properties, plus OpenAPI attributes on the route function.
+
+#### Testing guidance
+
+- Use Pester helper `New-TestFile` for multipart tests, but keep file sizes small (e.g., 1–10MB) for CI speed.
+- Still set the example limits to the real target (e.g., 500–600MB) so the sample demonstrates the correct configuration.
+
+#### Troubleshooting quick hits
+
+- **HTTP 413 (Payload Too Large)**: raise *both* `MaxRequestBodyBytes` and the relevant per-part cap (`MaxPartBodyBytes` / `KrPart.MaxBytes`). If part decompression is enabled, also raise `MaxDecompressedBytesPerPart`.
+- **“Decompressed part size exceeded limit of 20971520 bytes”**: you hit the default 20MB `MaxDecompressedBytesPerPart`. Increase it or disable per-part decompression.
+- **HTTP 415 (Unsupported Media Type)**: check `KrPart.ContentTypes` / rule content-type constraints; ensure the client sends the expected part `Content-Type` and multipart boundary.
+- **Template surprises**: if `KrBindForm.Template` is set, move overrides (limits, encodings, content types) into the template via `Add-KrFormOption`.
+- **Compression mismatch**: request-level compression uses `Add-KrRequestDecompressionMiddleware` + request `Content-Encoding`; per-part compression uses `EnablePartDecompression` + per-part `Content-Encoding`.
+
+### 6. SSE (Server-Sent Events)
 
 Kestrun supports **per-connection SSE** and **server-wide broadcast SSE**.
 
@@ -961,6 +1053,25 @@ components:
 **When to use PowerShell enum vs ValidateSet:**
 - Use PowerShell `enum` types for values that should be **reused across your API**
 - Use `[ValidateSet('value1', 'value2')]` for **one-off property constraints** that won't be shared
+
+### AdditionalProperties and PatternProperties
+
+- `OpenApiSchemaComponent` defaults `AdditionalPropertiesAllowed` to **false**.
+- To model a dictionary/object map, set `AdditionalPropertiesAllowed = $true` and (optionally) set `AdditionalProperties` to a type (this auto-enables).
+- Use `OpenApiPatternProperties` **only on classes**. It requires `KeyPattern` (ECMA-262 regex) and can be repeated for multiple patterns.
+
+```powershell
+[OpenApiSchemaComponent(
+  Description = 'Inventory counts by status',
+  AdditionalPropertiesAllowed = $true,
+  AdditionalProperties = [OpenApiInt32]
+)]
+class Inventory {}
+
+[OpenApiSchemaComponent(Description = 'Feature flags by prefix')]
+[OpenApiPatternProperties(KeyPattern = '^x-')]
+class FeatureFlags {}
+```
 
 ### Modeling operations
 

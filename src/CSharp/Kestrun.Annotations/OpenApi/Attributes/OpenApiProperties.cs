@@ -10,6 +10,11 @@
 public abstract class OpenApiProperties : KestrunAnnotation
 {
     /// <summary>
+    /// Type of additionalProperties (if allowed).
+    /// </summary>
+    private Type? _additionalProperties;
+
+    /// <summary>
     /// Human-friendly title for the schema.
     /// </summary>
     public string? Title { get; set; }
@@ -78,6 +83,11 @@ public abstract class OpenApiProperties : KestrunAnnotation
     /// <summary>Allowed constant values for the schema.</summary>
     public object[]? Enum { get; set; }
 
+    /// <summary>
+    /// Schema type by .NET type for code-first generators.
+    /// </summary>
+    public Type? SchemaType { get; set; }
+
     // ---- Array typing ----
     /// <summary>Items type by OpenAPI reference (e.g., "#/components/schemas/Address").</summary>
     /// <summary>Items type by .NET type for code-first generators.</summary>
@@ -87,6 +97,23 @@ public abstract class OpenApiProperties : KestrunAnnotation
     ///  Indicates whether additionalProperties are allowed (default: false).
     /// </summary>
     public bool AdditionalPropertiesAllowed { get; set; } = true;
+
+    /// <summary>
+    /// Type of additionalProperties (if allowed).
+    /// </summary>
+    /// <remarks>Set AdditionalPropertiesAllowed to true if this is set.</remarks>
+    public Type? AdditionalProperties
+    {
+        get => _additionalProperties;
+        set
+        {
+            _additionalProperties = value;
+            if (value != null)
+            {
+                AdditionalPropertiesAllowed = true;
+            }
+        }
+    }
 
     // ---- Composition ----
     /// <summary>oneOf refs (by $ref).</summary>

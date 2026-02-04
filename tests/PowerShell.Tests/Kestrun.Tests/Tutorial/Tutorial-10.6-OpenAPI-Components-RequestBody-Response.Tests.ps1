@@ -7,7 +7,14 @@ Describe 'Example 10.6 OpenAPI Components RequestBody & Response' -Tag 'OpenApi'
     BeforeAll {
         $script:instance = Start-ExampleScript -Name '10.6-OpenAPI-Components-RequestBody-Response.ps1'
     }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll {
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     It 'Create Order (POST)' {
         $body = @{

@@ -38,7 +38,11 @@ Describe 'Example 8.8 Client Certificate Authentication' -Tag 'Tutorial', 'Slow'
     AfterAll {
         # Stop the server
         if ($script:instance) {
+
+            # Stop the example script
             Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
         }
     }
 

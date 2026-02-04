@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Microsoft.OpenApi;
 using OpenApiXmlModel = Microsoft.OpenApi.OpenApiXml;
 using Kestrun.Runtime;
+using Kestrun.Forms;
 
 namespace Kestrun.OpenApi;
 
@@ -53,6 +54,8 @@ public partial class OpenApiDocDescriptor
             return primitiveSchema;
         }
 
+        var formSchemaParent = TryBuildFormPayloadSchemaParent(t, built);
+
         if (TryBuildDerivedSchemaFromBaseType(t, built, out var derivedSchema, out var schemaParent))
         {
             return derivedSchema;
@@ -78,7 +81,30 @@ public partial class OpenApiDocDescriptor
         // Properties
         ProcessTypeProperties(t, schema, built);
         // Return composed schema if applicable
-        return ComposeWithParentSchema(schemaParent, schema);
+        var parentToCompose = schemaParent ?? formSchemaParent;
+        return ComposeWithParentSchema(parentToCompose, schema);
+    }
+
+    private OpenApiSchema? TryBuildFormPayloadSchemaParent(Type t, HashSet<Type> built)
+    {
+        var bindAttr = t.GetCustomAttributes(inherit: true)
+            .FirstOrDefault(a => a.GetType().Name.Equals("KrBindFormAttribute", StringComparison.OrdinalIgnoreCase));
+
+        if (bindAttr is null)
+        {
+            return null;
+        }
+
+        var depthProp = bindAttr.GetType().GetProperty("MaxNestingDepth", BindingFlags.Public | BindingFlags.Instance);
+        var maxDepth = depthProp?.GetValue(bindAttr) as int? ?? 0;
+        var baseType = maxDepth > 0 ? typeof(KrMultipart) : typeof(KrFormData);
+
+        BuildSchema(baseType, built);
+
+        return new OpenApiSchema
+        {
+            AllOf = [new OpenApiSchemaReference(baseType.Name)]
+        };
     }
 
     /// <summary>
@@ -146,6 +172,14 @@ public partial class OpenApiDocDescriptor
         if (baseSchema is null)
         {
             return false;
+        }
+
+        // If we emit a $ref to the base type (inheritance via allOf), ensure the base type schema exists.
+        // Limit this to form payload inheritance to avoid registering unrelated base types (e.g., ValueType/Enum).
+        if (t.BaseType is not null && t.BaseType != typeof(object)
+            && (typeof(KrFormData).IsAssignableFrom(t) || typeof(KrMultipart).IsAssignableFrom(t)))
+        {
+            BuildSchema(t.BaseType, built);
         }
 
         if (TryResolveSimpleOrReferenceBaseSchema(t, baseSchema, out resolved))
@@ -417,48 +451,150 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Applies type-level attributes to a schema.
     /// </summary>
-    private static void ApplyTypeAttributes(Type t, OpenApiSchema schema)
+    /// <param name="t">The type being processed.</param>
+    /// <param name="schema">The schema to apply attributes to.</param>
+    private void ApplyTypeAttributes(Type t, OpenApiSchema schema)
     {
-        foreach (var attr in t.GetCustomAttributes(true)
-          .Where(a => a is OpenApiPropertyAttribute or OpenApiSchemaComponent))
-        {
-            ApplySchemaAttr(attr as OpenApiProperties, schema);
+        ApplySchemaComponentAttributes(t, schema);
+        ApplyPatternProperties(t, schema);
+    }
 
-            if (attr is OpenApiSchemaComponent schemaAttribute && schemaAttribute.Examples is not null)
-            {
-                schema.Examples ??= [];
-                var node = OpenApiJsonNodeFactory.ToNode(schemaAttribute.Examples);
-                if (node is not null)
-                {
-                    schema.Examples.Add(node);
-                }
-            }
+    /// <summary>
+    /// Applies OpenApiSchemaComponent attributes and related examples to the schema.
+    /// </summary>
+    /// <param name="t">The type being processed.</param>
+    /// <param name="schema">The schema to apply attributes to.</param>
+    private void ApplySchemaComponentAttributes(Type t, OpenApiSchema schema)
+    {
+        var schemaAttribute = t.GetCustomAttributes(true)
+            .OfType<OpenApiSchemaComponent>()
+            .FirstOrDefault();
+
+        if (schemaAttribute is null)
+        {
+            return;
+        }
+
+        ApplySchemaAttr(schemaAttribute, schema);
+        ApplySchemaComponentExamples(schemaAttribute, schema);
+    }
+
+    /// <summary>
+    /// Applies OpenApiSchemaComponent example metadata to the schema.
+    /// </summary>
+    /// <param name="schemaAttribute">The schema component attribute.</param>
+    /// <param name="schema">The schema to update.</param>
+    private static void ApplySchemaComponentExamples(OpenApiSchemaComponent schemaAttribute, OpenApiSchema schema)
+    {
+        if (schemaAttribute.Examples is null)
+        {
+            return;
+        }
+
+        schema.Examples ??= [];
+        var node = OpenApiJsonNodeFactory.ToNode(schemaAttribute.Examples);
+        if (node is not null)
+        {
+            schema.Examples.Add(node);
         }
     }
 
     /// <summary>
+    /// Applies OpenApiPatternProperties attributes to the schema.
+    /// </summary>
+    /// <param name="t">The type being processed.</param>
+    /// <param name="schema">The schema to update.</param>
+    private void ApplyPatternProperties(Type t, OpenApiSchema schema)
+    {
+        foreach (var pattern in t.GetCustomAttributes(true)
+                     .OfType<OpenApiPatternPropertiesAttribute>())
+        {
+            var patternSchema = BuildPatternSchema(pattern);
+            if (patternSchema is null || string.IsNullOrWhiteSpace(pattern.KeyPattern))
+            {
+                continue;
+            }
+
+            schema.PatternProperties ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+            schema.PatternProperties[pattern.KeyPattern] = patternSchema;
+        }
+    }
+
+    /// <summary>
+    /// Builds the pattern schema for a pattern properties attribute.
+    /// </summary>
+    /// <param name="pattern">The pattern properties attribute.</param>
+    /// <returns>The resolved pattern schema or <c>null</c> when no schema type is specified.</returns>
+    private IOpenApiSchema? BuildPatternSchema(OpenApiPatternPropertiesAttribute pattern)
+    {
+        if (pattern.SchemaType is null)
+        {
+            return null;
+        }
+
+        var schemaType = pattern.SchemaType;
+        HashSet<Type>? built = null;
+        if (!schemaType.IsArray)
+        {
+            return BuildSchemaForType(schemaType, built);
+        }
+
+        var item = schemaType.GetElementType()!;
+        var itemSchema = BuildSchemaForType(item, built);
+        return new OpenApiSchema
+        {
+            Type = JsonSchemaType.Array,
+            Items = itemSchema
+        };
+    }
+    /// <summary>
     /// Processes all properties of a type and builds their schemas.
     /// </summary>
+    /// <param name="t">The type being processed.</param>
+    /// <param name="schema">The schema to populate with properties.</param>
+    /// <param name="built">The recursion guard set passed through schema-building.</param>
     private void ProcessTypeProperties(Type t, OpenApiSchema schema, HashSet<Type> built)
     {
         var instance = TryCreateTypeInstance(t);
+        var isFormModel = t.GetCustomAttributes(inherit: true)
+            .Any(a => a.GetType().Name.Equals("KrBindFormAttribute", StringComparison.OrdinalIgnoreCase));
 
         foreach (var prop in t.GetProperties(BindingFlags.Public | BindingFlags.Instance)
                       .Where(p => p.DeclaringType == t))
         {
+            if (ShouldSkipRuntimeFormPayloadStorageProperty(t, prop))
+            {
+                continue;
+            }
+
             var propSchema = BuildPropertySchema(prop, built);
             CapturePropertyDefault(instance, prop, propSchema);
 
-            if (prop.GetCustomAttribute<OpenApiAdditionalPropertiesAttribute>() is not null)
+            if (isFormModel && prop.GetCustomAttribute<KrPartAttribute>(inherit: false) is { Required: true })
             {
-                schema.AdditionalPropertiesAllowed = true;
-                schema.AdditionalProperties = propSchema;
+                schema.Required ??= new HashSet<string>(StringComparer.Ordinal);
+                _ = schema.Required.Add(prop.Name);
             }
-            else
-            {
-                schema.Properties?.Add(prop.Name, propSchema);
-            }
+            schema.Properties?.Add(prop.Name, propSchema);
         }
+    }
+
+    /// <summary>
+    /// Returns <c>true</c> when a property should be excluded from OpenAPI schema generation because
+    /// it represents runtime storage on Kestrun form payload base types.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="KrFormData"/> and <see cref="KrMultipart"/> are runtime containers.
+    /// Their storage properties (<c>Fields</c>/<c>Files</c>/<c>Parts</c>) are not part of the public request/response contract.
+    /// Concrete models should declare expected parts as properties.
+    /// </para>
+    /// </remarks>
+    private static bool ShouldSkipRuntimeFormPayloadStorageProperty(Type declaringType, PropertyInfo prop)
+    {
+        return declaringType == typeof(KrFormData)
+            ? prop.Name is nameof(KrFormData.Fields) or nameof(KrFormData.Files)
+            : declaringType == typeof(KrMultipart) && prop.Name == nameof(KrMultipart.Parts);
     }
 
     /// <summary>
@@ -717,7 +853,7 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     /// <param name="oaProperties">The OpenApiProperties containing attributes to apply.</param>
     /// <param name="ioaSchema">The OpenAPI schema to apply attributes to.</param>
-    private static void ApplySchemaAttr(OpenApiProperties? oaProperties, IOpenApiSchema ioaSchema)
+    private void ApplySchemaAttr(OpenApiProperties? oaProperties, IOpenApiSchema ioaSchema)
     {
         if (oaProperties is null)
         {
@@ -743,7 +879,7 @@ public partial class OpenApiDocDescriptor
     /// </summary>
     /// <param name="properties">The OpenApiProperties containing attributes to apply.</param>
     /// <param name="schema">The OpenApiSchema to apply attributes to.</param>
-    private static void ApplyConcreteSchemaAttributes(OpenApiProperties properties, OpenApiSchema schema)
+    private void ApplyConcreteSchemaAttributes(OpenApiProperties properties, OpenApiSchema schema)
     {
         ApplyTitleAndDescription(properties, schema);
         ApplySchemaType(properties, schema);
@@ -753,6 +889,10 @@ public partial class OpenApiDocDescriptor
         ApplyFlags(properties, schema);
         ApplyExamplesAndDefaults(properties, schema);
         ApplyXmlMetadata(properties, schema);
+        if (schema.Type == null && (schema.AdditionalProperties is not null || schema.AdditionalPropertiesAllowed || schema.PatternProperties is not null))
+        {
+            schema.Type = JsonSchemaType.Object;
+        }
     }
 
     /// <summary>
@@ -892,11 +1032,17 @@ public partial class OpenApiDocDescriptor
         }
     }
 
-    private static void ApplyFlags(OpenApiProperties properties, OpenApiSchema schema)
+    /// <summary>
+    /// Applies flags to an OpenApiSchema.
+    /// </summary>
+    /// <param name="properties"> The OpenApiProperties containing flags to apply.</param>
+    /// <param name="schema">The OpenApiSchema to apply flags to.</param>
+    private void ApplyFlags(OpenApiProperties properties, OpenApiSchema schema)
     {
         schema.ReadOnly = properties.ReadOnly;
         schema.WriteOnly = properties.WriteOnly;
         schema.AdditionalPropertiesAllowed = properties.AdditionalPropertiesAllowed;
+        ApplyAdditionalProperties(properties, schema);
         schema.UnevaluatedProperties = properties.UnevaluatedProperties;
         if (properties is not OpenApiParameterComponentAttribute)
         {
@@ -904,6 +1050,69 @@ public partial class OpenApiDocDescriptor
         }
     }
 
+    /// <summary>
+    /// Applies additional properties schema settings when enabled.
+    /// </summary>
+    /// <param name="properties">The OpenApiProperties containing flags to apply.</param>
+    /// <param name="schema">The OpenApiSchema to apply additional properties to.</param>
+    private void ApplyAdditionalProperties(OpenApiProperties properties, OpenApiSchema schema)
+    {
+        if (!properties.AdditionalPropertiesAllowed || properties.AdditionalProperties is null)
+        {
+            return;
+        }
+
+        HashSet<Type>? built = null;
+        if (properties.AdditionalProperties.IsArray)
+        {
+            ApplyArrayAdditionalProperties(properties, schema, built);
+            return;
+        }
+
+        schema.AdditionalProperties = BuildSchemaForType(properties.AdditionalProperties, built);
+        EnsureAdditionalPropertiesAllowed(schema.AdditionalProperties, schema);
+    }
+
+    /// <summary>
+    /// Applies array-based additional properties schema settings.
+    /// </summary>
+    /// <param name="properties">The OpenApiProperties containing array metadata.</param>
+    /// <param name="schema">The OpenApiSchema to apply additional properties to.</param>
+    /// <param name="built">The recursion guard set passed through schema-building.</param>
+    private void ApplyArrayAdditionalProperties(OpenApiProperties properties, OpenApiSchema schema, HashSet<Type>? built)
+    {
+        var item = properties.AdditionalProperties!.GetElementType()!;
+
+        var itemSchema = BuildSchemaForType(item, built);
+        EnsureAdditionalPropertiesAllowed(itemSchema, schema);
+        schema.AdditionalProperties = new OpenApiSchema
+        {
+            Type = JsonSchemaType.Array,
+            Items = itemSchema
+        };
+    }
+
+    /// <summary>
+    /// Ensures additional properties are allowed on non-object additional property schemas when applicable.
+    /// </summary>
+    /// <param name="additionalSchema">The additional properties schema.</param>
+    /// <param name="targetSchema">The target schema.</param>
+    private static void EnsureAdditionalPropertiesAllowed(IOpenApiSchema? additionalSchema, OpenApiSchema targetSchema)
+    {
+        if (additionalSchema is OpenApiSchema apiSchema
+            && apiSchema.Type != JsonSchemaType.Object
+            && !apiSchema.AdditionalPropertiesAllowed
+            && targetSchema.AdditionalProperties is OpenApiSchema targetAdditional)
+        {
+            targetAdditional.AdditionalPropertiesAllowed = true;
+        }
+    }
+
+    /// <summary>
+    /// Applies examples and default values to an OpenApiSchema.
+    /// </summary>
+    /// <param name="properties">The OpenApiProperties containing example and default values.</param>
+    /// <param name="schema">The OpenApiSchema to apply examples and defaults to.</param>
     private static void ApplyExamplesAndDefaults(OpenApiProperties properties, OpenApiSchema schema)
     {
         if (properties.Default is not null)
@@ -1001,6 +1210,5 @@ public partial class OpenApiDocDescriptor
         // Example/Default/Enum aren’t typically set on the ref node itself;
         // attach such metadata to the component target instead if you need it.
     }
-
     #endregion
 }

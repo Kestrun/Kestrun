@@ -1,10 +1,12 @@
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingEmptyCatchBlock', '')]
 param()
+BeforeAll {
+    . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
+}
+
 
 Describe 'Set-KrServerHttpsOptions -ClientCertificateValidationCode' {
-    BeforeAll {
-        . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
-        Import-Module (Get-KestrunModulePath) -Force -ErrorAction Stop
-    }
 
     BeforeEach {
         $script:serverName = 'TlsClientCertValidationCode'

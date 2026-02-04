@@ -113,7 +113,9 @@ public class ParameterForInjectionInfoTests
     public void Ctor_FromOpenApiParameter_ThrowsOnNulls()
     {
         var metadata = new ParameterMetadata("id", typeof(int));
-        _ = Assert.Throws<ArgumentNullException>(() => new ParameterForInjectionInfo(metadata, (OpenApiParameter?)null!));
+        // ReSharper disable once AssignNullToNotNullAttribute
+        // Testing a null OpenApiParameter to ensure the ctor throws
+        _ = Assert.Throws<ArgumentNullException>(() => new ParameterForInjectionInfo(metadata, null!));
         _ = Assert.Throws<ArgumentNullException>(() => new ParameterForInjectionInfo(null!, new OpenApiParameter()));
     }
 
@@ -139,7 +141,7 @@ public class ParameterForInjectionInfoTests
             }
         };
 
-        var sut = new ParameterForInjectionInfo(metadata, requestBody);
+        var sut = new ParameterForInjectionInfo(metadata, requestBody, null);
 
         Assert.Equal("body", sut.Name);
         Assert.Equal(typeof(object), sut.ParameterType);
@@ -166,7 +168,7 @@ public class ParameterForInjectionInfoTests
             }
         };
 
-        var sut = new ParameterForInjectionInfo(metadata, requestBody);
+        var sut = new ParameterForInjectionInfo(metadata, requestBody, null);
 
         Assert.Equal(JsonSchemaType.Object, sut.Type);
         Assert.Null(sut.In);
@@ -237,7 +239,7 @@ public class ParameterForInjectionInfoTests
                 }
             }
         };
-        var p = new ParameterForInjectionInfo(metadata, requestBody);
+        var p = new ParameterForInjectionInfo(metadata, requestBody, null);
 
         var jsonBody = JsonSerializer.Serialize(new { a = 1, b = "x" });
         var ctx = CreateContextWithEndpointParameters(
@@ -273,7 +275,7 @@ public class ParameterForInjectionInfoTests
                 }
             }
         };
-        var p = new ParameterForInjectionInfo(metadata, requestBody);
+        var p = new ParameterForInjectionInfo(metadata, requestBody, null);
 
         var ctx = CreateContextWithEndpointParameters(
             [p],
@@ -308,7 +310,7 @@ public class ParameterForInjectionInfoTests
                 }
             }
         };
-        var p = new ParameterForInjectionInfo(metadata, requestBody);
+        var p = new ParameterForInjectionInfo(metadata, requestBody, null);
 
         var ctx = CreateContextWithEndpointParameters(
             [p],
@@ -343,7 +345,7 @@ public class ParameterForInjectionInfoTests
                 }
             }
         };
-        var p = new ParameterForInjectionInfo(metadata, requestBody);
+        var p = new ParameterForInjectionInfo(metadata, requestBody, null);
 
         var xmlBody = """
 <?xml version="1.0" encoding="UTF-8"?>
@@ -451,7 +453,7 @@ public class ParameterForInjectionInfoTests
                 }
             }
         };
-        var p = new ParameterForInjectionInfo(metadata, requestBody);
+        var p = new ParameterForInjectionInfo(metadata, requestBody, null);
 
         var jsonBody = JsonSerializer.Serialize(new { a = 1, b = "x" });
         var ctx = CreateContextWithEndpointParameters(
@@ -486,7 +488,7 @@ public class ParameterForInjectionInfoTests
                 }
             }
         };
-        var p = new ParameterForInjectionInfo(metadata, requestBody);
+        var p = new ParameterForInjectionInfo(metadata, requestBody, null);
 
         var doc = new BsonDocument { { "a", 1 }, { "b", "x" } };
         var bytes = doc.ToBson();
@@ -525,7 +527,7 @@ public class ParameterForInjectionInfoTests
                 }
             }
         };
-        var p = new ParameterForInjectionInfo(metadata, requestBody);
+        var p = new ParameterForInjectionInfo(metadata, requestBody, null);
 
         var payload = new Dictionary<string, object?> { ["a"] = 1, ["b"] = "x" };
         var bytes = CBORObject.FromObject(payload).EncodeToBytes();
@@ -564,7 +566,7 @@ public class ParameterForInjectionInfoTests
                 }
             }
         };
-        var p = new ParameterForInjectionInfo(metadata, requestBody);
+        var p = new ParameterForInjectionInfo(metadata, requestBody, null);
 
         var ctxSingle = CreateContextWithEndpointParameters(
             [p],

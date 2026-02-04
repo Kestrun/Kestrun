@@ -143,11 +143,8 @@ class Order {
     [bool]$complete
 }
 
-[OpenApiSchemaComponent( Description = 'Inventory counts by status')]
-class Inventory {
-    [OpenApiAdditionalProperties()]
-    [int]$AdditionalProperties
-}
+[OpenApiSchemaComponent( Description = 'Inventory counts by status', AdditionalPropertiesAllowed = $true, AdditionalProperties = [OpenApiInt32])]
+class Inventory {}
 
 #region COMPONENT REQUEST BODIES
 # =========================================================
@@ -693,7 +690,12 @@ Add-KrOpenApiRoute  # Default Pattern '/openapi/{version}/openapi.{format}'
 # (If your builder collects from class attributes, this is already handled.)
 
 Build-KrOpenApiDocument
-Test-KrOpenApiDocument
+# Test and log OpenAPI document validation result
+if (Test-KrOpenApiDocument) {
+    Write-KrLog -Level Information -Message 'OpenAPI document built and validated successfully.'
+} else {
+    Write-KrLog -Level Error -Message 'OpenAPI document validation failed.'
+}
 #endregion
 
 #region RUN SERVER

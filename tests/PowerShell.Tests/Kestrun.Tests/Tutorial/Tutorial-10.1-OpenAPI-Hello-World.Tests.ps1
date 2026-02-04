@@ -7,7 +7,14 @@ Describe 'Example 10.1 OpenAPI Hello World' -Tag 'OpenApi', 'Tutorial', 'Slow' {
     BeforeAll {
         $script:instance = Start-ExampleScript -Name '10.1-OpenAPI-Hello-World.ps1'
     }
-    AfterAll { if ($script:instance) { Stop-ExampleScript -Instance $script:instance } }
+    AfterAll {
+        if ($script:instance) {
+            # Stop the example script
+            Stop-ExampleScript -Instance $script:instance
+            # Diagnostic info on failure
+            Write-KrExampleInstanceOnFailure -Instance $script:instance
+        }
+    }
 
     It 'Get greeting' {
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/greeting" -SkipCertificateCheck -SkipHttpErrorCheck

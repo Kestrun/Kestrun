@@ -102,7 +102,6 @@ internal static class PowerShellDelegateBuilder
             {
                 log.Verbose("No redirect detected; applying response to HttpResponse...");
             }
-            await ApplyResponseAsync(context, krContext).ConfigureAwait(false);
         }
         // optional: catch client cancellation to avoid noisy logs
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
@@ -116,10 +115,27 @@ internal static class PowerShellDelegateBuilder
             // Log parameter binding errors with preview of code
             log.Error("PowerShell parameter binding error ({Category}/{FQID}) - {Preview}",
                 cat, fqid, code[..Math.Min(40, code.Length)]);
-            // Return 400 Bad Request for parameter binding errors
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            context.Response.ContentType = "text/plain; charset=utf-8";
-            await context.Response.WriteAsync("Invalid request parameters.");
+            if (krContext is not null)
+            {
+                // Return 400 Bad Request for parameter binding errors
+                await krContext.Response.WriteErrorResponseAsync("Invalid request parameters: " + pbaex.Message, StatusCodes.Status400BadRequest);
+            }
+            else
+            {
+                throw;
+            }
+        }
+        catch (Forms.KrFormException kfex)
+        {
+            // Log form parsing errors with preview of code
+            log.Error("Form parsing error ({Message}) - {Preview}",
+                kfex.Message, code[..Math.Min(40, code.Length)]);
+            if (krContext is not null)
+            {
+                // Return 400 Bad Request for form parsing errors
+                await krContext.Response.WriteErrorResponseAsync("Invalid form data: " + kfex.Message, kfex.StatusCode);
+            }
+            else { throw; }
         }
         catch (Exception ex)
         {
@@ -128,9 +144,16 @@ internal static class PowerShellDelegateBuilder
             if (krContext?.Host?.ExceptionOptions is null)
             { // Log and handle script errors
                 log.Error(ex, "PowerShell script failed - {Preview}", code[..Math.Min(40, code.Length)]);
-                context.Response.StatusCode = 500; // Internal Server Error
-                context.Response.ContentType = "text/plain; charset=utf-8";
-                await context.Response.WriteAsync("An error occurred while processing your request.");
+                if (krContext is not null)
+                {
+                    await krContext.Response.WriteErrorResponseAsync("An internal server error occurred.", StatusCodes.Status500InternalServerError);
+                }
+                else
+                {
+                    context.Response.StatusCode = 500; // Internal Server Error
+                    context.Response.ContentType = "text/plain; charset=utf-8";
+                    await context.Response.WriteAsync("An error occurred while processing your request.");
+                }
             }
             else
             {
@@ -140,6 +163,10 @@ internal static class PowerShellDelegateBuilder
         }
         finally
         {
+            if (krContext is not null)
+            {
+                await ApplyResponseAsync(context, krContext).ConfigureAwait(false);
+            }
             // Do not call Response.CompleteAsync here; leaving the response open allows
             // downstream middleware like StatusCodePages to generate a body for status-only responses.
         }

@@ -18,7 +18,7 @@ function Get-KrFormOption {
     [CmdletBinding()]
     [OutputType([Kestrun.Forms.KrFormOptions])]
     param(
-        [Parameter()]
+        [Parameter(Mandatory = $true)]
         [string] $Name
     )
     $Server = Resolve-KestrunServer

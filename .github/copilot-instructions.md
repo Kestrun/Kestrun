@@ -147,6 +147,57 @@ Kestrun supports request form parsing for `multipart/form-data` (files + fields)
 - Invalid JSON in multipart JSON parts should map to **400** (not 500).
 - Required parts / content-type restrictions should map to **400** or **415** as appropriate.
 
+#### Limits & large uploads (important)
+
+Kestrun enforces multiple layers of limits; when you allow big uploads, set them consistently:
+
+- Total request size: `KrBindForm.MaxRequestBodyBytes` (or `KrFormOptions.Limits.MaxRequestBodyBytes`).
+- Default per-part size: `KrBindForm.MaxPartBodyBytes` (or `KrFormOptions.Limits.MaxPartBodyBytes`).
+- Per-part override: `KrPart.MaxBytes` (or `KrPartRule.MaxBytes`).
+
+If a test/example is meant to support ~500MB uploads, ensure all three are high enough.
+
+#### Per-part decompression limits (the common 20MB trap)
+
+`KrFormOptions.MaxDecompressedBytesPerPart` defaults to **20 MB**.
+If per-part decompression is enabled and the client sends `Content-Encoding` on a part, Kestrun caps the effective bytes for that part at:
+
+- `min( MaxPartBodyBytes (or KrPart.MaxBytes), MaxDecompressedBytesPerPart )`
+
+So for large compressed parts, you must raise `MaxDecompressedBytesPerPart` as well.
+
+#### Compression: request-level vs part-level
+
+There are two distinct compression knobs; pick the one that matches what the client sends:
+
+- **Request-level decompression** (whole request body compressed):
+  - Enable middleware with `Add-KrRequestDecompressionMiddleware -AllowedEncoding gzip`.
+  - Client sends `Content-Encoding: gzip` and compresses the entire request body (multipart boundaries included).
+- **Per-part decompression** (individual multipart parts compressed):
+  - Enable with `KrBindForm.EnablePartDecompression = $true` (or `KrFormOptions.EnablePartDecompression = $true`).
+  - Govern with `AllowedPartContentEncodings`, `RejectUnknownContentEncoding`, and `MaxDecompressedBytesPerPart`.
+
+Security guidance:
+- Keep decompression limits conservative unless required; compression can amplify payload size (zip-bomb style).
+
+#### `KrBindForm.Template` precedence
+
+If `KrBindForm.Template` is set, Kestrun clones the named `KrFormOptions` template and uses it as-is for binding.
+In the current implementation, other `KrBindForm` property overrides are not applied when a template is used.
+If you need custom limits/content-types with a template, put them on the template via `Add-KrFormOption`.
+
+#### Preferred route patterns
+
+- **Rule-based routes** (fast to iterate, explicit constraints):
+  - `New-KrFormPartRule | Add-KrFormOption | Add-KrFormRoute`
+- **Annotation-based routes** (typed binding + OpenAPI-friendly):
+  - `[KrBindForm(...)]` on the payload class + `[KrPart(...)]` on properties, plus OpenAPI attributes on the route function.
+
+#### Testing guidance
+
+- Use Pester helper `New-TestFile` for multipart tests, but keep file sizes small (e.g., 1–10MB) for CI speed.
+- Still set the example limits to the real target (e.g., 500–600MB) so the sample demonstrates the correct configuration.
+
 ### 6. SSE (Server-Sent Events)
 
 Kestrun supports **per-connection SSE** and **server-wide broadcast SSE**.

@@ -20,7 +20,7 @@ Describe 'Example 22.15 File hash upload (OpenAPI)' -Tag 'Tutorial', 'multipart/
 
     It 'Uploads a binary file and returns hashes' {
         $testFile = Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-upload-hash-openapi.bin'
-        New-TestFile -Path $testFile -Mode Binary -SizeMB 500 -Force -Quiet
+        New-TestFile -Path $testFile -Mode Binary -SizeMB 200 -Force -Quiet
 
         $expectedSha1 = (Get-FileHash -Algorithm SHA1 -Path $testFile).Hash
         $expectedSha256 = (Get-FileHash -Algorithm SHA256 -Path $testFile).Hash

@@ -57,7 +57,7 @@ public static class OpenApiSchemaDiscovery
     {
         // Avoid emitting base form payload schemas unless explicitly referenced.
         return t == typeof(KrFormData)
-       || t == typeof(KrMultipart);
+            || t == typeof(KrMultipart);
     }
 
 #if EXTENDED_OPENAPI

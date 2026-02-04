@@ -61,13 +61,13 @@ public static class KrFormEndpoints
             {
                 host.Logger.Error(ex, "Form parsing failed for {Pattern}", pattern);
                 httpContext.Response.StatusCode = ex.StatusCode;
-                await httpContext.Response.WriteAsync("Form parsing failed.", httpContext.RequestAborted).ConfigureAwait(false);
+                await httpContext.Response.WriteAsync("Invalid form data.", httpContext.RequestAborted).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
                 host.Logger.Error(ex, "Unhandled error in form route for {Pattern}", pattern);
                 httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
-                await httpContext.Response.WriteAsync("Form parsing failed.", httpContext.RequestAborted).ConfigureAwait(false);
+                await httpContext.Response.WriteAsync("Internal server error.", httpContext.RequestAborted).ConfigureAwait(false);
             }
         });
 

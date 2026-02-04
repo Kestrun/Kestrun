@@ -5,6 +5,16 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+<#
+.SYNOPSIS
+    Upload endpoint for file hash calculation
+.DESCRIPTION
+    Accepts multipart/form-data with a single binary file and returns MD5/SHA1/SHA256/SHA384/SHA512 hashes.
+.PARAMETER FormPayload
+    The parsed multipart/form-data payload.
+.OUTPUTS
+    JSON object with file metadata and hashes.
+#>
 function Get-TextFileContent {
     param([string]$Path)
     $bytes = [System.IO.File]::ReadAllBytes($Path)
@@ -72,14 +82,10 @@ Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
     }
 
     # Extract front matter
-    $fmMatches = [regex]::Matches($text, '(?s)---\s*\r?\n(.*?)\r?\n---\s*')
-    $fmMatch = $fmMatches | Where-Object { $_.Groups[1].Value -match '(?m)^title:\s*.+$' } | Select-Object -First 1
+    $fmMatch = [regex]::Match($text, '(?s)\A---\s*\r?\n(.*?)\r?\n---\s*')
     $fm = $null
-    if ($fmMatch) {
-        $fm = $fmMatch.Groups[1].Value
-    } else {
-        $fmLines = ($text -split "`n") | Select-Object -First 12
-        $fmCandidate = $fmLines -join "`n"
+    if ($fmMatch.Success) {
+        $fmCandidate = $fmMatch.Groups[1].Value
         if ($fmCandidate -match '(?m)^title:\s*.+$' -and $fmCandidate -match '(?m)^parent:\s*.+$' -and $fmCandidate -match '(?m)^nav_order:\s*.+$') {
             $fm = $fmCandidate
         }

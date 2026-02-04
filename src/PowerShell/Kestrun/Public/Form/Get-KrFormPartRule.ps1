@@ -6,7 +6,7 @@
 .PARAMETER Name
     The name of the form part rule to retrieve.
 .OUTPUTS
-    Kestrun.Forms.KrFormPartRules
+    Kestrun.Forms.KrFormPartRule
 .EXAMPLE
     $formPartRule = Get-KrFormPartRule -Name 'MyFormPartRule'
     This example retrieves the form part rule named 'MyFormPartRule' from the Kestrun server.

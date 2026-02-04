@@ -60,7 +60,7 @@ public sealed class KrDiskPartSink(string destinationPath, bool computeSha256, s
 
         await using var fileStream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true);
 
-        var hasher = _computeSha256 ? IncrementalHash.CreateHash(HashAlgorithmName.SHA256) : null;
+        using var hasher = _computeSha256 ? IncrementalHash.CreateHash(HashAlgorithmName.SHA256) : null;
         var buffer = new byte[81920];
         long total = 0;
         int read;

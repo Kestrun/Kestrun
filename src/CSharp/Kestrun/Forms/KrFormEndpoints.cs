@@ -61,7 +61,7 @@ public static class KrFormEndpoints
             {
                 host.Logger.Error(ex, "Form parsing failed for {Pattern}", pattern);
                 httpContext.Response.StatusCode = ex.StatusCode;
-                await httpContext.Response.WriteAsync(ex.Message, httpContext.RequestAborted).ConfigureAwait(false);
+                await httpContext.Response.WriteAsync("Form parsing failed.", httpContext.RequestAborted).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

@@ -20,7 +20,7 @@ public class KestrunOptions
     /// <summary>
     /// Default upload path value for form parts.
     /// </summary>
-    private static readonly string DefaultDefaultUploadPathTypeValue = Path.Combine(Path.GetTempPath(), "kestrun-uploads");
+    private static readonly string DefaultUploadPathValue = Path.Combine(Path.GetTempPath(), "kestrun-uploads");
 
     /// <summary>
     /// Gets or sets the Kestrel server options.
@@ -89,7 +89,7 @@ public class KestrunOptions
     /// <summary>
     /// Gets or sets the default upload path for form parts.
     /// </summary>
-    public string DefaultUploadPath { get; set; } = DefaultDefaultUploadPathTypeValue;
+    public string DefaultUploadPath { get; set; } = DefaultUploadPathValue;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="KestrunOptions"/> class with default values.

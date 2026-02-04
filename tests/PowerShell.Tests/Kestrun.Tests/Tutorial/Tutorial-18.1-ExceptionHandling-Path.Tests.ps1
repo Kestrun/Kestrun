@@ -6,7 +6,8 @@ Describe 'Tutorial 18.1-ExceptionHandling-Path' -Tag 'Tutorial' {
             Stop-ExampleScript -Instance $script:instance
             # Diagnostic info on failure
             Write-KrExampleInstanceOnFailure -Instance $script:instance
- } }
+        }
+    }
 
     It 'GET /hello returns 200 and JSON' {
         $r = Invoke-ExampleRequest -Uri "$($script:instance.Url)/hello" -ReturnRaw

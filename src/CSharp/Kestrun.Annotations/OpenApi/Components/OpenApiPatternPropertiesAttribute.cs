@@ -9,7 +9,6 @@
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
 public sealed class OpenApiPatternPropertiesAttribute : OpenApiProperties
 {
-{
     /// <summary>
     /// ECMA-262 compliant regex pattern for property names.
     /// </summary>

@@ -43,7 +43,7 @@ public sealed class FormHelperBuildFormPartRulesTests
     {
         var rules = FormHelper.BuildFormPartRulesFromType(typeof(OuterPayload));
 
-        var container = Assert.Single(rules, r => string.Equals(r.Name, nameof(InnerPayload), StringComparison.Ordinal));
+        var container = Assert.Single(rules, r => string.Equals(r.Name, nameof(OuterPayload.Nested), StringComparison.Ordinal));
         Assert.True(container.Required);
         Assert.Contains("multipart/mixed", container.AllowedContentTypes);
 

@@ -33,7 +33,8 @@ function Get-KrRequestBody {
         $contentType = $Context.Request.ContentType
         # Check if we need to read the stream (e.g., for compressed requests)
         $hasEncoding = -not [string]::IsNullOrWhiteSpace($Context.Request.Headers['Content-Encoding'])
-        $needsStreamRead = $hasEncoding -and [string]::IsNullOrEmpty($body)
+        $bodyIsString = $body -is [string]
+        $needsStreamRead = $hasEncoding -and (-not $bodyIsString -or [string]::IsNullOrEmpty($body))
         # Need to read the stream if not already read
         if ($needsStreamRead) {
             $reader = [System.IO.StreamReader]::new($Context.HttpContext.Request.Body, [System.Text.Encoding]::UTF8, $false, 1024, $true)

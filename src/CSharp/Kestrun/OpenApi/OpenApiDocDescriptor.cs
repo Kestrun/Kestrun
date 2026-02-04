@@ -136,7 +136,7 @@ public partial class OpenApiDocDescriptor
     {
         foreach (var type in components.SchemaTypes)
         {
-            if (type is null || !type.IsDefined(typeof(KrBindFormAttribute), inherit: true))
+            if (type is null || !type.IsDefined(typeof(KrBindFormAttribute), inherit: false))
             {
                 continue;
             }

@@ -15,7 +15,6 @@
 function Add-KrRequestDecompressionMiddleware {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding()]
-    [OutputType([Kestrun.Hosting.KestrunHost])]
     param(
         [string[]]$AllowedEncoding
     )

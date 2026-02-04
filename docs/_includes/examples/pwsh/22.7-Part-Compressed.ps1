@@ -36,10 +36,11 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
 # Upload directory
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($PSCommandPath)
 $uploadRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "kestrun-uploads-$scriptName"
+$maxDecompressedBytesPerPart = 1MB
 
 # Add Rules
 New-KrFormPartRule -Name 'file' -Required -AllowOnlyOne -AllowedContentTypes 'text/plain' |
-    Add-KrFormOption -DefaultUploadPath $uploadRoot -ComputeSha256 -EnablePartDecompression -MaxDecompressedBytesPerPart (1024 * 1024) |
+    Add-KrFormOption -DefaultUploadPath $uploadRoot -ComputeSha256 -EnablePartDecompression -MaxDecompressedBytesPerPart $maxDecompressedBytesPerPart |
     Add-KrFormRoute -Pattern '/part-compressed' -ScriptBlock {
         $file = $FormPayload.Files['file'][0]
         Write-KrJsonResponse -InputObject @{ fileName = $file.OriginalFileName; length = $file.Length; sha256 = $file.Sha256 } -StatusCode 200

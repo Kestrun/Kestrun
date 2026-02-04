@@ -2776,7 +2776,7 @@ function New-TestFile {
                 }
                 # Write the line to the file
                 $writer.Write($line)
-                if ($i % (63700) -eq 0) {
+                if (($i % (63700) -eq 0 ) -and (-not $Quiet)) {
                     Write-Host '#' -NoNewline
                 }
             }

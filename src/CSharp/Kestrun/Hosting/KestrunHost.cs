@@ -837,6 +837,13 @@ public partial class KestrunHost : IDisposable
             Logger.Warning("Http3 is not supported in this version of Kestrun. Using Http1 and Http2 only.");
             protocols = HttpProtocols.Http1AndHttp2;
         }
+        // Resolve dynamic port when requested
+        if (port == 0)
+        {
+            var bindAddress = ipAddress ?? IPAddress.Any;
+            port = ResolveEphemeralPort(bindAddress);
+            Logger.Information("Selected ephemeral port {Port} for listener on {Address}", port, bindAddress);
+        }
         // Add listener
         Options.Listeners.Add(new ListenerOptions
         {
@@ -1340,6 +1347,8 @@ public partial class KestrunHost : IDisposable
         _app = Builder.Build();
         Logger.Information("Application built successfully.");
 
+        PopulateAppUrlsFromListeners();
+
         // 🔔 SignalR shutdown notification
         _ = _app.Lifetime.ApplicationStopping.Register(() =>
         {
@@ -1363,6 +1372,56 @@ public partial class KestrunHost : IDisposable
                 Logger.Debug(ex, "Failed to send SignalR shutdown notification.");
             }
         });
+    }
+
+    /// <summary>
+    /// Adds listener URLs to the application URL list when none are present.
+    /// </summary>
+    private void PopulateAppUrlsFromListeners()
+    {
+        if (_app is null || _app.Urls.Count > 0)
+        {
+            return;
+        }
+
+        foreach (var listener in Options.Listeners)
+        {
+            var host = listener.IPAddress == null || IPAddress.Any.Equals(listener.IPAddress) || IPAddress.IPv6Any.Equals(listener.IPAddress)
+                ? "localhost"
+                : listener.IPAddress.ToString();
+
+            if (listener.IPAddress != null && listener.IPAddress.AddressFamily == AddressFamily.InterNetworkV6 && !host.StartsWith("[", StringComparison.Ordinal))
+            {
+                host = $"[{host}]";
+            }
+
+            var scheme = listener.UseHttps ? "https" : "http";
+            _app.Urls.Add($"{scheme}://{host}:{listener.Port}");
+        }
+    }
+
+    /// <summary>
+    /// Resolves an ephemeral port for the specified address by binding a temporary listener.
+    /// </summary>
+    /// <param name="ipAddress">The address to bind to when selecting the port.</param>
+    /// <returns>An available port number.</returns>
+    private static int ResolveEphemeralPort(IPAddress ipAddress)
+    {
+        var bindAddress = ipAddress;
+        if (IPAddress.Any.Equals(bindAddress))
+        {
+            bindAddress = IPAddress.Loopback;
+        }
+        else if (IPAddress.IPv6Any.Equals(bindAddress))
+        {
+            bindAddress = IPAddress.IPv6Loopback;
+        }
+
+        var listener = new TcpListener(bindAddress, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        return port;
     }
 
     /// <summary>

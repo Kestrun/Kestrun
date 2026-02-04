@@ -39,7 +39,7 @@ public static class PowerShellOpenApiClassExporter
     {
         // 1. Collect all component classes
         var componentTypes = assemblies
-            .SelectMany(a => a.GetTypes())
+            .SelectMany(GetLoadableTypes)
             .Where(t => t.IsClass && !t.IsAbstract)
             .Where(HasOpenApiComponentAttribute)
             .ToList();
@@ -106,6 +106,27 @@ public static class PowerShellOpenApiClassExporter
         }
         // 4. Write to temp script file
         return WriteOpenApiTempScript(sb.ToString());
+    }
+
+    /// <summary>
+    /// Safely retrieves loadable types from an assembly, handling partial load failures.
+    /// </summary>
+    /// <param name="assembly">The assembly to inspect.</param>
+    /// <returns>All loadable types from the assembly.</returns>
+    private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            return ex.Types.Where(static t => t is not null).Cast<Type>();
+        }
+        catch
+        {
+            return [];
+        }
     }
 
     /// <summary>

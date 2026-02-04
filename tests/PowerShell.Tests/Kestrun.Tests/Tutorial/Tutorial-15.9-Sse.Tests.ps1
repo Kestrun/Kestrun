@@ -65,6 +65,8 @@ Describe 'Tutorial 15.9 - SSE (PowerShell)' -Tag 'Tutorial' {
     }
 
     It 'SSE endpoint falls back for invalid intervalMs' {
+        # When intervalMs=0 the server should fall back to its configured default interval.
+        # To assert the exact fallback value, set count=2 and measure timestamps between 'tick' events.
         $uri = "$($script:instance.Url)/sse?count=1&intervalMs=0"
         $invokeParams = @{ Uri = $uri; Method = 'Get'; UseBasicParsing = $true; TimeoutSec = 15; Headers = @{ Accept = 'text/event-stream' } }
         if ($script:instance.Https) { $invokeParams.SkipCertificateCheck = $true }

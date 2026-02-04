@@ -234,7 +234,6 @@ function getArticle {
         publishedAt = '2025-01-15'
         author = 'John Doe'
     }
-Expand-KrObject $article
     Write-KrResponse $article -StatusCode 200
 }
 

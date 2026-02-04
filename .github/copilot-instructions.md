@@ -198,6 +198,14 @@ If you need custom limits/content-types with a template, put them on the templat
 - Use Pester helper `New-TestFile` for multipart tests, but keep file sizes small (e.g., 1–10MB) for CI speed.
 - Still set the example limits to the real target (e.g., 500–600MB) so the sample demonstrates the correct configuration.
 
+#### Troubleshooting quick hits
+
+- **HTTP 413 (Payload Too Large)**: raise *both* `MaxRequestBodyBytes` and the relevant per-part cap (`MaxPartBodyBytes` / `KrPart.MaxBytes`). If part decompression is enabled, also raise `MaxDecompressedBytesPerPart`.
+- **“Decompressed part size exceeded limit of 20971520 bytes”**: you hit the default 20MB `MaxDecompressedBytesPerPart`. Increase it or disable per-part decompression.
+- **HTTP 415 (Unsupported Media Type)**: check `KrPart.ContentTypes` / rule content-type constraints; ensure the client sends the expected part `Content-Type` and multipart boundary.
+- **Template surprises**: if `KrBindForm.Template` is set, move overrides (limits, encodings, content types) into the template via `Add-KrFormOption`.
+- **Compression mismatch**: request-level compression uses `Add-KrRequestDecompressionMiddleware` + request `Content-Encoding`; per-part compression uses `EnablePartDecompression` + per-part `Content-Encoding`.
+
 ### 6. SSE (Server-Sent Events)
 
 Kestrun supports **per-connection SSE** and **server-wide broadcast SSE**.

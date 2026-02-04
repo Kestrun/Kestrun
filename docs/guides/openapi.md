@@ -712,7 +712,7 @@ components:
         format: int32
 ```
 
-> **Note:** `OpenApiSchemaComponent` defaults `AdditionalPropertiesAllowed` to `$false`. Setting `AdditionalProperties` automatically enables it.
+> **Note:** `OpenApiSchemaComponent` defaults `AdditionalPropertiesAllowed` to `false`. Setting `AdditionalProperties` automatically enables it.
 
 ##### How additionalProperties works at runtime
 

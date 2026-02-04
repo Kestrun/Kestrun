@@ -26,6 +26,8 @@ Parse multipart and form submissions with streaming storage and limits.
 12. [OpenAPI: nested multipart](./22.12-Nested-Multipart-OpenAPI)
 13. [OpenAPI: request-level compression](./22.13-Request-Compressed-OpenAPI)
 14. [OpenAPI: part-level compression](./22.14-Part-Compressed-OpenAPI)
+15. [OpenAPI: file hash upload](./22.15-File-Hash-OpenAPI)
+16. [Form rules: file hash upload](./22.16-File-Hash-Rule)
 
 ## Gotchas
 

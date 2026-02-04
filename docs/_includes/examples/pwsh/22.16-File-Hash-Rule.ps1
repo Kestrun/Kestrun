@@ -38,9 +38,13 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($PSCommandPath)
 $uploadRoot = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "kestrun-uploads-$scriptName"
 
+# Maximum allowed size for uploaded files and request body.
+# 600MB is large enough for most test files while preventing excessively large uploads in this example.
+$maxUploadFileSize = 600MB
+
 # Add rules and route
-New-KrFormPartRule -Name 'file' -Required -AllowedContentTypes 'application/octet-stream' -AllowOnlyOne -MaxBytes (600MB) |
-    Add-KrFormOption -DefaultUploadPath $uploadRoot -MaxRequestBodyBytes (600MB) -MaxPartBodyBytes (600MB) -MaxDecompressedBytesPerPart (600MB) |
+New-KrFormPartRule -Name 'file' -Required -AllowedContentTypes 'application/octet-stream' -AllowOnlyOne -MaxBytes $maxUploadFileSize |
+    Add-KrFormOption -DefaultUploadPath $uploadRoot -MaxRequestBodyBytes $maxUploadFileSize -MaxPartBodyBytes $maxUploadFileSize -MaxDecompressedBytesPerPart $maxUploadFileSize |
     Add-KrFormRoute -Pattern '/upload-hash' -ScriptBlock {
         if (-not $FormPayload.Files.ContainsKey('file')) {
             Write-KrJsonResponse -InputObject @{ error = 'file part missing' } -StatusCode 400

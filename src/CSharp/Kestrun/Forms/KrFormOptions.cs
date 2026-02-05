@@ -17,7 +17,7 @@ public sealed class KrFormOptions
     /// <summary>
     /// Gets the allowed request content types.
     /// </summary>
-    public List<string> AllowedRequestContentTypes { get; } =
+    public List<string> AllowedContentTypes { get; } =
     [
         "multipart/form-data"
     ];
@@ -110,7 +110,7 @@ public sealed class KrFormOptions
     {
         Name = copyFrom.Name;
         Description = copyFrom.Description;
-        AllowedRequestContentTypes.AddRange(copyFrom.AllowedRequestContentTypes);
+        AllowedContentTypes.AddRange(copyFrom.AllowedContentTypes);
         RejectUnknownRequestContentType = copyFrom.RejectUnknownRequestContentType;
         DefaultUploadPath = copyFrom.DefaultUploadPath;
         SanitizeFileName = copyFrom.SanitizeFileName;

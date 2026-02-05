@@ -1,4 +1,5 @@
 using System.Management.Automation;
+using System.Net.Http.Headers;
 using Kestrun.Hosting;
 using Kestrun.Logging;
 using Kestrun.Models;
@@ -58,6 +59,69 @@ internal static class PowerShellDelegateBuilder
             }
             krContext = GetKestrunContext(context);
 
+            var allowed = krContext.MapRouteOptions.AllowedRequestContentTypes;
+
+            if (allowed is { Count: > 0 })
+            {
+                // Reliable body detection
+                var hasBody =
+                    (context.Request.ContentLength.HasValue && context.Request.ContentLength.Value > 0) ||
+                    context.Request.Headers.TransferEncoding.Count > 0;
+
+                if (string.IsNullOrWhiteSpace(context.Request.ContentType))
+                {
+                    if (hasBody)
+                    {
+                        var message =
+                            "Content-Type header is required. Supported types: " + string.Join(", ", allowed);
+
+                        log.Warning(
+                            "Request with missing Content-Type header is not allowed. {Message}",
+                            message);
+
+                        await krContext.Response.WriteErrorResponseAsync(
+                            message: message,
+                            statusCode: StatusCodes.Status415UnsupportedMediaType);
+                        return;
+                    }
+                }
+                else
+                {
+                    if (!MediaTypeHeaderValue.TryParse(context.Request.ContentType, out var mediaType))
+                    {
+                        // Malformed Content-Type → 400 (syntax error, not support issue)
+                        var message = $"Invalid Content-Type header value '{context.Request.ContentType}'.";
+
+                        log.Warning(
+                            "Malformed Content-Type header '{ContentType}'.",
+                            context.Request.ContentType);
+
+                        await krContext.Response.WriteErrorResponseAsync(
+                            message: message,
+                            statusCode: StatusCodes.Status400BadRequest);
+                        return;
+                    }
+
+                    var requestContentType = mediaType.MediaType;
+
+                    if (!allowed.Contains(requestContentType, StringComparer.OrdinalIgnoreCase))
+                    {
+                        var message =
+                            $"Request content type '{requestContentType}' is not allowed. Supported types: {string.Join(", ", allowed)}";
+
+                        log.Warning(
+                            "Request content type '{ContentType}' is not allowed for this route.",
+                            requestContentType);
+
+                        await krContext.Response.WriteErrorResponseAsync(
+                            message: message,
+                            statusCode: StatusCodes.Status415UnsupportedMediaType);
+                        return;
+                    }
+                }
+            }
+
+
             if (krContext.HasRequestCulture)
             {
                 PowerShellExecutionHelpers.AddCulturePrelude(ps, krContext.Culture, log);
@@ -108,13 +172,25 @@ internal static class PowerShellDelegateBuilder
         {
             // client disconnected – nothing to send
         }
+        catch (ParameterForInjectionException pfiiex)
+        {
+            // Log parameter resolution errors with preview of code
+            //   log.Error("Parameter resolution error ({Message}) - {Preview}",
+            // pfiiex.Message, code[..Math.Min(40, code.Length)]);
+            if (krContext is not null)
+            {
+                // Return 400 Bad Request for parameter resolution errors
+                await krContext.Response.WriteErrorResponseAsync("Invalid request parameters: " + pfiiex.Message, pfiiex.StatusCode);
+            }
+            else
+            {
+                throw;
+            }
+        }
         catch (ParameterBindingException pbaex)
         {
             var fqid = pbaex.ErrorRecord?.FullyQualifiedErrorId;
             var cat = pbaex.ErrorRecord?.CategoryInfo?.Category;
-            // Log parameter binding errors with preview of code
-            log.Error("PowerShell parameter binding error ({Category}/{FQID}) - {Preview}",
-                cat, fqid, code[..Math.Min(40, code.Length)]);
             if (krContext is not null)
             {
                 // Return 400 Bad Request for parameter binding errors

@@ -63,6 +63,11 @@ public class MapRouteOptions
     public string? DefaultResponseContentType { get; set; }
 
     /// <summary>
+    /// Content types that this route can consume, if any.
+    /// </summary>
+    public List<string> AllowedRequestContentTypes { get; set; } = [];
+
+    /// <summary>
     /// OpenAPI metadata for this route.
     /// </summary>
     public Dictionary<HttpVerb, OpenAPIPathMetadata> OpenAPI { get; set; } = []; // OpenAPI metadata for this route

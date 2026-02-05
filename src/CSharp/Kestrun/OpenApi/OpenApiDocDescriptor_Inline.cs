@@ -190,7 +190,7 @@ public partial class OpenApiDocDescriptor
     {
         var expectedType = kind switch
         {
-            OpenApiComponentKind.Schemas => typeof(OpenApiSchema),
+            OpenApiComponentKind.Schemas => typeof(IOpenApiSchema),
             OpenApiComponentKind.Responses => typeof(OpenApiResponse),
             OpenApiComponentKind.Parameters => typeof(OpenApiParameter),
             OpenApiComponentKind.Examples => typeof(OpenApiExample),

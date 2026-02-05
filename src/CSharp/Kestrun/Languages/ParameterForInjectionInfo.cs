@@ -1207,6 +1207,10 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <summary>
     /// Creates an instance of <paramref name="type"/> using the current PowerShell runspace.
     /// </summary>
+    /// <param name="ps">The current PowerShell instance.</param>
+    /// <param name="type">The type to instantiate.</param>
+    /// <param name="logger">The logger to use for diagnostic warnings.</param>
+    /// <returns>The created instance, or null if instantiation failed.</returns>
     private static object? TryCreateObjectInstanceInRunspace(PowerShell ps, Type type, Serilog.ILogger logger)
     {
         try
@@ -1225,9 +1229,9 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
             var candidates = new[]
             {
-                type.AssemblyQualifiedName,
+                type.Name,
                 type.FullName,
-                type.Name
+                type.AssemblyQualifiedName
             };
 
             foreach (var candidate in candidates.Where(static c => !string.IsNullOrWhiteSpace(c)).Distinct(StringComparer.Ordinal))
@@ -2050,19 +2054,40 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     private static object? ConvertValue(KestrunContext context, ParameterForInjectionInfo param,
     string? singleValue, string?[]? multiValue)
     {
-        // Convert based on schema type
-        return param.Type switch
+        try
         {
-            JsonSchemaType.Integer => int.TryParse(singleValue, out var i) ? (int?)i : null,
-            JsonSchemaType.Number => double.TryParse(singleValue, out var d) ? (double?)d : null,
-            JsonSchemaType.Boolean => bool.TryParse(singleValue, out var b) ? (bool?)b : null,
-            JsonSchemaType.Array => multiValue ?? (singleValue is not null ? new[] { singleValue } : null), // keep your existing behaviour for query/header multi-values
-            JsonSchemaType.Object => param.IsRequestBody
-                                    ? ConvertBodyBasedOnContentType(context, singleValue ?? "", param)
-                                    : singleValue,
-            JsonSchemaType.String => singleValue,
-            _ => singleValue,
-        };
+            // Convert based on schema type
+            return param.Type switch
+            {
+                JsonSchemaType.Integer => int.TryParse(singleValue, out var i) ? (int?)i : null,
+                JsonSchemaType.Number => double.TryParse(singleValue, out var d) ? (double?)d : null,
+                JsonSchemaType.Boolean => bool.TryParse(singleValue, out var b) ? (bool?)b : null,
+                JsonSchemaType.Array => multiValue ?? (singleValue is not null ? new[] { singleValue } : null), // keep your existing behaviour for query/header multi-values
+                JsonSchemaType.Object => param.IsRequestBody
+                                        ? ConvertBodyBasedOnContentType(context, singleValue ?? "", param)
+                                        : singleValue,
+                JsonSchemaType.String => singleValue,
+                _ => singleValue,
+            };
+        }
+        catch (Exception ex)
+        {
+            context.Host.Logger.WarningSanitized(
+                ex,
+                "Failed to convert parameter '{Name}' (schemaType={SchemaType}, requestBody={IsBody}). RawValue='{Value}', MultiCount={MultiCount}.",
+                param.Name,
+                param.Type,
+                param.IsRequestBody,
+                singleValue,
+                multiValue?.Length ?? 0);
+
+            // Minimal client message (no raw value)
+            var clientMsg = param.IsRequestBody
+                ? "Invalid request body."
+                : $"Invalid value for parameter '{param.Name}'.";
+
+            throw new ParameterForInjectionException(clientMsg, 400);
+        }
     }
 
     /// <summary>
@@ -2477,6 +2502,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         }
 
         var instance = TryCreateObjectInstance(parameterType, logger, ps);
+        // var instance = Activator.CreateInstance(parameterType);
         if (instance is null)
         {
             return null;
@@ -2509,21 +2535,88 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
         foreach (DictionaryEntry entry in data)
         {
-            if (entry.Key is not string rawKey)
+            try
             {
-                continue;
-            }
+                if (entry.Key is not string rawKey)
+                {
+                    continue;
+                }
 
-            var key = NormalizeMemberKey(rawKey);
-            if (TrySetMemberValue(instance, entry.Value, key, props, fields, depth, ps))
+                var key = NormalizeMemberKey(rawKey);
+                if (TrySetMemberValue(instance, entry.Value, key, props, fields, depth, ps))
+                {
+                    continue;
+                }
+
+                extras[key] = entry.Value;
+            }
+            catch (Exception ex)
             {
-                continue;
+                logger.Warning(ex,
+                    "Failed to populate object of type {TargetType} from hashtable data. Member={Member}.",
+                    targetType, entry.Key);
+                var clientMsg = ex.InnerException is ValidationMetadataException vme
+                    ? $"Validation failed for member '{entry.Key}': {SanitizePsValidation(vme.Message)}"
+                    : $"Invalid value for member '{entry.Key}'.";
+                throw new ParameterForInjectionException(clientMsg, 422);
             }
-
-            extras[key] = entry.Value;
         }
 
-        ApplyAdditionalPropertiesExtras(instance, data, extras, logger);
+        // If there are unmatched entries and the target type doesn't support additional properties, log a warning and throw an exception.
+        if (extras.Count > 0)
+        {
+            if (!HasAdditionalProperties(instance))
+            {
+                logger.WarningSanitized(
+                "Hashtable data contains {ExtraCount} unmatched entries for type {TargetType}. ExtraKeys: {ExtraKeys}",
+                extras.Count, targetType, extras.Keys.Cast<object?>().ToArray());
+
+                // Client-safe, still actionable:
+                var extraKeys = string.Join(", ", extras.Keys.Cast<object?>().Where(k => k is not null));
+                var clientMsg = $"Additional properties are not allowed: {extraKeys}.";
+                throw new ParameterForInjectionException(clientMsg, 422);
+            }
+
+            ApplyAdditionalPropertiesExtras(instance, data, extras, logger);
+        }
+    }
+
+    /// <summary>
+    ///  Determines whether the specified object has an "AdditionalProperties" property, indicating support for extra data beyond defined members.
+    /// </summary>
+    /// <param name="obj"> The object to check for an "AdditionalProperties" property.</param>
+    /// <returns>True if the object has an "AdditionalProperties" property; otherwise, false.</returns>
+    private static bool HasAdditionalProperties(object obj)
+    {
+        return obj is not null && obj.GetType()
+                  .GetProperty("AdditionalProperties",
+                      BindingFlags.Instance | BindingFlags.Public) != null;
+    }
+    /// <summary>
+    ///  Sanitizes a PowerShell validation error message for safe inclusion in client-facing error responses.
+    /// </summary>
+    /// <param name="message">The original PowerShell validation error message.</param>
+    /// <returns>A sanitized version of the message suitable for client display.</returns>
+    private static string SanitizePsValidation(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return "Validation failed.";
+        }
+
+        message = message.Trim();
+
+        // Remove line breaks (PS sometimes adds them)
+        message = message.Replace("\r", " ").Replace("\n", " ");
+
+        // Take only the first sentence
+        var dotIndex = message.IndexOf('.');
+        if (dotIndex > 0)
+        {
+            message = message[..(dotIndex + 1)];
+        }
+
+        return message;
     }
 
     /// <summary>

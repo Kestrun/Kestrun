@@ -17,7 +17,7 @@ public static partial class KestrunHostMapExtensions
     ///
     /// By default, only <c>multipart/form-data</c> is accepted; additional request content types (such as
     /// <c>application/x-www-form-urlencoded</c> and <c>multipart/mixed</c>) are opt-in via
-    /// <see cref="KrFormOptions.AllowedRequestContentTypes"/>.
+    /// <see cref="KrFormOptions.AllowedContentTypes"/>.
     ///
     /// This method also fills <see cref="MapRouteOptions.OpenAPI"/> (unless disabled) so the route appears in generated
     /// OpenAPI documents.
@@ -306,7 +306,7 @@ try {
         };
 
         var content = new Dictionary<string, IOpenApiMediaType>(StringComparer.OrdinalIgnoreCase);
-        foreach (var ct in options.AllowedRequestContentTypes)
+        foreach (var ct in options.AllowedContentTypes)
         {
             if (string.IsNullOrWhiteSpace(ct))
             {

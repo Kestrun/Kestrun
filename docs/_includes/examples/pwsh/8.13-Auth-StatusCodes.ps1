@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: Authentication failures + status codes
     Purpose: Provide a small API surface to manually try common HTTP status codes
              (401/403/404/405/415/400/200/201/204) across GET/POST/DELETE.
@@ -55,6 +55,10 @@ class JsonEchoRequest {
     [string]$priority
 }
 
+
+[OpenApiSchemaComponent(Description = 'JSON echo request payload.', AdditionalPropertiesAllowed = $true, AdditionalProperties = [bool])]
+class JsonEchoRequestPlus: JsonEchoRequest {}
+
 # =========================================================
 #                 AUTHN / AUTHZ
 # =========================================================
@@ -66,9 +70,9 @@ $claimConfig = New-KrClaimPolicy |
     Build-KrClaimPolicy
 
 Add-KrBasicAuthentication -AuthenticationScheme 'StatusBasic' -Realm 'StatusCodes' -AllowInsecureHttp -ScriptBlock {
-    param($Username, $Secret)
-
-    if ($Secret -ne 'password') { return $false }
+    param($Username, $Password)
+    Write-KrLog -Level Debug -Message "Authenticating user '$Username' with provided password '$Password'."
+    if ($Password -ne 'password') { return $false }
 
     return ($Username -eq 'admin' -or $Username -eq 'user')
 } -IssueClaimsScriptBlock {
@@ -158,6 +162,31 @@ function postJsonEcho {
         [JsonEchoRequest]$body
     )
 
+    Expand-KrObject -InputObject $body
+    Write-KrJsonResponse -InputObject @{ received = $body } -StatusCode 201
+}
+
+
+<#
+.SYNOPSIS
+    JSON echo (415 when Content-Type is not application/json; 400 when body is invalid JSON).
+.DESCRIPTION
+    This endpoint echoes back the received JSON payload.
+.PARAMETER body
+    The JSON body to echo back.
+#>
+function postJsonEchoPlus {
+    [OpenApiPath(HttpVerb = 'post', Pattern = '/json/echoPlus', Summary = 'POST requires application/json', Tags = ('StatusCodes'))]
+    [OpenApiResponse(StatusCode = '201', Description = 'Created', ContentType = 'application/json', Schema = [object])]
+    [OpenApiResponse(StatusCode = '400', Description = 'Bad Request')]
+    [OpenApiResponse(StatusCode = '422', Description = 'Unprocessable Content')]
+    [OpenApiResponse(StatusCode = '415', Description = 'Unsupported Media Type')]
+    param(
+        [OpenApiRequestBody( ContentType = 'application/json', Required = $true)]
+        [JsonEchoRequestPlus]$body
+    )
+
+    Expand-KrObject -InputObject $body
     Write-KrJsonResponse -InputObject @{ received = $body } -StatusCode 201
 }
 

@@ -87,7 +87,7 @@ public static class KrFormParser
         }
 
         var normalizedMediaType = mediaType.MediaType.Value ?? string.Empty;
-        if (!IsAllowedRequestContentType(normalizedMediaType, options.AllowedRequestContentTypes))
+        if (!IsAllowedRequestContentType(normalizedMediaType, options.AllowedContentTypes))
         {
             if (options.RejectUnknownRequestContentType)
             {

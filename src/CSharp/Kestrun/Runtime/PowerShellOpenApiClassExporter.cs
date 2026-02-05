@@ -670,6 +670,7 @@ public static class PowerShellOpenApiClassExporter
 
         foreach (var p in props)
         {
+            AppendValidationAttributes(p, sb);
             var psType = ToPowerShellTypeName(p.PropertyType, componentSet, collapseToUnderlyingPrimitives: true);
             _ = sb.AppendLine($"    [{psType}]${p.Name}");
         }
@@ -896,6 +897,123 @@ public static class PowerShellOpenApiClassExporter
     /// <param name="str">The string to escape.</param>
     /// <returns>Escaped string safe for PowerShell single-quoted strings.</returns>
     private static string EscapePowerShellString(string str) => str.Replace("'", "''");
+
+    private static void AppendValidationAttributes(PropertyInfo property, StringBuilder sb)
+    {
+        var attributes = property.GetCustomAttributes(inherit: false)
+            .Select(attr => TryFormatValidationAttribute(attr))
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToList();
+
+        foreach (var attribute in attributes)
+        {
+            _ = sb.Append("    ").AppendLine(attribute!);
+        }
+    }
+
+    private static string? TryFormatValidationAttribute(object attribute)
+    {
+        var typeName = attribute.GetType().Name;
+
+        return typeName switch
+        {
+            "ValidateRangeAttribute" => FormatValidateRange(attribute),
+            "ValidateLengthAttribute" => FormatValidateLength(attribute),
+            "ValidateSetAttribute" => FormatValidateSet(attribute),
+            "ValidatePatternAttribute" => FormatValidatePattern(attribute),
+            "ValidateCountAttribute" => FormatValidateCount(attribute),
+            "ValidateNotNullOrEmptyAttribute" => "[ValidateNotNullOrEmpty()]",
+            "ValidateNotNullAttribute" => "[ValidateNotNull()]",
+            "ValidateNotNullOrWhiteSpaceAttribute" => "[ValidateNotNullOrWhiteSpace()]",
+            _ => null
+        };
+    }
+
+    private static string? FormatValidateRange(object attribute)
+    {
+        var min = attribute.GetType().GetProperty("MinRange")?.GetValue(attribute);
+        var max = attribute.GetType().GetProperty("MaxRange")?.GetValue(attribute);
+        if (min is null || max is null)
+        {
+            return null;
+        }
+
+        return $"[ValidateRange({FormatPowerShellLiteral(min)}, {FormatPowerShellLiteral(max)})]";
+    }
+
+    private static string? FormatValidateLength(object attribute)
+    {
+        var min = attribute.GetType().GetProperty("MinLength")?.GetValue(attribute);
+        var max = attribute.GetType().GetProperty("MaxLength")?.GetValue(attribute);
+        if (min is null || max is null)
+        {
+            return null;
+        }
+
+        return $"[ValidateLength({FormatPowerShellLiteral(min)}, {FormatPowerShellLiteral(max)})]";
+    }
+
+    private static string? FormatValidateCount(object attribute)
+    {
+        var min = attribute.GetType().GetProperty("MinLength")?.GetValue(attribute);
+        var max = attribute.GetType().GetProperty("MaxLength")?.GetValue(attribute);
+        if (min is null || max is null)
+        {
+            return null;
+        }
+
+        return $"[ValidateCount({FormatPowerShellLiteral(min)}, {FormatPowerShellLiteral(max)})]";
+    }
+
+    private static string? FormatValidatePattern(object attribute)
+    {
+        var pattern = attribute.GetType().GetProperty("RegexPattern")?.GetValue(attribute) as string;
+        if (string.IsNullOrWhiteSpace(pattern))
+        {
+            return null;
+        }
+
+        return $"[ValidatePattern('{EscapePowerShellString(pattern)}')]";
+    }
+
+    private static string? FormatValidateSet(object attribute)
+    {
+        var values = attribute.GetType().GetProperty("ValidValues")?.GetValue(attribute) as IEnumerable<object>;
+        if (values is null)
+        {
+            return null;
+        }
+
+        var formatted = values
+            .Select(FormatPowerShellLiteral)
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .ToArray();
+
+        if (formatted.Length == 0)
+        {
+            return null;
+        }
+
+        return $"[ValidateSet({string.Join(", ", formatted)})]";
+    }
+
+    private static string? FormatPowerShellLiteral(object? value)
+    {
+        if (value is null)
+        {
+            return "$null";
+        }
+
+        return value switch
+        {
+            string s => $"'{EscapePowerShellString(s)}'",
+            char c => $"'{EscapePowerShellString(c.ToString())}'",
+            bool b => b ? "$true" : "$false",
+            byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal =>
+                Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture),
+            _ => $"'{EscapePowerShellString(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? value.ToString() ?? string.Empty)}'"
+        };
+    }
 
     /// <summary>
     /// Converts a .NET type to a PowerShell type name.

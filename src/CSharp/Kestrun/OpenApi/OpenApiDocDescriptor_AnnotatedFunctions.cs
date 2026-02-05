@@ -945,9 +945,13 @@ public partial class OpenApiDocDescriptor
 
         if (routeOptions.FormOptions is not null && requestBody.Content?.Keys.Count > 0)
         {
-            routeOptions.FormOptions.AllowedRequestContentTypes.Clear();
-            routeOptions.FormOptions.AllowedRequestContentTypes.AddRange(requestBody.Content?.Keys ?? []);
+            routeOptions.FormOptions.AllowedContentTypes.Clear();
+            routeOptions.FormOptions.AllowedContentTypes.AddRange(requestBody.Content?.Keys ?? []);
         }
+        // If the request body defines content types, use them as allowed content types for the route and form options
+        routeOptions.AllowedRequestContentTypes.Clear();
+        routeOptions.AllowedRequestContentTypes.AddRange(requestBody.Content?.Keys ?? []);
+
         // Add the parameter for injection
         routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBody, routeOptions.FormOptions));
     }
@@ -1001,8 +1005,8 @@ public partial class OpenApiDocDescriptor
         OpenApiRequestBodyAttribute attribute)
     {
         var contentTypes = ResolveFormContentTypes(attribute, routeOptions.FormOptions!);
-        routeOptions.FormOptions!.AllowedRequestContentTypes.Clear();
-        routeOptions.FormOptions.AllowedRequestContentTypes.AddRange(contentTypes);
+        routeOptions.FormOptions!.AllowedContentTypes.Clear();
+        routeOptions.FormOptions.AllowedContentTypes.AddRange(contentTypes);
 
         var formSchema = InferPrimitiveSchema(type: paramInfo.ParameterType, inline: attribute.Inline);
         var requestBodyContent = BuildFormRequestBodyWithSchema(formSchema, contentTypes, routeOptions.FormOptions, attribute);
@@ -1092,9 +1096,9 @@ public partial class OpenApiDocDescriptor
         }
 
         // if allowed content types are specified, use those
-        if (options.AllowedRequestContentTypes.Count > 0)
+        if (options.AllowedContentTypes.Count > 0)
         {
-            return [.. options.AllowedRequestContentTypes];
+            return [.. options.AllowedContentTypes];
         }
         // default to multipart/form-data
         return ["multipart/form-data"];

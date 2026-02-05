@@ -43,7 +43,7 @@ Describe 'Example 8.13 Auth + Status Codes' -Tag 'Tutorial', 'Auth', 'StatusCode
         $json.message | Should -Be 'hello'
         $json.user | Should -Be 'admin'
     }
-
+    # 403 Forbidden is returned when the user is authenticated but does not have required claims/permissions to access the resource. In this example, both 'admin' and 'user' are authenticated successfully
     It 'DELETE /secure/resource/{id} returns 403 when missing CanDelete policy' {
         $resp = Invoke-WebRequest -Method Delete -Uri "$($script:instance.Url)/secure/resource/1" -Headers @{ Authorization = $script:adminAuth } -SkipCertificateCheck -SkipHttpErrorCheck
         $resp.StatusCode | Should -Be 403
@@ -52,8 +52,15 @@ Describe 'Example 8.13 Auth + Status Codes' -Tag 'Tutorial', 'Auth', 'StatusCode
         $resp2.StatusCode | Should -Be 403
     }
 
+    # 415 Unsupported Media Type is returned when the server cannot process the request payload due to
+    # unsupported Content-Type. In this example, the /json/echo endpoint expects application/json, so sending text/plain results in 415.
     It 'POST /json/echo returns 415 when Content-Type is not application/json' {
         $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/json/echo" -Body 'hi' -ContentType 'text/plain' -SkipCertificateCheck -SkipHttpErrorCheck
+        $resp.StatusCode | Should -Be 415
+    }
+
+    It 'POST /json/echo returns 415 when there is no Content-Type header' {
+        $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/json/echo" -Body 'hi' -SkipCertificateCheck -SkipHttpErrorCheck
         $resp.StatusCode | Should -Be 415
     }
 
@@ -62,8 +69,18 @@ Describe 'Example 8.13 Auth + Status Codes' -Tag 'Tutorial', 'Auth', 'StatusCode
         $resp.StatusCode | Should -Be 400
     }
 
-    It 'POST /json/echo returns 422 when JSON is valid but fails validation' {
-        $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/json/echo" -Body '{"name":"","quantity":0}' -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+    It 'POST /json/echo returns 422 when JSON is valid but fails validation (named properties)' {
+        $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/json/echo" -Body '{"name":"","quantity":2}' -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+        $resp.StatusCode | Should -Be 422
+    }
+
+    It 'POST /json/echo returns 422 when JSON is valid but fails validation (quantity is 0)' {
+        $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/json/echo" -Body '{"name":"widget","quantity":0}' -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+        $resp.StatusCode | Should -Be 422
+    }
+
+    It 'POST /json/echo returns 422 when JSON is valid but fails validation (additional property not allowed by schema)' {
+        $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/json/echo" -Body '{"name":"widget","quantity":2,"notValid":true}' -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
         $resp.StatusCode | Should -Be 422
     }
 
@@ -75,6 +92,28 @@ Describe 'Example 8.13 Auth + Status Codes' -Tag 'Tutorial', 'Auth', 'StatusCode
         $json.received.name | Should -Be 'widget'
         $json.received.quantity | Should -Be 2
         $json.received.priority | Should -Be 'normal'
+    }
+
+    It 'POST /json/echoPlus returns 422 when JSON is valid but fails validation (named properties)' {
+        $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/json/echoPlus" -Body '{"name":"","quantity":2}' -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+        $resp.StatusCode | Should -Be 422
+    }
+
+    It 'POST /json/echoPlus returns 422 when JSON is valid but fails validation (quantity is 0)' {
+        $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/json/echoPlus" -Body '{"name":"widget","quantity":0}' -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+        $resp.StatusCode | Should -Be 422
+    }
+
+    It 'POST /json/echoPlus returns 201 when JSON is valid' {
+        $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/json/echoPlus" -Body '{"name":"widget","quantity":2,"priority":"normal","notValid":false}' `
+            -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+        $resp.StatusCode | Should -Be 201
+
+        $json = $resp.Content | ConvertFrom-Json
+        $json.received.name | Should -Be 'widget'
+        $json.received.quantity | Should -Be 2
+        $json.received.priority | Should -Be 'normal'
+        $json.received.AdditionalProperties.notValid | Should -Be $true
     }
 
     It 'POST /only-get returns 405 (method not allowed)' {

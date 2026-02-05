@@ -1,4 +1,4 @@
-﻿param()
+param()
 BeforeAll {
     . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
 }
@@ -106,14 +106,22 @@ Describe 'Example 8.13 Auth + Status Codes' -Tag 'Tutorial', 'Auth', 'StatusCode
 
     It 'POST /json/echoPlus returns 201 when JSON is valid' {
         $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/json/echoPlus" -Body '{"name":"widget","quantity":2,"priority":"normal","notValid":false}' `
-            -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+            -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck -Headers @{  Accept = 'application/json'}
         $resp.StatusCode | Should -Be 201
 
         $json = $resp.Content | ConvertFrom-Json -AsHashtable
         $json.received.name | Should -Be 'widget'
         $json.received.quantity | Should -Be 2
         $json.received.priority | Should -Be 'normal'
-        $json.received.AdditionalProperties.notValid | Should -Be $false
+        $json.received.additionalProperties.notValid | Should -Be $false
+    }
+
+     It 'POST /json/echoPlus returns 406 when Content-Type is application/json but Accept header does not allow application/json' {
+        $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/json/echoPlus" -Body '{"name":"widget","quantity":2,"priority":"normal","notValid":false}' `
+            -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck -Headers @{
+        Accept = 'application/yaml, application/txt;q=0.9'
+}
+        $resp.StatusCode | Should -Be 406
     }
 
     It 'POST /only-get returns 405 (method not allowed)' {

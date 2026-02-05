@@ -82,13 +82,13 @@ class NestedMultipartRequest : KrMultipart {
             var outerProp = typed.GetType().GetProperty("outer", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
             Assert.NotNull(outerProp);
 
-            var outerValue = outerProp!.GetValue(typed);
+            var outerValue = outerProp.GetValue(typed);
             Assert.NotNull(outerValue);
 
-            var additionalProps = outerValue!.GetType().GetProperty("AdditionalProperties", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            var additionalProps = outerValue.GetType().GetProperty("AdditionalProperties", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
             Assert.NotNull(additionalProps);
 
-            var additionalValue = additionalProps!.GetValue(outerValue);
+            var additionalValue = additionalProps.GetValue(outerValue);
             var ht = Assert.IsType<Hashtable>(additionalValue);
             Assert.Equal("outer", ht["stage"]);
 
@@ -96,20 +96,20 @@ class NestedMultipartRequest : KrMultipart {
             var nestedProp = typed.GetType().GetProperty("nested", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
             Assert.NotNull(nestedProp);
 
-            var nestedValue = nestedProp!.GetValue(typed);
+            var nestedValue = nestedProp.GetValue(typed);
             var nestedArr = Assert.IsAssignableFrom<Array>(nestedValue);
             _ = Assert.Single(nestedArr);
 
             var nestedItem = nestedArr.GetValue(0);
             Assert.NotNull(nestedItem);
 
-            var textProp = nestedItem!.GetType().GetProperty("text", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
+            var textProp = nestedItem.GetType().GetProperty("text", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
             var jsonProp = nestedItem.GetType().GetProperty("json", BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase);
             Assert.NotNull(textProp);
             Assert.NotNull(jsonProp);
 
-            Assert.Equal("inner-1", textProp!.GetValue(nestedItem));
-            Assert.Equal(/*lang=json,strict*/ "{\"nested\":true}", jsonProp!.GetValue(nestedItem));
+            Assert.Equal("inner-1", textProp.GetValue(nestedItem));
+            Assert.Equal(/*lang=json,strict*/ "{\"nested\":true}", jsonProp.GetValue(nestedItem));
         }
         finally
         {

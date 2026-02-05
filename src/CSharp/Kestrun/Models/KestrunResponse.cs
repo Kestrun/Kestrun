@@ -61,7 +61,9 @@ public class KestrunResponse
     /// A set of MIME types that are considered text-based for response content.
     /// </summary>
     public static readonly HashSet<string> TextBasedMimeTypes =
+#pragma warning disable IDE0028 // Simplify collection initialization
     new(StringComparer.OrdinalIgnoreCase)
+#pragma warning restore IDE0028 // Simplify collection initialization
     {
         "application/json",
         "application/xml",

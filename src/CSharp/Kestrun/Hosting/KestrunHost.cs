@@ -127,7 +127,9 @@ public partial class KestrunHost : IDisposable
 #endif
 
     internal readonly Dictionary<(string Pattern, HttpVerb Method), MapRouteOptions> _registeredRoutes =
+#pragma warning disable IDE0028 // Simplify collection initialization
     new(new RouteKeyComparer());
+#pragma warning restore IDE0028 // Simplify collection initialization
 
     //internal readonly Dictionary<(string Scheme, string Type), AuthenticationSchemeOptions> _registeredAuthentications =
     //  new(new AuthKeyComparer());

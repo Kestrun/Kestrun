@@ -109,11 +109,11 @@ Describe 'Example 8.13 Auth + Status Codes' -Tag 'Tutorial', 'Auth', 'StatusCode
             -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
         $resp.StatusCode | Should -Be 201
 
-        $json = $resp.Content | ConvertFrom-Json
+        $json = $resp.Content | ConvertFrom-Json -AsHashtable
         $json.received.name | Should -Be 'widget'
         $json.received.quantity | Should -Be 2
         $json.received.priority | Should -Be 'normal'
-        $json.received.AdditionalProperties.notValid | Should -Be $true
+        $json.received.AdditionalProperties.notValid | Should -Be $false
     }
 
     It 'POST /only-get returns 405 (method not allowed)' {

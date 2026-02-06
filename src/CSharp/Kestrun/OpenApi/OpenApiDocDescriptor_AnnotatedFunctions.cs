@@ -445,20 +445,35 @@ public partial class OpenApiDocDescriptor
         if (response is not null && CreateResponseFromAttribute(attribute, response))
         {
             _ = metadata.Responses.TryAdd(attribute.StatusCode, response);
-            if (routeOptions.DefaultResponseContentType is null)
-            {
-                var defaultStatusCode = SelectDefaultSuccessResponse(metadata.Responses);
-                if (defaultStatusCode is not null && metadata.Responses.TryGetValue(defaultStatusCode, out var defaultResponse) &&
-                    defaultResponse.Content is not null && defaultResponse.Content.Count > 0 && response.Content is not null && response.Content.Count > 0)
-                {
-                    routeOptions.DefaultResponseContentType = new Dictionary<string, ICollection<string>>
-                    {
-                        { attribute.StatusCode, response.Content.Keys }
-                    };
-                }
-            }
+            SetDefaultResponseContentType(metadata.Responses, routeOptions, attribute.StatusCode);
         }
     }
+
+    /// <summary>
+    /// Applied the Response Content Types from the default response to the new response if the new response doesn't have content types defined and the default response has content types defined.
+    /// </summary>
+    /// <param name="responses">The collection of OpenAPI responses to check and update.</param>
+    ///  <param name="routeOptions">The route options to update.</param>
+    /// <param name="newStatusCode">The status code of the new response that was just added.</param>
+    private static void SetDefaultResponseContentType(OpenApiResponses responses, MapRouteOptions routeOptions, string newStatusCode)
+    {
+        if (routeOptions.DefaultResponseContentType is not null)
+        {
+            return;
+        }
+
+        var defaultStatusCode = SelectDefaultSuccessResponse(responses);
+        if (defaultStatusCode is not null && responses.TryGetValue(defaultStatusCode, out var defaultResponse) &&
+            defaultResponse.Content is not null && defaultResponse.Content.Count > 0 &&
+            responses.TryGetValue(newStatusCode, out var newResponse) && newResponse.Content is not null && newResponse.Content.Count > 0)
+        {
+            routeOptions.DefaultResponseContentType = new Dictionary<string, ICollection<string>>
+            {
+                { newStatusCode, newResponse.Content.Keys }
+            };
+        }
+    }
+
 
     /// <summary>
     /// Selects the default success response (2xx) from the given OpenApiResponses.

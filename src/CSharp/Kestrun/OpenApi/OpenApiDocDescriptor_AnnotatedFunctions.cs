@@ -474,7 +474,6 @@ public partial class OpenApiDocDescriptor
         }
     }
 
-
     /// <summary>
     /// Selects the default success response (2xx) from the given OpenApiResponses.
     /// </summary>

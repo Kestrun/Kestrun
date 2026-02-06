@@ -135,7 +135,7 @@ function createProduct {
         ContentType = ('application/json', 'application/xml', 'application/yaml')
     )]
     [OpenApiResponse(
-        StatusCode = '400',
+        StatusCode = '406',
         Description = 'Invalid input',
         ContentType = ('application/json', 'application/xml')
     )]
@@ -151,7 +151,7 @@ function createProduct {
     Expand-KrObject -InputObject $body -Label 'Received Product'
 
     if ($null -eq $body -or -not $body.Name) {
-        Write-KrResponse @{ error = 'Name is required' } -StatusCode 400
+        Write-KrResponse @{ error = 'Name is required' } -StatusCode 406
         return
     }
 

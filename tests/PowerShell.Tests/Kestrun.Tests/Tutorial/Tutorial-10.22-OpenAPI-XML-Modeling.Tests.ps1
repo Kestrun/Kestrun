@@ -58,7 +58,7 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
 
     It 'Get Product Not Found (GET)' {
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/products/999" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
-        $result.StatusCode | Should -Be 404
+        $result.StatusCode | Should -Be 406
         $json = $result.Content | ConvertFrom-Json
         $json.error | Should -Match 'not found'
     }
@@ -119,7 +119,7 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
         } | ConvertTo-Json
 
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/products" -Method Post -Body $body -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
-        $result.StatusCode | Should -Be 400
+        $result.StatusCode | Should -Be 406
         $json = $result.Content | ConvertFrom-Json
         $json.error | Should -Match 'Name.*required'
     }

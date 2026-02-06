@@ -89,7 +89,8 @@ The following examples demonstrate different approaches to handling status codes
 - **[17.5-StatusCodePages-ContentFormat.ps1](/pwsh/tutorial/examples/17.5-StatusCodePages-ContentFormat.ps1)** — Content type and body format
 - **[17.6-StatusCodePages-Redirects.ps1](/pwsh/tutorial/examples/17.6-StatusCodePages-Redirects.ps1)** — Redirect to error pages
 - **[17.7-StatusCodePages-ReExecute.ps1](/pwsh/tutorial/examples/17.7-StatusCodePages-ReExecute.ps1)** — Re-execute with different paths
-- **[17.8-StatusCodePages-Common-Status-Codes.ps1](/pwsh/tutorial/examples/17.8-StatusCodePages-Common-Status-Codes.ps1)** — Quick endpoints to trigger common status codes (uses Basic auth only to demonstrate 401/403)
+- **[17.8-StatusCodePages-Common-Status-Codes.ps1](/pwsh/tutorial/examples/17.8-StatusCodePages-Common-Status-Codes.ps1)** —
+Quick endpoints to trigger common status codes (uses Basic auth only to demonstrate 401/403)
 
 Each example builds on the hello-world template and shows how to trigger and handle different status codes.
 

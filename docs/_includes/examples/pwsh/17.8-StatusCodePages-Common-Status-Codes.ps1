@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: Common HTTP status codes
     Purpose: Provide a small API surface to manually try common HTTP status codes
              (401/403/404/405/415/400/200/201/204) across GET/POST/DELETE.

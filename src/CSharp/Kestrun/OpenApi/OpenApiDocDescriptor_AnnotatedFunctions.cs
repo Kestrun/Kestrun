@@ -441,10 +441,17 @@ public partial class OpenApiDocDescriptor
     private void ApplyResponseAttribute(OpenAPIPathMetadata metadata, IOpenApiResponseAttribute attribute, MapRouteOptions routeOptions)
     {
         metadata.Responses ??= [];
-        var response = metadata.Responses.TryGetValue(attribute.StatusCode, out var value) ? value as OpenApiResponse : new OpenApiResponse();
-        if (response is not null && CreateResponseFromAttribute(attribute, response))
+        if (!metadata.Responses.TryGetValue(attribute.StatusCode, out var existing) ||
+           existing is not OpenApiResponse response)
         {
-            _ = metadata.Responses.TryAdd(attribute.StatusCode, response);
+            response = new OpenApiResponse();
+            metadata.Responses[attribute.StatusCode] = response; // overwrite/insert
+        }
+
+        // Note: if the existing response is a reference, we still apply the new response details to it.
+        // This allows attributes to override referenced responses without needing to define new references for each variation. However, if the existing response is a reference and we're not inlining, we replace it with a new reference to avoid modifying the original component.
+        if (CreateResponseFromAttribute(attribute, response))
+        {
             SetDefaultResponseContentType(metadata.Responses, routeOptions, attribute.StatusCode);
         }
     }

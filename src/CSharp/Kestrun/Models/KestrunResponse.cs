@@ -22,7 +22,6 @@ using Microsoft.Net.Http.Headers;
 using Kestrun.Utilities.Yaml;
 using Kestrun.Hosting.Options;
 using Kestrun.Callback;
-using Kestrun.KrException;
 
 namespace Kestrun.Models;
 
@@ -479,18 +478,14 @@ public class KestrunResponse
             if (!KrContext.MapRouteOptions.DefaultResponseContentType!.TryGetValue(statusCode.ToString(), out var values) ||
                 values is null || values.Count == 0)
             {
-                if (!KrContext.MapRouteOptions.DefaultResponseContentType!.TryGetValue("Default", out values) ||
+                if (!KrContext.MapRouteOptions.DefaultResponseContentType!.TryGetValue("default", out values) ||
                     values is null || values.Count == 0)
                 {
-                    Logger.Warning(
-                        "No default response content type configured for status code {StatusCode} and no 'Default' fallback found.",
-                        statusCode);
+                    var msg = $"No default response content type configured for status code {statusCode} and no 'Default' fallback found.";
+                    Logger.Warning(msg);
 
-                    // You could arguably treat this as 500 (server misconfig),
-                    // but keeping your 406 custom exception is fine if that's your contract.
-                    throw new AcceptHeaderException(
-                        $"No default response content type configured for status code {statusCode} and no 'Default' fallback found.",
-                        StatusCodes.Status406NotAcceptable);
+                    await WriteErrorResponseAsync(msg, StatusCodes.Status406NotAcceptable);
+                    return;
                 }
             }
 

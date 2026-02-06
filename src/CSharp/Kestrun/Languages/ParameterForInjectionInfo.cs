@@ -2503,7 +2503,6 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         }
 
         var instance = TryCreateObjectInstance(parameterType, logger, ps);
-        // var instance = Activator.CreateInstance(parameterType);
         if (instance is null)
         {
             return null;

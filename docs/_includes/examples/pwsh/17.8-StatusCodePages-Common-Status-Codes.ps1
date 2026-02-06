@@ -22,23 +22,14 @@
             $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/secure/hello" -SkipCertificateCheck -SkipHttpErrorCheck
             $resp.StatusCode -eq 401
 
-
-
             $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/secure/hello" -Headers @{ Authorization = $script:badAuth } -SkipCertificateCheck -SkipHttpErrorCheck
             $resp.StatusCode -eq 401
-
 
             $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/secure/hello" -Headers @{ Authorization = $script:adminAuth } -SkipCertificateCheck -SkipHttpErrorCheck
             $resp.StatusCode -eq 200
 
-
-
-
-
             $resp = Invoke-WebRequest -Method Delete -Uri "$($script:instance.Url)/secure/resource/1" -Headers @{ Authorization = $script:adminAuth } -SkipCertificateCheck -SkipHttpErrorCheck
             $resp.StatusCode -eq 403
-
-
 
             $resp = Invoke-WebRequest -Method Delete -Uri "$($script:instance.Url)/secure/resource/1" -Headers @{ Authorization = $script:userAuth } -SkipCertificateCheck -SkipHttpErrorCheck
             $resp.StatusCode -eq 403
@@ -50,7 +41,6 @@
 
             $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/json/echo" -Body 'hi' -ContentType 'text/plain' -SkipCertificateCheck -SkipHttpErrorCheck
             $resp.StatusCode -eq 415
-
 
             $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/json/echo" -Body '{"a":' -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
             $resp.StatusCode -eq 400

@@ -93,7 +93,7 @@ internal static class PowerShellDelegateBuilder
                         // Malformed Content-Type → 400 (syntax error, not support issue)
                         var message = $"Invalid Content-Type header value '{context.Request.ContentType}'.";
 
-                        log.Warning(
+                        log.WarningSanitized(
                             "Malformed Content-Type header '{ContentType}'.",
                             context.Request.ContentType);
 
@@ -102,17 +102,26 @@ internal static class PowerShellDelegateBuilder
                             statusCode: StatusCodes.Status400BadRequest);
                         return;
                     }
-
-                    var requestContentType = mediaType.MediaType;
-
-                    if (!allowed.Contains(requestContentType, StringComparer.OrdinalIgnoreCase))
+                    // Canonicalize the request content type and check against allowed list
+                    var requestContentTypeRaw = mediaType.MediaType ?? string.Empty;
+                    // Canonicalize the request content type and check against allowed list
+                    var requestContentTypeCanonical = MediaTypeHelper.Canonicalize(requestContentTypeRaw);
+                    // Check both raw and canonical forms against the allowed list to allow for flexible matching
+                    var rawAllowed = allowed.Contains(requestContentTypeRaw, StringComparer.OrdinalIgnoreCase);
+                    // Canonicalize the request content type and check against allowed list
+                    var canonicalAllowed = allowed
+                        .Select(MediaTypeHelper.Canonicalize)
+                        .Contains(requestContentTypeCanonical, StringComparer.OrdinalIgnoreCase);
+                    // If neither the raw nor canonical content type is allowed, return 415 Unsupported Media Type
+                    if (!rawAllowed && !canonicalAllowed)
                     {
                         var message =
-                            $"Request content type '{requestContentType}' is not allowed. Supported types: {string.Join(", ", allowed)}";
+                            $"Request content type '{requestContentTypeRaw}' is not allowed. Supported types: {string.Join(", ", allowed)}";
 
                         log.Warning(
-                            "Request content type '{ContentType}' is not allowed for this route.",
-                            requestContentType);
+                            "Request content type '{ContentType}' (canonical '{Canonical}') is not allowed for this route.",
+                            requestContentTypeRaw,
+                            requestContentTypeCanonical);
 
                         await krContext.Response.WriteErrorResponseAsync(
                             message: message,

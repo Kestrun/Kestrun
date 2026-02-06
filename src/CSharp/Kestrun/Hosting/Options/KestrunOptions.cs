@@ -84,7 +84,8 @@ public class KestrunOptions
     /// <summary>
     /// Gets or sets the default media type to use for responses when no Accept header is provided.
     /// </summary>
-    public string? DefaultResponseMediaType { get; set; } = DefaultResponseMediaTypeValue;
+    public Dictionary<string, ICollection<string>> DefaultResponseMediaType { get; set; } =
+        new Dictionary<string, ICollection<string>> { { "default", new List<string> { DefaultResponseMediaTypeValue } } };
 
     /// <summary>
     /// Gets or sets the default upload path for form parts.

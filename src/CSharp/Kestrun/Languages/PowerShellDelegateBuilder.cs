@@ -1,6 +1,7 @@
 using System.Management.Automation;
 using System.Net.Http.Headers;
 using Kestrun.Hosting;
+using Kestrun.KrException;
 using Kestrun.Logging;
 using Kestrun.Models;
 using Kestrun.Utilities;

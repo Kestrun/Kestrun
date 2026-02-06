@@ -449,10 +449,11 @@ public partial class OpenApiDocDescriptor
             {
                 var defaultStatusCode = SelectDefaultSuccessResponse(metadata.Responses);
                 if (defaultStatusCode is not null && metadata.Responses.TryGetValue(defaultStatusCode, out var defaultResponse) &&
-                    defaultResponse.Content is not null && defaultResponse.Content.Count > 0)
+                    defaultResponse.Content is not null && defaultResponse.Content.Count > 0 && response.Content is not null && response.Content.Count > 0)
                 {
-                    routeOptions.DefaultResponseContentType =
-                        defaultResponse.Content.Keys.First();
+                    routeOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<string>>();
+                    routeOptions.DefaultResponseContentType.Add(attribute.StatusCode, response.Content.Keys);
+
                 }
             }
         }
@@ -1279,7 +1280,7 @@ public partial class OpenApiDocDescriptor
 
         // Set the script block or wrap for form options
         routeOptions.ScriptCode.ScriptBlock = sb;
-        routeOptions.DefaultResponseContentType = "application/json";
+        routeOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<string>>(Host.Options.DefaultResponseMediaType);
         _ = Host.AddMapRoute(routeOptions);
     }
 

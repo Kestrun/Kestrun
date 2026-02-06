@@ -751,8 +751,8 @@ public static partial class KestrunHostMapExtensions
 
         host.Logger.Verbose("Adding metadata to route: {Pattern}", options.Pattern);
         _ = map.WithMetadata(options.ScriptCode.Parameters);
-        options.DefaultResponseContentType ??= host.Options.DefaultResponseMediaType;
-        if (!string.IsNullOrWhiteSpace(options.DefaultResponseContentType))
+        options.DefaultResponseContentType ??= new Dictionary<string, ICollection<string>>(host.Options.DefaultResponseMediaType);
+        if (options.DefaultResponseContentType != null && options.DefaultResponseContentType.Count > 0)
         {
             _ = map.WithMetadata(new DefaultResponseContentType(options.DefaultResponseContentType));
         }

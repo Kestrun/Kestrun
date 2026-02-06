@@ -30,6 +30,18 @@ Kestrun provides several ways to configure status code pages:
 - **403 Forbidden** - Display access denied pages
 - **401 Unauthorized** - Redirect to login pages or show authentication required messages
 
+## Routing Style Notes (Imperative vs Declarative)
+
+Status Code Pages middleware runs *after* your endpoint executes, so it behaves the same whether you map routes imperatively (for example with `Add-KrMapRoute`)
+or declaratively (functions decorated with `[OpenApiPath]`).
+
+Key points when using **declarative attribute routing**:
+
+- `[OpenApiResponse(...)]` documents the status code in OpenAPI, but it does **not** set the runtime response status.
+- To trigger Status Code Pages, your route must actually set a 4xx/5xx status code and typically leave the response body empty.
+  - Use `Write-KrStatusResponse -StatusCode 404` (or set `Context.Response.StatusCode = 404` without writing a body).
+  - If your route writes a body for the error response, Status Code Pages middleware will generally not replace it.
+
 ## PowerShell Cmdlet
 
 Use `Enable-KrStatusCodePage` to configure status code pages middleware with various options:
@@ -77,6 +89,7 @@ The following examples demonstrate different approaches to handling status codes
 - **[17.5-StatusCodePages-ContentFormat.ps1](/pwsh/tutorial/examples/17.5-StatusCodePages-ContentFormat.ps1)** — Content type and body format
 - **[17.6-StatusCodePages-Redirects.ps1](/pwsh/tutorial/examples/17.6-StatusCodePages-Redirects.ps1)** — Redirect to error pages
 - **[17.7-StatusCodePages-ReExecute.ps1](/pwsh/tutorial/examples/17.7-StatusCodePages-ReExecute.ps1)** — Re-execute with different paths
+- **[17.8-StatusCodePages-Common-Status-Codes.ps1](/pwsh/tutorial/examples/17.8-StatusCodePages-Common-Status-Codes.ps1)** — Quick endpoints to trigger common status codes (uses Basic auth only to demonstrate 401/403)
 
 Each example builds on the hello-world template and shows how to trigger and handle different status codes.
 

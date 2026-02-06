@@ -22,6 +22,7 @@ using Microsoft.Net.Http.Headers;
 using Kestrun.Utilities.Yaml;
 using Kestrun.Hosting.Options;
 using Kestrun.Callback;
+using Kestrun.KrException;
 
 namespace Kestrun.Models;
 
@@ -471,88 +472,127 @@ public class KestrunResponse
         }
 
         Body = inputObject;
+
         try
         {
+            // Resolve supported content types for this status code (with Default fallback)
+            if (!KrContext.MapRouteOptions.DefaultResponseContentType!.TryGetValue(statusCode.ToString(), out var values) ||
+                values is null || values.Count == 0)
+            {
+                if (!KrContext.MapRouteOptions.DefaultResponseContentType!.TryGetValue("Default", out values) ||
+                    values is null || values.Count == 0)
+                {
+                    Logger.Warning(
+                        "No default response content type configured for status code {StatusCode} and no 'Default' fallback found.",
+                        statusCode);
+
+                    // You could arguably treat this as 500 (server misconfig),
+                    // but keeping your 406 custom exception is fine if that's your contract.
+                    throw new AcceptHeaderException(
+                        $"No default response content type configured for status code {statusCode} and no 'Default' fallback found.",
+                        StatusCodes.Status406NotAcceptable);
+                }
+            }
+
+            // Read Accept header (may be missing)
             string? acceptHeader = null;
             _ = Request?.Headers.TryGetValue(HeaderNames.Accept, out acceptHeader);
-            // Pick best media type from Accept, default to text/plain
-            var selected = SelectResponseMediaType(acceptHeader, defaultType: KrContext.MapRouteOptions.DefaultResponseContentType);
 
-            if (selected is null)
+            var supported = values as IReadOnlyList<string> ?? [.. values];
+
+            // Pick media type from Accept ∩ values, else fallback to first configured
+            var mediaType = SelectResponseMediaType(acceptHeader, supported, defaultType: supported[0]);
+            if (mediaType is null)
             {
-                statusCode = StatusCodes.Status406NotAcceptable;
-                await WriteErrorResponseAsync("No acceptable media type found.", statusCode);
+                var msg = $"No supported media type found for status code {statusCode} with Accept header '{acceptHeader}'. Supported types: {string.Join(", ", supported)}";
+                Logger.Warning(msg);
+
+                await WriteErrorResponseAsync(msg, StatusCodes.Status406NotAcceptable);
                 return;
             }
-
             if (Logger.IsEnabled(LogEventLevel.Verbose))
             {
-                Logger.Verbose("Selected response media type={MediaType}", selected);
+                Logger.Verbose(
+                    "Selected response media type for status code: {StatusCode}, MediaType={MediaType}, Accept={Accept}",
+                    statusCode, mediaType, acceptHeader);
             }
 
-            // Dispatch based on selected media type
-            await WriteByMediaTypeAsync(selected, inputObject, statusCode);
+            await WriteByMediaTypeAsync(mediaType, inputObject, statusCode);
         }
         catch (Exception ex)
         {
-            Logger.Error("Error in WriteResponseAsync: {Message}", ex.Message);
-            await WriteErrorResponseAsync($"Internal server error: {ex.Message}", StatusCodes.Status500InternalServerError);
+            Logger.Error(ex, "Error in WriteResponseAsync");
+            await WriteErrorResponseAsync("Internal server error.", StatusCodes.Status500InternalServerError);
         }
     }
+
 
     /// <summary>
     /// Selects the most appropriate response media type based on the Accept header.
     /// </summary>
     /// <param name="acceptHeader">The value of the Accept header from the request.</param>
+    /// <param name="supported">A list of supported media types to match against the Accept header.</param>
     /// <param name="defaultType">The default media type to use if no match is found. Defaults to "text/plain".</param>
     /// <returns>The selected media type as a string.</returns>
     /// <remarks>
     /// This method parses the Accept header, orders the media types by quality factor,
-    /// and selects the first supported media type. If none are supported, it returns the default type.
+    /// and selects the first supported media type. If none are supported returns null
     /// </remarks>
-    private static string? SelectResponseMediaType(string? acceptHeader, string? defaultType = "text/plain")
+    private static string? SelectResponseMediaType(string? acceptHeader, IReadOnlyList<string> supported, string defaultType = "text/plain")
     {
-        if (string.IsNullOrWhiteSpace(acceptHeader))
+        if (supported.Count == 0)
         {
             return defaultType;
         }
-        // Parse and order by quality factor (q=)
-        var acceptValues = MediaTypeHeaderValue
-            .ParseList(acceptHeader.Split(','))
-            .OrderByDescending(v => v.Quality ?? 1.0);
-        // Try to find a supported media type
-        foreach (var v in acceptValues)
+
+        if (string.IsNullOrWhiteSpace(acceptHeader))
         {
-            var mediaType = GetMediaTypeOrNull(v);
-            if (mediaType is not null)
+            return supported[0];
+        }
+
+        if (!MediaTypeHeaderValue.TryParseList([acceptHeader], out var accepts) || accepts.Count == 0)
+        {
+            return supported[0];
+        }
+
+        foreach (var a in accepts.OrderByDescending(x => x.Quality ?? 1.0))
+        {
+            var accept = a.MediaType.Value;
+
+            if (accept is null)
             {
-                // Map to canonical media type if needed
-                var mapped = MediaTypeHelper.Canonicalize(mediaType);
-                if (mapped is not null)
+                continue;
+            }
+
+            if (string.Equals(accept, "*/*", StringComparison.OrdinalIgnoreCase))
+            {
+                return supported[0];
+            }
+
+            // 1) exact match first
+            for (var i = 0; i < supported.Count; i++)
+            {
+                if (string.Equals(supported[i], accept, StringComparison.OrdinalIgnoreCase))
                 {
-                    return mapped;
+                    return supported[i];
+                }
+            }
+
+            // 2) type/* wildcard
+            if (accept.EndsWith("/*", StringComparison.OrdinalIgnoreCase))
+            {
+                var prefix = accept[..^1]; // "application/"
+                for (var i = 0; i < supported.Count; i++)
+                {
+                    if (supported[i].StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return supported[i];
+                    }
                 }
             }
         }
-        // No supported media type found; return default
-        return defaultType;
-    }
-
-    /// <summary>
-    /// Gets the media type from the MediaTypeHeaderValue or null if not present.
-    /// </summary>
-    /// <param name="v"> The MediaTypeHeaderValue instance to extract the media type from.</param>
-    /// <returns>The media type as a string if present; otherwise, null.</returns>
-    private static string? GetMediaTypeOrNull(MediaTypeHeaderValue v)
-    {
-        if (!v.MediaType.HasValue)
-        {
-            return null;
-        }
-        // Trim whitespace
-        var s = v.MediaType.Value.Trim();
-        // Return null for empty strings
-        return s.Length == 0 ? null : s;
+        // No match found; return default
+        return null;
     }
 
     /// <summary>

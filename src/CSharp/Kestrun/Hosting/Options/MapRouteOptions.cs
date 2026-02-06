@@ -60,7 +60,7 @@ public class MapRouteOptions
     /// <summary>
     /// Default response content type for this route.
     /// </summary>
-    public string? DefaultResponseContentType { get; set; }
+    public IDictionary<string, ICollection<string>>? DefaultResponseContentType { get; set; }
 
     /// <summary>
     /// Content types that this route can consume, if any.

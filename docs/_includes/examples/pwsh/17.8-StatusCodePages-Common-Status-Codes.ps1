@@ -1,16 +1,60 @@
-<#
-    Sample: Authentication failures + status codes
+﻿<#
+    Sample: Common HTTP status codes
     Purpose: Provide a small API surface to manually try common HTTP status codes
              (401/403/404/405/415/400/200/201/204) across GET/POST/DELETE.
-    File:    8.13-Auth-StatusCodes.ps1
-
-    Credentials (Basic):
-      - admin:password  (claims: can_read, can_write)
-      - user:password   (claims: can_read)
+    File:    17.8-StatusCodePages-Common-Status-Codes.ps1
 
     Notes:
+      - Basic auth is used only to demonstrate real 401/403 behavior.
       - The /secure/resource/{id} DELETE route requires policy CanDelete.
       - /json/echo requires Content-Type: application/json (else 415).
+
+    To test:
+            $script:instance=@{Url="http://127.0.0.1:5000"}
+            $script:adminAuth = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('admin:password'))
+            $script:userAuth = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('user:password'))
+            $script:badAuth = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('admin:wrong'))
+
+            $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/public" -SkipCertificateCheck -SkipHttpErrorCheck
+            $resp.StatusCode -eq 200
+
+
+            $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/secure/hello" -SkipCertificateCheck -SkipHttpErrorCheck
+            $resp.StatusCode -eq 401
+
+
+
+            $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/secure/hello" -Headers @{ Authorization = $script:badAuth } -SkipCertificateCheck -SkipHttpErrorCheck
+            $resp.StatusCode -eq 401
+
+
+            $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/secure/hello" -Headers @{ Authorization = $script:adminAuth } -SkipCertificateCheck -SkipHttpErrorCheck
+            $resp.StatusCode -eq 200
+
+
+
+
+
+            $resp = Invoke-WebRequest -Method Delete -Uri "$($script:instance.Url)/secure/resource/1" -Headers @{ Authorization = $script:adminAuth } -SkipCertificateCheck -SkipHttpErrorCheck
+            $resp.StatusCode -eq 403
+
+
+
+            $resp = Invoke-WebRequest -Method Delete -Uri "$($script:instance.Url)/secure/resource/1" -Headers @{ Authorization = $script:userAuth } -SkipCertificateCheck -SkipHttpErrorCheck
+            $resp.StatusCode -eq 403
+
+            $resp =curl -X POST "$($script:instance.Url)/json/echo" -H "Content-Type:" --data 'hi'
+
+            if ($resp -match 'Status:\s*415' -and
+            $resp -match 'Content-Type header is required\. Supported types: application/json'){  Write-Host  "✅ Test passed"}else{ Write-Host "❌ Test failed. Response was:`n$resp"}
+
+            $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/json/echo" -Body 'hi' -ContentType 'text/plain' -SkipCertificateCheck -SkipHttpErrorCheck
+            $resp.StatusCode -eq 415
+
+
+            $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/json/echo" -Body '{"a":' -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+            $resp.StatusCode -eq 400
+
 #>
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', '', Justification = 'Tutorial sample uses basic auth demo credentials.')]
 param(
@@ -23,7 +67,7 @@ New-KrLogger |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
-New-KrServer -Name 'Auth + Status Codes'
+New-KrServer -Name 'Status Codes'
 
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
 
@@ -31,7 +75,7 @@ Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
 #                 TOP-LEVEL OPENAPI
 # =========================================================
 
-Add-KrOpenApiInfo -Title 'Auth + Status Codes' -Version '1.0.0' -Description 'Endpoints to exercise common auth failures and HTTP status codes.'
+Add-KrOpenApiInfo -Title 'Status Codes' -Version '1.0.0' -Description 'Endpoints to exercise common HTTP status codes.'
 Add-KrOpenApiContact -Email 'support@example.com'
 
 # =========================================================
@@ -60,7 +104,7 @@ class JsonEchoRequest {
 class JsonEchoRequestPlus: JsonEchoRequest {}
 
 # =========================================================
-#                 AUTHN / AUTHZ
+#                 401/403 DEMO (Basic auth used only to trigger real 401/403)
 # =========================================================
 
 $claimConfig = New-KrClaimPolicy |
@@ -71,7 +115,7 @@ $claimConfig = New-KrClaimPolicy |
 
 Add-KrBasicAuthentication -AuthenticationScheme 'StatusBasic' -Realm 'StatusCodes' -AllowInsecureHttp -ScriptBlock {
     param($Username, $Password)
-    Write-KrLog -Level Debug -Message "Authenticating user '$Username' with provided password '$Password'."
+    Write-KrLog -Level Debug -Message "Authenticating user '{username}'." -Values $Username
     if ($Password -ne 'password') { return $false }
 
     return ($Username -eq 'admin' -or $Username -eq 'user')
@@ -111,7 +155,7 @@ function getPublic {
     Protected endpoint (401 when missing/invalid credentials).
 #>
 function getSecureHello {
-    [OpenApiPath(HttpVerb = 'get', Pattern = '/secure/hello', Summary = 'Protected GET (Basic auth)', Tags = ('Auth', 'StatusCodes'))]
+    [OpenApiPath(HttpVerb = 'get', Pattern = '/secure/hello', Summary = 'Protected GET (Basic auth)', Tags = ('StatusCodes'))]
     [OpenApiAuthorization(Scheme = 'StatusBasic')]
     [OpenApiResponse(StatusCode = '200', Description = 'OK', ContentType = 'application/json', Schema = [object])]
     [OpenApiResponse(StatusCode = '401', Description = 'Unauthorized')]
@@ -129,7 +173,7 @@ function getSecureHello {
     The ID of the resource to delete.
 #>
 function deleteSecureResource {
-    [OpenApiPath(HttpVerb = 'delete', Pattern = '/secure/resource/{id}', Summary = 'Protected DELETE (requires CanDelete)', Tags = ('Auth', 'StatusCodes'))]
+    [OpenApiPath(HttpVerb = 'delete', Pattern = '/secure/resource/{id}', Summary = 'Protected DELETE (requires CanDelete)', Tags = ('StatusCodes'))]
     [OpenApiAuthorization(Scheme = 'StatusBasic', Policies = 'CanDelete')]
     [OpenApiResponse(StatusCode = '204', Description = 'Deleted')]
     [OpenApiResponse(StatusCode = '401', Description = 'Unauthorized')]
@@ -140,7 +184,7 @@ function deleteSecureResource {
     )
 
     Write-KrLog -Level Information -Message 'Delete requested for resource {id}' -Values $id
-    Write-KrTextResponse -Text '' -StatusCode 204
+    Write-KrStatusResponse -StatusCode 204
 }
 
 <#
@@ -163,7 +207,7 @@ function postJsonEcho {
     )
 
     Expand-KrObject -InputObject $body
-    Write-KrJsonResponse -InputObject @{ received = $body } -StatusCode 201
+    Write-KrResponse -InputObject @{ received = $body } -StatusCode 201
 }
 
 
@@ -177,12 +221,12 @@ function postJsonEcho {
 #>
 function postJsonEchoPlus {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/json/echoPlus', Summary = 'POST requires application/json', Tags = ('StatusCodes'))]
-    [OpenApiResponse(StatusCode = '201', Description = 'Created', ContentType = ('application/json','application/xml'), Schema = [object])]
+    [OpenApiResponse(StatusCode = '201', Description = 'Created', ContentType = ('application/json', 'application/xml'), Schema = [object])]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad Request')]
     [OpenApiResponse(StatusCode = '422', Description = 'Unprocessable Content')]
     [OpenApiResponse(StatusCode = '415', Description = 'Unsupported Media Type')]
     param(
-        [OpenApiRequestBody( ContentType = ('application/json','application/yaml'), Required = $true)]
+        [OpenApiRequestBody( ContentType = ('application/json', 'application/yaml'), Required = $true)]
         [JsonEchoRequestPlus]$body
     )
 
@@ -201,7 +245,7 @@ function getOnlyGet {
     [OpenApiResponse(StatusCode = '200', Description = 'OK', ContentType = 'text/plain', Schema = [string])]
     param()
 
-    Write-KrTextResponse -Text 'GET OK' -StatusCode 200
+    Write-KrResponse -Text 'GET OK' -StatusCode 200
 }
 
 Enable-KrConfiguration
@@ -215,4 +259,4 @@ Add-KrOpenApiRoute
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
 
-Start-KrServer -CloseLogsOnExit
+Start-KrServer

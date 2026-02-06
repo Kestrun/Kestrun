@@ -21,6 +21,7 @@ using MongoDB.Bson.Serialization;
 using PeterO.Cbor;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+using Kestrun.KrException;
 
 namespace Kestrun.Languages;
 

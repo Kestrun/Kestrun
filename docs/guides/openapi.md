@@ -20,6 +20,7 @@ Focus areas:
 - **Inheritance**: Reuse schemas via class inheritance.
 
 > Kestrun uses a **code-first** approach where PowerShell classes define your data models and attributes define your API specification.
+This keeps your API definition close to your implementation and allows you to leverage PowerShell's type system and validation attributes for a rich OpenAPI contract.
 
 > **OpenAPI as a contract (not just docs):** In Kestrun, OpenAPI metadata is used for documentation *and* can participate in runtime enforcement
  (content negotiation, request body content types, and parameter/body validation). This makes your OpenAPI definition a real API contract.

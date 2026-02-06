@@ -122,7 +122,6 @@ internal static class PowerShellDelegateBuilder
                 }
             }
 
-
             if (krContext.HasRequestCulture)
             {
                 PowerShellExecutionHelpers.AddCulturePrelude(ps, krContext.Culture, log);

@@ -453,7 +453,6 @@ public partial class OpenApiDocDescriptor
                 {
                     routeOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<string>>();
                     routeOptions.DefaultResponseContentType.Add(attribute.StatusCode, response.Content.Keys);
-
                 }
             }
         }

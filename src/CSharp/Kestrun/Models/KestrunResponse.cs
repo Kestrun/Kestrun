@@ -526,7 +526,6 @@ public class KestrunResponse
         }
     }
 
-
     /// <summary>
     /// Selects the most appropriate response media type based on the Accept header.
     /// </summary>

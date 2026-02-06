@@ -5,5 +5,4 @@ namespace Kestrun.Hosting.Options;
 /// <param name="ContentType">The default response content type dictionary.</param>
 public record DefaultResponseContentType(IDictionary<string, ICollection<string>> ContentType)
 {
-
 }

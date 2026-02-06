@@ -451,8 +451,10 @@ public partial class OpenApiDocDescriptor
                 if (defaultStatusCode is not null && metadata.Responses.TryGetValue(defaultStatusCode, out var defaultResponse) &&
                     defaultResponse.Content is not null && defaultResponse.Content.Count > 0 && response.Content is not null && response.Content.Count > 0)
                 {
-                    routeOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<string>>();
-                    routeOptions.DefaultResponseContentType.Add(attribute.StatusCode, response.Content.Keys);
+                    routeOptions.DefaultResponseContentType = new Dictionary<string, ICollection<string>>
+                    {
+                        { attribute.StatusCode, response.Content.Keys }
+                    };
                 }
             }
         }

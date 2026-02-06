@@ -21,30 +21,35 @@ Focus areas:
 
 > Kestrun uses a **code-first** approach where PowerShell classes define your data models and attributes define your API specification.
 
-> **OpenAPI as a contract (not just docs):** In Kestrun, OpenAPI metadata is used for documentation *and* can participate in runtime enforcement (content negotiation, request body content types, and parameter/body validation). This makes your OpenAPI definition a real API contract.
+> **OpenAPI as a contract (not just docs):** In Kestrun, OpenAPI metadata is used for documentation *and* can participate in runtime enforcement
+ (content negotiation, request body content types, and parameter/body validation). This makes your OpenAPI definition a real API contract.
 
 ---
 
 ## 0. OpenAPI as a Contract (Runtime Enforcement)
 
-Kestrun treats OpenAPI as more than a descriptive artifact. When you use the OpenAPI attributes and Kestrun response helpers, the metadata can become an **allow-list** for what the endpoint accepts and returns.
+Kestrun treats OpenAPI as more than a descriptive artifact. When you use the OpenAPI attributes and Kestrun response helpers,
+the metadata can become an **allow-list** for what the endpoint accepts and returns.
 
 ### Response content types (example: JSON ≠ YAML)
 
-If an operation declares that it produces JSON (for example via `[OpenApiResponse(ContentType = 'application/json')]`), then returning a different format (like YAML) is considered a contract violation.
+If an operation declares that it produces JSON (for example via `[OpenApiResponse(ContentType = 'application/json')]`),
+then returning a different format (like YAML) is considered a contract violation.
 
 Practical rule of thumb:
 
 - Use `Write-KrResponse` when you want **content negotiation**. Kestrun will select a response content type that is both:
   1) allowed by the client `Accept` header, and
   2) allowed by the operation’s declared response content types.
-  
+
   If there is no overlap, Kestrun returns **406 Not Acceptable**.
-- Use `Write-KrJsonResponse` / `Write-KrYamlResponse` / `Write-KrXmlResponse` when you want to force a specific format. If you do this, make sure your OpenAPI response content types match what you actually return.
+- Use `Write-KrJsonResponse` / `Write-KrYamlResponse` / `Write-KrXmlResponse` when you want to force a specific format.
+If you do this, make sure your OpenAPI response content types match what you actually return.
 
 ### Request body content types (415)
 
-If you declare request body content types (for example via `[OpenApiRequestBody(ContentType = 'application/json')]`), Kestrun will reject mismatches with **415 Unsupported Media Type**.
+If you declare request body content types (for example via `[OpenApiRequestBody(ContentType = 'application/json')]`),
+Kestrun will reject mismatches with **415 Unsupported Media Type**.
 
 This is intentional: clients must send one of the declared `Content-Type` values.
 
@@ -56,7 +61,8 @@ OpenAPI parameter schemas and model schemas are typically derived from:
 - Validation attributes such as `[ValidateRange]`, `[ValidateSet]`, `[ValidatePattern]`, `[ValidateNotNullOrEmpty]`
 - OpenAPI component metadata (for example `[OpenApiParameterComponent]`, `[OpenApiSchemaComponent]`, `[OpenApiPropertyAttribute]`)
 
-At runtime, Kestrun applies these rules during binding/validation. If the input is structurally wrong or fails validation, the endpoint returns an error (commonly **400** for malformed input and **422** for semantic validation failures, depending on the operation and validator).
+At runtime, Kestrun applies these rules during binding/validation. If the input is structurally wrong or fails validation,
+the endpoint returns an error (commonly **400** for malformed input and **422** for semantic validation failures, depending on the operation and validator).
 
 The result: your OpenAPI definition and your actual behavior stay aligned.
 

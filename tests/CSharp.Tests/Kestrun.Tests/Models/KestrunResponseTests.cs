@@ -9,8 +9,23 @@ namespace KestrunTests.Models;
 
 public partial class KestrunResponseTests
 {
-    private static KestrunContext MakeCtx(string accept = "application/json") =>
-        TestRequestFactory.CreateContext(path: "/test", headers: new Dictionary<string, string> { { "Accept", accept } });
+    private static KestrunContext MakeCtx(string accept = "application/json")
+    {
+        var ctx = TestRequestFactory.CreateContext(path: "/test", headers: new Dictionary<string, string> { { "Accept", accept } });
+        ctx.MapRouteOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<string>>
+        {
+            ["default"] = new List<string>
+            {
+                "text/plain",
+                "application/json",
+                "application/xml",
+                "application/yaml",
+                "text/csv",
+                "application/x-www-form-urlencoded"
+            }
+        };
+        return ctx;
+    }
 
     [Theory]
     [InlineData("text/plain", true)]
@@ -63,9 +78,10 @@ public partial class KestrunResponseTests
 
         await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status200OK);
 
+        Assert.Equal(StatusCodes.Status406NotAcceptable, res.StatusCode);
         Assert.Contains("application/json", res.ContentType);
         var strBody = Assert.IsType<string>(res.Body);
-        Assert.Contains("alice", strBody);
+        Assert.Contains("No supported media type", strBody, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

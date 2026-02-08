@@ -246,7 +246,7 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-scfg-limits]: /pwsh/tutorial/examples/13.1-Server-Limits.ps1
 [sc-scfg-options]: /pwsh/tutorial/examples/13.2-Server-Options.ps1
 [sc-life-startstop]: /pwsh/tutorial/examples/14.1-Start-Stop.ps1
-[sc-uploads-1]: /pwsh/tutorial/examples/22-file-and-form-uploads/22.1-basic-multipart.ps1
+[sc-uploads-1]: /pwsh/tutorial/examples/22-file-and-form-uploads/22.1-Basic-Multipart.ps1
 [sc-uploads-2]: /pwsh/tutorial/examples/22-file-and-form-uploads/22.2-multiple-files.ps1
 [sc-uploads-3]: /pwsh/tutorial/examples/22-file-and-form-uploads/22.3-urlencoded.ps1
 [sc-uploads-4]: /pwsh/tutorial/examples/22-file-and-form-uploads/22.4-multipart-mixed.ps1

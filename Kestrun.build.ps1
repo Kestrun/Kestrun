@@ -214,6 +214,7 @@ Add-BuildTask Help {
     Write-Host '- ThirdPartyNotices: Generates third-party notices.'
     Write-Host '- Build-Help: Generates PowerShell help documentation.'
     Write-Host '- Clean-Help: Cleans the PowerShell help documentation.'
+    Write-Host '- Build-TutorialIndex: Regenerates docs/pwsh/tutorial/index.md.'
     Write-Host '- Install-Module: Installs the Kestrun module.'
     Write-Host '- Remove-Module: Removes the Kestrun module.'
     Write-Host '- Update-Module: Updates the Kestrun module.'
@@ -404,6 +405,11 @@ Add-BuildTask 'Test' 'Test-xUnit', 'Test-Pester'
 Add-BuildTask 'Test-Tutorials' {
     Write-Host '🧪 Running Kestrun Tutorial tests...'
     & .\Utility\Test-TutorialDocs.ps1
+}
+
+Add-BuildTask 'Build-TutorialIndex' {
+    Write-Host '🧩 Regenerating tutorial index...'
+    & .\Utility\Build-TutorialIndex.ps1
 }
 
 Add-BuildTask 'Package' 'Clean-Package', 'Build', {

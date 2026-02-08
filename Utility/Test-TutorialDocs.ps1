@@ -21,6 +21,119 @@ function Get-TextFileContent {
     return [System.Text.Encoding]::UTF8.GetString($bytes)
 }
 
+<#
+.SYNOPSIS
+Resolves internal markdown links to file system paths.
+.PARAMETER Href
+The link target (href).
+.PARAMETER FromFile
+The source file path used for resolving relative links.
+.PARAMETER DocsRoot
+The docs root folder used for absolute links (site-root paths).
+.PARAMETER SkipAbsolutePrefixes
+Absolute link prefixes to skip when validating existence.
+.OUTPUTS
+System.Management.Automation.PSCustomObject
+#>
+function Resolve-DocLinkTarget {
+    param(
+        [string]$Href,
+        [string]$FromFile,
+        [string]$DocsRoot,
+        [string[]]$SkipAbsolutePrefixes
+    )
+
+    $result = [pscustomobject]@{
+        IsInternal = $false
+        HasMdExtension = $false
+        Exists = $false
+        TargetPath = $null
+    }
+
+    if (-not $Href) { return $result }
+
+    $clean = $Href.Trim().Trim('<', '>')
+    $clean = $clean -replace '\s+".*"$', ''
+    $clean = $clean -replace "\s+'.*'$", ''
+    $clean = $clean.Split('#')[0]
+    if ($clean -match '^[Pp][Ww][Ss][Hh]/') {
+        $clean = '/' + $clean
+    }
+
+    if (-not $clean) { return $result }
+    if ($clean -match '^(https?|mailto):') { return $result }
+    if ($clean -match '^#') { return $result }
+    if ($clean -match '^//') { return $result }
+
+    if ($clean.StartsWith('/') -and $SkipAbsolutePrefixes) {
+        foreach ($prefix in $SkipAbsolutePrefixes) {
+            if ($clean -like "$prefix*") { return $result }
+        }
+    }
+
+    $result.IsInternal = $true
+    $result.HasMdExtension = $clean -match '\.md$'
+    $hasAnyExtension = [System.IO.Path]::HasExtension($clean)
+
+    if ($clean.StartsWith('/')) {
+        $base = Join-Path $DocsRoot ($clean.TrimStart('/') -replace '/', '\\')
+    } else {
+        $base = Join-Path (Split-Path -Parent $FromFile) ($clean -replace '/', '\\')
+    }
+
+    if ($hasAnyExtension -and -not $result.HasMdExtension) {
+        $result.TargetPath = $base
+        $result.Exists = Test-Path -LiteralPath $base
+        if ($result.Exists) { return $result }
+
+        $fileCandidate = "$base.md"
+        if (Test-Path -LiteralPath $fileCandidate) {
+            $result.TargetPath = $fileCandidate
+            $result.Exists = $true
+            return $result
+        }
+    }
+
+    if ($result.HasMdExtension) {
+        $result.TargetPath = $base
+        $result.Exists = Test-Path -LiteralPath $base
+        return $result
+    }
+
+    $fileCandidate = "$base.md"
+    if (Test-Path -LiteralPath $fileCandidate) {
+        $result.TargetPath = $fileCandidate
+        $result.Exists = $true
+        return $result
+    }
+
+    $indexCandidate = Join-Path $base 'index.md'
+    if (Test-Path -LiteralPath $indexCandidate) {
+        $result.TargetPath = $indexCandidate
+        $result.Exists = $true
+        return $result
+    }
+
+    $result.TargetPath = $fileCandidate
+    return $result
+}
+
+<#
+.SYNOPSIS
+Removes code blocks and inline code for link scanning.
+.PARAMETER Text
+Input markdown text.
+.OUTPUTS
+System.String
+#>
+function ConvertTo-LinkScanText {
+    param([string]$Text)
+    if (-not $Text) { return $Text }
+    $clean = [regex]::Replace($Text, '(?s)```.*?```', '')
+    $clean = [regex]::Replace($clean, '`[^`]*`', '')
+    return $clean
+}
+
 
 <#
 .SYNOPSIS
@@ -53,6 +166,13 @@ Validates all tutorials under docs/pwsh/tutorial
 .\Test-TutorialDocs.ps1 -Path "docs/pwsh/tutorial/10.middleware/4.Https-Hsts.md"
 Validates a specific tutorial file
 #>
+
+$repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot '..')).Path
+$docsRoot = Join-Path $repoRoot 'docs'
+$skipAbsolutePrefixes = @(
+    '/pwsh/cmdlets',
+    '/cs/api'
+)
 
 # Validates tutorial docs under docs/pwsh/tutorial according to the authoring guide
 $docs = (Resolve-Path -Path $Path).Path
@@ -188,6 +308,31 @@ Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
         $failures += "[Section] $rel missing '## References' content"
     }
 
+    # Validate that internal links resolve and do not use .md extensions
+    $scanText = ConvertTo-LinkScanText -Text $text
+    $linkTargets = @()
+    foreach ($m in [regex]::Matches($scanText, '!\[[^\]]*\]\((?<href>[^\)]+)\)')) {
+        $linkTargets += $m.Groups['href'].Value
+    }
+    foreach ($m in [regex]::Matches($scanText, '(?<!\!)\[[^\]]+\]\((?<href>[^\)]+)\)')) {
+        $linkTargets += $m.Groups['href'].Value
+    }
+    foreach ($m in [regex]::Matches($scanText, '(?m)^\[[^\]]+\]:\s+(?<url>\S+)')) {
+        $linkTargets += $m.Groups['url'].Value
+    }
+
+    foreach ($href in ($linkTargets | Sort-Object -Unique)) {
+        $resolved = Resolve-DocLinkTarget -Href $href -FromFile $itemPath -DocsRoot $docsRoot -SkipAbsolutePrefixes $skipAbsolutePrefixes
+        if (-not $resolved.IsInternal) { continue }
+
+        if ($resolved.HasMdExtension) {
+            $failures += "[Links] $rel link '$href' should not include '.md' extension"
+        }
+        if (-not $resolved.Exists) {
+            $failures += "[Links] $rel link target does not exist: '$href'"
+        }
+    }
+
     # Step-by-step is numbered starting at 1
     if ($text -notmatch '## Step-by-step\s*\r?\n1\.') { $failures += "[Steps] $rel list must start at 1." }
 }
@@ -199,7 +344,17 @@ Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
 #   - Within a section: Previous/Next should point to adjacent chapters
 #   - Section boundary: last chapter's Next should point to next section's index
 try {
-    function Normalize-TutorialText {
+    <#
+        .SYNOPSIS
+        Normalizes tutorial text by removing BOM and standardizing line endings.
+        .DESCRIPTION
+        Takes the raw text content of a tutorial file, removes any leading UTF-8 BOM character, and replaces all CRLF line endings with LF for consistent processing.
+        .PARAMETER Text
+        The raw text content to normalize.
+        .OUTPUTS
+        The normalized text string.
+    #>
+    function Invoke-NormalizeTutorialText {
         param([string]$Text)
         if ($Text -and $Text.StartsWith([char]0xFEFF)) { $Text = $Text.Substring(1) }
         return ($Text -replace "`r`n", "`n")
@@ -364,7 +519,7 @@ try {
             $prevExpected = [pscustomobject]@{ Kind = 'file'; Path = $prevChapter.File.FullName }
         }
 
-        $text = Normalize-TutorialText (Get-TextFileContent -Path $c.File.FullName)
+        $text = Invoke-NormalizeTutorialText (Get-TextFileContent -Path $c.File.FullName)
         $refMap = Get-TutorialRefMap -Text $text
 
         $rel = $c.File.FullName.Substring($docs.Length).TrimStart('\\').TrimStart('/')

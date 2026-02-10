@@ -71,6 +71,26 @@ public partial class KestrunResponseTests
 
     [Fact]
     [Trait("Category", "Models")]
+    public async Task WriteResponse_Uses_Range_Default_For_4xx()
+    {
+        var ctx = TestRequestFactory.CreateContext(
+            path: "/test",
+            headers: new Dictionary<string, string> { { "Accept", "application/json" } });
+        ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<string>>
+        {
+            ["4XX"] = new List<string> { "application/json", "text/plain" }
+        };
+        var res = ctx.Response;
+
+        await res.WriteResponseAsync(new { error = "not found" }, StatusCodes.Status404NotFound);
+
+        Assert.Equal(StatusCodes.Status404NotFound, res.StatusCode);
+        Assert.Contains("application/json", res.ContentType);
+        _ = Assert.IsType<string>(res.Body);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
     public async Task WriteResponse_Treats_VendorPlusJson_As_Json()
     {
         var ctx = MakeCtx("application/vnd.foo+json");

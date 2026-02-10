@@ -262,7 +262,7 @@ function listEmployees {
 function purchaseTickets {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/tickets/purchase')]
     [OpenApiResponse(StatusCode = '201', Description = 'Created', Schema = [PurchaseResponse], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid input', Schema = [ErrorResponse], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
+    [OpenApiResponse(StatusCode = '4XX', Description = 'Invalid input', Schema = [ErrorResponse], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
     param(
         [OpenApiRequestBody(
             Description = 'Ticket purchase request payload.',

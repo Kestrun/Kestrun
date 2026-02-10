@@ -53,7 +53,7 @@
               }
             }
           },
-          "400": {
+          "406": {
             "description": "Invalid input"
           }
         }

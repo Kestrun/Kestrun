@@ -87,7 +87,7 @@
               }
             }
           },
-          "400": {
+          "4XX": {
             "description": "Invalid input",
             "content": {
               "application/json": {

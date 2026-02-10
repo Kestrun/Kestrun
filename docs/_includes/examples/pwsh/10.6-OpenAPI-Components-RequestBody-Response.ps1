@@ -138,7 +138,7 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 function createOrder {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/orders')]
     [OpenApiResponseRefAttribute(StatusCode = '201', ReferenceId = 'OrderResponseDefault')]
-    [OpenApiResponseRefAttribute(StatusCode = '400', ReferenceId = 'ErrorResponseDefault')]
+    [OpenApiResponseRefAttribute(StatusCode = '4XX', ReferenceId = 'ErrorResponseDefault')]
     param(
         [OpenApiRequestBodyRef(ReferenceId = 'CreateOrderRequestBody')]
         [CreateOrderRequest]$body
@@ -179,7 +179,7 @@ function createOrder {
         createdAt = (Get-Date).ToUniversalTime().ToString('o')
         expectedDelivery = (Get-Date).AddDays(5).ToString('yyyy-MM-dd')
     }
-
+Expand-KrObject -InputObject $response
     Write-KrResponse $response -StatusCode 201
 }
 

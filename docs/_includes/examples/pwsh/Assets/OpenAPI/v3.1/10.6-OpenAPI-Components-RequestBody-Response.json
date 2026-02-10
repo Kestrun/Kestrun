@@ -19,7 +19,7 @@
           "201": {
             "$ref": "#/components/responses/OrderResponseDefault"
           },
-          "400": {
+          "4XX": {
             "$ref": "#/components/responses/ErrorResponseDefault"
           }
         }

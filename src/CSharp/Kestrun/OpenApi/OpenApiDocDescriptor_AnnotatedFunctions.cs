@@ -62,7 +62,12 @@ public partial class OpenApiDocDescriptor
                 return;
             }
             // Create route options and OpenAPI metadata
-            var routeOptions = new MapRouteOptions();
+            var routeOptions = new MapRouteOptions
+            {
+                // Seed defaults up-front so response attributes can safely add per-status entries
+                // without losing the host-level 'default' fallback.
+                DefaultResponseContentType = new Dictionary<string, ICollection<string>>(Host.Options.DefaultApiResponseMediaType)
+            };
             var openApiMetadata = new OpenAPIPathMetadata(mapOptions: routeOptions);
             // Process attributes to populate route options and OpenAPI metadata
             var parsedVerb = ProcessFunctionAttributes(func, help!, attrs, routeOptions, openApiMetadata);
@@ -115,12 +120,13 @@ public partial class OpenApiDocDescriptor
                         ApplyExtensionAttribute(openApiMetadata, extensionAttr);
                         break;
                     case OpenApiResponseRefAttribute responseRef:
-                        ApplyResponseRefAttribute(openApiMetadata, responseRef);
+                        ApplyResponseRefAttribute(openApiMetadata, responseRef, routeOptions);
                         break;
                     case OpenApiResponseAttribute responseAttr:
                         ApplyResponseAttribute(openApiMetadata, responseAttr, routeOptions);
                         break;
                     case OpenApiResponseExampleRefAttribute responseAttr:
+                        // todo: fix this example
                         ApplyResponseAttribute(openApiMetadata, responseAttr, routeOptions);
                         break;
                     case OpenApiResponseLinkRefAttribute linkRefAttr:
@@ -406,9 +412,10 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Applies the OpenApiResponseRef attribute to the function's OpenAPI metadata.
     /// </summary>
-    ///     <param name="metadata">The OpenAPI metadata to update.</param>
+    /// <param name="metadata">The OpenAPI metadata to update.</param>
     /// <param name="attribute">The OpenApiResponseRef attribute containing response reference details.</param>
-    private void ApplyResponseRefAttribute(OpenAPIPathMetadata metadata, OpenApiResponseRefAttribute attribute)
+    /// <param name="routeOptions">The route options to update.</param>
+    private void ApplyResponseRefAttribute(OpenAPIPathMetadata metadata, OpenApiResponseRefAttribute attribute, MapRouteOptions routeOptions)
     {
         metadata.Responses ??= [];
 
@@ -430,6 +437,21 @@ public partial class OpenApiDocDescriptor
         }
 
         metadata.Responses.Add(attribute.StatusCode, iResponse);
+        if (response?.Content is not null)
+        {
+            // Note: if the existing response is a reference, we still apply the new response details to it.
+            // This allows attributes to override referenced responses without needing to define new references for each variation. However, if the existing response is a reference and we're not inlining, we replace it with a new reference to avoid modifying the original component.
+            //   if (CreateResponseFromAttribute(attribute, response))
+            // {
+            // SetDefaultResponseContentType(metadata.Responses, routeOptions, attribute.StatusCode);
+            // Merge into existing dictionary instead of overwriting so we preserve host defaults
+            // and can add multiple entries (e.g., 201 + 4XX).
+            routeOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<string>>(StringComparer.OrdinalIgnoreCase);
+
+            // Materialize keys to avoid OpenAPI collections being mutated later.
+            routeOptions.DefaultResponseContentType[attribute.StatusCode] = [.. response.Content.Keys];
+        }
+        //}
     }
 
     /// <summary>
@@ -445,7 +467,7 @@ public partial class OpenApiDocDescriptor
            existing is not OpenApiResponse response)
         {
             response = new OpenApiResponse();
-            metadata.Responses[attribute.StatusCode] = response; // overwrite/insert
+            metadata.Responses.Add(attribute.StatusCode, response); // overwrite/insert
         }
 
         // Note: if the existing response is a reference, we still apply the new response details to it.
@@ -457,28 +479,34 @@ public partial class OpenApiDocDescriptor
     }
 
     /// <summary>
-    /// Applied the Response Content Types from the default response to the new response if the new response doesn't have content types defined and the default response has content types defined.
+    /// Updates <see cref="MapRouteOptions.DefaultResponseContentType"/> with the response content types for the provided status code.
+    /// This enables runtime content negotiation in <c>Write-KrResponse</c> for exact codes (e.g. <c>400</c>) and OpenAPI ranges (e.g. <c>4XX</c>).
     /// </summary>
     /// <param name="responses">The collection of OpenAPI responses to check and update.</param>
     ///  <param name="routeOptions">The route options to update.</param>
     /// <param name="newStatusCode">The status code of the new response that was just added.</param>
     private static void SetDefaultResponseContentType(OpenApiResponses responses, MapRouteOptions routeOptions, string newStatusCode)
     {
-        if (routeOptions.DefaultResponseContentType is not null)
+        ArgumentNullException.ThrowIfNull(responses);
+        ArgumentNullException.ThrowIfNull(routeOptions);
+        if (string.IsNullOrWhiteSpace(newStatusCode))
         {
             return;
         }
 
-        var defaultStatusCode = SelectDefaultSuccessResponse(responses);
-        if (defaultStatusCode is not null && responses.TryGetValue(defaultStatusCode, out var defaultResponse) &&
-            defaultResponse.Content is not null && defaultResponse.Content.Count > 0 &&
-            responses.TryGetValue(newStatusCode, out var newResponse) && newResponse.Content is not null && newResponse.Content.Count > 0)
+        if (!responses.TryGetValue(newStatusCode, out var newResponse) ||
+            newResponse.Content is null ||
+            newResponse.Content.Count == 0)
         {
-            routeOptions.DefaultResponseContentType = new Dictionary<string, ICollection<string>>
-            {
-                { newStatusCode, newResponse.Content.Keys }
-            };
+            return;
         }
+
+        // Merge into existing dictionary instead of overwriting so we preserve host defaults
+        // and can add multiple entries (e.g., 201 + 4XX).
+        routeOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<string>>(StringComparer.OrdinalIgnoreCase);
+
+        // Materialize keys to avoid OpenAPI collections being mutated later.
+        routeOptions.DefaultResponseContentType[newStatusCode] = [.. newResponse.Content.Keys];
     }
 
     /// <summary>
@@ -1302,7 +1330,7 @@ public partial class OpenApiDocDescriptor
 
         // Set the script block or wrap for form options
         routeOptions.ScriptCode.ScriptBlock = sb;
-        routeOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<string>>(Host.Options.DefaultResponseMediaType);
+        routeOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<string>>(Host.Options.DefaultApiResponseMediaType);
         _ = Host.AddMapRoute(routeOptions);
     }
 

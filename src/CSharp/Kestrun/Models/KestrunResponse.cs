@@ -474,21 +474,15 @@ public class KestrunResponse
 
         try
         {
-            // Resolve supported content types for this status code (with Default fallback)
-            if (!KrContext.MapRouteOptions.DefaultResponseContentType!.TryGetValue(statusCode.ToString(), out var values) ||
-                values is null || values.Count == 0)
+            // Resolve supported content types for this status code (exact -> range -> default)
+            if (!TryGetResponseContentTypes(KrContext.MapRouteOptions.DefaultResponseContentType, statusCode, out var values) || values is null)
             {
-                if (!KrContext.MapRouteOptions.DefaultResponseContentType!.TryGetValue("default", out values) ||
-                    values is null || values.Count == 0)
-                {
-                    var msg = $"No default response content type configured for status code {statusCode} and no 'Default' fallback found.";
-                    Logger.Warning(msg);
+                var msg = $"No default response content type configured for status code {statusCode} and no range/default fallback found.";
+                Logger.Warning(msg);
 
-                    await WriteErrorResponseAsync(msg, StatusCodes.Status406NotAcceptable);
-                    return;
-                }
+                await WriteErrorResponseAsync(msg, StatusCodes.Status406NotAcceptable);
+                return;
             }
-
             // Read Accept header (may be missing)
             string? acceptHeader = null;
             _ = Request?.Headers.TryGetValue(HeaderNames.Accept, out acceptHeader);
@@ -587,6 +581,79 @@ public class KestrunResponse
         }
         // No match found; return default
         return null;
+    }
+
+    /// <summary>
+    /// Resolves response content types for a status code using exact, range (e.g., 4XX), then default.
+    /// </summary>
+    /// <param name="contentTypes">The content type map keyed by status code, range, or default.</param>
+    /// <param name="statusCode">The HTTP status code to resolve.</param>
+    /// <param name="values">The resolved content types, if found.</param>
+    /// <returns>True when a matching entry is found and contains at least one value.</returns>
+    private static bool TryGetResponseContentTypes(
+        IDictionary<string, ICollection<string>>? contentTypes,
+        int statusCode,
+        out ICollection<string>? values)
+    {
+        values = null;
+        if (contentTypes is null || contentTypes.Count == 0)
+        {
+            return false;
+        }
+
+        var statusKey = statusCode.ToString(CultureInfo.InvariantCulture);
+        if (TryGetValueIgnoreCase(contentTypes, statusKey, out values) && values is { Count: > 0 })
+        {
+            return true;
+        }
+
+        if (statusCode is >= 100 and <= 599)
+        {
+            // Allow OpenAPI-style wildcard keys such as:
+            // - 4XX (all 4xx)
+            // These are matched case-insensitively.
+            var rangeKey = $"{statusCode / 100}XX";
+            if (TryGetValueIgnoreCase(contentTypes, rangeKey, out values) && values is { Count: > 0 })
+            {
+                return true;
+            }
+        }
+
+        if (TryGetValueIgnoreCase(contentTypes, "default", out values) && values is { Count: > 0 })
+        {
+            return true;
+        }
+
+        values = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Attempts to read a dictionary value with case-insensitive key matching.
+    /// </summary>
+    /// <typeparam name="T">The dictionary value type.</typeparam>
+    /// <param name="dict">The dictionary to read from.</param>
+    /// <param name="key">The key to search for.</param>
+    /// <param name="value">The matched value, if found.</param>
+    /// <returns>True when a matching key is found.</returns>
+    private static bool TryGetValueIgnoreCase<T>(IDictionary<string, T> dict, string key, out T? value)
+    {
+        if (dict.TryGetValue(key, out value))
+        {
+            return true;
+        }
+
+        foreach (var kvp in dict)
+        {
+            if (string.Equals(kvp.Key, key, StringComparison.OrdinalIgnoreCase))
+            {
+                value = kvp.Value;
+                return true;
+            }
+        }
+
+        value = default;
+        return false;
     }
 
     /// <summary>

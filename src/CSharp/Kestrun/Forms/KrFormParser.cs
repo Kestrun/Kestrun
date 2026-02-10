@@ -30,11 +30,38 @@ public static class KrFormParser
         var logger = ResolveLogger(context, options);
         using var _ = logger.BeginTimedOperation("KrFormParser.ParseAsync");
 
-        var (mediaType, normalizedMediaType) = ValidateAndNormalizeMediaType(context, options, logger);
-        ApplyRequestBodyLimit(context, options, logger);
+        try
+        {
+            var (mediaType, normalizedMediaType) = ValidateAndNormalizeMediaType(context, options, logger);
+            ApplyRequestBodyLimit(context, options, logger);
 
-        return await ParseByContentTypeAsync(context, mediaType, normalizedMediaType, options, logger, cancellationToken)
-            .ConfigureAwait(false);
+            return await ParseByContentTypeAsync(context, mediaType, normalizedMediaType, options, logger, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (KrFormException)
+        {
+            TryMarkConnectionClose(context, logger);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Marks the current connection as non-keep-alive for HTTP/1.x responses.
+    /// This avoids Kestrel attempting to parse unread request-body bytes as a new request line
+    /// when the application rejects a form upload early (e.g., 415/400/413).
+    /// </summary>
+    /// <param name="context">The HTTP context.</param>
+    /// <param name="logger">The logger.</param>
+    private static void TryMarkConnectionClose(HttpContext context, Logger logger)
+    {
+        if (context.Response.HasStarted)
+        {
+            return;
+        }
+
+        // Only meaningful on HTTP/1.x. For HTTP/2+, the header is ignored.
+        context.Response.Headers[HeaderNames.Connection] = "close";
+        logger.Debug("Form parsing error: setting Connection: close to avoid unread-body keep-alive issues.");
     }
 
     /// <summary>

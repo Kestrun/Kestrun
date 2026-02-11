@@ -146,7 +146,7 @@
         <PackageReference Include="Serilog.Sinks.Http" Version="9.1.0" />
 
         <!-- Caching -->
-        <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="8.0.23" />
+        <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="9.0.13" />
         <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.23" />
         <!-- Scripting Engines -->
         <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.13" />
@@ -176,7 +176,7 @@
         <PackageReference Include="Serilog.Sinks.Http" Version="9.2.1" />
 
         <!-- Caching -->
-        <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="9.0.12" />
+        <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="9.0.13" />
         <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.12" />
         <!-- Scripting Engines -->
         <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.4" />

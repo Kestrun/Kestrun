@@ -148,13 +148,13 @@ function searchProducts {
     $skip = ($page - 1) * $pageSize
     $paged = $filtered | Select-Object -Skip $skip -First $pageSize
 
-    $result =  @{
+    $result = @{
         page = $page
         pageSize = $pageSize
         total = ($filtered | Measure-Object).Count
         items = $paged
     }
-Expand-KrObject -InputObject $result
+    Expand-KrObject -InputObject $result
     # Negotiate response by Accept header (JSON/XML/YAML when supported)
     Write-KrResponse -InputObject $result -StatusCode 200
 }

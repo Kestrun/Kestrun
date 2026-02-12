@@ -150,11 +150,6 @@ function createProduct {
 
     Expand-KrObject -InputObject $body -Label 'Received Product'
 
-    if ($null -eq $body -or -not $body.Name) {
-        Write-KrResponse @{ error = 'Name is required' } -StatusCode 406
-        return
-    }
-
     # Assign a new ID
     $body.Id = Get-Random -Minimum 1 -Maximum 1000
 

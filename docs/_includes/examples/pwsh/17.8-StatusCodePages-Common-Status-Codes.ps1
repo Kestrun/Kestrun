@@ -189,7 +189,7 @@ function postJsonEcho {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/json/echo', Summary = 'POST requires application/json', Tags = ('StatusCodes'))]
     [OpenApiResponse(StatusCode = '201', Description = 'Created', ContentType = 'application/json', Schema = [object])]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad Request')]
-    [OpenApiResponse(StatusCode = '422', Description = 'Unprocessable Content')]
+    [OpenApiResponse(StatusCode = '422', Description = 'Unprocessable Entity')]
     [OpenApiResponse(StatusCode = '415', Description = 'Unsupported Media Type')]
     param(
         [OpenApiRequestBody( ContentType = 'application/json', Required = $true)]
@@ -213,7 +213,7 @@ function postJsonEchoPlus {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/json/echoPlus', Summary = 'POST requires application/json', Tags = ('StatusCodes'))]
     [OpenApiResponse(StatusCode = '201', Description = 'Created', ContentType = ('application/json', 'application/xml'), Schema = [object])]
     [OpenApiResponse(StatusCode = '400', Description = 'Bad Request')]
-    [OpenApiResponse(StatusCode = '422', Description = 'Unprocessable Content')]
+    [OpenApiResponse(StatusCode = '422', Description = 'Unprocessable Entity')]
     [OpenApiResponse(StatusCode = '415', Description = 'Unsupported Media Type')]
     param(
         [OpenApiRequestBody( ContentType = ('application/json', 'application/yaml'), Required = $true)]

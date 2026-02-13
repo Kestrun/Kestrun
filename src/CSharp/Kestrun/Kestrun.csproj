@@ -245,9 +245,9 @@
         <PackageReference Include="Serilog.Sinks.SyslogMessages" Version="4.1.0" />
 
         <!-- Microsoft.AspNetCore -->
-        <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.15.0" />
+        <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.16.0" />
         <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.15.0" />
-        <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.15.0" />
+        <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.16.0" />
 
         <!-- Scripting Engines -->
         <PackageReference Include="Microsoft.ClearScript.V8" Version="7.5.0" />

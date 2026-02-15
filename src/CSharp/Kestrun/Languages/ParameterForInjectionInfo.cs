@@ -2562,6 +2562,8 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             }
         }
 
+        ValidateRequiredMembers(targetType, data);
+
         // If there are unmatched entries and the target type doesn't support additional properties, log a warning and throw an exception.
         if (extras.Count > 0)
         {
@@ -2579,6 +2581,65 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
 
             ApplyAdditionalPropertiesExtras(instance, data, extras, logger);
         }
+    }
+
+    /// <summary>
+    /// Validates that required members declared by OpenApiSchemaComponent are present in the input payload.
+    /// </summary>
+    /// <param name="targetType">The target type being populated.</param>
+    /// <param name="data">The incoming payload data.</param>
+    /// <exception cref="ParameterForInjectionException">Thrown when one or more required members are missing.</exception>
+    private static void ValidateRequiredMembers(Type targetType, Hashtable data)
+    {
+        var required = GetRequiredMemberNames(targetType);
+        if (required.Count == 0)
+        {
+            return;
+        }
+
+        var provided = new HashSet<string>(
+            data.Keys
+                .OfType<string>()
+                .Select(NormalizeMemberKey),
+            StringComparer.OrdinalIgnoreCase);
+
+        var missing = required.Where(name => !provided.Contains(name)).ToList();
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        var msg = missing.Count == 1
+            ? $"{missing[0]} is required."
+            : $"The following fields are required: {string.Join(", ", missing)}.";
+
+        throw new ParameterForInjectionException(msg, 406);
+    }
+
+    /// <summary>
+    /// Gets required member names declared by OpenApiSchemaComponent.RequiredProperties on the target type.
+    /// </summary>
+    /// <param name="targetType">The target type to inspect.</param>
+    /// <returns>A de-duplicated list of required member names.</returns>
+    private static List<string> GetRequiredMemberNames(Type targetType)
+    {
+        var schemaAttr = targetType.GetCustomAttributes(inherit: true)
+            .FirstOrDefault(a => a.GetType().Name.Equals("OpenApiSchemaComponent", StringComparison.OrdinalIgnoreCase));
+
+        if (schemaAttr is null)
+        {
+            return [];
+        }
+
+        var required = schemaAttr.GetType().GetProperty("RequiredProperties")?.GetValue(schemaAttr) as string[];
+        if (required is not { Length: > 0 })
+        {
+            return [];
+        }
+
+        return [.. required
+            .Where(r => !string.IsNullOrWhiteSpace(r))
+            .Distinct(StringComparer.OrdinalIgnoreCase)];
     }
 
     /// <summary>

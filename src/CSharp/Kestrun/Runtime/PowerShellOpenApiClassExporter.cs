@@ -623,6 +623,7 @@ public static class PowerShellOpenApiClassExporter
     private static void AppendClass(Type type, HashSet<Type> componentSet, StringBuilder sb)
     {
         var bindFormAttribute = TryBuildKrBindFormAttribute(type, out var formMaxDepth);
+        var schemaComponentAttribute = TryBuildOpenApiSchemaComponentAttribute(type);
         var additionalPropertiesMetadata = BuildAdditionalPropertiesMetadata(type);
 
         // Detect base type (for parenting). For OpenAPI form models, base type is chosen
@@ -646,6 +647,10 @@ public static class PowerShellOpenApiClassExporter
         if (bindFormAttribute is not null)
         {
             _ = sb.AppendLine(bindFormAttribute);
+        }
+        if (schemaComponentAttribute is not null)
+        {
+            _ = sb.AppendLine(schemaComponentAttribute);
         }
         _ = sb.AppendLine("[NoRunspaceAffinity()]");
         _ = sb.AppendLine($"class {type.Name}{baseClause} {{");
@@ -698,6 +703,36 @@ public static class PowerShellOpenApiClassExporter
         return maxDepth > 0
             ? $"[KrBindForm(MaxNestingDepth = {maxDepth})]"
             : "[KrBindForm()]";
+    }
+
+    /// <summary>
+    /// Builds an OpenApiSchemaComponent class attribute preserving RequiredProperties when present.
+    /// </summary>
+    /// <param name="type">The type to inspect for OpenApiSchemaComponent metadata.</param>
+    /// <returns>The PowerShell attribute string, or null when no required metadata is present.</returns>
+    private static string? TryBuildOpenApiSchemaComponentAttribute(Type type)
+    {
+        var schemaAttr = type.GetCustomAttributes(inherit: false)
+            .FirstOrDefault(a => a.GetType().Name.Equals("OpenApiSchemaComponent", StringComparison.OrdinalIgnoreCase));
+
+        if (schemaAttr is null)
+        {
+            return null;
+        }
+
+        var requiredValues = schemaAttr.GetType().GetProperty("RequiredProperties")?.GetValue(schemaAttr) as string[];
+        if (requiredValues is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        var requiredTuple = string.Join(", ", requiredValues
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => $"'{EscapePowerShellString(v)}'"));
+
+        return string.IsNullOrWhiteSpace(requiredTuple)
+            ? null
+            : $"[OpenApiSchemaComponent(RequiredProperties = ({requiredTuple}))]";
     }
 
     private static bool ShouldEmitAdditionalProperties(Type type, PropertyInfo[] props)

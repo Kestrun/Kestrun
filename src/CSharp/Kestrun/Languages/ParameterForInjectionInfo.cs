@@ -2623,6 +2623,24 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
     /// <returns>A de-duplicated list of required member names.</returns>
     private static List<string> GetRequiredMemberNames(Type targetType)
     {
+        var staticRequired = targetType.GetProperty("RequiredProperties", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
+            ?.GetValue(null) as IEnumerable;
+        if (staticRequired is not null)
+        {
+            var staticNames = staticRequired
+                .Cast<object?>()
+                .Select(v => v?.ToString())
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Cast<string>()
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (staticNames.Count > 0)
+            {
+                return staticNames;
+            }
+        }
+
         var schemaAttr = targetType.GetCustomAttributes(inherit: true)
             .FirstOrDefault(a => a.GetType().Name.Equals("OpenApiSchemaComponent", StringComparison.OrdinalIgnoreCase));
 

@@ -624,7 +624,6 @@ public static class PowerShellOpenApiClassExporter
     {
         var bindFormAttribute = TryBuildKrBindFormAttribute(type, out var formMaxDepth);
         var requiredProperties = GetRequiredProperties(type);
-        var schemaComponentAttribute = TryBuildOpenApiSchemaComponentAttribute(requiredProperties);
         var additionalPropertiesMetadata = BuildAdditionalPropertiesMetadata(type);
 
         // Detect base type (for parenting). For OpenAPI form models, base type is chosen
@@ -649,10 +648,6 @@ public static class PowerShellOpenApiClassExporter
         {
             _ = sb.AppendLine(bindFormAttribute);
         }
-        if (schemaComponentAttribute is not null)
-        {
-            _ = sb.AppendLine(schemaComponentAttribute);
-        }
         _ = sb.AppendLine("[NoRunspaceAffinity()]");
         _ = sb.AppendLine($"class {type.Name}{baseClause} {{");
 
@@ -672,6 +667,11 @@ public static class PowerShellOpenApiClassExporter
             _ = sb.AppendLine("    static [hashtable] $AdditionalPropertiesMetadata = @{");
             _ = sb.Append(additionalPropertiesMetadata);
             _ = sb.AppendLine("    }");
+        }
+
+        if (requiredProperties.Length > 0)
+        {
+            AppendRequiredPropertiesMetadata(requiredProperties, sb);
         }
 
         foreach (var p in props)
@@ -733,23 +733,21 @@ public static class PowerShellOpenApiClassExporter
     }
 
     /// <summary>
-    /// Builds an OpenApiSchemaComponent class attribute preserving RequiredProperties when present.
+    /// Appends static required-properties metadata to the generated class.
     /// </summary>
     /// <param name="requiredValues">Required property names to emit.</param>
-    /// <returns>The PowerShell attribute string, or null when no required metadata is present.</returns>
-    private static string? TryBuildOpenApiSchemaComponentAttribute(string[] requiredValues)
+    /// <param name="sb">The output builder.</param>
+    private static void AppendRequiredPropertiesMetadata(string[] requiredValues, StringBuilder sb)
     {
         if (requiredValues is not { Length: > 0 })
         {
-            return null;
+            return;
         }
 
-        var requiredTuple = string.Join(", ", requiredValues
-            .Select(v => $"'{EscapePowerShellString(v)}'"));
-
-        return string.IsNullOrWhiteSpace(requiredTuple)
-            ? null
-            : $"[OpenApiSchemaComponent(RequiredProperties = ({requiredTuple}))]";
+        var requiredTuple = string.Join(", ", requiredValues.Select(v => $"'{EscapePowerShellString(v)}'"));
+        _ = sb.AppendLine();
+        _ = sb.AppendLine("    # Static required property names for this class");
+        _ = sb.AppendLine($"    static [string[]] $RequiredProperties = @({requiredTuple})");
     }
 
     /// <summary>

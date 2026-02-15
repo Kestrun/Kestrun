@@ -456,7 +456,41 @@ public partial class OpenApiDocDescriptor
     private void ApplyTypeAttributes(Type t, OpenApiSchema schema)
     {
         ApplySchemaComponentAttributes(t, schema);
+        ApplyGeneratedRequiredPropertiesMetadata(t, schema);
         ApplyPatternProperties(t, schema);
+    }
+
+    /// <summary>
+    /// Applies required properties from generated PowerShell class metadata when available.
+    /// </summary>
+    /// <param name="t">The type being processed.</param>
+    /// <param name="schema">The schema to update.</param>
+    private static void ApplyGeneratedRequiredPropertiesMetadata(Type t, OpenApiSchema schema)
+    {
+        var requiredProp = t.GetProperty("RequiredProperties", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+        if (requiredProp?.GetValue(null) is not System.Collections.IEnumerable requiredValues)
+        {
+            return;
+        }
+
+        var required = requiredValues
+            .Cast<object?>()
+            .Select(v => v?.ToString())
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Cast<string>()
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        if (required.Length == 0)
+        {
+            return;
+        }
+
+        schema.Required ??= new HashSet<string>(StringComparer.Ordinal);
+        foreach (var name in required)
+        {
+            _ = schema.Required.Add(name);
+        }
     }
 
     /// <summary>

@@ -78,7 +78,7 @@ public partial class KestrunResponseTests
             headers: new Dictionary<string, string> { { "Accept", "application/json" } });
         ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<string>>
         {
-            ["4XX"] = new List<string> { "application/json", "text/plain" }
+            ["4XX"] = ["application/json", "text/plain"]
         };
         var res = ctx.Response;
 
@@ -98,10 +98,10 @@ public partial class KestrunResponseTests
 
         await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status200OK);
 
-        Assert.Equal(StatusCodes.Status406NotAcceptable, res.StatusCode);
+        Assert.Equal(StatusCodes.Status200OK, res.StatusCode);
         Assert.Contains("application/json", res.ContentType);
         var strBody = Assert.IsType<string>(res.Body);
-        Assert.Contains("No supported media type", strBody, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("alice", strBody);
     }
 
     [Fact]

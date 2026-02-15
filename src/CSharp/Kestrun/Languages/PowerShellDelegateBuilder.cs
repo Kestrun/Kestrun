@@ -175,6 +175,14 @@ internal static class PowerShellDelegateBuilder
             {
                 log.Verbose("No redirect detected; applying response to HttpResponse...");
             }
+            if (krContext.Response.HasPostPonedWriteObject)
+            {
+                if (isLogVerbose)
+                {
+                    log.Verbose("Postponed Write-KrResponse detected; applying response with Write-KrResponse.");
+                }
+                await krContext.Response.WriteResponseAsync(krContext.Response.PostPonedWriteObject).ConfigureAwait(false);
+            }
         }
         // optional: catch client cancellation to avoid noisy logs
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)

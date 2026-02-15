@@ -147,6 +147,22 @@ public class KestrunResponse
     /// </summary>
     public CacheControlHeaderValue? CacheControl { get; set; }
 
+    /// <summary>
+    /// Represents a simple object for writing responses with a value and status code.
+    /// </summary>
+    /// <param name="Value">The value to be written in the response.</param>
+    /// <param name="Status">The HTTP status code for the response.</param>
+    public record WriteObject(object? Value, int Status = StatusCodes.Status200OK);
+
+    /// <summary>
+    /// Gets or sets a postponed write object that can be used for deferred response writing, allowing the response to be constructed in multiple stages or after certain operations are completed.
+    /// </summary>
+    public WriteObject PostPonedWriteObject { get; set; } = new WriteObject(null, StatusCodes.Status200OK);
+
+    /// <summary>
+    /// Indicates whether there is a postponed write object with a non-null value, which can be used to determine if a deferred response write is pending.
+    /// </summary>
+    public bool HasPostPonedWriteObject => PostPonedWriteObject.Value is not null;
     #region Constructors
     #endregion
 
@@ -458,6 +474,13 @@ public class KestrunResponse
 
     /// <summary>
     /// Asynchronously writes a response with the specified input object and HTTP status code.
+    /// </summary>
+    /// <param name="inputObject">The object to be sent in the response body.</param>
+    /// <returns>A task that represents the asynchronous write operation.</returns>
+    public async Task WriteResponseAsync(WriteObject inputObject) => await WriteResponseAsync(inputObject.Value, inputObject.Status);
+
+    /// <summary>
+    /// Asynchronously writes a response with the specified input object and HTTP status code.
     /// Chooses the response format based on the Accept header or defaults to text/plain.
     /// </summary>
     /// <param name="inputObject">The object to be sent in the response body.</param>
@@ -465,6 +488,11 @@ public class KestrunResponse
     /// <returns>A task that represents the asynchronous write operation.</returns>
     public async Task WriteResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK)
     {
+        if (inputObject is null)
+        {
+            throw new ArgumentNullException(nameof(inputObject), "Input object cannot be null. Use WriteResponseAsync(WriteObject) to specify a null value with a status code.");
+        }
+
         if (Logger.IsEnabled(LogEventLevel.Debug))
         {
             Logger.Debug("Writing response, StatusCode={StatusCode}", statusCode);
@@ -487,10 +515,10 @@ public class KestrunResponse
             string? acceptHeader = null;
             _ = Request?.Headers.TryGetValue(HeaderNames.Accept, out acceptHeader);
 
-            var supported = values as IReadOnlyList<string> ?? [.. values];
+            var supported = values as IReadOnlyList<ContentTypeWithSchema> ?? [.. values];
 
             // Pick media type from Accept ∩ values, else fallback to first configured
-            var mediaType = SelectResponseMediaType(acceptHeader, supported, defaultType: supported[0]);
+            var mediaType = SelectResponseMediaType(acceptHeader, supported, defaultType: supported[0].ContentType);
             if (mediaType is null)
             {
                 var msg = $"No supported media type found for status code {statusCode} with Accept header '{acceptHeader}'. Supported types: {string.Join(", ", supported)}";
@@ -506,7 +534,7 @@ public class KestrunResponse
                     statusCode, mediaType, acceptHeader);
             }
 
-            await WriteByMediaTypeAsync(mediaType, inputObject, statusCode);
+            await WriteByMediaTypeAsync(mediaType.ContentType, inputObject, statusCode);
         }
         catch (Exception ex)
         {
@@ -526,11 +554,11 @@ public class KestrunResponse
     /// This method parses the Accept header, orders the media types by quality factor,
     /// and selects the first supported media type. If none are supported returns null
     /// </remarks>
-    private static string? SelectResponseMediaType(string? acceptHeader, IReadOnlyList<string> supported, string defaultType = "text/plain")
+    private static ContentTypeWithSchema? SelectResponseMediaType(string? acceptHeader, IReadOnlyList<ContentTypeWithSchema> supported, string defaultType = "text/plain")
     {
         if (supported.Count == 0)
         {
-            return defaultType;
+            return new ContentTypeWithSchema(defaultType, null);
         }
 
         if (string.IsNullOrWhiteSpace(acceptHeader))
@@ -543,6 +571,14 @@ public class KestrunResponse
             return supported[0];
         }
 
+        var supportedNormalized = new string[supported.Count];
+        var supportedCanonical = new string[supported.Count];
+        for (var i = 0; i < supported.Count; i++)
+        {
+            supportedNormalized[i] = MediaTypeHelper.Normalize(supported[i].ContentType);
+            supportedCanonical[i] = MediaTypeHelper.Canonicalize(supported[i].ContentType);
+        }
+
         foreach (var a in accepts.OrderByDescending(x => x.Quality ?? 1.0))
         {
             var accept = a.MediaType.Value;
@@ -552,30 +588,37 @@ public class KestrunResponse
                 continue;
             }
 
-            if (string.Equals(accept, "*/*", StringComparison.OrdinalIgnoreCase))
+            // Normalize first so we can reliably detect wildcards and avoid treating them as canonical aliases.
+            var acceptNormalized = MediaTypeHelper.Normalize(accept);
+
+            if (string.Equals(acceptNormalized, "*/*", StringComparison.OrdinalIgnoreCase))
             {
                 return supported[0];
             }
 
-            // 1) exact match first
-            for (var i = 0; i < supported.Count; i++)
+            // 2) type/* wildcard (match using normalized supported types)
+            if (acceptNormalized.EndsWith("/*", StringComparison.OrdinalIgnoreCase))
             {
-                if (string.Equals(supported[i], accept, StringComparison.OrdinalIgnoreCase))
-                {
-                    return supported[i];
-                }
-            }
-
-            // 2) type/* wildcard
-            if (accept.EndsWith("/*", StringComparison.OrdinalIgnoreCase))
-            {
-                var prefix = accept[..^1]; // "application/"
+                var prefix = acceptNormalized[..^1]; // "application/"
                 for (var i = 0; i < supported.Count; i++)
                 {
-                    if (supported[i].StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    if (supportedNormalized[i].StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                     {
                         return supported[i];
                     }
+                }
+
+                continue;
+            }
+
+            var acceptCanonical = MediaTypeHelper.Canonicalize(acceptNormalized);
+
+            // 1) exact match first
+            for (var i = 0; i < supported.Count; i++)
+            {
+                if (string.Equals(supportedCanonical[i], acceptCanonical, StringComparison.OrdinalIgnoreCase))
+                {
+                    return supported[i];
                 }
             }
         }
@@ -591,9 +634,9 @@ public class KestrunResponse
     /// <param name="values">The resolved content types, if found.</param>
     /// <returns>True when a matching entry is found and contains at least one value.</returns>
     private static bool TryGetResponseContentTypes(
-        IDictionary<string, ICollection<string>>? contentTypes,
+        IDictionary<string, ICollection<ContentTypeWithSchema>>? contentTypes,
         int statusCode,
-        out ICollection<string>? values)
+        out ICollection<ContentTypeWithSchema>? values)
     {
         values = null;
         if (contentTypes is null || contentTypes.Count == 0)

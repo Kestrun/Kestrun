@@ -28,8 +28,10 @@ function Write-KrResponse {
     )
     # Only works inside a route script block where $Context is available
     if ($null -ne $Context.Response) {
+        $Context.Response.PostPonedWriteObject.Value = $InputObject
+        $Context.Response.PostPonedWriteObject.Status = $StatusCode
         # Call the C# method on the $Context.Response object
-        $Context.Response.WriteResponse($InputObject, $StatusCode)
+        #$Context.Response.WriteResponse($InputObject, $StatusCode)
     } else {
         Write-KrOutsideRouteWarning
     }

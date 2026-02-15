@@ -3,6 +3,6 @@ namespace Kestrun.Hosting.Options;
 /// Default response content type for routes.
 /// </summary>
 /// <param name="ContentType">The default response content type dictionary.</param>
-public record DefaultResponseContentType(IDictionary<string, ICollection<string>> ContentType)
+public record DefaultResponseContentType(IDictionary<string, ICollection<ContentTypeWithSchema>> ContentType)
 {
 }

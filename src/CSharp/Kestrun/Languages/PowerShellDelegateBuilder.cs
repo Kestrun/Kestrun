@@ -175,13 +175,21 @@ internal static class PowerShellDelegateBuilder
             {
                 log.Verbose("No redirect detected; applying response to HttpResponse...");
             }
+
+            var postponed = krContext.Response.PostPonedWriteObject;
+            if (postponed.Error is int postponedError && postponedError != 0)
+            {
+                log.Error("Postponed response contains error code {ErrorCode}; throwing before response write.", postponedError);
+                throw new InvalidOperationException($"Postponed response error detected: {postponedError}");
+            }
+
             if (krContext.Response.HasPostPonedWriteObject)
             {
                 if (isLogVerbose)
                 {
                     log.Verbose("Postponed Write-KrResponse detected; applying response with Write-KrResponse.");
                 }
-                await krContext.Response.WriteResponseAsync(krContext.Response.PostPonedWriteObject).ConfigureAwait(false);
+                await krContext.Response.WriteResponseAsync(postponed).ConfigureAwait(false);
             }
         }
         // optional: catch client cancellation to avoid noisy logs
@@ -229,6 +237,18 @@ internal static class PowerShellDelegateBuilder
                 await krContext.Response.WriteErrorResponseAsync("Invalid form data: " + kfex.Message, kfex.StatusCode);
             }
             else { throw; }
+        }
+        catch (InvalidOperationException ioex) when (ioex.Message.StartsWith("Postponed response error detected:", StringComparison.Ordinal))
+        {
+            log.Error(ioex, "Postponed response error detected while applying Write-KrResponse result.");
+            if (krContext is not null)
+            {
+                await krContext.Response.WriteErrorResponseAsync("An internal server error occurred.", StatusCodes.Status500InternalServerError);
+            }
+            else
+            {
+                throw;
+            }
         }
         catch (Exception ex)
         {

@@ -152,7 +152,8 @@ public class KestrunResponse
     /// </summary>
     /// <param name="Value">The value to be written in the response.</param>
     /// <param name="Status">The HTTP status code for the response.</param>
-    public record WriteObject(object? Value, int Status = StatusCodes.Status200OK);
+    /// <param name="Error">An optional error code to include in the response.</param>
+    public record WriteObject(object? Value, int Status = StatusCodes.Status200OK, int? Error = null);
 
     /// <summary>
     /// Gets or sets a postponed write object that can be used for deferred response writing, allowing the response to be constructed in multiple stages or after certain operations are completed.

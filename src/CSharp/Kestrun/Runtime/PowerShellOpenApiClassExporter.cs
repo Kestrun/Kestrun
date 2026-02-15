@@ -623,7 +623,8 @@ public static class PowerShellOpenApiClassExporter
     private static void AppendClass(Type type, HashSet<Type> componentSet, StringBuilder sb)
     {
         var bindFormAttribute = TryBuildKrBindFormAttribute(type, out var formMaxDepth);
-        var schemaComponentAttribute = TryBuildOpenApiSchemaComponentAttribute(type);
+        var requiredProperties = GetRequiredProperties(type);
+        var schemaComponentAttribute = TryBuildOpenApiSchemaComponentAttribute(requiredProperties);
         var additionalPropertiesMetadata = BuildAdditionalPropertiesMetadata(type);
 
         // Detect base type (for parenting). For OpenAPI form models, base type is chosen
@@ -680,6 +681,11 @@ public static class PowerShellOpenApiClassExporter
             _ = sb.AppendLine($"    [{psType}]${p.Name}");
         }
 
+        if (requiredProperties.Length > 0)
+        {
+            AppendRequiredPropertiesValidationMethods(requiredProperties, sb);
+        }
+
         // Add static XML metadata to guide XmlHelper without requiring PowerShell method invocation
         AppendOpenApiXmlMetadataProperty(type, props, sb);
 
@@ -706,33 +712,80 @@ public static class PowerShellOpenApiClassExporter
     }
 
     /// <summary>
-    /// Builds an OpenApiSchemaComponent class attribute preserving RequiredProperties when present.
+    /// Gets required property names from OpenApiSchemaComponent metadata on a type.
     /// </summary>
-    /// <param name="type">The type to inspect for OpenApiSchemaComponent metadata.</param>
-    /// <returns>The PowerShell attribute string, or null when no required metadata is present.</returns>
-    private static string? TryBuildOpenApiSchemaComponentAttribute(Type type)
+    /// <param name="type">The type to inspect.</param>
+    /// <returns>An array of required property names.</returns>
+    private static string[] GetRequiredProperties(Type type)
     {
         var schemaAttr = type.GetCustomAttributes(inherit: false)
             .FirstOrDefault(a => a.GetType().Name.Equals("OpenApiSchemaComponent", StringComparison.OrdinalIgnoreCase));
 
         if (schemaAttr is null)
         {
-            return null;
+            return [];
         }
 
         var requiredValues = schemaAttr.GetType().GetProperty("RequiredProperties")?.GetValue(schemaAttr) as string[];
+        return requiredValues is { Length: > 0 }
+            ? [.. requiredValues.Where(v => !string.IsNullOrWhiteSpace(v)).Distinct(StringComparer.OrdinalIgnoreCase)]
+            : [];
+    }
+
+    /// <summary>
+    /// Builds an OpenApiSchemaComponent class attribute preserving RequiredProperties when present.
+    /// </summary>
+    /// <param name="requiredValues">Required property names to emit.</param>
+    /// <returns>The PowerShell attribute string, or null when no required metadata is present.</returns>
+    private static string? TryBuildOpenApiSchemaComponentAttribute(string[] requiredValues)
+    {
         if (requiredValues is not { Length: > 0 })
         {
             return null;
         }
 
         var requiredTuple = string.Join(", ", requiredValues
-            .Where(v => !string.IsNullOrWhiteSpace(v))
             .Select(v => $"'{EscapePowerShellString(v)}'"));
 
         return string.IsNullOrWhiteSpace(requiredTuple)
             ? null
             : $"[OpenApiSchemaComponent(RequiredProperties = ({requiredTuple}))]";
+    }
+
+    /// <summary>
+    /// Appends instance methods that validate required properties for generated PowerShell classes.
+    /// </summary>
+    /// <param name="requiredProperties">The required property names.</param>
+    /// <param name="sb">The output builder.</param>
+    private static void AppendRequiredPropertiesValidationMethods(string[] requiredProperties, StringBuilder sb)
+    {
+        var requiredTuple = string.Join(", ", requiredProperties.Select(v => $"'{EscapePowerShellString(v)}'"));
+
+        _ = sb.AppendLine();
+        _ = sb.AppendLine("    [string[]] GetMissingRequiredProperties() {");
+        _ = sb.AppendLine($"        $required = @({requiredTuple})");
+        _ = sb.AppendLine("        $missing = [System.Collections.Generic.List[string]]::new()");
+        _ = sb.AppendLine("        foreach ($name in $required) {");
+        _ = sb.AppendLine("            $value = $this.$name");
+        _ = sb.AppendLine("            if ($null -eq $value) {");
+        _ = sb.AppendLine("                $missing.Add($name)");
+        _ = sb.AppendLine("                continue");
+        _ = sb.AppendLine("            }");
+        _ = sb.AppendLine("            if ($value -is [string] -and [string]::IsNullOrWhiteSpace([string]$value)) {");
+        _ = sb.AppendLine("                $missing.Add($name)");
+        _ = sb.AppendLine("                continue");
+        _ = sb.AppendLine("            }");
+        _ = sb.AppendLine("            if ($value -is [System.Collections.ICollection] -and $value.Count -eq 0) {");
+        _ = sb.AppendLine("                $missing.Add($name)");
+        _ = sb.AppendLine("            }");
+        _ = sb.AppendLine("        }");
+        _ = sb.AppendLine("        return $missing.ToArray()");
+        _ = sb.AppendLine("    }");
+
+        _ = sb.AppendLine();
+        _ = sb.AppendLine("    [bool] ValidateRequiredProperties() {");
+        _ = sb.AppendLine("        return $this.GetMissingRequiredProperties().Length -eq 0");
+        _ = sb.AppendLine("    }");
     }
 
     private static bool ShouldEmitAdditionalProperties(Type type, PropertyInfo[] props)

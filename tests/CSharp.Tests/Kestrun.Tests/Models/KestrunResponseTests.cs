@@ -10,6 +10,21 @@ namespace KestrunTests.Models;
 
 public partial class KestrunResponseTests
 {
+    private sealed class QueueSchemaDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public int Count { get; set; }
+    }
+
+    private sealed class QueueValidationFailsDto
+    {
+        public string Name { get; set; } = string.Empty;
+
+        public bool ValidateRequiredProperties() => false;
+
+        public string[] GetMissingRequiredProperties() => ["Name"];
+    }
+
     private static KestrunContext MakeCtx(string accept = "application/json")
     {
         var ctx = TestRequestFactory.CreateContext(path: "/test", headers: new Dictionary<string, string> { { "Accept", accept } });
@@ -26,6 +41,102 @@ public partial class KestrunResponseTests
             ]
         };
         return ctx;
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void QueueResponseForWrite_WithoutSchema_QueuesOriginalValue()
+    {
+        var ctx = MakeCtx();
+        var res = ctx.Response;
+        var payload = new { Name = "alice" };
+
+        res.QueueResponseForWrite(payload, StatusCodes.Status202Accepted);
+
+        Assert.Equal(StatusCodes.Status202Accepted, res.PostPonedWriteObject.Status);
+        Assert.Null(res.PostPonedWriteObject.Error);
+        Assert.Same(payload, res.PostPonedWriteObject.Value);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void QueueResponseForWrite_WithSchema_ConvertsDictionaryToSchemaType()
+    {
+        var ctx = MakeCtx();
+        ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>
+        {
+            ["200"] = [new("application/json", typeof(QueueSchemaDto).FullName)]
+        };
+
+        var res = ctx.Response;
+        var payload = new Dictionary<string, object?>
+        {
+            ["name"] = "widget",
+            ["count"] = 7
+        };
+
+        res.QueueResponseForWrite(payload, StatusCodes.Status200OK);
+
+        Assert.Equal(StatusCodes.Status200OK, res.PostPonedWriteObject.Status);
+        Assert.Null(res.PostPonedWriteObject.Error);
+        var converted = Assert.IsType<QueueSchemaDto>(res.PostPonedWriteObject.Value);
+        Assert.Equal("widget", converted.Name);
+        Assert.Equal(7, converted.Count);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void QueueResponseForWrite_UnresolvableSchema_SetsPostponedError()
+    {
+        var ctx = MakeCtx();
+        ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>
+        {
+            ["200"] = [new("application/json", "KestrunTests.Models.MissingSchemaType")]
+        };
+
+        var res = ctx.Response;
+        res.QueueResponseForWrite(new { Name = "x" }, StatusCodes.Status200OK);
+
+        Assert.Equal(StatusCodes.Status500InternalServerError, res.PostPonedWriteObject.Error);
+        Assert.Equal(StatusCodes.Status200OK, res.PostPonedWriteObject.Status);
+        Assert.Null(res.PostPonedWriteObject.Value);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void QueueResponseForWrite_ValidationFailure_SetsPostponedError()
+    {
+        var ctx = MakeCtx();
+        ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>
+        {
+            ["200"] = [new("application/json", typeof(QueueValidationFailsDto).FullName)]
+        };
+
+        var res = ctx.Response;
+        var payload = new Dictionary<string, object?>
+        {
+            ["name"] = string.Empty
+        };
+
+        res.QueueResponseForWrite(payload, StatusCodes.Status200OK);
+
+        Assert.Equal(StatusCodes.Status500InternalServerError, res.PostPonedWriteObject.Error);
+        Assert.Equal(StatusCodes.Status200OK, res.PostPonedWriteObject.Status);
+        Assert.Null(res.PostPonedWriteObject.Value);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void QueueResponseForWrite_NullInput_SetsPostponedError()
+    {
+        var ctx = MakeCtx();
+        var res = ctx.Response;
+
+        res.QueueResponseForWrite(null, StatusCodes.Status201Created);
+
+        Assert.Equal(StatusCodes.Status500InternalServerError, res.PostPonedWriteObject.Error);
+        Assert.Equal(StatusCodes.Status201Created, res.PostPonedWriteObject.Status);
+        Assert.Null(res.PostPonedWriteObject.Value);
     }
 
     [Theory]

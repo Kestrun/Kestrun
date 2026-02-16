@@ -22,6 +22,7 @@ using Microsoft.Net.Http.Headers;
 using Kestrun.Utilities.Yaml;
 using Kestrun.Hosting.Options;
 using Kestrun.Callback;
+using System.Management.Automation;
 
 namespace Kestrun.Models;
 
@@ -545,6 +546,59 @@ public class KestrunResponse
     }
 
     /// <summary>
+    /// Queues a response payload for deferred writing, applying configured response schema conversion and validation when available.
+    /// </summary>
+    /// <param name="inputObject">The payload to queue.</param>
+    /// <param name="statusCode">The HTTP status code associated with the payload.</param>
+    public void QueueResponseForWrite(object? inputObject, int statusCode = StatusCodes.Status200OK)
+    {
+        if (inputObject is null)
+        {
+            PostPonedWriteObject = new WriteObject(null, statusCode, StatusCodes.Status500InternalServerError);
+            return;
+        }
+
+        try
+        {
+            if (!TryGetResponseSchemaTypeForStatus(statusCode, out var schemaType, out var schemaTypeName))
+            {
+                PostPonedWriteObject = new WriteObject(inputObject, statusCode);
+                return;
+            }
+
+            if (schemaType is null)
+            {
+                Logger.Error("Unable to resolve response schema type '{SchemaTypeName}' for status code {StatusCode}.", schemaTypeName, statusCode);
+                PostPonedWriteObject = new WriteObject(null, statusCode, StatusCodes.Status500InternalServerError);
+                return;
+            }
+
+            var inputType = inputObject.GetType();
+            var valueToWrite = schemaType.IsInstanceOfType(inputObject) || inputType == schemaType
+                ? inputObject
+                : ConvertSchemaValue(inputObject, schemaType);
+
+            if (!ValidateRequiredProperties(valueToWrite, out var missingProperties))
+            {
+                Logger.Error(
+                    "Response object failed required-property validation for schema type {SchemaTypeName}. Missing: {MissingProperties}.",
+                    schemaType.FullName,
+                    string.IsNullOrEmpty(missingProperties) ? "unknown required properties" : missingProperties);
+
+                PostPonedWriteObject = new WriteObject(null, statusCode, StatusCodes.Status500InternalServerError);
+                return;
+            }
+
+            PostPonedWriteObject = new WriteObject(valueToWrite, statusCode);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Failed to convert response object for status code {StatusCode}.", statusCode);
+            PostPonedWriteObject = new WriteObject(null, statusCode, StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    /// <summary>
     /// Selects the most appropriate response media type based on the Accept header.
     /// </summary>
     /// <param name="acceptHeader">The value of the Accept header from the request.</param>
@@ -679,6 +733,484 @@ public class KestrunResponse
 
         values = null;
         return false;
+    }
+
+    /// <summary>
+    /// Attempts to resolve a configured response schema type for the given status code.
+    /// </summary>
+    /// <param name="statusCode">The status code for which a schema should be resolved.</param>
+    /// <param name="schemaType">The resolved schema type, when available.</param>
+    /// <param name="schemaTypeName">The configured schema type name.</param>
+    /// <returns>True when a schema mapping exists for the status code and includes schema metadata.</returns>
+    private bool TryGetResponseSchemaTypeForStatus(int statusCode, out Type? schemaType, out string? schemaTypeName)
+    {
+        schemaType = null;
+        schemaTypeName = null;
+
+        if (!TryGetResponseContentTypes(MapRouteOptions.DefaultResponseContentType, statusCode, out var mappings) || mappings is null || mappings.Count == 0)
+        {
+            return false;
+        }
+
+        var first = mappings.FirstOrDefault();
+        if (first is null || string.IsNullOrWhiteSpace(first.Schema))
+        {
+            return false;
+        }
+
+        schemaTypeName = first.Schema;
+        schemaType = ResolveSchemaType(schemaTypeName);
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves a type by full name, short name, or assembly-qualified name from loaded assemblies.
+    /// </summary>
+    /// <param name="schemaTypeName">The schema type name to resolve.</param>
+    /// <returns>The resolved type when found; otherwise null.</returns>
+    private static Type? ResolveSchemaType(string schemaTypeName)
+    {
+        if (string.IsNullOrWhiteSpace(schemaTypeName))
+        {
+            return null;
+        }
+
+        var candidates = new List<Type>();
+
+        var directType = Type.GetType(schemaTypeName, throwOnError: false, ignoreCase: true);
+        if (directType is not null)
+        {
+            candidates.Add(directType);
+        }
+
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            var assemblyType = assembly.GetType(schemaTypeName, throwOnError: false, ignoreCase: true);
+            if (assemblyType is not null)
+            {
+                candidates.Add(assemblyType);
+            }
+
+            Type[] typeCandidates;
+            try
+            {
+                typeCandidates = assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                typeCandidates = [.. ex.Types.Where(t => t is not null)!];
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (var typeCandidate in typeCandidates)
+            {
+                if (typeCandidate is null)
+                {
+                    continue;
+                }
+
+                if (
+                    string.Equals(typeCandidate.FullName, schemaTypeName, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(typeCandidate.Name, schemaTypeName, StringComparison.OrdinalIgnoreCase) ||
+                    (!string.IsNullOrWhiteSpace(typeCandidate.AssemblyQualifiedName) &&
+                     typeCandidate.AssemblyQualifiedName.StartsWith(schemaTypeName + ",", StringComparison.OrdinalIgnoreCase)))
+                {
+                    candidates.Add(typeCandidate);
+                }
+            }
+        }
+
+        var distinct = candidates
+            .Where(t => t is not null)
+            .GroupBy(t => string.IsNullOrWhiteSpace(t.AssemblyQualifiedName) ? t.FullName : t.AssemblyQualifiedName, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+
+        if (distinct.Count == 0)
+        {
+            return null;
+        }
+
+        var generatedCandidate = distinct.FirstOrDefault(t =>
+            t.GetProperty("XmlMetadata", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy) is not null);
+
+        return generatedCandidate ?? distinct[0];
+    }
+
+    /// <summary>
+    /// Converts a value to the target schema type.
+    /// </summary>
+    /// <param name="value">The source value.</param>
+    /// <param name="targetType">The destination type.</param>
+    /// <returns>The converted value.</returns>
+    private static object? ConvertSchemaValue(object? value, Type targetType)
+    {
+        value = UnwrapPowerShellValue(value);
+        if (value is null)
+        {
+            return null;
+        }
+
+        var valueType = value.GetType();
+        if (targetType.IsInstanceOfType(value) || valueType == targetType)
+        {
+            return value;
+        }
+
+        var nullableUnderlying = Nullable.GetUnderlyingType(targetType);
+        if (nullableUnderlying is not null)
+        {
+            return ConvertSchemaValue(value, nullableUnderlying);
+        }
+
+        if (IsMapLikeType(targetType) && value is IDictionary)
+        {
+            return value;
+        }
+
+        if (targetType.IsArray)
+        {
+            var elementType = targetType.GetElementType() ?? typeof(object);
+
+            if (value is IEnumerable enumerable and not string)
+            {
+                var materialized = new List<object?>();
+                foreach (var item in enumerable)
+                {
+                    materialized.Add(ConvertSchemaValue(item, elementType));
+                }
+
+                var typedArray = Array.CreateInstance(elementType, materialized.Count);
+                for (var i = 0; i < materialized.Count; i++)
+                {
+                    var itemToAssign = UnwrapPowerShellValue(materialized[i]);
+                    if (itemToAssign is not null && !elementType.IsInstanceOfType(itemToAssign))
+                    {
+                        var convertedElement = UnwrapPowerShellValue(ConvertSchemaValue(itemToAssign, elementType));
+                        if (convertedElement is not null && !elementType.IsInstanceOfType(convertedElement))
+                        {
+                            throw new InvalidCastException($"Object of type '{itemToAssign.GetType().FullName}' cannot be converted to '{elementType.FullName}'.");
+                        }
+
+                        itemToAssign = convertedElement;
+                    }
+
+                    typedArray.SetValue(itemToAssign, i);
+                }
+
+                return typedArray;
+            }
+
+            var singleItemArray = Array.CreateInstance(elementType, 1);
+            var singleElement = UnwrapPowerShellValue(ConvertSchemaValue(value, elementType));
+            if (singleElement is not null && !elementType.IsInstanceOfType(singleElement))
+            {
+                if (!TryConvertSimple(singleElement, elementType, out var convertedElement) ||
+                    (convertedElement is not null && !elementType.IsInstanceOfType(convertedElement)))
+                {
+                    throw new InvalidCastException($"Object of type '{singleElement.GetType().FullName}' cannot be converted to '{elementType.FullName}'.");
+                }
+
+                singleElement = convertedElement;
+            }
+
+            singleItemArray.SetValue(singleElement, 0);
+            return singleItemArray;
+        }
+
+        if (value is IDictionary dictionary)
+        {
+            var (success, convertedDictionaryValue) = TryConvertDictionaryToType(dictionary, targetType);
+            if (success)
+            {
+                return convertedDictionaryValue;
+            }
+        }
+
+        if (TryConvertPowerShellObjectToType(value, targetType, out var convertedPowerShellObject))
+        {
+            return convertedPowerShellObject;
+        }
+
+        foreach (var constructor in targetType.GetConstructors().Where(c => c.GetParameters().Length == 1))
+        {
+            var parameterType = constructor.GetParameters()[0].ParameterType;
+            if (TryConvertSimple(value, parameterType, out var convertedArg))
+            {
+                return constructor.Invoke([convertedArg]);
+            }
+        }
+
+        return TryConvertSimple(value, targetType, out var convertedValue) ? convertedValue : value;
+    }
+
+    /// <summary>
+    /// Unwraps common PowerShell wrapper/sentinel values into .NET runtime values.
+    /// </summary>
+    /// <param name="value">The value to unwrap.</param>
+    /// <returns>The unwrapped value, or null for AutomationNull.</returns>
+    private static object? UnwrapPowerShellValue(object? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        if (IsPowerShellAutomationNull(value))
+        {
+            return null;
+        }
+
+        if (value is PSObject psObject)
+        {
+            var baseObject = psObject.BaseObject;
+            return baseObject is null || IsPowerShellAutomationNull(baseObject)
+                ? null
+                : baseObject;
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    /// Determines whether a value represents PowerShell's AutomationNull sentinel.
+    /// </summary>
+    /// <param name="value">The value to inspect.</param>
+    /// <returns>True when the value is PowerShell AutomationNull.</returns>
+    private static bool IsPowerShellAutomationNull(object value)
+    {
+        var type = value.GetType();
+        return type.FullName?.Equals("System.Management.Automation.Internal.AutomationNull", StringComparison.Ordinal) == true;
+    }
+
+    /// <summary>
+    /// Attempts to convert dictionary values to a strongly typed object.
+    /// </summary>
+    /// <param name="dictionary">The source dictionary.</param>
+    /// <param name="targetType">The destination type.</param>
+    /// <returns>A tuple indicating conversion success and converted value.</returns>
+    private static (bool Success, object? Value) TryConvertDictionaryToType(IDictionary dictionary, Type targetType)
+    {
+        var defaultConstructor = targetType.GetConstructor(Type.EmptyTypes);
+        if (defaultConstructor is null)
+        {
+            return (false, null);
+        }
+
+        var instance = defaultConstructor.Invoke([]);
+        var writableProperties = targetType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.CanWrite)
+            .ToList();
+
+        foreach (var property in writableProperties)
+        {
+            var matchKey = FindDictionaryKey(dictionary, property.Name);
+            if (matchKey is null)
+            {
+                continue;
+            }
+
+            var rawValue = dictionary[matchKey];
+            if (rawValue is IDictionary && IsMapLikeType(property.PropertyType))
+            {
+                return (true, dictionary);
+            }
+
+            var convertedPropertyValue = ConvertSchemaValue(rawValue, property.PropertyType);
+            property.SetValue(instance, convertedPropertyValue);
+        }
+
+        return (true, instance);
+    }
+
+    /// <summary>
+    /// Attempts to convert a PowerShell custom object to a strongly typed object by mapping note properties.
+    /// </summary>
+    /// <param name="value">The source PowerShell object.</param>
+    /// <param name="targetType">The destination type.</param>
+    /// <param name="converted">The converted object when successful.</param>
+    /// <returns>True when conversion succeeds.</returns>
+    private static bool TryConvertPowerShellObjectToType(object value, Type targetType, out object? converted)
+    {
+        converted = null;
+
+        var typeName = value.GetType().FullName;
+        if (!string.Equals(typeName, "System.Management.Automation.PSCustomObject", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var asPsObject = value as PSObject ?? new PSObject(value);
+        var dictionary = new Hashtable(StringComparer.OrdinalIgnoreCase);
+        foreach (var property in asPsObject.Properties)
+        {
+            if (property is null || string.IsNullOrWhiteSpace(property.Name))
+            {
+                continue;
+            }
+
+            dictionary[property.Name] = property.Value;
+        }
+
+        var (success, convertedValue) = TryConvertDictionaryToType(dictionary, targetType);
+        if (!success)
+        {
+            return false;
+        }
+
+        converted = convertedValue;
+        return true;
+    }
+
+    /// <summary>
+    /// Finds a dictionary key by case-insensitive string comparison.
+    /// </summary>
+    /// <param name="dictionary">The dictionary to search.</param>
+    /// <param name="propertyName">The property name to match.</param>
+    /// <returns>The matching dictionary key, if found.</returns>
+    private static object? FindDictionaryKey(IDictionary dictionary, string propertyName)
+    {
+        foreach (DictionaryEntry entry in dictionary)
+        {
+            if (entry.Key is null)
+            {
+                continue;
+            }
+
+            var key = Convert.ToString(entry.Key, CultureInfo.InvariantCulture);
+            if (string.Equals(key, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                return entry.Key;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Validates required properties using generated helper methods when available.
+    /// </summary>
+    /// <param name="value">The converted value to validate.</param>
+    /// <param name="missingProperties">A comma-separated list of missing properties.</param>
+    /// <returns>True when validation succeeds or no validation helper exists.</returns>
+    private static bool ValidateRequiredProperties(object? value, out string missingProperties)
+    {
+        missingProperties = string.Empty;
+        if (value is null)
+        {
+            return true;
+        }
+
+        var runtimeType = value.GetType();
+        var validateMethod = runtimeType.GetMethod("ValidateRequiredProperties", BindingFlags.Public | BindingFlags.Instance);
+        if (validateMethod is null)
+        {
+            return true;
+        }
+
+        var validationResult = validateMethod.Invoke(value, null);
+        if (validationResult is bool isValid && isValid)
+        {
+            return true;
+        }
+
+        var missingMethod = runtimeType.GetMethod("GetMissingRequiredProperties", BindingFlags.Public | BindingFlags.Instance);
+        if (missingMethod is not null)
+        {
+            var missing = missingMethod.Invoke(value, null);
+            if (missing is IEnumerable<string> missingEnumerable)
+            {
+                missingProperties = string.Join(", ", missingEnumerable);
+            }
+            else if (missing is IEnumerable genericEnumerable)
+            {
+                var values = new List<string>();
+                foreach (var item in genericEnumerable)
+                {
+                    values.Add(item?.ToString() ?? string.Empty);
+                }
+
+                missingProperties = string.Join(", ", values.Where(v => !string.IsNullOrWhiteSpace(v)));
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Determines whether a type should be treated as map-like for dictionary passthrough.
+    /// </summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <returns>True when the type is map-like.</returns>
+    private static bool IsMapLikeType(Type type)
+    {
+        if (type.GetProperty("AdditionalProperties", BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy) is not null)
+        {
+            return true;
+        }
+
+        var attributes = type.GetCustomAttributes(inherit: true);
+        foreach (var attribute in attributes)
+        {
+            if (attribute.GetType().Name.Equals("OpenApiPatternPropertiesAttribute", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Attempts to perform basic runtime conversions.
+    /// </summary>
+    /// <param name="value">The source value.</param>
+    /// <param name="targetType">The destination type.</param>
+    /// <param name="converted">The converted value when successful.</param>
+    /// <returns>True when conversion succeeds.</returns>
+    private static bool TryConvertSimple(object? value, Type targetType, out object? converted)
+    {
+        converted = null;
+        if (value is null)
+        {
+            return false;
+        }
+
+        var valueType = value.GetType();
+        if (targetType.IsAssignableFrom(valueType))
+        {
+            converted = value;
+            return true;
+        }
+
+        try
+        {
+            if (targetType.IsEnum)
+            {
+                converted = value is string s
+                    ? Enum.Parse(targetType, s, ignoreCase: true)
+                    : Enum.ToObject(targetType, value);
+                return true;
+            }
+
+            converted = Convert.ChangeType(value, targetType, CultureInfo.InvariantCulture);
+            return true;
+        }
+        catch
+        {
+            try
+            {
+                converted = LanguagePrimitives.ConvertTo(value, targetType, CultureInfo.InvariantCulture);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 
     /// <summary>

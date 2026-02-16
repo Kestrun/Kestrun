@@ -93,6 +93,7 @@ function Get-KestrunModulePath {
 #>
 function Get-FreeTcpPort {
     [CmdletBinding()]
+    [outputtype([int])]
     param(
         [int]$FallbackPort = 5000,
         [int]$MaxPort = 65102

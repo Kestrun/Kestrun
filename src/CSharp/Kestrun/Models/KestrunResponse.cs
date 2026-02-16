@@ -23,6 +23,7 @@ using Kestrun.Utilities.Yaml;
 using Kestrun.Hosting.Options;
 using Kestrun.Callback;
 using System.Management.Automation;
+using Kestrun.Logging;
 
 namespace Kestrun.Models;
 
@@ -547,8 +548,14 @@ public class KestrunResponse
             var mediaType = SelectResponseMediaType(acceptHeader, supported, defaultType: supported[0].ContentType);
             if (mediaType is null)
             {
-                var msg = $"No supported media type found for status code {statusCode} with Accept header '{acceptHeader}'. Supported types: {string.Join(", ", supported)}";
-                Logger.Warning(msg);
+                var supportedMediaTypes = string.Join(", ", supported.Select(x => x.ContentType));
+                var msg = $"No supported media type found for status code {statusCode} with Accept header '{acceptHeader}'. Supported types: {supportedMediaTypes}";
+                Logger.Warning(
+                    "No supported media type found for status code {StatusCode} with Accept header '{AcceptHeader}'. Supported media types: {SupportedMediaTypes}. Supported entries: {@SupportedEntries}",
+                    statusCode,
+                    acceptHeader,
+                    supportedMediaTypes,
+                    supported);
 
                 await WriteErrorResponseAsync(msg, StatusCodes.Status406NotAcceptable);
                 return;
@@ -614,7 +621,7 @@ public class KestrunResponse
 
             if (!ValidateRequiredProperties(valueToWrite, out var missingProperties))
             {
-                Logger.Error(
+                Logger.WarningSanitized(
                     "Response object failed required-property validation for schema type {SchemaTypeName}. Missing: {MissingProperties}.",
                     schemaType.FullName,
                     string.IsNullOrEmpty(missingProperties) ? "unknown required properties" : missingProperties);

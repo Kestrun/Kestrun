@@ -2613,7 +2613,7 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             ? $"{missing[0]} is required."
             : $"The following fields are required: {string.Join(", ", missing)}.";
 
-        throw new ParameterForInjectionException(msg, 406);
+        throw new ParameterForInjectionException(msg, 422);
     }
 
     /// <summary>

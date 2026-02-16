@@ -207,6 +207,8 @@ Enable-KrConfiguration
 #                OPENAPI DOC ROUTE / BUILD
 # =========================================================
 
+Set-KrOpenApiErrorSchema -Name 'KestrunErrorResponse' -ContentType @('application/json', 'application/problem+json')
+
 Add-KrOpenApiRoute
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
@@ -236,7 +238,6 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 function listProducts {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/v1/products', Summary = 'List products')]
     [OpenApiResponse(StatusCode = '200', Description = 'List of products', Schema = [ProductListResponse], ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid parameters')]
     param(
 
         [OpenApiParameterRef(ReferenceId = 'myCategory')]
@@ -342,7 +343,6 @@ function listProducts {
 function getProduct {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/v1/products/{productId}', Summary = 'Get product')]
     [OpenApiResponse(StatusCode = '200', Description = 'The product', Schema = [ProductItem], ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '404', Description = 'Not found', Schema = [ErrorResponse])]
     param(
         [OpenApiParameterRef(ReferenceId = 'correlationId')]
         [string]$correlationId,
@@ -382,7 +382,6 @@ function getProduct {
 function createProduct {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/v1/products', Summary = 'Create product')]
     [OpenApiResponse(StatusCode = '201', Description = 'Created product', Schema = [ProductItem], ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid request', Schema = [ErrorResponse])]
     param(
         [OpenApiParameterRef(ReferenceId = 'correlationId')]
         [string]$correlationId,

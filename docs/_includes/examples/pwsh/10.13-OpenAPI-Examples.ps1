@@ -120,6 +120,14 @@ class MuseumDailyHours {
     [OpenApiProperty(Example = '18:00')]
     [string]$timeClose
 }
+[OpenApiSchemaComponent(Description = 'Search tickets response', RequiredProperties = ('ticketDate', 'ok'))]
+class SearchTicketsResponse {
+    [OpenApiProperty(Description = 'Search date', Format = 'date', Example = '2023-09-07')]
+    [string]$ticketDate
+
+    [OpenApiProperty(Description = 'Whether the search was successful', Example = $true)]
+    [bool]$ok
+}
 
 [OpenApiSchemaComponent(Description = 'List of museum hours', Array = $true)]
 class GetMuseumHoursResponse : MuseumDailyHours {}
@@ -244,13 +252,13 @@ function buyTicket {
         [BuyTicketRequest]$Body
     )
 
-    $resp = [BuyTicketResponse]::new()
-    $resp.message = 'Museum general entry ticket purchased'
-    $resp.ticketId = [guid]::NewGuid().ToString()
-    $resp.ticketType = $Body.ticketType
-    $resp.ticketDate = $Body.ticketDate
-    $resp.confirmationCode = 'ticket-general-e5e5c6-dce78'
-
+    $resp = @{
+        message = 'Museum general entry ticket purchased'
+        ticketId = [guid]::NewGuid().ToString()
+        ticketType = $Body.ticketType
+        ticketDate = $Body.ticketDate
+        confirmationCode = 'ticket-general-e5e5c6-dce78'
+    }
     Write-KrResponse -InputObject $resp -StatusCode 201
 }
 
@@ -272,7 +280,7 @@ function getMuseumHours {
         @{ date = '2023-09-12'; timeOpen = '09:00'; timeClose = '18:00' }
     )
 
-    Write-KrJsonResponse $resp -StatusCode 200
+    Write-KrResponse $resp -StatusCode 200
 }
 
 function searchTickets {
@@ -285,7 +293,7 @@ function searchTickets {
         Ticket date (YYYY-MM-DD).
     #>
     [OpenApiPath(HttpVerb = 'get', Pattern = '/tickets/search')]
-    [OpenApiResponse(StatusCode = '200', Description = 'OK', ContentType = 'application/json')]
+    [OpenApiResponse(StatusCode = '200', Description = 'OK', Schema = [SearchTicketsResponse], ContentType = 'application/json')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Query )]
         [OpenApiParameterExampleRef(Key = 'today', ReferenceId = 'TodayParameter')]
@@ -294,7 +302,7 @@ function searchTickets {
         [datetime]$ticketDate
     )
 
-    Write-KrJsonResponse @{ ticketDate = $ticketDate; ok = $true } -StatusCode 200
+    Write-KrResponse @{ ticketDate = $ticketDate; ok = $true } -StatusCode 200
 }
 
 # =========================================================

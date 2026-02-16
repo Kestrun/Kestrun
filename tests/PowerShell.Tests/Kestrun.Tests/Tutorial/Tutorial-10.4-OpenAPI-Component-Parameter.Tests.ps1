@@ -133,6 +133,26 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
         $json.components.parameters.correlationId.'x-kestrun-demo'.format | Should -Be 'uuid'
     }
 
+    It 'OpenAPI includes specific client-error responses for POST /v1/products' {
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result.StatusCode | Should -Be 200
+
+        $json = $result.Content | ConvertFrom-Json
+        $responses = $json.paths.'/v1/products'.post.responses
+
+        $responses.'400' | Should -Not -BeNullOrEmpty
+        $responses.'406' | Should -Not -BeNullOrEmpty
+        $responses.'415' | Should -Not -BeNullOrEmpty
+        $responses.'422' | Should -Not -BeNullOrEmpty
+
+        $responses.'406'.content.'application/json'.schema.'$ref' | Should -Be '#/components/schemas/KestrunErrorResponse'
+        $responses.'406'.content.'application/problem+json'.schema.'$ref' | Should -Be '#/components/schemas/KestrunErrorResponse'
+        $responses.'415'.content.'application/json'.schema.'$ref' | Should -Be '#/components/schemas/KestrunErrorResponse'
+        $responses.'415'.content.'application/problem+json'.schema.'$ref' | Should -Be '#/components/schemas/KestrunErrorResponse'
+        $responses.'422'.content.'application/json'.schema.'$ref' | Should -Be '#/components/schemas/KestrunErrorResponse'
+        $responses.'422'.content.'application/problem+json'.schema.'$ref' | Should -Be '#/components/schemas/KestrunErrorResponse'
+    }
+
     It 'OpenAPI includes all example paths' {
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200

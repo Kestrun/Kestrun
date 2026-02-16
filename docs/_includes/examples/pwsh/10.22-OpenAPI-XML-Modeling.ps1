@@ -64,6 +64,7 @@ class Product {
     [string[]]$Items
 }
 
+Set-KrOpenApiErrorSchema -Name 'ApiError' -ContentType @('application/json', 'application/xml')
 # =========================================================
 #                 ROUTES / OPERATIONS
 # =========================================================
@@ -102,11 +103,11 @@ function getProduct {
     )
 
     if ($id -lt 1 -or $id -gt 100) {
-        Write-KrResponse @{ error = 'Product not found' } -StatusCode 404
+        Write-KrStatusResponse -StatusCode 404
         return
     }
 
-    $product = [Product]@{
+    $product = @{
         Id = $id
         Name = "Sample Product $id"
         Price = [decimal](19.99 + ($id * 0.50))
@@ -133,11 +134,6 @@ function createProduct {
         Description = 'Product created',
         Schema = [Product],
         ContentType = ('application/json', 'application/xml', 'application/yaml')
-    )]
-    [OpenApiResponse(
-        StatusCode = '406',
-        Description = 'Invalid input',
-        ContentType = ('application/json', 'application/xml')
     )]
     param(
         [OpenApiRequestBody(

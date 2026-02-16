@@ -124,7 +124,6 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 function createProduct {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/products')]
     [OpenApiResponse(StatusCode = '201', Description = 'Product created successfully', Schema = [Product], ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
     param(
         [OpenApiRequestBodyRef(ReferenceId = 'CreateProductRequest')]
         [Product]$body
@@ -160,8 +159,6 @@ function createProduct {
 function updateProduct {
     [OpenApiPath(HttpVerb = 'put', Pattern = '/products/{productId}')]
     [OpenApiResponse(StatusCode = '200', Description = 'Product updated successfully', Schema = [Product], ContentType = ('application/json', 'application/xml', 'application/x-www-form-urlencoded'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
-    [OpenApiResponse(StatusCode = '404', Description = 'Product not found')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]
         [int]$productId,

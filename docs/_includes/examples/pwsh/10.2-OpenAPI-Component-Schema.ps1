@@ -182,17 +182,6 @@ class PurchaseResponse {
     [OpenApiDateTime]$createdAt
 }
 
-[OpenApiSchemaComponent(Description = 'Standard error response.', RequiredProperties = ('code', 'message'))]
-class ErrorResponse {
-    [OpenApiProperty(Description = 'HTTP-like error code.', Example = 400)]
-    [int]$code
-
-    [OpenApiProperty(Description = 'Human-readable error message.', Example = 'Invalid input')]
-    [string]$message
-}
-
-
-
 [OpenApiSchemaComponent(Description = "Inventory counts by status key.")]
 [OpenApiPatternProperties(KeyPattern = "^[a-z][a-z0-9_]*$", SchemaType = [int])]
 class InventoryCounts {}
@@ -262,7 +251,6 @@ function listEmployees {
 function purchaseTickets {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/tickets/purchase')]
     [OpenApiResponse(StatusCode = '201', Description = 'Created', Schema = [PurchaseResponse], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
-    [OpenApiResponse(StatusCode = '4XX', Description = 'Invalid input', Schema = [ErrorResponse], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
     param(
         [OpenApiRequestBody(
             Description = 'Ticket purchase request payload.',

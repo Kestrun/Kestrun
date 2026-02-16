@@ -133,6 +133,7 @@
         'Send-KrSseBroadcastEvent', 'Set-KrCorsCredential', 'Set-KrCorsExposedHeader',
         'Set-KrCorsHeader', 'Set-KrCorsMethod', 'Set-KrCorsOrigin',
         'Set-KrCorsPreflightMaxAge', 'Set-KrDefaultLogger', 'Set-KrEnvironment',
+        'Set-KrOpenApiErrorSchema',
         'Set-KrLoggerLevel', 'Set-KrLoggerLevelSwitch', 'Set-KrPythonRuntime',
         'Set-KrServerHttpsOptions', 'Set-KrServerLimit', 'Set-KrServerNamedPipeOptions',
         'Set-KrServerOptions', 'Set-KrSessionByte', 'Set-KrSessionInt32',

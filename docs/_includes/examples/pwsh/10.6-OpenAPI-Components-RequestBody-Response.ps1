@@ -138,7 +138,7 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 function createOrder {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/orders')]
     [OpenApiResponseRefAttribute(StatusCode = '201', ReferenceId = 'OrderResponseDefault')]
-    [OpenApiResponseRefAttribute(StatusCode = '4XX', ReferenceId = 'ErrorResponseDefault')]
+    [OpenApiResponseRefAttribute(StatusCode = '400', ReferenceId = 'ErrorResponseDefault')]
     param(
         [OpenApiRequestBodyRef(ReferenceId = 'CreateOrderRequestBody')]
         [CreateOrderRequest]$body

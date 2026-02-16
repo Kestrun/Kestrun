@@ -31,8 +31,141 @@ public partial class OpenApiDocDescriptor
         ApplyParameters(op, meta);
         ApplyCallbacks(op, meta);
         ApplySecurity(op, meta);
+        EnsureAutoClientErrorResponses(op, meta);
         ApplyExtensions(op, meta);
         return op;
+    }
+
+    private void EnsureAutoClientErrorResponses(OpenApiOperation operation, OpenAPIPathMetadata meta)
+    {
+        operation.Responses ??= [];
+
+        if (ResponseKeyExists(operation.Responses, "4XX") || ResponseKeyExists(operation.Responses, "default"))
+        {
+            return;
+        }
+
+        var statusesToAdd = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var hasParameters = meta.Parameters is { Count: > 0 };
+        var hasRequestBody = meta.RequestBody is not null;
+        var hasRequestContentTypeValidation = meta.MapOptions.AllowedRequestContentTypes.Count > 0;
+        var hasResponseNegotiation =
+            meta.MapOptions.DefaultResponseContentType is { Count: > 0 } ||
+            operation.Responses.Values.Any(r => r.Content is { Count: > 0 });
+
+        if (hasParameters || hasRequestBody)
+        {
+            _ = statusesToAdd.Add("400");
+            _ = statusesToAdd.Add("422");
+        }
+
+        if (hasRequestBody || hasRequestContentTypeValidation)
+        {
+            _ = statusesToAdd.Add("415");
+        }
+
+        if (hasResponseNegotiation)
+        {
+            _ = statusesToAdd.Add("406");
+        }
+
+        if (statusesToAdd.Count == 0)
+        {
+            return;
+        }
+
+        var errorSchemaId = EnsureAutoErrorSchemaComponent();
+        var errorContentTypes = GetAutoErrorResponseContentTypes();
+
+        foreach (var status in statusesToAdd)
+        {
+            if (ResponseKeyExists(operation.Responses, status))
+            {
+                continue;
+            }
+
+            operation.Responses[status] = CreateAutoClientErrorResponse(status, errorSchemaId, errorContentTypes);
+        }
+    }
+
+    private static bool ResponseKeyExists(OpenApiResponses responses, string statusCode)
+        => responses.Keys.Any(k => string.Equals(k, statusCode, StringComparison.OrdinalIgnoreCase));
+
+    private string EnsureAutoErrorSchemaComponent()
+    {
+        Document.Components ??= new OpenApiComponents();
+        Document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+
+        var autoSchemaId = string.IsNullOrWhiteSpace(AutoErrorResponseSchemaId)
+            ? DefaultAutoErrorResponseSchemaId
+            : AutoErrorResponseSchemaId;
+
+        if (!Document.Components.Schemas.ContainsKey(autoSchemaId))
+        {
+            Document.Components.Schemas[autoSchemaId] = new OpenApiSchema
+            {
+                Type = JsonSchemaType.Object,
+                Required = new HashSet<string>(StringComparer.Ordinal) { "status", "error", "reason", "timestamp" },
+                Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
+                {
+                    ["status"] = new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" },
+                    ["error"] = new OpenApiSchema { Type = JsonSchemaType.String },
+                    ["reason"] = new OpenApiSchema { Type = JsonSchemaType.String },
+                    ["timestamp"] = new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" },
+                    ["details"] = new OpenApiSchema { Type = JsonSchemaType.String },
+                    ["exception"] = new OpenApiSchema { Type = JsonSchemaType.String },
+                    ["stackTrace"] = new OpenApiSchema { Type = JsonSchemaType.String },
+                    ["path"] = new OpenApiSchema { Type = JsonSchemaType.String },
+                    ["method"] = new OpenApiSchema { Type = JsonSchemaType.String },
+                }
+            };
+        }
+
+        return autoSchemaId;
+    }
+
+    private IReadOnlyList<string> GetAutoErrorResponseContentTypes()
+    {
+        if (AutoErrorResponseContentTypes is null || AutoErrorResponseContentTypes.Length == 0)
+        {
+            return [DefaultAutoErrorResponseContentType];
+        }
+
+        var contentTypes = AutoErrorResponseContentTypes
+            .Where(ct => !string.IsNullOrWhiteSpace(ct))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return contentTypes.Length == 0
+            ? [DefaultAutoErrorResponseContentType]
+            : contentTypes;
+    }
+
+    private static OpenApiResponse CreateAutoClientErrorResponse(string statusCode, string errorSchemaId, IReadOnlyList<string> contentTypes)
+    {
+        var description = statusCode switch
+        {
+            "400" => "Bad Request",
+            "406" => "Not Acceptable",
+            "415" => "Unsupported Media Type",
+            "422" => "Unprocessable Entity",
+            _ => "Client Error"
+        };
+
+        var content = new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
+        foreach (var contentType in contentTypes)
+        {
+            content[contentType] = new OpenApiMediaType
+            {
+                Schema = new OpenApiSchemaReference(errorSchemaId)
+            };
+        }
+
+        return new OpenApiResponse
+        {
+            Description = description,
+            Content = content
+        };
     }
     /// <summary>
     /// Applies extension information from metadata to the OpenApiOperation.

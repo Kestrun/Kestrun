@@ -271,6 +271,147 @@ public sealed class OpenApiDocDescriptorInlineAndPrivateHelpersTests
         _ = Assert.Throws<InvalidOperationException>(() => InvokeApplyResponseLinkAttribute(d, meta, attr));
     }
 
+    [Fact]
+    public void BuildOperationFromMetadata_AutoAddsSpecificClientErrorResponses_WhenApplicable()
+    {
+        using var host = new KestrunHost("Tests", Log.Logger);
+        var d = new OpenApiDocDescriptor(host, OpenApiDocDescriptor.DefaultDocumentationId);
+
+        var mapOptions = new MapRouteOptions
+        {
+            AllowedRequestContentTypes = ["application/json"],
+            DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>(StringComparer.Ordinal)
+            {
+                ["200"] = [new ContentTypeWithSchema("application/json")]
+            }
+        };
+
+        var meta = new OpenAPIPathMetadata(mapOptions)
+        {
+            Parameters = [new OpenApiParameter { Name = "id", In = ParameterLocation.Query }],
+            RequestBody = new OpenApiRequestBody(),
+            Responses = new OpenApiResponses
+            {
+                ["200"] = new OpenApiResponse { Description = "Success" }
+            }
+        };
+
+        var operation = InvokeBuildOperationFromMetadata(d, meta);
+
+        Assert.Contains("400", operation.Responses.Keys);
+        Assert.Contains("406", operation.Responses.Keys);
+        Assert.Contains("415", operation.Responses.Keys);
+        Assert.Contains("422", operation.Responses.Keys);
+
+        var auto422 = Assert.IsType<OpenApiResponse>(operation.Responses["422"]);
+        var defaultContent = Assert.IsType<OpenApiMediaType>(auto422.Content?[OpenApiDocDescriptor.DefaultAutoErrorResponseContentType]);
+        var schemaRef = Assert.IsType<OpenApiSchemaReference>(defaultContent.Schema);
+        Assert.Equal("KestrunErrorResponse", schemaRef.Reference.Id);
+
+        var autoSchema = Assert.IsType<OpenApiSchema>(d.Document.Components?.Schemas?["KestrunErrorResponse"]);
+        var requiredFields = Assert.IsAssignableFrom<ISet<string>>(autoSchema.Required);
+        Assert.Contains("status", requiredFields);
+        Assert.Contains("error", requiredFields);
+    }
+
+    [Fact]
+    public void BuildOperationFromMetadata_UsesConfiguredAutoErrorContentTypes()
+    {
+        using var host = new KestrunHost("Tests", Log.Logger);
+        var d = new OpenApiDocDescriptor(host, OpenApiDocDescriptor.DefaultDocumentationId)
+        {
+            AutoErrorResponseContentTypes = ["application/problem+json", "application/xml"]
+        };
+
+        var meta = new OpenAPIPathMetadata(new MapRouteOptions())
+        {
+            Parameters = [new OpenApiParameter { Name = "id", In = ParameterLocation.Query }],
+            RequestBody = new OpenApiRequestBody(),
+            Responses = new OpenApiResponses
+            {
+                ["200"] = new OpenApiResponse { Description = "Success" }
+            }
+        };
+
+        var operation = InvokeBuildOperationFromMetadata(d, meta);
+        var auto400 = Assert.IsType<OpenApiResponse>(operation.Responses["400"]);
+
+        Assert.NotNull(auto400.Content);
+        Assert.Contains("application/problem+json", auto400.Content.Keys);
+        Assert.Contains("application/xml", auto400.Content.Keys);
+        Assert.DoesNotContain("application/json", auto400.Content.Keys);
+
+        var problemJson = Assert.IsType<OpenApiMediaType>(auto400.Content["application/problem+json"]);
+        var schemaRef = Assert.IsType<OpenApiSchemaReference>(problemJson.Schema);
+        Assert.Equal("KestrunErrorResponse", schemaRef.Reference.Id);
+    }
+
+    [Fact]
+    public void BuildOperationFromMetadata_DoesNotOverrideExplicitStatusResponse()
+    {
+        using var host = new KestrunHost("Tests", Log.Logger);
+        var d = new OpenApiDocDescriptor(host, OpenApiDocDescriptor.DefaultDocumentationId);
+
+        var mapOptions = new MapRouteOptions
+        {
+            AllowedRequestContentTypes = ["application/json"]
+        };
+
+        var meta = new OpenAPIPathMetadata(mapOptions)
+        {
+            RequestBody = new OpenApiRequestBody(),
+            Responses = new OpenApiResponses
+            {
+                ["415"] = new OpenApiResponse { Description = "Custom Unsupported Media Type" }
+            }
+        };
+
+        var operation = InvokeBuildOperationFromMetadata(d, meta);
+
+        var explicit415 = Assert.IsType<OpenApiResponse>(operation.Responses["415"]);
+        Assert.Equal("Custom Unsupported Media Type", explicit415.Description);
+        Assert.Contains("400", operation.Responses.Keys);
+        Assert.Contains("422", operation.Responses.Keys);
+    }
+
+    [Fact]
+    public void BuildOperationFromMetadata_SkipsAutoClientErrors_WhenRangeOrDefaultExists()
+    {
+        using var host = new KestrunHost("Tests", Log.Logger);
+        var d = new OpenApiDocDescriptor(host, OpenApiDocDescriptor.DefaultDocumentationId);
+
+        var metaWith4xx = new OpenAPIPathMetadata(new MapRouteOptions())
+        {
+            Parameters = [new OpenApiParameter { Name = "id", In = ParameterLocation.Query }],
+            RequestBody = new OpenApiRequestBody(),
+            Responses = new OpenApiResponses
+            {
+                ["4XX"] = new OpenApiResponse { Description = "Any client error" }
+            }
+        };
+
+        var opWith4xx = InvokeBuildOperationFromMetadata(d, metaWith4xx);
+        Assert.DoesNotContain("400", opWith4xx.Responses.Keys);
+        Assert.DoesNotContain("406", opWith4xx.Responses.Keys);
+        Assert.DoesNotContain("415", opWith4xx.Responses.Keys);
+        Assert.DoesNotContain("422", opWith4xx.Responses.Keys);
+
+        var metaWithDefault = new OpenAPIPathMetadata(new MapRouteOptions())
+        {
+            RequestBody = new OpenApiRequestBody(),
+            Responses = new OpenApiResponses
+            {
+                ["default"] = new OpenApiResponse { Description = "Default error" }
+            }
+        };
+
+        var opWithDefault = InvokeBuildOperationFromMetadata(d, metaWithDefault);
+        Assert.DoesNotContain("400", opWithDefault.Responses.Keys);
+        Assert.DoesNotContain("406", opWithDefault.Responses.Keys);
+        Assert.DoesNotContain("415", opWithDefault.Responses.Keys);
+        Assert.DoesNotContain("422", opWithDefault.Responses.Keys);
+    }
+
     private static bool InvokeTryAddExample(OpenApiDocDescriptor d, IDictionary<string, IOpenApiExample> examples, IOpenApiExampleAttribute attr)
     {
         var m = typeof(OpenApiDocDescriptor).GetMethod("TryAddExample", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -309,6 +450,21 @@ public sealed class OpenApiDocDescriptorInlineAndPrivateHelpersTests
         try
         {
             _ = m.Invoke(d, args);
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException is not null)
+        {
+            throw ex.InnerException;
+        }
+    }
+
+    private static OpenApiOperation InvokeBuildOperationFromMetadata(OpenApiDocDescriptor d, OpenAPIPathMetadata meta)
+    {
+        var m = typeof(OpenApiDocDescriptor).GetMethod("BuildOperationFromMetadata", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(m);
+        object?[] args = [meta];
+        try
+        {
+            return Assert.IsType<OpenApiOperation>(m.Invoke(d, args));
         }
         catch (TargetInvocationException ex) when (ex.InnerException is not null)
         {

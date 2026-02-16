@@ -135,7 +135,7 @@ function createProduct {
         return
     }
 
-    $response = [Product]@{
+    $response = @{
         id = 1
         productName = $body.productName
         price = $body.price
@@ -174,7 +174,7 @@ function updateProduct {
         return
     }
 
-    $response = [Product]@{
+    $response = @{
         id = $productId
         productName = $body.productName
         price = $body.price

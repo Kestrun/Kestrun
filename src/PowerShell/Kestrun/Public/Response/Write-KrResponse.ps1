@@ -179,14 +179,24 @@ function Write-KrResponse {
                         try {
                             $property.SetValue($instance, $convertedPropertyValue)
                         } catch {
-                            if (
-                                $property.PropertyType.IsArray -and
-                                -not ($convertedPropertyValue -is [System.Array])
-                            ) {
+                            if ($property.PropertyType.IsArray) {
                                 $arrayType = $property.PropertyType
                                 $elementType = $arrayType.GetElementType()
-                                $typedArray = [System.Array]::CreateInstance($elementType, 1)
-                                $typedArray.SetValue((Convert-KrSchemaValue -Value $convertedPropertyValue -TargetType $elementType), 0)
+
+                                $valuesToConvert = @()
+                                if ($convertedPropertyValue -is [System.Collections.IEnumerable] -and -not ($convertedPropertyValue -is [string])) {
+                                    foreach ($item in $convertedPropertyValue) {
+                                        $valuesToConvert += , $item
+                                    }
+                                } else {
+                                    $valuesToConvert += , $convertedPropertyValue
+                                }
+
+                                $typedArray = [System.Array]::CreateInstance($elementType, $valuesToConvert.Count)
+                                for ($index = 0; $index -lt $valuesToConvert.Count; $index++) {
+                                    $typedArray.SetValue((Convert-KrSchemaValue -Value $valuesToConvert[$index] -TargetType $elementType), $index)
+                                }
+
                                 $property.SetValue($instance, $typedArray)
                             } else {
                                 throw

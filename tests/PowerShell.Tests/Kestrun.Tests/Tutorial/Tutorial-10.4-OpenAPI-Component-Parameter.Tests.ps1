@@ -79,10 +79,11 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
             price = 159.99
         } | ConvertTo-Json -Compress
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products?dryRun=true" -Method Post -ContentType 'application/json' -Body $body -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products?dryRun=true" -Method Post -ContentType 'application/json' -Body $body -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 422
-      #  $json = $result.Content | ConvertFrom-Json
-      #  $json.message | Should -Be 'name is required'
+        $json = $result.Content | ConvertFrom-Json
+        $json.status | Should -Be 422
+        $json.error | Should -Match 'Invalid request parameters'
     }
 
     It 'List Categories (GET Default includeCounts=true)' {

@@ -1,0 +1,463 @@
+{
+  "openapi": "3.1.2",
+  "info": {
+    "title": "CORS Multi-Policy Sample",
+    "description": "Sample: Multiple CORS policies + multiple APIs + intentional browser CORS failures.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/orders": {
+      "post": {
+        "tags": [
+          "orders"
+        ],
+        "summary": "Create a new order.",
+        "description": "Creates a new order for a given product ID.\nThis operation requires a trusted UI origin and will trigger a CORS preflight request.",
+        "operationId": "createOrder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Order created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}": {
+      "delete": {
+        "tags": [
+          "orders"
+        ],
+        "summary": "Delete an order.",
+        "description": "Deletes an existing order by ID.\nThis operation is restricted by the AdminWrite CORS policy.",
+        "operationId": "deleteOrder",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "description": "The unique identifier of the order.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "default": "f91aa45e-b733-49ed-a379-f79ea210fbd4"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/nocors": {
+      "get": {
+        "tags": [
+          "misc"
+        ],
+        "summary": "Endpoint without explicit CORS association.",
+        "description": "Demonstrates behavior when an operation has no Cors='...' metadata.\nThe effective behavior depends on the default CORS policy configured on the server.",
+        "operationId": "getNoCorsInfo",
+        "responses": {
+          "200": {
+            "description": "No CORS metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoCorsInfoResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/partner/inventory": {
+      "get": {
+        "tags": [
+          "partner"
+        ],
+        "summary": "Retrieve partner inventory levels.",
+        "description": "Returns inventory information reserved for business partners.\nRequests from the UI origin will fail due to the PartnerOnly CORS policy.",
+        "operationId": "getPartnerInventory",
+        "responses": {
+          "200": {
+            "description": "Partner inventory list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartnerInventoryList"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/products/{productId}": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "Get product details by ID.",
+        "description": "Returns details for a single product.",
+        "operationId": "getProductById",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "description": "The unique identifier of the product.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Product details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/products": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "List available products.",
+        "description": "Returns the public product catalog.\nThis operation is accessible cross-origin from approved UI origins.",
+        "operationId": "listProducts",
+        "responses": {
+          "200": {
+            "description": "Product list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductListDto"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Order": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "productId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "created": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductDto": {
+        "required": [
+          "id",
+          "name",
+          "price"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductListDto": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ProductDto"
+        },
+        "additionalProperties": false,
+        "description": "Array of catalog products"
+      },
+      "PartnerInventoryItem": {
+        "required": [
+          "sku",
+          "qty"
+        ],
+        "type": "object",
+        "properties": {
+          "sku": {
+            "type": "string"
+          },
+          "qty": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PartnerInventoryList": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/PartnerInventoryItem"
+        },
+        "additionalProperties": false,
+        "description": "Array of partner inventory entries"
+      },
+      "NoCorsInfoResponse": {
+        "required": [
+          "ok",
+          "note"
+        ],
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ApiErrorResponse": {
+        "required": [
+          "error"
+        ],
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "catalog",
+      "description": "Product catalog operations"
+    },
+    {
+      "name": "partner",
+      "description": "Partner-specific operations"
+    },
+    {
+      "name": "orders",
+      "description": "Order management operations"
+    }
+  ]
+}

@@ -101,14 +101,58 @@ Describe 'CORS Multi-Policy Multi-API' -Tag 'Tutorial', 'Slow' {
     Context 'Write methods and CORS headers' {
 
         It 'POST /orders should emit Allow-Origin for allowed UI origin (AdminWrite)' {
-            # Your createOrder signature appears to bind productId directly.
-            # If your endpoint expects JSON body instead, adjust to match your sample.
+            # Route contract requires application/json request body.
             $body = '1'
 
-            $res = Invoke-CorsRequest -Method POST -Path '/orders' -Origin $allowedUiOrigin -Body $body -ContentType 'application/x-www-form-urlencoded'
-            $res.StatusCode | Should -BeIn @(201, 400)  # 201 for valid, 400 if binding differs
+            $res = Invoke-CorsRequest -Method POST -Path '/orders' -Origin $allowedUiOrigin -Body $body -ContentType 'application/json'
+            $res.StatusCode | Should -Be 201
 
             $res.Headers['Access-Control-Allow-Origin'] | Should -Be $allowedUiOrigin
+        }
+
+        It 'POST /orders should NOT emit Allow-Origin for disallowed origin (AdminWrite)' {
+            $body = '1'
+            $notAllowedOrigin = 'http://example.invalid'
+
+            $res = Invoke-CorsRequest -Method POST -Path '/orders' -Origin $notAllowedOrigin -Body $body -ContentType 'application/json'
+            $res.StatusCode | Should -Be 201
+
+            $res.Headers['Access-Control-Allow-Origin'] | Should -BeNullOrEmpty
+        }
+
+        It 'POST /orders should return 415 for unsupported content type' {
+            $res = Invoke-CorsRequest -Method POST -Path '/orders' -Origin $allowedUiOrigin -Body '1' -ContentType 'text/plain'
+            $res.StatusCode | Should -Be 415
+
+            # CORS policy is still applied for allowed origin even on contract failures.
+            $res.Headers['Access-Control-Allow-Origin'] | Should -Be $allowedUiOrigin
+        }
+
+        It 'POST /orders should return 400 for malformed JSON body' {
+            $res = Invoke-CorsRequest -Method POST -Path '/orders' -Origin $allowedUiOrigin -Body '{"productId":' -ContentType 'application/json'
+            $res.StatusCode | Should -Be 400
+            $res.Headers['Access-Control-Allow-Origin'] | Should -Be $allowedUiOrigin
+        }
+    }
+
+    Context 'OpenAPI response schema coverage' {
+
+        It 'OpenAPI should declare schemas for key responses' {
+            $res = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+            $res.StatusCode | Should -Be 200
+
+            $doc = $res.Content | ConvertFrom-Json
+
+            $doc.paths.'/products'.get.responses.'200'.content.'application/json'.schema.'$ref' | Should -Be '#/components/schemas/ProductListDto'
+            $doc.paths.'/products/{productId}'.get.responses.'200'.content.'application/json'.schema.'$ref' | Should -Be '#/components/schemas/ProductDto'
+            $doc.paths.'/partner/inventory'.get.responses.'200'.content.'application/json'.schema.'$ref' | Should -Be '#/components/schemas/PartnerInventoryList'
+            $doc.paths.'/orders'.post.responses.'201'.content.'application/json'.schema.'$ref' | Should -Be '#/components/schemas/Order'
+            $doc.paths.'/orders'.post.responses.'400'.content.'application/json'.schema.'$ref' | Should -Be '#/components/schemas/ApiErrorResponse'
+            $doc.paths.'/nocors'.get.responses.'200'.content.'application/json'.schema.'$ref' | Should -Be '#/components/schemas/NoCorsInfoResponse'
+        }
+
+        It 'OpenAPI output matches 15.8 fixture JSON' {
+            Test-OpenApiDocumentMatchesExpected -Instance $script:instance
         }
     }
 }

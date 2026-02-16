@@ -298,6 +298,7 @@ public sealed class OpenApiDocDescriptorInlineAndPrivateHelpersTests
 
         var operation = InvokeBuildOperationFromMetadata(d, meta);
 
+        Assert.NotNull(operation.Responses);
         Assert.Contains("400", operation.Responses.Keys);
         Assert.Contains("406", operation.Responses.Keys);
         Assert.Contains("415", operation.Responses.Keys);
@@ -334,6 +335,7 @@ public sealed class OpenApiDocDescriptorInlineAndPrivateHelpersTests
         };
 
         var operation = InvokeBuildOperationFromMetadata(d, meta);
+        Assert.NotNull(operation.Responses);
         var auto400 = Assert.IsType<OpenApiResponse>(operation.Responses["400"]);
 
         Assert.NotNull(auto400.Content);
@@ -367,7 +369,7 @@ public sealed class OpenApiDocDescriptorInlineAndPrivateHelpersTests
         };
 
         var operation = InvokeBuildOperationFromMetadata(d, meta);
-
+        Assert.NotNull(operation.Responses);
         var explicit415 = Assert.IsType<OpenApiResponse>(operation.Responses["415"]);
         Assert.Equal("Custom Unsupported Media Type", explicit415.Description);
         Assert.Contains("400", operation.Responses.Keys);
@@ -391,6 +393,7 @@ public sealed class OpenApiDocDescriptorInlineAndPrivateHelpersTests
         };
 
         var opWith4xx = InvokeBuildOperationFromMetadata(d, metaWith4xx);
+        Assert.NotNull(opWith4xx.Responses);
         Assert.DoesNotContain("400", opWith4xx.Responses.Keys);
         Assert.DoesNotContain("406", opWith4xx.Responses.Keys);
         Assert.DoesNotContain("415", opWith4xx.Responses.Keys);
@@ -406,6 +409,7 @@ public sealed class OpenApiDocDescriptorInlineAndPrivateHelpersTests
         };
 
         var opWithDefault = InvokeBuildOperationFromMetadata(d, metaWithDefault);
+        Assert.NotNull(opWithDefault.Responses);
         Assert.DoesNotContain("400", opWithDefault.Responses.Keys);
         Assert.DoesNotContain("406", opWithDefault.Responses.Keys);
         Assert.DoesNotContain("415", opWithDefault.Responses.Keys);

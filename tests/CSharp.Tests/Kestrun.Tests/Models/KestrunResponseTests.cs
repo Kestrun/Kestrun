@@ -1,4 +1,5 @@
 using Kestrun.Models;
+using Kestrun.Hosting.Options;
 using Microsoft.AspNetCore.Http;
 using Serilog;
 using System.Text;
@@ -12,17 +13,17 @@ public partial class KestrunResponseTests
     private static KestrunContext MakeCtx(string accept = "application/json")
     {
         var ctx = TestRequestFactory.CreateContext(path: "/test", headers: new Dictionary<string, string> { { "Accept", accept } });
-        ctx.MapRouteOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<string>>
+        ctx.MapRouteOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<ContentTypeWithSchema>>
         {
-            ["default"] = new List<string>
-            {
-                "text/plain",
-                "application/json",
-                "application/xml",
-                "application/yaml",
-                "text/csv",
-                "application/x-www-form-urlencoded"
-            }
+            ["default"] =
+            [
+                new("text/plain"),
+                new("application/json"),
+                new("application/xml"),
+                new("application/yaml"),
+                new("text/csv"),
+                new("application/x-www-form-urlencoded")
+            ]
         };
         return ctx;
     }
@@ -76,9 +77,9 @@ public partial class KestrunResponseTests
         var ctx = TestRequestFactory.CreateContext(
             path: "/test",
             headers: new Dictionary<string, string> { { "Accept", "application/json" } });
-        ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<string>>
+        ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>
         {
-            ["4XX"] = ["application/json", "text/plain"]
+            ["4XX"] = [new("application/json"), new("text/plain")]
         };
         var res = ctx.Response;
 

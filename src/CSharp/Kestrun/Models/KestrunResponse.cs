@@ -34,6 +34,11 @@ namespace Kestrun.Models;
 /// </remarks>
 public class KestrunResponse
 {
+    private static readonly ContentTypeWithSchema[] LegacyNegotiatedResponseContentTypes =
+    [
+        new("*/*")
+    ];
+
     /// <summary>
     /// Flag indicating whether callbacks have already been enqueued.
     /// </summary>
@@ -504,6 +509,28 @@ public class KestrunResponse
 
         try
         {
+            // Read Accept header (may be missing)
+            string? acceptHeader = null;
+            _ = Request?.Headers.TryGetValue(HeaderNames.Accept, out acceptHeader);
+
+            if (!ShouldEnforceOpenApiResponseContentTypes())
+            {
+                var negotiated = SelectResponseMediaType(acceptHeader, LegacyNegotiatedResponseContentTypes, defaultType: "text/plain")
+                    ?? new ContentTypeWithSchema("text/plain", null);
+
+                if (Logger.IsEnabled(LogEventLevel.Verbose))
+                {
+                    Logger.Verbose(
+                        "Selected legacy response media type for status code: {StatusCode}, MediaType={MediaType}, Accept={Accept}",
+                        statusCode,
+                        negotiated,
+                        acceptHeader);
+                }
+
+                await WriteByMediaTypeAsync(negotiated.ContentType, inputObject, statusCode);
+                return;
+            }
+
             // Resolve supported content types for this status code (exact -> range -> default)
             if (!TryGetResponseContentTypes(KrContext.MapRouteOptions.DefaultResponseContentType, statusCode, out var values) || values is null)
             {
@@ -513,9 +540,6 @@ public class KestrunResponse
                 await WriteErrorResponseAsync(msg, StatusCodes.Status406NotAcceptable);
                 return;
             }
-            // Read Accept header (may be missing)
-            string? acceptHeader = null;
-            _ = Request?.Headers.TryGetValue(HeaderNames.Accept, out acceptHeader);
 
             var supported = values as IReadOnlyList<ContentTypeWithSchema> ?? [.. values];
 
@@ -544,6 +568,16 @@ public class KestrunResponse
             await WriteErrorResponseAsync("Internal server error.", StatusCodes.Status500InternalServerError);
         }
     }
+
+    /// <summary>
+    /// Determines whether OpenAPI response content-type enforcement should run for the current route.
+    /// </summary>
+    /// <remarks>
+    /// Enforcement is only enabled for routes that carry OpenAPI descriptive metadata.
+    /// Non-OpenAPI routes continue using legacy Accept-based negotiation.
+    /// </remarks>
+    /// <returns>True when the route has OpenAPI metadata; otherwise false.</returns>
+    private bool ShouldEnforceOpenApiResponseContentTypes() => MapRouteOptions.IsOpenApiAnnotatedFunctionRoute;
 
     /// <summary>
     /// Queues a response payload for deferred writing, applying configured response schema conversion and validation when available.
@@ -626,6 +660,8 @@ public class KestrunResponse
             return supported[0];
         }
 
+        var supportsAnyMediaType = supported.Any(s => string.Equals(MediaTypeHelper.Normalize(s.ContentType), "*/*", StringComparison.OrdinalIgnoreCase));
+
         var supportedNormalized = new string[supported.Count];
         var supportedCanonical = new string[supported.Count];
         for (var i = 0; i < supported.Count; i++)
@@ -645,6 +681,18 @@ public class KestrunResponse
 
             // Normalize first so we can reliably detect wildcards and avoid treating them as canonical aliases.
             var acceptNormalized = MediaTypeHelper.Normalize(accept);
+
+            if (supportsAnyMediaType)
+            {
+                if (string.Equals(acceptNormalized, "*/*", StringComparison.OrdinalIgnoreCase) ||
+                    acceptNormalized.EndsWith("/*", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new ContentTypeWithSchema(defaultType, null);
+                }
+
+                var writerMediaType = ResolveWriterMediaType(acceptNormalized, defaultType);
+                return new ContentTypeWithSchema(writerMediaType, null);
+            }
 
             if (string.Equals(acceptNormalized, "*/*", StringComparison.OrdinalIgnoreCase))
             {
@@ -688,6 +736,37 @@ public class KestrunResponse
         }
         // No match found; return default
         return null;
+    }
+
+    /// <summary>
+    /// Resolves an incoming Accept media type to a concrete response writer media type.
+    /// </summary>
+    /// <param name="acceptNormalized">The normalized Accept media type.</param>
+    /// <param name="defaultType">The fallback media type.</param>
+    /// <returns>A concrete media type supported by response writers.</returns>
+    private static string ResolveWriterMediaType(string acceptNormalized, string defaultType)
+    {
+        var canonical = MediaTypeHelper.Canonicalize(acceptNormalized);
+        // For common structured types with well-known suffixes, return the canonical type to ensure we return a supported media type that also supports charset parameters.
+        if (string.Equals(canonical, "application/json", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(canonical, "application/xml", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(canonical, "application/yaml", StringComparison.OrdinalIgnoreCase))
+        {
+            return canonical;
+        }
+        // Allow text/csv and application/x-www-form-urlencoded as they are commonly used text-based formats that support charset and are often expected to be returned as-is without being treated as generic text/* types.
+        if (string.Equals(acceptNormalized, "text/csv", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(acceptNormalized, "application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
+        {
+            return acceptNormalized;
+        }
+        // For other text/* types, default to text/plain since we don't want to accidentally return HTML or similar types that may have security implications.
+        if (acceptNormalized.StartsWith("text/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "text/plain";
+        }
+        // For other types, we would need explicit support configured to return them; default to the provided default type.
+        return defaultType;
     }
 
     /// <summary>

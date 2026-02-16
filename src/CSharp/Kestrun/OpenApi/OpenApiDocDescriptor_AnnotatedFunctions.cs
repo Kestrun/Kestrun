@@ -1415,6 +1415,7 @@ public partial class OpenApiDocDescriptor
 
         // Set the script block or wrap for form options
         routeOptions.ScriptCode.ScriptBlock = sb;
+        routeOptions.IsOpenApiAnnotatedFunctionRoute = true;
         routeOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<ContentTypeWithSchema>>(Host.Options.DefaultApiResponseMediaType);
         _ = Host.AddMapRoute(routeOptions);
     }

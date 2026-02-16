@@ -252,6 +252,45 @@ public partial class KestrunResponseTests
 
     [Fact]
     [Trait("Category", "Models")]
+    public async Task WriteResponse_WithoutOpenApiMetadata_UsesLegacyNegotiation()
+    {
+        var ctx = TestRequestFactory.CreateContext(
+            path: "/test",
+            headers: new Dictionary<string, string> { { "Accept", "application/json" } });
+
+        ctx.MapRouteOptions.DefaultResponseContentType = null;
+        ctx.MapRouteOptions.OpenAPI.Clear();
+
+        var res = ctx.Response;
+
+        await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status200OK);
+
+        Assert.Equal(StatusCodes.Status200OK, res.StatusCode);
+        Assert.Contains("application/json", res.ContentType);
+        var strBody = Assert.IsType<string>(res.Body);
+        Assert.Contains("alice", strBody);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public async Task WriteResponse_WithOpenApiAnnotatedFunctionMarker_AndMissingMap_Returns406()
+    {
+        var ctx = TestRequestFactory.CreateContext(
+            path: "/test",
+            headers: new Dictionary<string, string> { { "Accept", "application/json" } });
+
+        ctx.MapRouteOptions.DefaultResponseContentType = null;
+        ctx.MapRouteOptions.IsOpenApiAnnotatedFunctionRoute = true;
+
+        var res = ctx.Response;
+
+        await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status200OK);
+
+        Assert.Equal(StatusCodes.Status406NotAcceptable, res.StatusCode);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
     public async Task ApplyTo_Sets_ContentDisposition_With_FileName()
     {
         var ctx = MakeCtx();

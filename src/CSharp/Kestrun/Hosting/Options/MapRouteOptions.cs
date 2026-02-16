@@ -73,6 +73,11 @@ public class MapRouteOptions
     public Dictionary<HttpVerb, OpenAPIPathMetadata> OpenAPI { get; set; } = []; // OpenAPI metadata for this route
 
     /// <summary>
+    /// Indicates whether this route originated from an OpenAPI-annotated function definition.
+    /// </summary>
+    public bool IsOpenApiAnnotatedFunctionRoute { get; set; }
+
+    /// <summary>
     /// Path-level OpenAPI common metadata for this route.
     /// </summary>
     public OpenAPICommonMetadata? PathLevelOpenAPIMetadata { get; set; }

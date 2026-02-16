@@ -91,7 +91,6 @@ public class KestrunOptions
     public Dictionary<string, ICollection<ContentTypeWithSchema>> DefaultResponseMediaType { get; set; } =
         new Dictionary<string, ICollection<ContentTypeWithSchema>> { { "default", new List<ContentTypeWithSchema> { new(DefaultResponseMediaTypeValue) } } };
 
-
     /// <summary>
     /// Gets or sets the default media type to use for API responses when no Accept header is provided.
     /// </summary>

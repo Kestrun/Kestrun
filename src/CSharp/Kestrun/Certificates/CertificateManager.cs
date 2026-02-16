@@ -26,7 +26,6 @@ using System.Security.Claims;
 using Microsoft.IdentityModel.JsonWebTokens;
 using System.Text.Json.Serialization;
 
-
 namespace Kestrun.Certificates;
 
 /// <summary>
@@ -233,7 +232,6 @@ public static class CertificateManager
         );
     }
 
-
     #endregion
 
     #region  Import
@@ -304,7 +302,6 @@ public static class CertificateManager
 #else
         => new(File.ReadAllBytes(certPath));
 #endif
-
 
     /// <summary>
     /// Imports a PEM certificate from the specified file path.
@@ -640,8 +637,6 @@ public static class CertificateManager
         return result;
     }
 
-
-
     #endregion
 
     #region Export
@@ -907,7 +902,6 @@ public static class CertificateManager
         }
     }
 
-
     /// <summary>
     /// Exports the specified X509 certificate to a file in the given format, using a SecureString password and optional private key inclusion.
     /// </summary>
@@ -937,7 +931,6 @@ public static class CertificateManager
             );
         }
     }
-
 
     /// <summary>
     /// Creates a self-signed certificate from the given RSA JWK JSON and exports it
@@ -1005,11 +998,9 @@ public static class CertificateManager
         });
     }
 
-
     #endregion
 
     #region JWK
-
 
     private static readonly JsonSerializerOptions s_jwkJsonOptions = new()
     {
@@ -1153,7 +1144,6 @@ public static class CertificateManager
         return BuildPrivateKeyJwt(jwk, clientId, tokenEndpoint);
     }
 
-
     /// <summary>
     /// Builds a JWK JSON (RSA) representation of the given certificate.
     /// By default only public parameters are included (safe for publishing as JWKS).
@@ -1270,8 +1260,6 @@ public static class CertificateManager
 
         return CreateJwkJsonFromRsa(rsa, keyId);
     }
-
-
 
     #endregion
 
@@ -1416,7 +1404,7 @@ public static class CertificateManager
         bool checkRevocation,
         bool isSelfSigned,
         bool allowWeakAlgorithms,
-        bool isWeak) => isSelfSigned && allowWeakAlgorithms && isWeak || BuildChainOk(cert, checkRevocation, isSelfSigned);
+        bool isWeak) => (isSelfSigned && allowWeakAlgorithms && isWeak) || BuildChainOk(cert, checkRevocation, isSelfSigned);
 
     /// <summary>
     /// Checks if the certificate has the expected key purposes (EKU).
@@ -1440,7 +1428,7 @@ public static class CertificateManager
             .Select(static v => v!)
             .ToHashSet(StringComparer.Ordinal);
 
-        return wanted.Count == 0 || eku.Count != 0 && (strictPurpose ? eku.SetEquals(wanted) : wanted.IsSubsetOf(eku));
+        return wanted.Count == 0 || (eku.Count != 0 && (strictPurpose ? eku.SetEquals(wanted) : wanted.IsSubsetOf(eku)));
     }
 
     /// <summary>
@@ -1489,7 +1477,6 @@ public static class CertificateManager
 
         return isSha1 || weakRsa || weakDsa || weakEcdsa;
     }
-
 
     /// <summary>
     /// Gets the enhanced key usage purposes (EKU) from the specified X509 certificate.

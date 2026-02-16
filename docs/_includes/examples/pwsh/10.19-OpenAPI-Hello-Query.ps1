@@ -72,7 +72,7 @@ class ProductSearchResult {
     [OpenApiProperty(Description = 'Total number of items', Example = 100)]
     [int]$total
     [OpenApiProperty(Description = 'Number of items in the current page', Example = 25)]
-    [int]$items
+    [Product[]]$items
 }
 
 # =========================================================

@@ -107,6 +107,26 @@ public partial class KestrunResponseTests
 
     [Fact]
     [Trait("Category", "Models")]
+    public async Task WriteResponse_Treats_Canonical_Json_As_Supported_VendorPlusJson()
+    {
+        var ctx = TestRequestFactory.CreateContext(
+            path: "/test",
+            headers: new Dictionary<string, string> { { "Accept", "application/json" } });
+
+        ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>
+        {
+            ["default"] = [new("application/vnd.foo+json")]
+        };
+
+        var res = ctx.Response;
+        await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status200OK);
+
+        Assert.Equal(StatusCodes.Status200OK, res.StatusCode);
+        Assert.DoesNotContain("406", res.Body?.ToString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
     public async Task WriteResponse_Wildcard_Accept_FallsBack_To_TextPlain()
     {
         var ctx = MakeCtx("*/*");

@@ -614,7 +614,16 @@ public class KestrunResponse
 
             var acceptCanonical = MediaTypeHelper.Canonicalize(acceptNormalized);
 
-            // 1) exact match first
+            // 1) exact normalized match first
+            for (var i = 0; i < supported.Count; i++)
+            {
+                if (string.Equals(supportedNormalized[i], acceptNormalized, StringComparison.OrdinalIgnoreCase))
+                {
+                    return supported[i];
+                }
+            }
+
+            // 2) canonical match (handles structured-suffix aliases like application/vnd.foo+json -> application/json)
             for (var i = 0; i < supported.Count; i++)
             {
                 if (string.Equals(supportedCanonical[i], acceptCanonical, StringComparison.OrdinalIgnoreCase))

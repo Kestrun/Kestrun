@@ -126,7 +126,6 @@ public partial class OpenApiDocDescriptor
                         ApplyResponseAttribute(openApiMetadata, responseAttr, routeOptions);
                         break;
                     case OpenApiResponseExampleRefAttribute responseAttr:
-                        // todo: fix this example
                         ApplyResponseAttribute(openApiMetadata, responseAttr, routeOptions);
                         break;
                     case OpenApiResponseLinkRefAttribute linkRefAttr:

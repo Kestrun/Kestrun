@@ -235,7 +235,7 @@ function getOnlyGet {
     [OpenApiResponse(StatusCode = '200', Description = 'OK', ContentType = 'text/plain', Schema = [string])]
     param()
 
-    Write-KrResponse -Text 'GET OK' -StatusCode 200
+    Write-KrResponse -InputObject 'GET OK' -StatusCode 200
 }
 
 Enable-KrConfiguration

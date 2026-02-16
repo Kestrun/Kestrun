@@ -67,6 +67,30 @@ the endpoint returns an error (commonly **400** for malformed input and **422** 
 
 The result: your OpenAPI definition and your actual behavior stay aligned.
 
+### Auto client-error responses (400/406/415/422)
+
+When OpenAPI metadata enables runtime contract checks, Kestrun can also add matching client-error responses to the OpenAPI operation.
+
+- **400 Bad Request**: Request binding/parsing failures (for example malformed JSON, invalid route/query conversions).
+- **422 Unprocessable Entity**: Validation failures after successful parsing/binding.
+- **415 Unsupported Media Type**: Request `Content-Type` is not allowed by the operation request body contract.
+- **406 Not Acceptable**: No overlap between client `Accept` header and operation response content types.
+
+These responses use a shared schema component (default name: `KestrunErrorResponse`) and default media type
+`application/problem+json`.
+
+Use `Set-KrOpenApiErrorSchema` to control both the schema component name and one or more response media types:
+
+```powershell
+# Default behavior (equivalent): application/problem+json
+Set-KrOpenApiErrorSchema -Name 'KestrunErrorResponse'
+
+# Custom schema name + multiple media types
+Set-KrOpenApiErrorSchema -Name 'ApiError' -ContentType @('application/problem+json', 'application/json')
+```
+
+Configure this before `Build-KrOpenApiDocument` / `Add-KrOpenApiRoute` so generated output is stable for tests and clients.
+
 ## 1. Concepts
 
 | Concept              | Description                                                                    |
@@ -967,6 +991,18 @@ class ProductSchema {
 [OpenApiResponseComponent(Description = 'Not Found', ContentType = ('application/json', 'application/xml'))]
 [ErrorResponse]$NotFound = NoDefault
 ```
+
+### Auto-generated error response component
+
+Even if you do not declare explicit 4xx components for every route, Kestrun can generate operation-level client-error responses
+that reference a shared error schema component.
+
+- Default schema component name: `KestrunErrorResponse`
+- Default media type: `application/problem+json`
+- Configurable via: `Set-KrOpenApiErrorSchema -Name <SchemaId> -ContentType @(...)`
+
+If you already maintain your own reusable response components, keep using `[OpenApiResponseComponent]` for those explicit cases.
+`Set-KrOpenApiErrorSchema` is specifically for auto-generated client-error responses tied to runtime contract enforcement.
 
 ### Usage in Route (Responses)
 

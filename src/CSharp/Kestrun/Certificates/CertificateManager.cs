@@ -1370,7 +1370,7 @@ public static class CertificateManager
             // Using the platform trust store differs between Windows/macOS/Linux; custom root trust
             // avoids false negatives for dev/self-signed certificates.
             chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
-            chain.ChainPolicy.CustomTrustStore.Add(cert);
+            _ = chain.ChainPolicy.CustomTrustStore.Add(cert);
             chain.ChainPolicy.VerificationFlags = X509VerificationFlags.NoFlag;
         }
 
@@ -1416,15 +1416,7 @@ public static class CertificateManager
         bool checkRevocation,
         bool isSelfSigned,
         bool allowWeakAlgorithms,
-        bool isWeak)
-    {
-        if (isSelfSigned && allowWeakAlgorithms && isWeak)
-        {
-            return true;
-        }
-
-        return BuildChainOk(cert, checkRevocation, isSelfSigned);
-    }
+        bool isWeak) => isSelfSigned && allowWeakAlgorithms && isWeak || BuildChainOk(cert, checkRevocation, isSelfSigned);
 
     /// <summary>
     /// Checks if the certificate has the expected key purposes (EKU).
@@ -1448,17 +1440,7 @@ public static class CertificateManager
             .Select(static v => v!)
             .ToHashSet(StringComparer.Ordinal);
 
-        if (wanted.Count == 0)
-        {
-            return true;
-        }
-
-        if (eku.Count == 0)
-        {
-            return false;
-        }
-
-        return strictPurpose ? eku.SetEquals(wanted) : wanted.IsSubsetOf(eku);
+        return wanted.Count == 0 || eku.Count != 0 && (strictPurpose ? eku.SetEquals(wanted) : wanted.IsSubsetOf(eku));
     }
 
     /// <summary>

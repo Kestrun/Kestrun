@@ -2650,12 +2650,9 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
         }
 
         var required = schemaAttr.GetType().GetProperty("RequiredProperties")?.GetValue(schemaAttr) as string[];
-        if (required is not { Length: > 0 })
-        {
-            return [];
-        }
-
-        return [.. required
+        return required is not { Length: > 0 }
+            ? []
+            : [.. required
             .Where(r => !string.IsNullOrWhiteSpace(r))
             .Distinct(StringComparer.OrdinalIgnoreCase)];
     }

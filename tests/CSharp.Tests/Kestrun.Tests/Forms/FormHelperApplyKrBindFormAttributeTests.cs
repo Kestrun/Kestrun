@@ -36,7 +36,7 @@ public sealed class FormHelperApplyKrBindFormAttributeTests
         Assert.Equal("./uploads", options.DefaultUploadPath);
         Assert.Equal(123, options.MaxDecompressedBytesPerPart);
 
-        Assert.Single(options.AllowedPartContentEncodings);
+        _ = Assert.Single(options.AllowedPartContentEncodings);
         Assert.Contains("gzip", options.AllowedPartContentEncodings);
 
         Assert.Equal(456, options.Limits.MaxRequestBodyBytes);

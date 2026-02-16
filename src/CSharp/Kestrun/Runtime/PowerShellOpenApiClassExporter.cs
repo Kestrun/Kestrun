@@ -987,7 +987,7 @@ public static class PowerShellOpenApiClassExporter
     private static void AppendValidationAttributes(PropertyInfo property, StringBuilder sb)
     {
         var attributes = property.GetCustomAttributes(inherit: false)
-            .Select(attr => TryFormatValidationAttribute(attr))
+            .Select(TryFormatValidationAttribute)
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .ToList();
 
@@ -1019,53 +1019,32 @@ public static class PowerShellOpenApiClassExporter
     {
         var min = attribute.GetType().GetProperty("MinRange")?.GetValue(attribute);
         var max = attribute.GetType().GetProperty("MaxRange")?.GetValue(attribute);
-        if (min is null || max is null)
-        {
-            return null;
-        }
-
-        return $"[ValidateRange({FormatPowerShellLiteral(min)}, {FormatPowerShellLiteral(max)})]";
+        return min is null || max is null ? null : $"[ValidateRange({FormatPowerShellLiteral(min)}, {FormatPowerShellLiteral(max)})]";
     }
 
     private static string? FormatValidateLength(object attribute)
     {
         var min = attribute.GetType().GetProperty("MinLength")?.GetValue(attribute);
         var max = attribute.GetType().GetProperty("MaxLength")?.GetValue(attribute);
-        if (min is null || max is null)
-        {
-            return null;
-        }
-
-        return $"[ValidateLength({FormatPowerShellLiteral(min)}, {FormatPowerShellLiteral(max)})]";
+        return min is null || max is null ? null : $"[ValidateLength({FormatPowerShellLiteral(min)}, {FormatPowerShellLiteral(max)})]";
     }
 
     private static string? FormatValidateCount(object attribute)
     {
         var min = attribute.GetType().GetProperty("MinLength")?.GetValue(attribute);
         var max = attribute.GetType().GetProperty("MaxLength")?.GetValue(attribute);
-        if (min is null || max is null)
-        {
-            return null;
-        }
-
-        return $"[ValidateCount({FormatPowerShellLiteral(min)}, {FormatPowerShellLiteral(max)})]";
+        return min is null || max is null ? null : $"[ValidateCount({FormatPowerShellLiteral(min)}, {FormatPowerShellLiteral(max)})]";
     }
 
     private static string? FormatValidatePattern(object attribute)
     {
         var pattern = attribute.GetType().GetProperty("RegexPattern")?.GetValue(attribute) as string;
-        if (string.IsNullOrWhiteSpace(pattern))
-        {
-            return null;
-        }
-
-        return $"[ValidatePattern('{EscapePowerShellString(pattern)}')]";
+        return string.IsNullOrWhiteSpace(pattern) ? null : $"[ValidatePattern('{EscapePowerShellString(pattern)}')]";
     }
 
     private static string? FormatValidateSet(object attribute)
     {
-        var values = attribute.GetType().GetProperty("ValidValues")?.GetValue(attribute) as IEnumerable<object>;
-        if (values is null)
+        if (attribute.GetType().GetProperty("ValidValues")?.GetValue(attribute) is not IEnumerable<object> values)
         {
             return null;
         }
@@ -1075,30 +1054,22 @@ public static class PowerShellOpenApiClassExporter
             .Where(v => !string.IsNullOrWhiteSpace(v))
             .ToArray();
 
-        if (formatted.Length == 0)
-        {
-            return null;
-        }
-
-        return $"[ValidateSet({string.Join(", ", formatted)})]";
+        return formatted.Length == 0 ? null : $"[ValidateSet({string.Join(", ", formatted)})]";
     }
 
     private static string? FormatPowerShellLiteral(object? value)
     {
-        if (value is null)
-        {
-            return "$null";
-        }
-
-        return value switch
-        {
-            string s => $"'{EscapePowerShellString(s)}'",
-            char c => $"'{EscapePowerShellString(c.ToString())}'",
-            bool b => b ? "$true" : "$false",
-            byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal =>
-                Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture),
-            _ => $"'{EscapePowerShellString(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? value.ToString() ?? string.Empty)}'"
-        };
+        return value is null
+            ? "$null"
+            : value switch
+            {
+                string s => $"'{EscapePowerShellString(s)}'",
+                char c => $"'{EscapePowerShellString(c.ToString())}'",
+                bool b => b ? "$true" : "$false",
+                byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal =>
+                    Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture),
+                _ => $"'{EscapePowerShellString(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? value.ToString() ?? string.Empty)}'"
+            };
     }
 
     /// <summary>

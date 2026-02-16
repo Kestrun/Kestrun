@@ -545,7 +545,7 @@ public partial class OpenApiDocDescriptor
         }
 
         // Ignore nullability bit; we only capture the underlying CLR type.
-        JsonSchemaType type = (s.Type ?? JsonSchemaType.Object) & ~JsonSchemaType.Null;
+        var type = (s.Type ?? JsonSchemaType.Object) & ~JsonSchemaType.Null;
 
         if ((type & JsonSchemaType.Array) != 0)
         {
@@ -582,9 +582,8 @@ public partial class OpenApiDocDescriptor
             };
         }
 
-        if ((type & JsonSchemaType.String) != 0)
-        {
-            return s.Format?.ToLowerInvariant() switch
+        return (type & JsonSchemaType.String) != 0
+            ? s.Format?.ToLowerInvariant() switch
             {
                 "binary" => typeof(byte[]),
                 "uuid" => typeof(Guid),
@@ -592,15 +591,8 @@ public partial class OpenApiDocDescriptor
                 "duration" => typeof(TimeSpan),
                 "date-time" => typeof(DateTimeOffset),
                 _ => typeof(string)
-            };
-        }
-
-        if ((type & JsonSchemaType.Null) != 0)
-        {
-            return typeof(void);
-        }
-
-        return typeof(object);
+            }
+            : (type & JsonSchemaType.Null) != 0 ? typeof(void) : typeof(object);
     }
 
     /// <summary>

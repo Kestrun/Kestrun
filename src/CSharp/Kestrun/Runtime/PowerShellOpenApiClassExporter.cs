@@ -1024,7 +1024,7 @@ public static class PowerShellOpenApiClassExporter
 
         foreach (var attribute in attributes)
         {
-            _ = sb.Append("    ").AppendLine(attribute!);
+            _ = sb.Append("    ").AppendLine(attribute);
         }
     }
 

@@ -128,67 +128,69 @@ Stop the server with Ctrl+C in the terminal.
 | 76 | OpenApi | [XML Modeling][ch-10-23-xml-modeling] | [Script][sc-10-23-xml-modeling] | Demonstrate OpenAPI 3.2 XML modeling with attributes, namespaces, and wrapped arrays using the `OpenApiXml` attribute. |
 | 77 | OpenApi | [RFC 6570 Variable Mapping][ch-10-24-rfc6570-variable-mapping] | [Script][sc-10-24-rfc6570-variable-mapping] | Document OpenAPI 3.2 RFC 6570 path expressions and map ASP.NET Core route values into RFC6570 variables for multi-segment paths. |
 | 78 | OpenApi | [Additional and Pattern Properties][ch-10-25-additional-pattern-properties] | [Script][sc-10-25-additional-pattern-properties] | Model dynamic key/value objects using `additionalProperties` and `patternProperties`. |
-| 79 | Razor | [Razor Pages Quickstart][ch-11-1-razorpages-quickstart] | [Script][sc-11-1-razorpages-quickstart] | Serve Razor Pages where each `.cshtml` can have an optional sibling `.cshtml.ps1` script that builds a per-request model. |
-| 80 | Razor | [Razor Pages with Antiforgery][ch-11-2-razorpages-antiforgery] | [Script][sc-11-2-razorpages-antiforgery] | Protect unsafe endpoints using cookie + header antiforgery tokens, and expose a token endpoint. |
-| 81 | Scheduler | [Scheduling Quickstart][ch-12-1-scheduling-quickstart] | [Script][sc-12-1-scheduling-quickstart] | Enable the scheduler, register a couple of jobs, and expose diagnostic routes. |
-| 82 | Scheduler | [Scheduling with CRON][ch-12-2-scheduling-cron] | [Script][sc-12-2-scheduling-cron] | Run jobs using 6-field CRON expressions with seconds precision. |
-| 83 | Scheduler | [Scheduling Report][ch-12-3-scheduling-report] | [Script][sc-12-3-scheduling-report] | Expose an endpoint that returns the aggregated schedule report, optionally in a specific time zone. |
-| 84 | Server Configuration | [Server Limits][ch-13-1-server-limits] | [Script][sc-13-1-server-limits] | Fine‑tune resource & safety thresholds using `Set-KrServerLimit`. |
-| 85 | Server Configuration | [Server Options][ch-13-2-server-options] | [Script][sc-13-2-server-options] | Configure runtime behaviors (headers, compression, runspaces) with `Set-KrServerOptions`. |
-| 86 | Lifecycle | [Start/Stop Patterns][ch-14-1-start-stop] | [Script][sc-14-1-start-stop] | Control server lifecycle: blocking vs non‑blocking, programmatic shutdown. |
-| 87 | Lifecycle | [Full Server Demo][ch-14-2-full-demo] | [Script][sc-14-2-full-demo] | Run an integrated demo server with multiple endpoints, basic routes, and clean start/stop. |
-| 88 | Middleware | [Antiforgery Protection][ch-15-1-antiforgery] | [Script][sc-15-1-antiforgery] | Protect state‑changing endpoints (POST/PUT/PATCH/DELETE) from Cross-Site Request Forgery by validating a token that is *bound* to a user session cookie. |
-| 89 | Middleware | [Response Compression][ch-15-2-compression] | [Script][sc-15-2-compression] | Reduce payload size (bandwidth + latency) for text-based responses by enabling |
-| 90 | Middleware | [HTTPS Redirection][ch-15-3-https-redirection] | [Script][sc-15-3-https-redirection] | Force HTTP traffic to upgrade to HTTPS with a configurable redirect status code and optional explicit HTTPS port. |
-| 91 | Middleware | [HTTPS Strict Transport Security (HSTS)][ch-15-4-https-hsts] | [Script][sc-15-4-https-hsts] | HTTP Strict Transport Security (HSTS) is a web security policy mechanism that helps protect websites against |
-| 92 | Middleware | [SignalR][ch-15-5-signalr] | [Script][sc-15-5-signalr] | Add real-time, bidirectional communication to your server for live events, progress, and notifications using SignalR. |
-| 93 | Middleware | [Host Filtering][ch-15-6-host-filtering] | [Script][sc-15-6-host-filtering] | Restrict which Host headers are allowed to reach your app. |
-| 94 | Middleware | [Forwarded Headers][ch-15-7-forwarded-headers] | [Script][sc-15-7-forwarded-headers] | Honor X-Forwarded-* headers from a reverse proxy to reflect the original client IP, scheme, and host. |
-| 95 | Middleware | [CORS][ch-15-8-cors] | [Script][sc-15-8-cors] | Configure Cross-Origin Resource Sharing (CORS) policies to control browser access from different origins. |
-| 96 | Middleware | [SSE][ch-15-9-sse] | [Script][sc-15-9-sse] | Stream real-time server events to browsers using Server-Sent Events (SSE). |
-| 97 | Middleware | [SSE Broadcast][ch-15-10-ssebroadcast] | [Script][sc-15-10-ssebroadcast] | Keep an SSE connection open and broadcast events to all connected clients. |
-| 98 | Middleware | [Request Decompression][ch-15-11-request-decompression] | [Script][sc-15-11-request-decompression] | Accept request bodies compressed with `Content-Encoding` (for example `gzip`) by enabling the Request Decompression middleware. |
-| 99 | Health | [Health Quickstart][ch-16-1-health-quickstart] | [Script][sc-16-1-health-quickstart] | Expose `/healthz` and aggregate basic probes (script + HTTP) into a single JSON document for liveness / readiness checks. |
-| 100 | Health | [Script Probe][ch-16-2-health-script-probe] | [Script][sc-16-2-health-script-probe] | Demonstrates a standalone PowerShell script probe measuring latency and producing custom metrics. |
-| 101 | Health | [HTTP Probe][ch-16-3-health-http-probe] | [Script][sc-16-3-health-http-probe] | Shows using the built‑in HTTP probe to call an internal route and fold its success/failure into the health aggregate. |
-| 102 | Health | [Process Probe][ch-16-4-health-process-probe] | [Script][sc-16-4-health-process-probe] | Executes an external process (`dotnet --info`) and reports its success & duration. |
-| 103 | Health | [C# Inline Probe][ch-16-5-health-csharp-probe] | [Script][sc-16-5-health-csharp-probe] | Illustrates using the C# inline capability to craft a probe in code when PowerShell alone is insufficient or you want direct .NET API access. |
-| 104 | Health | [Disk Probe][ch-16-6-health-disk-probe] | [Script][sc-16-6-health-disk-probe] | Demonstrates the built‑in disk space probe (auto‑registered) and how to override it with custom thresholds. |
-| 105 | Health | [Health Response Format][ch-16-7-health-response-format] | [Script][sc-16-7-health-response-format] | Demonstrates configuring health endpoints with Auto response format for content negotiation |
-| 106 | Status Code Pages | [Default Status Code Pages][ch-17-1-default-status-code-pages] | [Script][sc-17-1-default-status-code-pages] | Enable built-in error pages so 404, 500, and similar responses return consistent content. |
-| 107 | Status Code Pages | [Custom Options][ch-17-2-custom-options] | [Script][sc-17-2-custom-options] | Configure StatusCodePages behavior via options such as content type, formats, redirects, or re-execution. |
-| 108 | Status Code Pages | [Custom Handler (PowerShell)][ch-17-3-custom-handler-powershell] | [Script][sc-17-3-custom-handler-powershell] | Handle status codes with a PowerShell ScriptBlock that logs and returns a JSON error payload. |
-| 109 | Status Code Pages | [Custom Handler (C# Inline)][ch-17-4-custom-handler-csharp-inline] | [Script][sc-17-4-custom-handler-csharp-inline] | Handle status codes with an inline C# snippet that composes a JSON payload and writes the response. |
-| 110 | Status Code Pages | [Content Format][ch-17-5-content-format] | [Script][sc-17-5-content-format] | Customize the error content type and HTML body with external templates and variables. |
-| 111 | Status Code Pages | [Redirects][ch-17-6-redirects] | [Script][sc-17-6-redirects] | Redirect error responses to friendly routes and render details via templates. |
-| 112 | Status Code Pages | [Re-execute][ch-17-7-re-execute] | [Script][sc-17-7-re-execute] | Re-execute the pipeline using alternate routes to generate friendly error pages while keeping the original URL. |
-| 113 | Exception Handling | [Exception Handling Path][ch-18-1-exceptionhandlingpath] | [Script][sc-18-1-exceptionhandlingpath] | Re-execute the pipeline to a fixed error path when an unhandled exception occurs. |
-| 114 | Exception Handling | [VB.NET Handler][ch-18-2-vbnet-handler] | [Script][sc-18-2-vbnet-handler] | Handle exceptions using a VB.NET middleware handler for consistent JSON across routes. |
-| 115 | Exception Handling | [C# Inline Handler][ch-18-3-csharp-inline] | [Script][sc-18-3-csharp-inline] | Handle exceptions with a C# inline handler. |
-| 116 | Exception Handling | [ProblemDetails Fallback][ch-18-4-problemdetails] | [Script][sc-18-4-problemdetails] | Return RFC 7807 ProblemDetails for unhandled exceptions, ideal for API clients. |
-| 117 | Exception Handling | [Developer Exception Page][ch-18-5-developer-exception-page] | [Script][sc-18-5-developer-exception-page] | Show rich error details during development. |
-| 118 | Sessions | [Basic Sessions][ch-19-1-sessions-basic] | [Script][sc-19-1-sessions-basic] | Use cookie-based session state to persist small key-value data across requests (counters, user info, preferences). |
-| 119 | Sessions | [Sessions with Redis][ch-19-2-sessions-redis] | [Script][sc-19-2-sessions-redis] | Use StackExchange.Redis as the distributed cache backing for ASP.NET Core session state. |
-| 120 | Sessions | [Sessions with SQL Server][ch-19-3-sessions-sql] | [Script][sc-19-3-sessions-sql] | Use SQL Server as the distributed cache backing for ASP.NET Core session state. |
-| 121 | Tasks | [Basic Tasks][ch-20-1-tasks] | [Script][sc-20-1-tasks] | Run ad-hoc scripts as background tasks with status, progress, results, cancellation, and controlled removal. |
-| 122 | Localization | [Localization][ch-21-1-localization] | [Script][sc-21-1-localization] | Serve localized responses with PowerShell-style string tables resolved per request. |
-| 123 | Localization | [Razor Localization][ch-21-2-razor-localization] | [Script][sc-21-2-razor-localization] | Render localized Razor pages with per-request culture resolution. |
-| 124 | File and Form Uploads | [Basic multipart/form-data upload][ch-22-1-basic-multipart] | [Script][sc-22-1-basic-multipart] | Parse a simple multipart upload with one text field and one file. |
-| 125 | File and Form Uploads | [Multiple files (same field name)][ch-22-2-multiple-files] | [Script][sc-22-2-multiple-files] | Accept multiple files posted under a single field name. |
-| 126 | File and Form Uploads | [application/x-www-form-urlencoded forms][ch-22-3-urlencoded] | [Script][sc-22-3-urlencoded] | Parse classic HTML form posts with urlencoded bodies. |
-| 127 | File and Form Uploads | [multipart/mixed ordered parts][ch-22-4-multipart-mixed] | [Script][sc-22-4-multipart-mixed] | Parse ordered multipart payloads where part order matters. |
-| 128 | File and Form Uploads | [Nested multipart/mixed][ch-22-5-nested-multipart] | [Script][sc-22-5-nested-multipart] | Handle a single nested multipart/mixed payload inside an ordered multipart body. |
-| 129 | File and Form Uploads | [Request-level compression][ch-22-6-request-compressed] | [Script][sc-22-6-request-compressed] | Enable ASP.NET Core RequestDecompression middleware for gzip request bodies. |
-| 130 | File and Form Uploads | [Part-level compression][ch-22-7-part-compressed] | [Script][sc-22-7-part-compressed] | Decompress individual multipart parts using per-part Content-Encoding. |
-| 131 | File and Form Uploads | [OpenAPI: basic multipart upload][ch-22-8-basic-multipart-openapi] | [Script][sc-22-8-basic-multipart-openapi] | Document a basic multipart/form-data upload with OpenAPI annotations. |
-| 132 | File and Form Uploads | [OpenAPI: multiple files][ch-22-9-multiple-files-openapi] | [Script][sc-22-9-multiple-files-openapi] | Describe multiple files under the same field name with OpenAPI. |
-| 133 | File and Form Uploads | [OpenAPI: urlencoded forms][ch-22-10-url-encoded-openapi] | [Script][sc-22-10-url-encoded-openapi] | Document application/x-www-form-urlencoded payloads with OpenAPI. |
-| 134 | File and Form Uploads | [OpenAPI: multipart/mixed][ch-22-11-multipart-mixed-openapi] | [Script][sc-22-11-multipart-mixed-openapi] | Document ordered multipart/mixed payloads with OpenAPI. |
-| 135 | File and Form Uploads | [OpenAPI: nested multipart][ch-22-12-nested-multipart-openapi] | [Script][sc-22-12-nested-multipart-openapi] | Document nested multipart/mixed payloads with OpenAPI. |
-| 136 | File and Form Uploads | [OpenAPI: request-level compression][ch-22-13-request-compressed-openapi] | [Script][sc-22-13-request-compressed-openapi] | Document request-compressed multipart uploads with OpenAPI. |
-| 137 | File and Form Uploads | [OpenAPI: part-level compression][ch-22-14-part-compressed-openapi] | [Script][sc-22-14-part-compressed-openapi] | Document per-part Content-Encoding with OpenAPI annotations. |
-| 138 | File and Form Uploads | [OpenAPI: file hash upload][ch-22-15-file-hash-openapi] | [Script][sc-22-15-file-hash-openapi] | Upload a binary file and return MD5/SHA1/SHA256/SHA384/SHA512 hashes with OpenAPI annotations. |
-| 139 | File and Form Uploads | [Form rules: file hash upload][ch-22-16-file-hash-rule] | [Script][sc-22-16-file-hash-rule] | Upload a binary file using `New-KrFormPartRule` and return MD5/SHA1/SHA256/SHA384/SHA512 hashes. |
+| 79 | OpenApi | [Custom Error Handler][ch-10-26-custom-error-handler] | [Script][sc-10-26-custom-error-handler] | Use OpenAPI error schemas with a custom PowerShell runtime error response script for OpenAPI routes. |
+| 80 | Razor | [Razor Pages Quickstart][ch-11-1-razorpages-quickstart] | [Script][sc-11-1-razorpages-quickstart] | Serve Razor Pages where each `.cshtml` can have an optional sibling `.cshtml.ps1` script that builds a per-request model. |
+| 81 | Razor | [Razor Pages with Antiforgery][ch-11-2-razorpages-antiforgery] | [Script][sc-11-2-razorpages-antiforgery] | Protect unsafe endpoints using cookie + header antiforgery tokens, and expose a token endpoint. |
+| 82 | Scheduler | [Scheduling Quickstart][ch-12-1-scheduling-quickstart] | [Script][sc-12-1-scheduling-quickstart] | Enable the scheduler, register a couple of jobs, and expose diagnostic routes. |
+| 83 | Scheduler | [Scheduling with CRON][ch-12-2-scheduling-cron] | [Script][sc-12-2-scheduling-cron] | Run jobs using 6-field CRON expressions with seconds precision. |
+| 84 | Scheduler | [Scheduling Report][ch-12-3-scheduling-report] | [Script][sc-12-3-scheduling-report] | Expose an endpoint that returns the aggregated schedule report, optionally in a specific time zone. |
+| 85 | Server Configuration | [Server Limits][ch-13-1-server-limits] | [Script][sc-13-1-server-limits] | Fine‑tune resource & safety thresholds using `Set-KrServerLimit`. |
+| 86 | Server Configuration | [Server Options][ch-13-2-server-options] | [Script][sc-13-2-server-options] | Configure runtime behaviors (headers, compression, runspaces) with `Set-KrServerOptions`. |
+| 87 | Lifecycle | [Start/Stop Patterns][ch-14-1-start-stop] | [Script][sc-14-1-start-stop] | Control server lifecycle: blocking vs non‑blocking, programmatic shutdown. |
+| 88 | Lifecycle | [Full Server Demo][ch-14-2-full-demo] | [Script][sc-14-2-full-demo] | Run an integrated demo server with multiple endpoints, basic routes, and clean start/stop. |
+| 89 | Middleware | [Antiforgery Protection][ch-15-1-antiforgery] | [Script][sc-15-1-antiforgery] | Protect state‑changing endpoints (POST/PUT/PATCH/DELETE) from Cross-Site Request Forgery by validating a token that is *bound* to a user session cookie. |
+| 90 | Middleware | [Response Compression][ch-15-2-compression] | [Script][sc-15-2-compression] | Reduce payload size (bandwidth + latency) for text-based responses by enabling |
+| 91 | Middleware | [HTTPS Redirection][ch-15-3-https-redirection] | [Script][sc-15-3-https-redirection] | Force HTTP traffic to upgrade to HTTPS with a configurable redirect status code and optional explicit HTTPS port. |
+| 92 | Middleware | [HTTPS Strict Transport Security (HSTS)][ch-15-4-https-hsts] | [Script][sc-15-4-https-hsts] | HTTP Strict Transport Security (HSTS) is a web security policy mechanism that helps protect websites against |
+| 93 | Middleware | [SignalR][ch-15-5-signalr] | [Script][sc-15-5-signalr] | Add real-time, bidirectional communication to your server for live events, progress, and notifications using SignalR. |
+| 94 | Middleware | [Host Filtering][ch-15-6-host-filtering] | [Script][sc-15-6-host-filtering] | Restrict which Host headers are allowed to reach your app. |
+| 95 | Middleware | [Forwarded Headers][ch-15-7-forwarded-headers] | [Script][sc-15-7-forwarded-headers] | Honor X-Forwarded-* headers from a reverse proxy to reflect the original client IP, scheme, and host. |
+| 96 | Middleware | [CORS][ch-15-8-cors] | [Script][sc-15-8-cors] | Configure Cross-Origin Resource Sharing (CORS) policies to control browser access from different origins. |
+| 97 | Middleware | [SSE][ch-15-9-sse] | [Script][sc-15-9-sse] | Stream real-time server events to browsers using Server-Sent Events (SSE). |
+| 98 | Middleware | [SSE Broadcast][ch-15-10-ssebroadcast] | [Script][sc-15-10-ssebroadcast] | Keep an SSE connection open and broadcast events to all connected clients. |
+| 99 | Middleware | [Request Decompression][ch-15-11-request-decompression] | [Script][sc-15-11-request-decompression] | Accept request bodies compressed with `Content-Encoding` (for example `gzip`) by enabling the Request Decompression middleware. |
+| 100 | Health | [Health Quickstart][ch-16-1-health-quickstart] | [Script][sc-16-1-health-quickstart] | Expose `/healthz` and aggregate basic probes (script + HTTP) into a single JSON document for liveness / readiness checks. |
+| 101 | Health | [Script Probe][ch-16-2-health-script-probe] | [Script][sc-16-2-health-script-probe] | Demonstrates a standalone PowerShell script probe measuring latency and producing custom metrics. |
+| 102 | Health | [HTTP Probe][ch-16-3-health-http-probe] | [Script][sc-16-3-health-http-probe] | Shows using the built‑in HTTP probe to call an internal route and fold its success/failure into the health aggregate. |
+| 103 | Health | [Process Probe][ch-16-4-health-process-probe] | [Script][sc-16-4-health-process-probe] | Executes an external process (`dotnet --info`) and reports its success & duration. |
+| 104 | Health | [C# Inline Probe][ch-16-5-health-csharp-probe] | [Script][sc-16-5-health-csharp-probe] | Illustrates using the C# inline capability to craft a probe in code when PowerShell alone is insufficient or you want direct .NET API access. |
+| 105 | Health | [Disk Probe][ch-16-6-health-disk-probe] | [Script][sc-16-6-health-disk-probe] | Demonstrates the built‑in disk space probe (auto‑registered) and how to override it with custom thresholds. |
+| 106 | Health | [Health Response Format][ch-16-7-health-response-format] | [Script][sc-16-7-health-response-format] | Demonstrates configuring health endpoints with Auto response format for content negotiation |
+| 107 | Status Code Pages | [Default Status Code Pages][ch-17-1-default-status-code-pages] | [Script][sc-17-1-default-status-code-pages] | Enable built-in error pages so 404, 500, and similar responses return consistent content. |
+| 108 | Status Code Pages | [Custom Options][ch-17-2-custom-options] | [Script][sc-17-2-custom-options] | Configure StatusCodePages behavior via options such as content type, formats, redirects, or re-execution. |
+| 109 | Status Code Pages | [Custom Handler (PowerShell)][ch-17-3-custom-handler-powershell] | [Script][sc-17-3-custom-handler-powershell] | Handle status codes with a PowerShell ScriptBlock that logs and returns a JSON error payload. |
+| 110 | Status Code Pages | [Custom Handler (C# Inline)][ch-17-4-custom-handler-csharp-inline] | [Script][sc-17-4-custom-handler-csharp-inline] | Handle status codes with an inline C# snippet that composes a JSON payload and writes the response. |
+| 111 | Status Code Pages | [Content Format][ch-17-5-content-format] | [Script][sc-17-5-content-format] | Customize the error content type and HTML body with external templates and variables. |
+| 112 | Status Code Pages | [Redirects][ch-17-6-redirects] | [Script][sc-17-6-redirects] | Redirect error responses to friendly routes and render details via templates. |
+| 113 | Status Code Pages | [Re-execute][ch-17-7-re-execute] | [Script][sc-17-7-re-execute] | Re-execute the pipeline using alternate routes to generate friendly error pages while keeping the original URL. |
+| 114 | Status Code Pages | [Common Status Codes][ch-17-8-common-status-codes] | [Script][sc-17-8-common-status-codes] | Try common HTTP status codes (401/403/404/405/415/400/422/200/201/204) on a small set of routes. |
+| 115 | Exception Handling | [Exception Handling Path][ch-18-1-exceptionhandlingpath] | [Script][sc-18-1-exceptionhandlingpath] | Re-execute the pipeline to a fixed error path when an unhandled exception occurs. |
+| 116 | Exception Handling | [VB.NET Handler][ch-18-2-vbnet-handler] | [Script][sc-18-2-vbnet-handler] | Handle exceptions using a VB.NET middleware handler for consistent JSON across routes. |
+| 117 | Exception Handling | [C# Inline Handler][ch-18-3-csharp-inline] | [Script][sc-18-3-csharp-inline] | Handle exceptions with a C# inline handler. |
+| 118 | Exception Handling | [ProblemDetails Fallback][ch-18-4-problemdetails] | [Script][sc-18-4-problemdetails] | Return RFC 7807 ProblemDetails for unhandled exceptions, ideal for API clients. |
+| 119 | Exception Handling | [Developer Exception Page][ch-18-5-developer-exception-page] | [Script][sc-18-5-developer-exception-page] | Show rich error details during development. |
+| 120 | Sessions | [Basic Sessions][ch-19-1-sessions-basic] | [Script][sc-19-1-sessions-basic] | Use cookie-based session state to persist small key-value data across requests (counters, user info, preferences). |
+| 121 | Sessions | [Sessions with Redis][ch-19-2-sessions-redis] | [Script][sc-19-2-sessions-redis] | Use StackExchange.Redis as the distributed cache backing for ASP.NET Core session state. |
+| 122 | Sessions | [Sessions with SQL Server][ch-19-3-sessions-sql] | [Script][sc-19-3-sessions-sql] | Use SQL Server as the distributed cache backing for ASP.NET Core session state. |
+| 123 | Tasks | [Basic Tasks][ch-20-1-tasks] | [Script][sc-20-1-tasks] | Run ad-hoc scripts as background tasks with status, progress, results, cancellation, and controlled removal. |
+| 124 | Localization | [Localization][ch-21-1-localization] | [Script][sc-21-1-localization] | Serve localized responses with PowerShell-style string tables resolved per request. |
+| 125 | Localization | [Razor Localization][ch-21-2-razor-localization] | [Script][sc-21-2-razor-localization] | Render localized Razor pages with per-request culture resolution. |
+| 126 | File and Form Uploads | [Basic multipart/form-data upload][ch-22-1-basic-multipart] | [Script][sc-22-1-basic-multipart] | Parse a simple multipart upload with one text field and one file. |
+| 127 | File and Form Uploads | [Multiple files (same field name)][ch-22-2-multiple-files] | [Script][sc-22-2-multiple-files] | Accept multiple files posted under a single field name. |
+| 128 | File and Form Uploads | [application/x-www-form-urlencoded forms][ch-22-3-urlencoded] | [Script][sc-22-3-urlencoded] | Parse classic HTML form posts with urlencoded bodies. |
+| 129 | File and Form Uploads | [multipart/mixed ordered parts][ch-22-4-multipart-mixed] | [Script][sc-22-4-multipart-mixed] | Parse ordered multipart payloads where part order matters. |
+| 130 | File and Form Uploads | [Nested multipart/mixed][ch-22-5-nested-multipart] | [Script][sc-22-5-nested-multipart] | Handle a single nested multipart/mixed payload inside an ordered multipart body. |
+| 131 | File and Form Uploads | [Request-level compression][ch-22-6-request-compressed] | [Script][sc-22-6-request-compressed] | Enable ASP.NET Core RequestDecompression middleware for gzip request bodies. |
+| 132 | File and Form Uploads | [Part-level compression][ch-22-7-part-compressed] | [Script][sc-22-7-part-compressed] | Decompress individual multipart parts using per-part Content-Encoding. |
+| 133 | File and Form Uploads | [OpenAPI: basic multipart upload][ch-22-8-basic-multipart-openapi] | [Script][sc-22-8-basic-multipart-openapi] | Document a basic multipart/form-data upload with OpenAPI annotations. |
+| 134 | File and Form Uploads | [OpenAPI: multiple files][ch-22-9-multiple-files-openapi] | [Script][sc-22-9-multiple-files-openapi] | Describe multiple files under the same field name with OpenAPI. |
+| 135 | File and Form Uploads | [OpenAPI: urlencoded forms][ch-22-10-url-encoded-openapi] | [Script][sc-22-10-url-encoded-openapi] | Document application/x-www-form-urlencoded payloads with OpenAPI. |
+| 136 | File and Form Uploads | [OpenAPI: multipart/mixed][ch-22-11-multipart-mixed-openapi] | [Script][sc-22-11-multipart-mixed-openapi] | Document ordered multipart/mixed payloads with OpenAPI. |
+| 137 | File and Form Uploads | [OpenAPI: nested multipart][ch-22-12-nested-multipart-openapi] | [Script][sc-22-12-nested-multipart-openapi] | Document nested multipart/mixed payloads with OpenAPI. |
+| 138 | File and Form Uploads | [OpenAPI: request-level compression][ch-22-13-request-compressed-openapi] | [Script][sc-22-13-request-compressed-openapi] | Document request-compressed multipart uploads with OpenAPI. |
+| 139 | File and Form Uploads | [OpenAPI: part-level compression][ch-22-14-part-compressed-openapi] | [Script][sc-22-14-part-compressed-openapi] | Document per-part Content-Encoding with OpenAPI annotations. |
+| 140 | File and Form Uploads | [OpenAPI: file hash upload][ch-22-15-file-hash-openapi] | [Script][sc-22-15-file-hash-openapi] | Upload a binary file and return MD5/SHA1/SHA256/SHA384/SHA512 hashes with OpenAPI annotations. |
+| 141 | File and Form Uploads | [Form rules: file hash upload][ch-22-16-file-hash-rule] | [Script][sc-22-16-file-hash-rule] | Upload a binary file using `New-KrFormPartRule` and return MD5/SHA1/SHA256/SHA384/SHA512 hashes. |
 
 Static chapters and scripts are all linked directly above for quick navigation.
 
@@ -270,6 +272,7 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [ch-10-23-xml-modeling]: ./10.openapi/23.XML-Modeling
 [ch-10-24-rfc6570-variable-mapping]: ./10.openapi/24.RFC6570-Variable-Mapping
 [ch-10-25-additional-pattern-properties]: ./10.openapi/25.Additional-Pattern-Properties
+[ch-10-26-custom-error-handler]: ./10.openapi/26.Custom-Error-Handler
 [ch-11-1-razorpages-quickstart]: ./11.razor/1.RazorPages-Quickstart
 [ch-11-2-razorpages-antiforgery]: ./11.razor/2.RazorPages-Antiforgery
 [ch-12-1-scheduling-quickstart]: ./12.scheduling/1.Scheduling-Quickstart
@@ -304,6 +307,7 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [ch-17-5-content-format]: ./17.StatusCodePages/5.Content-Format
 [ch-17-6-redirects]: ./17.StatusCodePages/6.Redirects
 [ch-17-7-re-execute]: ./17.StatusCodePages/7.Re-execute
+[ch-17-8-common-status-codes]: ./17.StatusCodePages/8.Common-Status-Codes
 [ch-18-1-exceptionhandlingpath]: ./18.ExceptionHandling/1.ExceptionHandlingPath
 [ch-18-2-vbnet-handler]: ./18.ExceptionHandling/2.VBNet-Handler
 [ch-18-3-csharp-inline]: ./18.ExceptionHandling/3.CSharp-Inline
@@ -409,6 +413,7 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-10-23-xml-modeling]: /pwsh/tutorial/examples/10.22-OpenAPI-XML-Modeling.ps1
 [sc-10-24-rfc6570-variable-mapping]: /pwsh/tutorial/examples/10.23-OpenAPI-Path-Template-Mapping.ps1
 [sc-10-25-additional-pattern-properties]: /pwsh/tutorial/examples/10.24-OpenAPI-Additional-Pattern-Properties.ps1
+[sc-10-26-custom-error-handler]: /pwsh/tutorial/examples/10.26-OpenAPI-Custom-Error-Handler.ps1
 [sc-11-1-razorpages-quickstart]: /pwsh/tutorial/examples/11.1-RazorPages.ps1
 [sc-11-2-razorpages-antiforgery]: /pwsh/tutorial/examples/11.2-RazorPages-Antiforgery.ps1
 [sc-12-1-scheduling-quickstart]: /pwsh/tutorial/examples/12.1-Scheduling-Quickstart.ps1
@@ -443,6 +448,7 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-17-5-content-format]: /pwsh/tutorial/examples/17.5-StatusCodePages-ContentFormat.ps1
 [sc-17-6-redirects]: /pwsh/tutorial/examples/17.6-StatusCodePages-Redirects.ps1
 [sc-17-7-re-execute]: /pwsh/tutorial/examples/17.7-StatusCodePages-ReExecute.ps1
+[sc-17-8-common-status-codes]: /pwsh/tutorial/examples/17.8-StatusCodePages-Common-Status-Codes.ps1
 [sc-18-1-exceptionhandlingpath]: /pwsh/tutorial/examples/18.1-ExceptionHandling-Path.ps1
 [sc-18-2-vbnet-handler]: /pwsh/tutorial/examples/18.2-ExceptionHandling-VBNet.ps1
 [sc-18-3-csharp-inline]: /pwsh/tutorial/examples/18.3-ExceptionHandling-CSharp.ps1
@@ -456,12 +462,12 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-21-2-razor-localization]: /pwsh/tutorial/examples/21.2-Razor-Localization.ps1
 [sc-22-1-basic-multipart]: /pwsh/tutorial/examples/22.1-Basic-Multipart.ps1
 [sc-22-2-multiple-files]: /pwsh/tutorial/examples/22.2-Multiple-Files.ps1
-[sc-22-3-urlencoded]: /pwsh/tutorial/examples/22.3-UrlEncoded.ps1
+[sc-22-3-urlencoded]: /pwsh/tutorial/examples/22.3-Url-Encoded.ps1
 [sc-22-4-multipart-mixed]: /pwsh/tutorial/examples/22.4-Multipart-Mixed.ps1
 [sc-22-5-nested-multipart]: /pwsh/tutorial/examples/22.5-Nested-Multipart.ps1
 [sc-22-6-request-compressed]: /pwsh/tutorial/examples/22.6-Request-Compressed.ps1
 [sc-22-7-part-compressed]: /pwsh/tutorial/examples/22.7-Part-Compressed.ps1
-[sc-22-8-basic-multipart-openapi]: /pwsh/tutorial/examples/22.8-basic-multipart-OpenAPI.ps1
+[sc-22-8-basic-multipart-openapi]: /pwsh/tutorial/examples/22.8-Basic-Multipart-OpenAPI.ps1
 [sc-22-9-multiple-files-openapi]: /pwsh/tutorial/examples/22.9-Multiple-Files-OpenAPI.ps1
 [sc-22-10-url-encoded-openapi]: /pwsh/tutorial/examples/22.10-Url-Encoded-OpenAPI.ps1
 [sc-22-11-multipart-mixed-openapi]: /pwsh/tutorial/examples/22.11-Multipart-Mixed-OpenAPI.ps1

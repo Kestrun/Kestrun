@@ -552,47 +552,77 @@ public partial class OpenApiDocDescriptor
             return itemType is null ? typeof(object[]) : itemType.MakeArrayType();
         }
 
+        return InferNonArrayClrType(s, type);
+    }
+
+    /// <summary>
+    /// Infers a CLR type for non-array OpenAPI schema kinds.
+    /// </summary>
+    /// <param name="schema">The concrete OpenAPI schema.</param>
+    /// <param name="type">The normalized OpenAPI schema type flags.</param>
+    /// <returns>The inferred CLR type.</returns>
+    private static Type InferNonArrayClrType(OpenApiSchema schema, JsonSchemaType type)
+    {
+        // For objects, we have no better information to go on, so we default to object.
         if ((type & JsonSchemaType.Object) != 0)
         {
             return typeof(object);
         }
-
+        // For booleans, we can directly map to bool.
         if ((type & JsonSchemaType.Boolean) != 0)
         {
             return typeof(bool);
         }
-
+        // For integers, we attempt to infer more specific types based on the format, but if the format is unrecognized, we default to int for maximum compatibility with JSON Schema's "integer" type.
         if ((type & JsonSchemaType.Integer) != 0)
         {
-            return s.Format?.ToLowerInvariant() switch
-            {
-                "int64" => typeof(long),
-                _ => typeof(int)
-            };
+            return InferIntegerClrType(schema.Format);
         }
-
+        // For numbers, we attempt to infer more specific types based on the format, but if the format is unrecognized, we default to double for maximum compatibility with JSON Schema's "number" type.
         if ((type & JsonSchemaType.Number) != 0)
         {
-            return s.Format?.ToLowerInvariant() switch
-            {
-                "float" => typeof(float),
-                "double" => typeof(double),
-                _ => typeof(double)
-            };
+            return InferNumberClrType(schema.Format);
         }
-
-        return (type & JsonSchemaType.String) != 0
-            ? s.Format?.ToLowerInvariant() switch
-            {
-                "binary" => typeof(byte[]),
-                "uuid" => typeof(Guid),
-                "uri" => typeof(Uri),
-                "duration" => typeof(TimeSpan),
-                "date-time" => typeof(DateTimeOffset),
-                _ => typeof(string)
-            }
-            : (type & JsonSchemaType.Null) != 0 ? typeof(void) : typeof(object);
+        // For strings, we can attempt to infer more specific types based on the format, but if the format is unrecognized, we default to string.
+        if ((type & JsonSchemaType.String) != 0)
+        {
+            return InferStringClrType(schema.Format);
+        }
+        // If we have no type or an unrecognized type, default to object. This is a best-effort inference and may not be accurate for complex schemas.
+        return (type & JsonSchemaType.Null) != 0 ? typeof(void) : typeof(object);
     }
+
+    /// <summary>
+    /// Infers the CLR integer type from an OpenAPI integer format.
+    /// </summary>
+    /// <param name="format">The OpenAPI schema format value.</param>
+    /// <returns>The inferred CLR integer type.</returns>
+    private static Type InferIntegerClrType(string? format)
+        => string.Equals(format, "int64", StringComparison.OrdinalIgnoreCase) ? typeof(long) : typeof(int);
+
+    /// <summary>
+    /// Infers the CLR numeric type from an OpenAPI number format.
+    /// </summary>
+    /// <param name="format">The OpenAPI schema format value.</param>
+    /// <returns>The inferred CLR number type.</returns>
+    private static Type InferNumberClrType(string? format)
+        => string.Equals(format, "float", StringComparison.OrdinalIgnoreCase) ? typeof(float) : typeof(double);
+
+    /// <summary>
+    /// Infers the CLR string-like type from an OpenAPI string format.
+    /// </summary>
+    /// <param name="format">The OpenAPI schema format value.</param>
+    /// <returns>The inferred CLR type for the string format.</returns>
+    private static Type InferStringClrType(string? format)
+        => format?.ToLowerInvariant() switch
+        {
+            "binary" => typeof(byte[]),
+            "uuid" => typeof(Guid),
+            "uri" => typeof(Uri),
+            "duration" => typeof(TimeSpan),
+            "date-time" => typeof(DateTimeOffset),
+            _ => typeof(string)
+        };
 
     /// <summary>
     /// Selects the default success response (2xx) from the given OpenApiResponses.
@@ -658,12 +688,12 @@ public partial class OpenApiDocDescriptor
         {
             throw new InvalidOperationException($"Response for status code '{attribute.StatusCode}' is not defined for this operation.");
         }
-
+        // Note: if the existing response is a reference, we still apply the new response details to it. This allows attributes to override referenced responses without needing to define new references for each variation. However, if the existing response is a reference and we're not inlining, we replace it with a new reference to avoid modifying the original component.
         if (res is OpenApiResponseReference)
         {
             throw new InvalidOperationException($"Cannot apply OpenApiPropertyAttribute to response '{attribute.StatusCode}' because it is a reference. Use inline OpenApiResponseAttribute instead.");
         }
-
+        // We have to be able to modify the response content to apply the property attribute, so we require a concrete OpenApiResponse here. If it's not already, we replace it with a new instance (copy-on-write) to avoid modifying the original reference.
         if (res is OpenApiResponse response)
         {
             if (response.Content is null || response.Content.Count == 0)

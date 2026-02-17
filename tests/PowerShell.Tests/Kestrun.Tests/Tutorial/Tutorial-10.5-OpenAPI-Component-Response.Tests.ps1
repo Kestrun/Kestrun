@@ -45,6 +45,12 @@ Describe 'Example 10.5 OpenAPI Component Response' -Tag 'OpenApi', 'Tutorial', '
         $json.message | Should -Be 'Article created successfully'
     }
 
+    It 'No-content contract mismatch returns 500' {
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/test" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result.StatusCode | Should -Be 500
+        $result.Content | Should -Match 'declared without content'
+    }
+
     It 'Check OpenAPI Responses' {
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $json = $result.Content | ConvertFrom-Json

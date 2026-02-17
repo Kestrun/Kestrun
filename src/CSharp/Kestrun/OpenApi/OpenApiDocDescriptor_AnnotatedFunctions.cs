@@ -436,25 +436,29 @@ public partial class OpenApiDocDescriptor
         }
 
         metadata.Responses.Add(attribute.StatusCode, iResponse);
-        if (response?.Content is not null)
-        {
-            // Note: if the existing response is a reference, we still apply the new response details to it.
-            // This allows attributes to override referenced responses without needing to define new references for each variation. However, if the existing response is a reference and we're not inlining, we replace it with a new reference to avoid modifying the original component.
-            //   if (CreateResponseFromAttribute(attribute, response))
-            // {
-            // SetDefaultResponseContentType(metadata.Responses, routeOptions, attribute.StatusCode);
-            // Merge into existing dictionary instead of overwriting so we preserve host defaults
-            // and can add multiple entries (e.g., 201 + 4XX).
-            routeOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<ContentTypeWithSchema>>(StringComparer.OrdinalIgnoreCase);
+        routeOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<ContentTypeWithSchema>>(StringComparer.OrdinalIgnoreCase);
 
-            // Materialize keys to avoid OpenAPI collections being mutated later.
-            // Also capture the schema CLR type (best-effort) to enable runtime negotiation/serialization decisions.
-            routeOptions.DefaultResponseContentType[attribute.StatusCode] =
-            [
-                .. response.Content.Select(kvp =>
-                    new ContentTypeWithSchema(kvp.Key, kvp.Value.Schema!.Id))
-            ];
+        if (response?.Content is not { Count: > 0 })
+        {
+            routeOptions.DefaultResponseContentType[attribute.StatusCode] = [];
+            return;
         }
+
+        // Note: if the existing response is a reference, we still apply the new response details to it.
+        // This allows attributes to override referenced responses without needing to define new references for each variation. However, if the existing response is a reference and we're not inlining, we replace it with a new reference to avoid modifying the original component.
+        //   if (CreateResponseFromAttribute(attribute, response))
+        // {
+        // SetDefaultResponseContentType(metadata.Responses, routeOptions, attribute.StatusCode);
+        // Merge into existing dictionary instead of overwriting so we preserve host defaults
+        // and can add multiple entries (e.g., 201 + 4XX).
+
+        // Materialize keys to avoid OpenAPI collections being mutated later.
+        // Also capture the schema CLR type (best-effort) to enable runtime negotiation/serialization decisions.
+        routeOptions.DefaultResponseContentType[attribute.StatusCode] =
+        [
+            .. response.Content.Select(kvp =>
+                new ContentTypeWithSchema(kvp.Key, kvp.Value.Schema!.Id))
+        ];
         //}
     }
 
@@ -500,9 +504,7 @@ public partial class OpenApiDocDescriptor
             return;
         }
 
-        if (!responses.TryGetValue(newStatusCode, out var newResponse) ||
-            newResponse.Content is null ||
-            newResponse.Content.Count == 0)
+        if (!responses.TryGetValue(newStatusCode, out var newResponse))
         {
             return;
         }
@@ -510,6 +512,12 @@ public partial class OpenApiDocDescriptor
         // Merge into existing dictionary instead of overwriting so we preserve host defaults
         // and can add multiple entries (e.g., 201 + 4XX).
         routeOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<ContentTypeWithSchema>>(StringComparer.OrdinalIgnoreCase);
+
+        if (newResponse.Content is null || newResponse.Content.Count == 0)
+        {
+            routeOptions.DefaultResponseContentType[newStatusCode] = [];
+            return;
+        }
 
         // Materialize keys to avoid OpenAPI collections being mutated later.
         routeOptions.DefaultResponseContentType[newStatusCode] =

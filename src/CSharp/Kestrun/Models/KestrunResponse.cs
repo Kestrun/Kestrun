@@ -571,6 +571,14 @@ public class KestrunResponse
             return;
         }
 
+        if (values.Count == 0)
+        {
+            var msg = $"Response status code {statusCode} is declared without content in OpenAPI. Returning a payload for this status is not allowed.";
+            Logger.Warning(msg);
+            await WriteErrorResponseAsync(msg, StatusCodes.Status500InternalServerError);
+            return;
+        }
+
         var supported = values as IReadOnlyList<ContentTypeWithSchema> ?? [.. values];
 
         var mediaType = SelectResponseMediaType(acceptHeader, supported, defaultType: supported[0].ContentType);
@@ -851,7 +859,7 @@ public class KestrunResponse
         }
 
         var statusKey = statusCode.ToString(CultureInfo.InvariantCulture);
-        if (TryGetValueIgnoreCase(contentTypes, statusKey, out values) && values is { Count: > 0 })
+        if (TryGetValueIgnoreCase(contentTypes, statusKey, out values))
         {
             return true;
         }

@@ -291,6 +291,52 @@ public partial class KestrunResponseTests
 
     [Fact]
     [Trait("Category", "Models")]
+    public async Task WriteResponse_WithOpenApiAnnotatedFunctionMarker_AndExactNoContentMapping_Returns500()
+    {
+        var ctx = TestRequestFactory.CreateContext(
+            path: "/test",
+            headers: new Dictionary<string, string> { { "Accept", "application/json" } });
+
+        ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>
+        {
+            ["200"] = [],
+            ["default"] = [new("application/json")]
+        };
+        ctx.MapRouteOptions.IsOpenApiAnnotatedFunctionRoute = true;
+
+        var res = ctx.Response;
+
+        await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status200OK);
+
+        Assert.Equal(StatusCodes.Status500InternalServerError, res.StatusCode);
+        Assert.Contains("declared without content", res.Body?.ToString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public async Task WriteResponse_WithOpenApiAnnotatedFunctionMarker_AndRangeNoContentMapping_Returns500()
+    {
+        var ctx = TestRequestFactory.CreateContext(
+            path: "/test",
+            headers: new Dictionary<string, string> { { "Accept", "application/json" } });
+
+        ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>
+        {
+            ["2XX"] = [],
+            ["default"] = [new("application/json")]
+        };
+        ctx.MapRouteOptions.IsOpenApiAnnotatedFunctionRoute = true;
+
+        var res = ctx.Response;
+
+        await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status200OK);
+
+        Assert.Equal(StatusCodes.Status500InternalServerError, res.StatusCode);
+        Assert.Contains("declared without content", res.Body?.ToString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
     public async Task ApplyTo_Sets_ContentDisposition_With_FileName()
     {
         var ctx = MakeCtx();

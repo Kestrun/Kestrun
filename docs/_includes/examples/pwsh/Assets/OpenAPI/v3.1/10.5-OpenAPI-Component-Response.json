@@ -188,6 +188,28 @@
           }
         }
       }
+    },
+    "/test": {
+      "get": {
+        "summary": "Demonstrate no-content response contract enforcement.",
+        "description": "Declares a 200 response without content and intentionally writes a payload.\nRuntime should reject this and return a 500 contract error.",
+        "operationId": "testNoContentContract",
+        "responses": {
+          "200": {
+            "description": "No content response contract"
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

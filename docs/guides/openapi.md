@@ -91,6 +91,32 @@ Set-KrOpenApiErrorSchema -Name 'ApiError' -ContentType @('application/problem+js
 
 Configure this before `Build-KrOpenApiDocument` / `Add-KrOpenApiRoute` so generated output is stable for tests and clients.
 
+### OpenAPI-focused runtime error payload customization
+
+Use `Set-KrPowerShellErrorResponse` when you also want to customize the **runtime**
+error payload shape for PowerShell route execution, while keeping the OpenAPI error
+contract aligned via `Set-KrOpenApiErrorSchema`.
+
+```powershell
+# OpenAPI contract for generated client errors
+Set-KrOpenApiErrorSchema -Name 'ApiError' -ContentType @('application/problem+json', 'application/json')
+
+# Runtime payload shape used when route execution hits an error path
+Set-KrPowerShellErrorResponse -ScriptBlock {
+  $payload = [ordered]@{
+    status = $StatusCode
+    title = 'Request failed'
+    detail = $ErrorMessage
+    path = [string]$Context.Request.Path
+    timestamp = (Get-Date).ToUniversalTime().ToString('o')
+  }
+
+  Write-KrJsonResponse -InputObject $payload -StatusCode $StatusCode -ContentType 'application/problem+json'
+}
+```
+
+If no custom script is configured (or the custom script fails), Kestrun falls back to the default error writer.
+
 ## 1. Concepts
 
 | Concept              | Description                                                                    |
@@ -1062,6 +1088,10 @@ When possible, Kestrun reflects these into the generated OpenAPI parameter schem
 
 ### Usage in Route (Parameters)
 
+For operation parameters (especially path parameters), prefer explicit parameter
+attributes on function parameters so OpenAPI metadata and runtime binding stay
+aligned.
+
 ```powershell
 function listItems {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/items')]
@@ -1072,6 +1102,18 @@ function listItems {
         [OpenApiParameterRef(ReferenceId = 'limit')]
         [int]$limit
     )
+}
+```
+
+Path-parameter example:
+
+```powershell
+function getItem {
+  [OpenApiPath(HttpVerb = 'get', Pattern = '/items/{id}')]
+  param(
+    [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]
+    [int]$id
+  )
 }
 ```
 

@@ -846,7 +846,7 @@ public class KestrunResponse
     /// <param name="contentTypes">The content type map keyed by status code, range, or default.</param>
     /// <param name="statusCode">The HTTP status code to resolve.</param>
     /// <param name="values">The resolved content types, if found.</param>
-    /// <returns>True when a matching entry is found and contains at least one value.</returns>
+    /// <returns>True when a matching entry is found, including explicit empty mappings.</returns>
     private static bool TryGetResponseContentTypes(
         IDictionary<string, ICollection<ContentTypeWithSchema>>? contentTypes,
         int statusCode,
@@ -870,13 +870,13 @@ public class KestrunResponse
             // - 4XX (all 4xx)
             // These are matched case-insensitively.
             var rangeKey = $"{statusCode / 100}XX";
-            if (TryGetValueIgnoreCase(contentTypes, rangeKey, out values) && values is { Count: > 0 })
+            if (TryGetValueIgnoreCase(contentTypes, rangeKey, out values))
             {
                 return true;
             }
         }
 
-        if (TryGetValueIgnoreCase(contentTypes, "default", out values) && values is { Count: > 0 })
+        if (TryGetValueIgnoreCase(contentTypes, "default", out values))
         {
             return true;
         }

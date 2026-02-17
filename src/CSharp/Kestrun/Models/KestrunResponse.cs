@@ -485,7 +485,19 @@ public class KestrunResponse
     /// </summary>
     /// <param name="inputObject">The object to be sent in the response body.</param>
     /// <returns>A task that represents the asynchronous write operation.</returns>
-    public async Task WriteResponseAsync(WriteObject inputObject) => await WriteResponseAsync(inputObject.Value, inputObject.Status);
+    public Task WriteResponseAsync(WriteObject inputObject)
+    {
+        ArgumentNullException.ThrowIfNull(inputObject);
+
+        if (inputObject.Value is null)
+        {
+            Body = null;
+            StatusCode = inputObject.Status;
+            return Task.CompletedTask;
+        }
+
+        return WriteResponseAsync(inputObject.Value, inputObject.Status);
+    }
 
     /// <summary>
     /// Asynchronously writes a response with the specified input object and HTTP status code.

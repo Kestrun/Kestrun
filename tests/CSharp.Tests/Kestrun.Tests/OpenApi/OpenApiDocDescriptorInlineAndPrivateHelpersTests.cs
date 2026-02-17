@@ -10,6 +10,17 @@ namespace KestrunTests.OpenApi;
 
 public sealed class OpenApiDocDescriptorInlineAndPrivateHelpersTests
 {
+    private static void InvokeApplyResponseAttribute(OpenApiDocDescriptor descriptor, OpenAPIPathMetadata metadata, IOpenApiResponseAttribute attribute, MapRouteOptions routeOptions)
+    {
+        var method = typeof(OpenApiDocDescriptor).GetMethod(
+            "ApplyResponseAttribute",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+
+        _ = method.Invoke(descriptor, [metadata, attribute, routeOptions]);
+    }
+
     [Fact]
     public void TryGetInline_ReturnsFalse_WhenInlineComponentsAreNull()
     {
@@ -414,6 +425,42 @@ public sealed class OpenApiDocDescriptorInlineAndPrivateHelpersTests
         Assert.DoesNotContain("406", opWithDefault.Responses.Keys);
         Assert.DoesNotContain("415", opWithDefault.Responses.Keys);
         Assert.DoesNotContain("422", opWithDefault.Responses.Keys);
+    }
+
+    [Fact]
+    public void ApplyResponseAttribute_ReplacesExistingResponseReference_ForSameStatusCode()
+    {
+        using var host = new KestrunHost("Tests", Log.Logger);
+        var descriptor = new OpenApiDocDescriptor(host, OpenApiDocDescriptor.DefaultDocumentationId);
+
+        var mapOptions = new MapRouteOptions();
+        var metadata = new OpenAPIPathMetadata(mapOptions)
+        {
+            Responses = new OpenApiResponses
+            {
+                ["200"] = new OpenApiResponseReference("Shared200")
+            }
+        };
+
+        var attribute = new OpenApiResponseAttribute
+        {
+            StatusCode = "200",
+            Description = "Overridden response",
+            ContentType = ["application/json"],
+            Schema = typeof(string)
+        };
+
+        InvokeApplyResponseAttribute(descriptor, metadata, attribute, mapOptions);
+
+        var applied = Assert.IsType<OpenApiResponse>(metadata.Responses["200"]);
+        Assert.Equal("Overridden response", applied.Description);
+        Assert.NotNull(applied.Content);
+        Assert.Contains("application/json", applied.Content.Keys);
+
+        Assert.NotNull(mapOptions.DefaultResponseContentType);
+        Assert.True(mapOptions.DefaultResponseContentType.TryGetValue("200", out var mapped));
+        var contentType = Assert.Single(mapped);
+        Assert.Equal("application/json", contentType.ContentType);
     }
 
     private static bool InvokeTryAddExample(OpenApiDocDescriptor d, IDictionary<string, IOpenApiExample> examples, IOpenApiExampleAttribute attr)

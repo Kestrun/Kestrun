@@ -169,6 +169,45 @@ public partial class KestrunResponseTests
 
     [Fact]
     [Trait("Category", "Models")]
+    public async Task WriteResponse_WriteObject_WithNullValue_AllowsStatusOnlyResponse()
+    {
+        var ctx = MakeCtx("application/json");
+        var res = ctx.Response;
+
+        await res.WriteResponseAsync(new KestrunResponse.WriteObject(null, StatusCodes.Status204NoContent));
+
+        Assert.Equal(StatusCodes.Status204NoContent, res.StatusCode);
+        Assert.Null(res.Body);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public async Task WriteResponse_ObjectOverload_WithNull_ThrowsArgumentNullException()
+    {
+        var ctx = MakeCtx("application/json");
+        var res = ctx.Response;
+
+        var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => res.WriteResponseAsync((object?)null, StatusCodes.Status200OK));
+
+        Assert.Equal("inputObject", ex.ParamName);
+        Assert.Contains("Use WriteResponseAsync(WriteObject)", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void WriteResponse_SyncOverload_WithNull_ThrowsArgumentNullException()
+    {
+        var ctx = MakeCtx("application/json");
+        var res = ctx.Response;
+
+        var ex = Assert.Throws<ArgumentNullException>(() => res.WriteResponse(null, StatusCodes.Status200OK));
+
+        Assert.Equal("inputObject", ex.ParamName);
+        Assert.Contains("Use WriteResponseAsync(WriteObject)", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
     public async Task WriteResponse_Chooses_Highest_QValue_From_Accept()
     {
         var ctx = MakeCtx("application/xml;q=0.1, application/json;q=0.9");

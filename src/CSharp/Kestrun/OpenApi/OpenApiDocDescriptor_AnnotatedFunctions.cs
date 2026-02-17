@@ -471,11 +471,20 @@ public partial class OpenApiDocDescriptor
     private void ApplyResponseAttribute(OpenAPIPathMetadata metadata, IOpenApiResponseAttribute attribute, MapRouteOptions routeOptions)
     {
         metadata.Responses ??= [];
-        if (!metadata.Responses.TryGetValue(attribute.StatusCode, out var existing) ||
-           existing is not OpenApiResponse response)
+        OpenApiResponse response;
+        if (!metadata.Responses.TryGetValue(attribute.StatusCode, out var existing))
         {
             response = new OpenApiResponse();
-            metadata.Responses.Add(attribute.StatusCode, response); // overwrite/insert
+            metadata.Responses.Add(attribute.StatusCode, response);
+        }
+        else if (existing is OpenApiResponse existingResponse)
+        {
+            response = existingResponse;
+        }
+        else
+        {
+            response = new OpenApiResponse();
+            metadata.Responses[attribute.StatusCode] = response;
         }
 
         // Note: if the existing response is a reference, we still apply the new response details to it.
@@ -492,7 +501,7 @@ public partial class OpenApiDocDescriptor
     /// This enables runtime content negotiation in <c>Write-KrResponse</c> for exact codes (e.g. <c>400</c>) and OpenAPI ranges (e.g. <c>4XX</c>).
     /// </summary>
     /// <param name="responses">The collection of OpenAPI responses to check and update.</param>
-    ///  <param name="routeOptions">The route options to update.</param>
+    /// <param name="routeOptions">The route options to update.</param>
     /// <param name="newStatusCode">The status code of the new response that was just added.</param>
     /// <param name="schema">The schema type associated with the response content type.</param>
     private static void SetDefaultResponseContentType(OpenApiResponses responses, MapRouteOptions routeOptions, string newStatusCode, string? schema)

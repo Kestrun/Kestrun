@@ -117,7 +117,7 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
         } | ConvertTo-Json
 
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/products" -Method Post -Body $body -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
-        $result.StatusCode | Should -Be 406
+        $result.StatusCode | Should -Be 422
         $json = $result.Content | ConvertFrom-Json
         $json.error | Should -Match 'Name.*required'
     }

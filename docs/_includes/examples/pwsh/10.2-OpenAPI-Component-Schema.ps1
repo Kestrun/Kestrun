@@ -260,16 +260,6 @@ function purchaseTickets {
         [PurchaseRequest]$body
     )
 
-    # if ($null -eq $body -or $null -eq $body.customer -or -not $body.customer.email) {
-    #    Write-KrResponse @{ code = 400; message = 'customer.email is required' } -StatusCode 400
-    #   return
-    #}
-
-    #  if ($null -eq $body.items -or $body.items.Count -lt 1) {
-    #     Write-KrResponse @{ code = 400; message = 'At least one line item is required' } -StatusCode 400
-    #    return
-    #}
-
     $total = 0.0
     foreach ($item in $body.items) {
         $qty = [int]$item.quantity

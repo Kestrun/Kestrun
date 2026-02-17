@@ -36,6 +36,11 @@ public partial class OpenApiDocDescriptor
         return op;
     }
 
+    /// <summary>
+    /// Ensures that appropriate client error responses (4XX) are included in the OpenApiOperation based on the presence of parameters, request body, content type validation, and response negotiation. If such responses are not already defined, it adds default 400, 406, 415, and/or 422 responses with a standard error schema.
+    /// </summary>
+    /// <param name="operation">The OpenApiOperation to modify.</param>
+    /// <param name="meta">The OpenAPIPathMetadata containing metadata for the operation.</param>
     private void EnsureAutoClientErrorResponses(OpenApiOperation operation, OpenAPIPathMetadata meta)
     {
         operation.Responses ??= [];
@@ -45,13 +50,35 @@ public partial class OpenApiDocDescriptor
             return;
         }
 
+        var statusesToAdd = GetAutoClientErrorStatuses(operation, meta);
+
+        if (statusesToAdd.Count == 0)
+        {
+            return;
+        }
+
+        var errorSchemaId = EnsureAutoErrorSchemaComponent();
+        var errorContentTypes = GetAutoErrorResponseContentTypes();
+
+        AddMissingAutoClientErrorResponses(operation, statusesToAdd, errorSchemaId, errorContentTypes);
+    }
+
+    /// <summary>
+    /// Determines which automatic client error statuses should be added for the operation.
+    /// </summary>
+    /// <param name="operation">The operation being generated.</param>
+    /// <param name="meta">The metadata describing the route and request constraints.</param>
+    /// <returns>A set of status codes to add.</returns>
+    private static HashSet<string> GetAutoClientErrorStatuses(OpenApiOperation operation, OpenAPIPathMetadata meta)
+    {
         var statusesToAdd = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var hasParameters = meta.Parameters is { Count: > 0 };
         var hasRequestBody = meta.RequestBody is not null;
         var hasRequestContentTypeValidation = meta.MapOptions.AllowedRequestContentTypes.Count > 0;
+        var responses = operation.Responses;
         var hasResponseNegotiation =
             meta.MapOptions.DefaultResponseContentType is { Count: > 0 } ||
-            operation.Responses.Values.Any(r => r.Content is { Count: > 0 });
+            (responses is not null && responses.Values.Any(r => r.Content is { Count: > 0 }));
 
         if (hasParameters || hasRequestBody)
         {
@@ -69,28 +96,48 @@ public partial class OpenApiDocDescriptor
             _ = statusesToAdd.Add("406");
         }
 
-        if (statusesToAdd.Count == 0)
-        {
-            return;
-        }
+        return statusesToAdd;
+    }
 
-        var errorSchemaId = EnsureAutoErrorSchemaComponent();
-        var errorContentTypes = GetAutoErrorResponseContentTypes();
+    /// <summary>
+    /// Adds missing automatic client error responses to the OpenAPI operation.
+    /// </summary>
+    /// <param name="operation">The operation to modify.</param>
+    /// <param name="statusesToAdd">The status codes to add when absent.</param>
+    /// <param name="errorSchemaId">The schema id used for error response bodies.</param>
+    /// <param name="errorContentTypes">The response content types for auto client errors.</param>
+    private static void AddMissingAutoClientErrorResponses(
+        OpenApiOperation operation,
+        IReadOnlyCollection<string> statusesToAdd,
+        string errorSchemaId,
+        IReadOnlyList<string> errorContentTypes)
+    {
+        operation.Responses ??= [];
+        var responses = operation.Responses;
 
         foreach (var status in statusesToAdd)
         {
-            if (ResponseKeyExists(operation.Responses, status))
+            if (ResponseKeyExists(responses, status))
             {
                 continue;
             }
 
-            operation.Responses[status] = CreateAutoClientErrorResponse(status, errorSchemaId, errorContentTypes);
+            responses[status] = CreateAutoClientErrorResponse(status, errorSchemaId, errorContentTypes);
         }
     }
 
+    /// <summary>
+    /// Checks if a response key exists in the OpenApiResponses, ignoring case.
+    /// </summary> <param name="responses">The OpenApiResponses to check.</param>
+    /// <param name="statusCode">The status code key to look for.</param>
+    /// <returns>True if the key exists; otherwise, false.</returns>
     private static bool ResponseKeyExists(OpenApiResponses responses, string statusCode)
         => responses.Keys.Any(k => string.Equals(k, statusCode, StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>
+    /// Ensures that a standard error response schema is defined in the OpenAPI document components. If the schema identified by AutoErrorResponseSchemaId (or a default ID if not set) does not already exist, it adds a new schema with properties for status, error, reason, timestamp, and optional details, exception, stackTrace, path, and
+    /// </summary>
+    /// <returns> The ID of the error schema component. </returns>
     private string EnsureAutoErrorSchemaComponent()
     {
         Document.Components ??= new OpenApiComponents();

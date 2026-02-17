@@ -604,8 +604,8 @@ public static class PowerShellOpenApiClassExporter
     /// <summary>
     /// Determines if the specified type has an OpenAPI component attribute.
     /// </summary>
-    /// <param name="t"></param>
-    /// <returns></returns>
+    /// <param name="t">The type to inspect.</param>
+    /// <returns>True if the type has an OpenAPI component attribute; otherwise, false.</returns>
     private static bool HasOpenApiComponentAttribute(Type t)
     {
         return t.GetCustomAttributes(inherit: true)
@@ -617,37 +617,22 @@ public static class PowerShellOpenApiClassExporter
     /// <summary>
     /// Appends the PowerShell class definition for the specified type to the StringBuilder.
     /// </summary>
-    /// <param name="type"></param>
-    /// <param name="componentSet"></param>
-    /// <param name="sb"></param>
+    /// <param name="type">The type to export as a PowerShell class.</param>
+    /// <param name="componentSet">The set of known component types.</param>
+    /// <param name="sb">The StringBuilder to append the class definition to.</param>
     private static void AppendClass(Type type, HashSet<Type> componentSet, StringBuilder sb)
     {
         var bindFormAttribute = TryBuildKrBindFormAttribute(type, out var formMaxDepth);
         var requiredProperties = GetRequiredProperties(type);
         var additionalPropertiesMetadata = BuildAdditionalPropertiesMetadata(type);
 
-        // Detect base type (for parenting). For OpenAPI form models, base type is chosen
-        // by KrBindForm.MaxNestingDepth rather than requiring inheritance on the original class.
-        var baseClause = string.Empty;
-        if ((bindFormAttribute is null || formMaxDepth > 0)
-            && TryGetFormPayloadBasePsName(type, out var formBasePsName))
-        {
-            baseClause = $" : {formBasePsName}";
-        }
-        else
-        {
-            var baseType = type.BaseType;
-            if (baseType != null && baseType != typeof(object))
-            {
-                // Use PS-friendly type name for the base
-                var basePsName = ToPowerShellTypeName(baseType, componentSet, collapseToUnderlyingPrimitives: false);
-                baseClause = $" : {basePsName}";
-            }
-        }
+        var baseClause = ResolveClassBaseClause(type, componentSet, bindFormAttribute, formMaxDepth);
+
         if (bindFormAttribute is not null)
         {
             _ = sb.AppendLine(bindFormAttribute);
         }
+
         _ = sb.AppendLine("[NoRunspaceAffinity()]");
         _ = sb.AppendLine($"class {type.Name}{baseClause} {{");
 
@@ -655,19 +640,7 @@ public static class PowerShellOpenApiClassExporter
         var props = type.GetProperties(
             BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
 
-        if (ShouldEmitAdditionalProperties(type, props))
-        {
-            _ = sb.AppendLine("    [hashtable]$AdditionalProperties");
-        }
-
-        if (!string.IsNullOrWhiteSpace(additionalPropertiesMetadata))
-        {
-            _ = sb.AppendLine();
-            _ = sb.AppendLine("    # Static AdditionalProperties metadata for this class");
-            _ = sb.AppendLine("    static [hashtable] $AdditionalPropertiesMetadata = @{");
-            _ = sb.Append(additionalPropertiesMetadata);
-            _ = sb.AppendLine("    }");
-        }
+        AppendAdditionalPropertiesMembers(type, props, additionalPropertiesMetadata, sb);
 
         if (requiredProperties.Length > 0)
         {
@@ -692,6 +665,64 @@ public static class PowerShellOpenApiClassExporter
         _ = sb.AppendLine("}");
     }
 
+    /// <summary>
+    /// Resolves the PowerShell class base clause for an exported OpenAPI component.
+    /// </summary>
+    /// <param name="type">The component type being exported.</param>
+    /// <param name="componentSet">The set of known component types.</param>
+    /// <param name="bindFormAttribute">The generated KrBindForm attribute text, if any.</param>
+    /// <param name="formMaxDepth">The resolved KrBindForm.MaxNestingDepth value.</param>
+    /// <returns>The base clause including leading colon, or an empty string when no base type is emitted.</returns>
+    private static string ResolveClassBaseClause(Type type, HashSet<Type> componentSet, string? bindFormAttribute, int formMaxDepth)
+    {
+        if ((bindFormAttribute is null || formMaxDepth > 0)
+            && TryGetFormPayloadBasePsName(type, out var formBasePsName))
+        {
+            return $" : {formBasePsName}";
+        }
+
+        var baseType = type.BaseType;
+        if (baseType is null || baseType == typeof(object))
+        {
+            return string.Empty;
+        }
+
+        var basePsName = ToPowerShellTypeName(baseType, componentSet, collapseToUnderlyingPrimitives: false);
+        return $" : {basePsName}";
+    }
+
+    /// <summary>
+    /// Appends AdditionalProperties members and metadata for a generated class when applicable.
+    /// </summary>
+    /// <param name="type">The component type being exported.</param>
+    /// <param name="props">Declared public instance properties on the type.</param>
+    /// <param name="additionalPropertiesMetadata">Prebuilt AdditionalProperties metadata block.</param>
+    /// <param name="sb">The output builder.</param>
+    private static void AppendAdditionalPropertiesMembers(Type type, PropertyInfo[] props, string additionalPropertiesMetadata, StringBuilder sb)
+    {
+        if (ShouldEmitAdditionalProperties(type, props))
+        {
+            _ = sb.AppendLine("    [hashtable]$AdditionalProperties");
+        }
+
+        if (string.IsNullOrWhiteSpace(additionalPropertiesMetadata))
+        {
+            return;
+        }
+
+        _ = sb.AppendLine();
+        _ = sb.AppendLine("    # Static AdditionalProperties metadata for this class");
+        _ = sb.AppendLine("    static [hashtable] $AdditionalPropertiesMetadata = @{");
+        _ = sb.Append(additionalPropertiesMetadata);
+        _ = sb.AppendLine("    }");
+    }
+
+    /// <summary>
+    /// Determines whether to emit an AdditionalProperties hashtable and metadata based on the presence of an AdditionalProperties property or OpenApiPatternProperties attribute.
+    /// </summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <param name="maxDepth">The maximum nesting depth for the form.</param>
+    /// <returns>A string representing the KrBindForm attribute, or null if not applicable.</returns>
     private static string? TryBuildKrBindFormAttribute(Type type, out int maxDepth)
     {
         maxDepth = 0;

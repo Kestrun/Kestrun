@@ -516,64 +516,89 @@ public class KestrunResponse
 
             if (!ShouldEnforceOpenApiResponseContentTypes())
             {
-                var negotiated = SelectResponseMediaType(acceptHeader, LegacyNegotiatedResponseContentTypes, defaultType: "text/plain")
-                    ?? new ContentTypeWithSchema("text/plain", null);
-
-                if (Logger.IsEnabled(LogEventLevel.Verbose))
-                {
-                    Logger.Verbose(
-                        "Selected legacy response media type for status code: {StatusCode}, MediaType={MediaType}, Accept={Accept}",
-                        statusCode,
-                        negotiated,
-                        acceptHeader);
-                }
-
-                await WriteByMediaTypeAsync(negotiated.ContentType, inputObject, statusCode);
+                await WriteLegacyNegotiatedResponseAsync(inputObject, statusCode, acceptHeader);
                 return;
             }
 
-            // Resolve supported content types for this status code (exact -> range -> default)
-            if (!TryGetResponseContentTypes(KrContext.MapRouteOptions.DefaultResponseContentType, statusCode, out var values) || values is null)
-            {
-                var msg = $"No default response content type configured for status code {statusCode} and no range/default fallback found.";
-                Logger.Warning(msg);
-
-                await WriteErrorResponseAsync(msg, StatusCodes.Status406NotAcceptable);
-                return;
-            }
-
-            var supported = values as IReadOnlyList<ContentTypeWithSchema> ?? [.. values];
-
-            // Pick media type from Accept ∩ values, else fallback to first configured
-            var mediaType = SelectResponseMediaType(acceptHeader, supported, defaultType: supported[0].ContentType);
-            if (mediaType is null)
-            {
-                var supportedMediaTypes = string.Join(", ", supported.Select(x => x.ContentType));
-                var msg = $"No supported media type found for status code {statusCode} with Accept header '{acceptHeader}'. Supported types: {supportedMediaTypes}";
-                Logger.Warning(
-                    "No supported media type found for status code {StatusCode} with Accept header '{AcceptHeader}'. Supported media types: {SupportedMediaTypes}. Supported entries: {@SupportedEntries}",
-                    statusCode,
-                    acceptHeader,
-                    supportedMediaTypes,
-                    supported);
-
-                await WriteErrorResponseAsync(msg, StatusCodes.Status406NotAcceptable);
-                return;
-            }
-            if (Logger.IsEnabled(LogEventLevel.Verbose))
-            {
-                Logger.Verbose(
-                    "Selected response media type for status code: {StatusCode}, MediaType={MediaType}, Accept={Accept}",
-                    statusCode, mediaType, acceptHeader);
-            }
-
-            await WriteByMediaTypeAsync(mediaType.ContentType, inputObject, statusCode);
+            await WriteOpenApiNegotiatedResponseAsync(inputObject, statusCode, acceptHeader);
         }
         catch (Exception ex)
         {
             Logger.Error(ex, "Error in WriteResponseAsync");
             await WriteErrorResponseAsync("Internal server error.", StatusCodes.Status500InternalServerError);
         }
+    }
+
+    /// <summary>
+    /// Writes a response using legacy Accept-header negotiation for non-OpenAPI routes.
+    /// </summary>
+    /// <param name="inputObject">The response payload.</param>
+    /// <param name="statusCode">The HTTP status code for the response.</param>
+    /// <param name="acceptHeader">The incoming Accept header value.</param>
+    /// <returns>A task representing the asynchronous write operation.</returns>
+    private async Task WriteLegacyNegotiatedResponseAsync(object inputObject, int statusCode, string? acceptHeader)
+    {
+        var negotiated = SelectResponseMediaType(acceptHeader, LegacyNegotiatedResponseContentTypes, defaultType: "text/plain")
+            ?? new ContentTypeWithSchema("text/plain", null);
+
+        if (Logger.IsEnabled(LogEventLevel.Verbose))
+        {
+            Logger.Verbose(
+                "Selected legacy response media type for status code: {StatusCode}, MediaType={MediaType}, Accept={Accept}",
+                statusCode,
+                negotiated,
+                acceptHeader);
+        }
+
+        await WriteByMediaTypeAsync(negotiated.ContentType, inputObject, statusCode);
+    }
+
+    /// <summary>
+    /// Writes a response using OpenAPI-declared response content types for the current status code.
+    /// </summary>
+    /// <param name="inputObject">The response payload.</param>
+    /// <param name="statusCode">The HTTP status code for the response.</param>
+    /// <param name="acceptHeader">The incoming Accept header value.</param>
+    /// <returns>A task representing the asynchronous write operation.</returns>
+    private async Task WriteOpenApiNegotiatedResponseAsync(object inputObject, int statusCode, string? acceptHeader)
+    {
+        if (!TryGetResponseContentTypes(KrContext.MapRouteOptions.DefaultResponseContentType, statusCode, out var values) || values is null)
+        {
+            var msg = $"No default response content type configured for status code {statusCode} and no range/default fallback found.";
+            Logger.Warning(msg);
+
+            await WriteErrorResponseAsync(msg, StatusCodes.Status406NotAcceptable);
+            return;
+        }
+
+        var supported = values as IReadOnlyList<ContentTypeWithSchema> ?? [.. values];
+
+        var mediaType = SelectResponseMediaType(acceptHeader, supported, defaultType: supported[0].ContentType);
+        if (mediaType is null)
+        {
+            var supportedMediaTypes = string.Join(", ", supported.Select(x => x.ContentType));
+            var msg = $"No supported media type found for status code {statusCode} with Accept header '{acceptHeader}'. Supported types: {supportedMediaTypes}";
+            Logger.Warning(
+                "No supported media type found for status code {StatusCode} with Accept header '{AcceptHeader}'. Supported media types: {SupportedMediaTypes}. Supported entries: {@SupportedEntries}",
+                statusCode,
+                acceptHeader,
+                supportedMediaTypes,
+                supported);
+
+            await WriteErrorResponseAsync(msg, StatusCodes.Status406NotAcceptable);
+            return;
+        }
+
+        if (Logger.IsEnabled(LogEventLevel.Verbose))
+        {
+            Logger.Verbose(
+                "Selected response media type for status code: {StatusCode}, MediaType={MediaType}, Accept={Accept}",
+                statusCode,
+                mediaType,
+                acceptHeader);
+        }
+
+        await WriteByMediaTypeAsync(mediaType.ContentType, inputObject, statusCode);
     }
 
     /// <summary>
@@ -691,57 +716,88 @@ public class KestrunResponse
 
             if (supportsAnyMediaType)
             {
-                if (string.Equals(acceptNormalized, "*/*", StringComparison.OrdinalIgnoreCase) ||
-                    acceptNormalized.EndsWith("/*", StringComparison.OrdinalIgnoreCase))
-                {
-                    return new ContentTypeWithSchema(defaultType, null);
-                }
-
-                var writerMediaType = ResolveWriterMediaType(acceptNormalized, defaultType);
-                return new ContentTypeWithSchema(writerMediaType, null);
+                return SelectWhenAnyMediaTypeSupported(acceptNormalized, defaultType);
             }
 
-            if (string.Equals(acceptNormalized, "*/*", StringComparison.OrdinalIgnoreCase))
+            var matched = SelectFromConfiguredSupportedMediaTypes(acceptNormalized, supported, supportedNormalized, supportedCanonical);
+            if (matched is not null)
             {
-                return supported[0];
-            }
-
-            // 2) type/* wildcard (match using normalized supported types)
-            if (acceptNormalized.EndsWith("/*", StringComparison.OrdinalIgnoreCase))
-            {
-                var prefix = acceptNormalized[..^1]; // "application/"
-                for (var i = 0; i < supported.Count; i++)
-                {
-                    if (supportedNormalized[i].StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return supported[i];
-                    }
-                }
-
-                continue;
-            }
-
-            var acceptCanonical = MediaTypeHelper.Canonicalize(acceptNormalized);
-
-            // 1) exact normalized match first
-            for (var i = 0; i < supported.Count; i++)
-            {
-                if (string.Equals(supportedNormalized[i], acceptNormalized, StringComparison.OrdinalIgnoreCase))
-                {
-                    return supported[i];
-                }
-            }
-
-            // 2) canonical match (handles structured-suffix aliases like application/vnd.foo+json -> application/json)
-            for (var i = 0; i < supported.Count; i++)
-            {
-                if (string.Equals(supportedCanonical[i], acceptCanonical, StringComparison.OrdinalIgnoreCase))
-                {
-                    return supported[i];
-                }
+                return matched;
             }
         }
         // No match found; return default
+        return null;
+    }
+
+    /// <summary>
+    /// Selects a response media type when the configured supported list includes <c>*/*</c>.
+    /// </summary>
+    /// <param name="acceptNormalized">The normalized Accept media type.</param>
+    /// <param name="defaultType">The default media type fallback.</param>
+    /// <returns>The selected media type entry.</returns>
+    private static ContentTypeWithSchema SelectWhenAnyMediaTypeSupported(string acceptNormalized, string defaultType)
+    {
+        if (string.Equals(acceptNormalized, "*/*", StringComparison.OrdinalIgnoreCase) ||
+            acceptNormalized.EndsWith("/*", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ContentTypeWithSchema(defaultType, null);
+        }
+
+        var writerMediaType = ResolveWriterMediaType(acceptNormalized, defaultType);
+        return new ContentTypeWithSchema(writerMediaType, null);
+    }
+
+    /// <summary>
+    /// Selects a response media type from explicitly configured supported media types.
+    /// </summary>
+    /// <param name="acceptNormalized">The normalized Accept media type.</param>
+    /// <param name="supported">The configured supported media type entries.</param>
+    /// <param name="supportedNormalized">Normalized supported media types in index-aligned order.</param>
+    /// <param name="supportedCanonical">Canonical supported media types in index-aligned order.</param>
+    /// <returns>The matched media type entry, or null when no match exists.</returns>
+    private static ContentTypeWithSchema? SelectFromConfiguredSupportedMediaTypes(
+        string acceptNormalized,
+        IReadOnlyList<ContentTypeWithSchema> supported,
+        IReadOnlyList<string> supportedNormalized,
+        IReadOnlyList<string> supportedCanonical)
+    {
+        if (string.Equals(acceptNormalized, "*/*", StringComparison.OrdinalIgnoreCase))
+        {
+            return supported[0];
+        }
+
+        if (acceptNormalized.EndsWith("/*", StringComparison.OrdinalIgnoreCase))
+        {
+            var prefix = acceptNormalized[..^1]; // "application/"
+            for (var i = 0; i < supported.Count; i++)
+            {
+                if (supportedNormalized[i].StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    return supported[i];
+                }
+            }
+
+            return null;
+        }
+
+        var acceptCanonical = MediaTypeHelper.Canonicalize(acceptNormalized);
+
+        for (var i = 0; i < supported.Count; i++)
+        {
+            if (string.Equals(supportedNormalized[i], acceptNormalized, StringComparison.OrdinalIgnoreCase))
+            {
+                return supported[i];
+            }
+        }
+
+        for (var i = 0; i < supported.Count; i++)
+        {
+            if (string.Equals(supportedCanonical[i], acceptCanonical, StringComparison.OrdinalIgnoreCase))
+            {
+                return supported[i];
+            }
+        }
+
         return null;
     }
 
@@ -871,44 +927,68 @@ public class KestrunResponse
 
         foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
         {
-            var assemblyType = assembly.GetType(schemaTypeName, throwOnError: false, ignoreCase: true);
-            if (assemblyType is not null)
-            {
-                candidates.Add(assemblyType);
-            }
-
-            Type[] typeCandidates;
-            try
-            {
-                typeCandidates = assembly.GetTypes();
-            }
-            catch (ReflectionTypeLoadException ex)
-            {
-                typeCandidates = [.. ex.Types.Where(t => t is not null)!];
-            }
-            catch
-            {
-                continue;
-            }
-
-            foreach (var typeCandidate in typeCandidates)
-            {
-                if (typeCandidate is null)
-                {
-                    continue;
-                }
-
-                if (
-                    string.Equals(typeCandidate.FullName, schemaTypeName, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(typeCandidate.Name, schemaTypeName, StringComparison.OrdinalIgnoreCase) ||
-                    (!string.IsNullOrWhiteSpace(typeCandidate.AssemblyQualifiedName) &&
-                     typeCandidate.AssemblyQualifiedName.StartsWith(schemaTypeName + ",", StringComparison.OrdinalIgnoreCase)))
-                {
-                    candidates.Add(typeCandidate);
-                }
-            }
+            CollectSchemaTypeCandidatesFromAssembly(assembly, schemaTypeName, candidates);
         }
 
+        return SelectPreferredSchemaType(candidates);
+    }
+
+    /// <summary>
+    /// Collects schema type candidates from an assembly by direct and name-based matching.
+    /// </summary>
+    /// <param name="assembly">The assembly to scan.</param>
+    /// <param name="schemaTypeName">The schema type name to resolve.</param>
+    /// <param name="candidates">The destination list of matching candidates.</param>
+    private static void CollectSchemaTypeCandidatesFromAssembly(Assembly assembly, string schemaTypeName, List<Type> candidates)
+    {
+        var assemblyType = assembly.GetType(schemaTypeName, throwOnError: false, ignoreCase: true);
+        if (assemblyType is not null)
+        {
+            candidates.Add(assemblyType);
+        }
+
+        Type[] typeCandidates;
+        try
+        {
+            typeCandidates = assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            typeCandidates = [.. ex.Types.Where(t => t is not null)!];
+        }
+        catch
+        {
+            return;
+        }
+
+        foreach (var typeCandidate in typeCandidates)
+        {
+            if (typeCandidate is not null && IsMatchingSchemaTypeName(typeCandidate, schemaTypeName))
+            {
+                candidates.Add(typeCandidate);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Determines whether a candidate type matches the provided schema type name.
+    /// </summary>
+    /// <param name="typeCandidate">The type candidate to evaluate.</param>
+    /// <param name="schemaTypeName">The schema type name to match.</param>
+    /// <returns>True when the candidate matches by full name, short name, or assembly-qualified prefix.</returns>
+    private static bool IsMatchingSchemaTypeName(Type typeCandidate, string schemaTypeName)
+        => string.Equals(typeCandidate.FullName, schemaTypeName, StringComparison.OrdinalIgnoreCase)
+           || string.Equals(typeCandidate.Name, schemaTypeName, StringComparison.OrdinalIgnoreCase)
+           || (!string.IsNullOrWhiteSpace(typeCandidate.AssemblyQualifiedName)
+               && typeCandidate.AssemblyQualifiedName.StartsWith(schemaTypeName + ",", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Selects the preferred schema type from collected candidates.
+    /// </summary>
+    /// <param name="candidates">The collected type candidates.</param>
+    /// <returns>The preferred schema type, or null when no candidate exists.</returns>
+    private static Type? SelectPreferredSchemaType(IReadOnlyList<Type> candidates)
+    {
         var distinct = candidates
             .Where(t => t is not null)
             .GroupBy(t => string.IsNullOrWhiteSpace(t.AssemblyQualifiedName) ? t.FullName : t.AssemblyQualifiedName, StringComparer.OrdinalIgnoreCase)
@@ -1207,23 +1287,36 @@ public class KestrunResponse
         if (missingMethod is not null)
         {
             var missing = missingMethod.Invoke(value, null);
-            if (missing is IEnumerable<string> missingEnumerable)
-            {
-                missingProperties = string.Join(", ", missingEnumerable);
-            }
-            else if (missing is IEnumerable genericEnumerable)
-            {
-                var values = new List<string>();
-                foreach (var item in genericEnumerable)
-                {
-                    values.Add(item?.ToString() ?? string.Empty);
-                }
-
-                missingProperties = string.Join(", ", values.Where(v => !string.IsNullOrWhiteSpace(v)));
-            }
+            missingProperties = FormatMissingRequiredProperties(missing);
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Formats missing required-property values returned by generated validation helpers.
+    /// </summary>
+    /// <param name="missing">The missing-properties payload returned by reflection invocation.</param>
+    /// <returns>A comma-separated string of missing property names, or an empty string when unavailable.</returns>
+    private static string FormatMissingRequiredProperties(object? missing)
+    {
+        if (missing is IEnumerable<string> missingEnumerable)
+        {
+            return string.Join(", ", missingEnumerable);
+        }
+
+        if (missing is IEnumerable genericEnumerable)
+        {
+            var values = new List<string>();
+            foreach (var item in genericEnumerable)
+            {
+                values.Add(item?.ToString() ?? string.Empty);
+            }
+
+            return string.Join(", ", values.Where(v => !string.IsNullOrWhiteSpace(v)));
+        }
+
+        return string.Empty;
     }
 
     /// <summary>

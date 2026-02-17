@@ -238,6 +238,24 @@ function getOnlyGet {
     Write-KrResponse -InputObject 'GET OK' -StatusCode 200
 }
 
+<#
+.SYNOPSIS
+    Demonstrate no-content response contract enforcement.
+.DESCRIPTION
+    Declares a 200 response without content and intentionally writes a payload.
+    Runtime should reject this and return a 500 contract error.
+#>
+function testNoContentContract {
+    [OpenApiPath(HttpVerb = 'get', Pattern = '/test')]
+    [OpenApiResponse(StatusCode = '200', Description = 'No content response contract')]
+    param()
+
+    Write-KrResponse @{ message = 'This payload violates the no-content contract.' } -StatusCode 200
+}
+
+
+
+
 Enable-KrConfiguration
 
 # =========================================================

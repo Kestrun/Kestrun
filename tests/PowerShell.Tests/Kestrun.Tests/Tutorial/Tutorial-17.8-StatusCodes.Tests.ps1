@@ -130,6 +130,12 @@ Describe 'Example 17.8 Common Status Codes' -Tag 'Tutorial', 'StatusCodes', 'Ope
         $resp.StatusCode | Should -Be 404
     }
 
+    It 'No-content contract mismatch returns 500' {
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/test" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result.StatusCode | Should -Be 500
+        $result.Content | Should -Match 'declared without content'
+    }
+
     It 'OpenAPI lists the endpoints' {
         $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.2/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $resp.StatusCode | Should -Be 200
@@ -140,5 +146,9 @@ Describe 'Example 17.8 Common Status Codes' -Tag 'Tutorial', 'StatusCodes', 'Ope
         $doc.paths.'/secure/resource/{id}'.delete | Should -Not -BeNullOrEmpty
         $doc.paths.'/json/echo'.post | Should -Not -BeNullOrEmpty
         $doc.paths.'/only-get'.get | Should -Not -BeNullOrEmpty
+    }
+
+    It 'OpenAPI output matches 17.8 Status Codes' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
     }
 }

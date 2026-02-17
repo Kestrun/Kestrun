@@ -1019,98 +1019,185 @@ public class KestrunResponse
         {
             return null;
         }
-
+        // If the value is already assignable to the target type, return it directly without further conversion.
         var valueType = value.GetType();
         if (targetType.IsInstanceOfType(value) || valueType == targetType)
         {
             return value;
         }
-
+        // Handle nullable types by converting to the underlying type.
         var nullableUnderlying = Nullable.GetUnderlyingType(targetType);
         if (nullableUnderlying is not null)
         {
             return ConvertSchemaValue(value, nullableUnderlying);
         }
-
+        // If the target type is a map-like type (e.g., IDictionary) and the value is an IDictionary, return it directly to allow for flexible dictionary handling in schemas without forcing unnecessary conversions that may not be compatible with all dictionary types.
         if (IsMapLikeType(targetType) && value is IDictionary)
         {
             return value;
         }
-
+        // If the target type is an array, attempt to convert the value to an array of the target element type. This handles cases where the schema expects an array but the provided value may be a single item or a different enumerable type.
         if (targetType.IsArray)
         {
-            var elementType = targetType.GetElementType() ?? typeof(object);
-
-            if (value is IEnumerable enumerable and not string)
-            {
-                var materialized = new List<object?>();
-                foreach (var item in enumerable)
-                {
-                    materialized.Add(ConvertSchemaValue(item, elementType));
-                }
-
-                var typedArray = Array.CreateInstance(elementType, materialized.Count);
-                for (var i = 0; i < materialized.Count; i++)
-                {
-                    var itemToAssign = UnwrapPowerShellValue(materialized[i]);
-                    if (itemToAssign is not null && !elementType.IsInstanceOfType(itemToAssign))
-                    {
-                        var convertedElement = UnwrapPowerShellValue(ConvertSchemaValue(itemToAssign, elementType));
-                        if (convertedElement is not null && !elementType.IsInstanceOfType(convertedElement))
-                        {
-                            throw new InvalidCastException($"Object of type '{itemToAssign.GetType().FullName}' cannot be converted to '{elementType.FullName}'.");
-                        }
-
-                        itemToAssign = convertedElement;
-                    }
-
-                    typedArray.SetValue(itemToAssign, i);
-                }
-
-                return typedArray;
-            }
-
-            var singleItemArray = Array.CreateInstance(elementType, 1);
-            var singleElement = UnwrapPowerShellValue(ConvertSchemaValue(value, elementType));
-            if (singleElement is not null && !elementType.IsInstanceOfType(singleElement))
-            {
-                if (!TryConvertSimple(singleElement, elementType, out var convertedElement) ||
-                    (convertedElement is not null && !elementType.IsInstanceOfType(convertedElement)))
-                {
-                    throw new InvalidCastException($"Object of type '{singleElement.GetType().FullName}' cannot be converted to '{elementType.FullName}'.");
-                }
-
-                singleElement = convertedElement;
-            }
-
-            singleItemArray.SetValue(singleElement, 0);
-            return singleItemArray;
+            return ConvertSchemaArrayValue(value, targetType);
         }
-
-        if (value is IDictionary dictionary)
+        // Attempt dictionary-to-type conversion for schema values, which allows for flexible object construction from dictionaries when the schema type is a complex object. This is attempted before PowerShell object conversion to prioritize direct dictionary mappings for schemas that may be designed to be populated from dictionaries.
+        if (TryConvertSchemaDictionaryValue(value, targetType, out var dictionaryConvertedValue))
         {
-            var (success, convertedDictionaryValue) = TryConvertDictionaryToType(dictionary, targetType);
-            if (success)
-            {
-                return convertedDictionaryValue;
-            }
+            return dictionaryConvertedValue;
         }
-
+        // Attempt PowerShell object conversion, which allows for flexible handling of PowerShell-specific objects and types that may be passed as response values. This is attempted after dictionary conversion to allow schemas that can be populated from dictionaries to take precedence, while still supporting PowerShell object conversion when needed for schema types that may not be directly compatible with dictionary conversion.
         if (TryConvertPowerShellObjectToType(value, targetType, out var convertedPowerShellObject))
         {
             return convertedPowerShellObject;
         }
+        // Attempt single-argument constructor conversion as a last resort before simple conversions, as it may be more expensive and we want to prioritize more direct conversions when possible.
+        if (TryConvertViaSingleArgumentConstructor(value, targetType, out var constructorConvertedValue))
+        {
+            return constructorConvertedValue;
+        }
+        // As a final fallback, attempt simple conversions for primitive types and common convertible types, which allows for some flexibility in converting between basic types when the schema expects a different type but a simple conversion is possible (e.g., string to int). This is attempted last to allow all other more specific conversion strategies to take precedence, while still providing a fallback for simple type conversions that may be commonly needed in schemas.
+        return TryConvertSimple(value, targetType, out var convertedValue) ? convertedValue : value;
+    }
 
+    /// <summary>
+    /// Converts a schema value to an array of the requested target type.
+    /// </summary>
+    /// <param name="value">The source value to convert.</param>
+    /// <param name="targetArrayType">The destination array type.</param>
+    /// <returns>A typed array instance populated from the source value.</returns>
+    private static object ConvertSchemaArrayValue(object value, Type targetArrayType)
+    {
+        var elementType = targetArrayType.GetElementType() ?? typeof(object);
+        if (value is IEnumerable enumerable and not string)
+        {
+            return ConvertEnumerableToTypedArray(enumerable, elementType);
+        }
+        // If the value is not an enumerable, attempt to convert it as a single element array.
+        return ConvertSingleValueToTypedArray(value, elementType);
+    }
+
+    /// <summary>
+    /// Converts an enumerable source to a typed destination array.
+    /// </summary>
+    /// <param name="enumerable">The source enumerable values.</param>
+    /// <param name="elementType">The destination element type.</param>
+    /// <returns>A typed array containing converted elements.</returns>
+    private static Array ConvertEnumerableToTypedArray(IEnumerable enumerable, Type elementType)
+    {
+        var materialized = new List<object?>();
+        foreach (var item in enumerable)
+        {
+            materialized.Add(ConvertSchemaValue(item, elementType));
+        }
+        // Create a typed array of the destination element type and populate it with the converted values, ensuring that each element is assignable to the destination element type. This allows for flexible conversion of enumerable values to arrays of the expected schema element type, while still enforcing that the final array contains compatible element types as required by the schema.
+        var typedArray = Array.CreateInstance(elementType, materialized.Count);
+        for (var i = 0; i < materialized.Count; i++)
+        {
+            var itemToAssign = EnsureArrayElementAssignable(materialized[i], elementType, allowSimpleFallback: false);
+            typedArray.SetValue(itemToAssign, i);
+        }
+        // Return the fully converted and typed array to be used as the response value, which ensures that the response adheres to the expected schema-defined array type with properly converted elements.
+        return typedArray;
+    }
+
+    /// <summary>
+    /// Converts a single source value to a one-element typed destination array.
+    /// </summary>
+    /// <param name="value">The source value.</param>
+    /// <param name="elementType">The destination element type.</param>
+    /// <returns>A one-element typed array containing the converted value.</returns>
+    private static Array ConvertSingleValueToTypedArray(object value, Type elementType)
+    {
+        var singleItemArray = Array.CreateInstance(elementType, 1);
+        var singleElement = EnsureArrayElementAssignable(ConvertSchemaValue(value, elementType), elementType, allowSimpleFallback: true);
+        singleItemArray.SetValue(singleElement, 0);
+        return singleItemArray;
+    }
+
+    /// <summary>
+    /// Ensures that an array element is assignable to the destination element type.
+    /// </summary>
+    /// <param name="candidate">The candidate value to assign.</param>
+    /// <param name="elementType">The required destination element type.</param>
+    /// <param name="allowSimpleFallback">Whether to attempt simple conversion before throwing.</param>
+    /// <returns>A value assignable to the destination element type, or null.</returns>
+    /// <exception cref="InvalidCastException">Thrown when conversion to the destination element type fails.</exception>
+    private static object? EnsureArrayElementAssignable(object? candidate, Type elementType, bool allowSimpleFallback)
+    {
+        var unwrapped = UnwrapPowerShellValue(candidate);
+        if (unwrapped is null || elementType.IsInstanceOfType(unwrapped))
+        {
+            return unwrapped;
+        }
+
+        // Attempt schema conversion on the element to ensure it is compatible with the destination element type, which allows for flexible handling of array elements that may require conversion to match the schema-defined element type. This is done before simple fallback conversions to prioritize proper schema conversions for array elements, while still allowing for a simple conversion fallback when appropriate for single value to array conversions.
+        var convertedElement = UnwrapPowerShellValue(ConvertSchemaValue(unwrapped, elementType));
+        if (convertedElement is null || elementType.IsInstanceOfType(convertedElement))
+        {
+            return convertedElement;
+        }
+
+        // If allowed, attempt a simple conversion as a final fallback before throwing, which provides some leniency for converting single values to array element types when the value is not directly assignable but a simple conversion may succeed (e.g., string to int). This is only attempted for single value to array conversions, not for enumerable conversions, to avoid unintended consequences of applying simple conversions to each element in an enumerable when the source value is already an enumerable that failed element-wise conversion.
+        if (allowSimpleFallback &&
+            TryConvertSimple(convertedElement, elementType, out var simpleConverted) &&
+            (simpleConverted is null || elementType.IsInstanceOfType(simpleConverted)))
+        {
+            return simpleConverted;
+        }
+
+        // If the element cannot be converted to the required type, throw an exception to indicate a schema validation failure. This ensures that we don't silently produce arrays with incompatible element types that may cause issues later on when the array is used.
+        throw new InvalidCastException($"Object of type '{convertedElement.GetType().FullName}' cannot be converted to '{elementType.FullName}'.");
+    }
+
+    /// <summary>
+    /// Attempts dictionary-to-type conversion for schema values.
+    /// </summary>
+    /// <param name="value">The source value.</param>
+    /// <param name="targetType">The destination type.</param>
+    /// <param name="convertedValue">The converted value when successful.</param>
+    /// <returns>True when dictionary conversion succeeds; otherwise false.</returns>
+    private static bool TryConvertSchemaDictionaryValue(object value, Type targetType, out object? convertedValue)
+    {
+        convertedValue = null;
+        if (value is not IDictionary dictionary)
+        {
+            return false;
+        }
+
+        var (success, convertedDictionaryValue) = TryConvertDictionaryToType(dictionary, targetType);
+        if (!success)
+        {
+            return false;
+        }
+
+        convertedValue = convertedDictionaryValue;
+        return true;
+    }
+
+    /// <summary>
+    /// Attempts to convert a value to the target type by using single-argument constructors.
+    /// </summary>
+    /// <param name="value">The source value.</param>
+    /// <param name="targetType">The destination type.</param>
+    /// <param name="convertedValue">The constructed value when successful.</param>
+    /// <returns>True when a single-argument constructor conversion succeeds; otherwise false.</returns>
+    private static bool TryConvertViaSingleArgumentConstructor(object value, Type targetType, out object? convertedValue)
+    {
+        convertedValue = null;
         foreach (var constructor in targetType.GetConstructors().Where(c => c.GetParameters().Length == 1))
         {
             var parameterType = constructor.GetParameters()[0].ParameterType;
-            if (TryConvertSimple(value, parameterType, out var convertedArg))
+            if (!TryConvertSimple(value, parameterType, out var convertedArg))
             {
-                return constructor.Invoke([convertedArg]);
+                continue;
             }
+
+            convertedValue = constructor.Invoke([convertedArg]);
+            return true;
         }
 
-        return TryConvertSimple(value, targetType, out var convertedValue) ? convertedValue : value;
+        return false;
     }
 
     /// <summary>

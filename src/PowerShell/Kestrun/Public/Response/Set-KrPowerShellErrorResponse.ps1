@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Configures a custom PowerShell scriptblock to build error responses for route execution failures.
 .DESCRIPTION

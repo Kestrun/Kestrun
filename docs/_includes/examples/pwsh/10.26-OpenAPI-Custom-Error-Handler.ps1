@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample: OpenAPI Custom Error Handler
     Purpose: Demonstrate OpenAPI error schema + custom PowerShell runtime error response script.
     File:    10.26-OpenAPI-Custom-Error-Handler.ps1

@@ -14,7 +14,15 @@ public sealed class OpenApiDocDescriptorInlineAndPrivateHelpersTests
     {
         var method = typeof(OpenApiDocDescriptor).GetMethod(
             "ApplyResponseAttribute",
-            BindingFlags.Instance | BindingFlags.NonPublic);
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null,
+            types:
+            [
+                typeof(OpenAPIPathMetadata),
+                typeof(IOpenApiResponseAttribute),
+                typeof(MapRouteOptions)
+            ],
+            modifiers: null);
 
         Assert.NotNull(method);
 

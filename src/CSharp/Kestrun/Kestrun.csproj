@@ -137,11 +137,11 @@
 
 
         <!-- Microsoft.AspNetCore -->
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.23" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="8.0.23" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.23" />
-        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.23" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="8.0.23" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.24" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="8.0.24" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.24" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.24" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="8.0.24" />
         <!-- Serilog -->
         <PackageReference Include="Serilog.Sinks.Http" Version="9.1.0" />
 
@@ -167,11 +167,11 @@
         <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
 
         <!-- Microsoft.AspNetCore -->
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.12" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="9.0.12" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="9.0.12" />
-        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="9.0.12" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="9.0.12" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.13" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="9.0.13" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="9.0.13" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="9.0.13" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="9.0.13" />
         <!-- Serilog -->
         <PackageReference Include="Serilog.Sinks.Http" Version="9.2.1" />
 
@@ -203,7 +203,7 @@
         <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="10.0.1" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.1" />
         <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="10.0.1" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.1" />
 
         <!-- Serilog -->
         <PackageReference Include="Serilog.Sinks.Http" Version="9.2.1" />

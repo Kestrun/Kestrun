@@ -2741,7 +2741,7 @@ function New-TestFile {
                 $bytesToWrite = if ($buffer.Length -lt $remaining) { $buffer.Length } else { [long]$remaining }
                 $fs.Write($buffer, 0, $bytesToWrite)
                 $written += $bytesToWrite
-                if ($written % (10MB) -eq 0) {
+                if (($written % (10MB) -eq 0) -and (-not $Quiet)) {
                     # Print progress every 10MB
                     Write-Host '#' -NoNewline
                 }

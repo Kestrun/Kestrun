@@ -130,7 +130,7 @@ public class KrFormParserMultipartMixedTests
             Logger = new LoggerConfiguration().CreateLogger()
         };
 
-        options.AllowedRequestContentTypes.Add("multipart/mixed");
+        options.AllowedContentTypes.Add("multipart/mixed");
         options.Limits.MaxNestingDepth = 1;
         options.Rules.Add(new KrFormPartRule { Name = "text", StoreToDisk = true });
         options.Rules.Add(new KrFormPartRule { Name = "text", Scope = "nested", StoreToDisk = false });
@@ -174,7 +174,7 @@ public class KrFormParserMultipartMixedTests
             Logger = new LoggerConfiguration().CreateLogger()
         };
 
-        options.AllowedRequestContentTypes.Add("multipart/mixed");
+        options.AllowedContentTypes.Add("multipart/mixed");
         options.Rules.Add(new KrFormPartRule { Name = "text", StoreToDisk = false });
         options.Rules.Add(new KrFormPartRule { Name = "json", StoreToDisk = false });
 

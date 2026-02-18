@@ -67,10 +67,10 @@ Describe 'Example 10.2 OpenAPI Component Schema' -Tag 'OpenApi', 'Tutorial', 'Sl
 
         $result = Invoke-WebRequest -Uri "$($script:instance.Url)/tickets/purchase" -Method Post `
             -Body $body -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
-        $result.StatusCode | Should -Be 400
+        $result.StatusCode | Should -Be 422
         $json = $result.Content | ConvertFrom-Json
-        $json.code | Should -Be 400
-        $json.message | Should -Match 'customer\.email'
+        $json.status | Should -Be 422
+        $json.error | Should -Match 'Invalid request parameters'
     }
 
     It 'Check OpenAPI Schemas' {

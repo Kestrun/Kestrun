@@ -31,8 +31,188 @@ public partial class OpenApiDocDescriptor
         ApplyParameters(op, meta);
         ApplyCallbacks(op, meta);
         ApplySecurity(op, meta);
+        EnsureAutoClientErrorResponses(op, meta);
         ApplyExtensions(op, meta);
         return op;
+    }
+
+    /// <summary>
+    /// Ensures that appropriate client error responses (4XX) are included in the OpenApiOperation based on the presence of parameters, request body, content type validation, and response negotiation. If such responses are not already defined, it adds default 400, 406, 415, and/or 422 responses with a standard error schema.
+    /// </summary>
+    /// <param name="operation">The OpenApiOperation to modify.</param>
+    /// <param name="meta">The OpenAPIPathMetadata containing metadata for the operation.</param>
+    private void EnsureAutoClientErrorResponses(OpenApiOperation operation, OpenAPIPathMetadata meta)
+    {
+        operation.Responses ??= [];
+
+        if (ResponseKeyExists(operation.Responses, "4XX") || ResponseKeyExists(operation.Responses, "default"))
+        {
+            return;
+        }
+
+        var statusesToAdd = GetAutoClientErrorStatuses(operation, meta);
+
+        if (statusesToAdd.Count == 0)
+        {
+            return;
+        }
+
+        var errorSchemaId = EnsureAutoErrorSchemaComponent();
+        var errorContentTypes = GetAutoErrorResponseContentTypes();
+
+        AddMissingAutoClientErrorResponses(operation, statusesToAdd, errorSchemaId, errorContentTypes);
+    }
+
+    /// <summary>
+    /// Determines which automatic client error statuses should be added for the operation.
+    /// </summary>
+    /// <param name="operation">The operation being generated.</param>
+    /// <param name="meta">The metadata describing the route and request constraints.</param>
+    /// <returns>A set of status codes to add.</returns>
+    private static HashSet<string> GetAutoClientErrorStatuses(OpenApiOperation operation, OpenAPIPathMetadata meta)
+    {
+        var statusesToAdd = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var hasParameters = meta.Parameters is { Count: > 0 };
+        var hasRequestBody = meta.RequestBody is not null;
+        var hasRequestContentTypeValidation = meta.MapOptions.AllowedRequestContentTypes.Count > 0;
+        var responses = operation.Responses;
+        var hasResponseNegotiation =
+            meta.MapOptions.DefaultResponseContentType is { Count: > 0 } ||
+            (responses is not null && responses.Values.Any(r => r.Content is { Count: > 0 }));
+
+        if (hasParameters || hasRequestBody)
+        {
+            _ = statusesToAdd.Add("400");
+            _ = statusesToAdd.Add("422");
+        }
+
+        if (hasRequestBody || hasRequestContentTypeValidation)
+        {
+            _ = statusesToAdd.Add("415");
+        }
+
+        if (hasResponseNegotiation)
+        {
+            _ = statusesToAdd.Add("406");
+        }
+
+        return statusesToAdd;
+    }
+
+    /// <summary>
+    /// Adds missing automatic client error responses to the OpenAPI operation.
+    /// </summary>
+    /// <param name="operation">The operation to modify.</param>
+    /// <param name="statusesToAdd">The status codes to add when absent.</param>
+    /// <param name="errorSchemaId">The schema id used for error response bodies.</param>
+    /// <param name="errorContentTypes">The response content types for auto client errors.</param>
+    private static void AddMissingAutoClientErrorResponses(
+        OpenApiOperation operation,
+        IReadOnlyCollection<string> statusesToAdd,
+        string errorSchemaId,
+        IReadOnlyList<string> errorContentTypes)
+    {
+        operation.Responses ??= [];
+        var responses = operation.Responses;
+
+        foreach (var status in statusesToAdd)
+        {
+            if (ResponseKeyExists(responses, status))
+            {
+                continue;
+            }
+
+            responses[status] = CreateAutoClientErrorResponse(status, errorSchemaId, errorContentTypes);
+        }
+    }
+
+    /// <summary>
+    /// Checks if a response key exists in the OpenApiResponses, ignoring case.
+    /// </summary> <param name="responses">The OpenApiResponses to check.</param>
+    /// <param name="statusCode">The status code key to look for.</param>
+    /// <returns>True if the key exists; otherwise, false.</returns>
+    private static bool ResponseKeyExists(OpenApiResponses responses, string statusCode)
+        => responses.Keys.Any(k => string.Equals(k, statusCode, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Ensures that a standard error response schema is defined in the OpenAPI document components. If the schema identified by AutoErrorResponseSchemaId (or a default ID if not set) does not already exist, it adds a new schema with properties for status, error, reason, timestamp, and optional details, exception, stackTrace, path, and
+    /// </summary>
+    /// <returns> The ID of the error schema component. </returns>
+    private string EnsureAutoErrorSchemaComponent()
+    {
+        Document.Components ??= new OpenApiComponents();
+        Document.Components.Schemas ??= new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal);
+
+        var autoSchemaId = string.IsNullOrWhiteSpace(AutoErrorResponseSchemaId)
+            ? DefaultAutoErrorResponseSchemaId
+            : AutoErrorResponseSchemaId;
+
+        if (!Document.Components.Schemas.ContainsKey(autoSchemaId))
+        {
+            Document.Components.Schemas[autoSchemaId] = new OpenApiSchema
+            {
+                Type = JsonSchemaType.Object,
+                Required = new HashSet<string>(StringComparer.Ordinal) { "status", "error", "reason", "timestamp" },
+                Properties = new Dictionary<string, IOpenApiSchema>(StringComparer.Ordinal)
+                {
+                    ["status"] = new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" },
+                    ["error"] = new OpenApiSchema { Type = JsonSchemaType.String },
+                    ["reason"] = new OpenApiSchema { Type = JsonSchemaType.String },
+                    ["timestamp"] = new OpenApiSchema { Type = JsonSchemaType.String, Format = "date-time" },
+                    ["details"] = new OpenApiSchema { Type = JsonSchemaType.String },
+                    ["exception"] = new OpenApiSchema { Type = JsonSchemaType.String },
+                    ["stackTrace"] = new OpenApiSchema { Type = JsonSchemaType.String },
+                    ["path"] = new OpenApiSchema { Type = JsonSchemaType.String },
+                    ["method"] = new OpenApiSchema { Type = JsonSchemaType.String },
+                }
+            };
+        }
+
+        return autoSchemaId;
+    }
+
+    private IReadOnlyList<string> GetAutoErrorResponseContentTypes()
+    {
+        if (AutoErrorResponseContentTypes is null || AutoErrorResponseContentTypes.Length == 0)
+        {
+            return [DefaultAutoErrorResponseContentType];
+        }
+
+        var contentTypes = AutoErrorResponseContentTypes
+            .Where(ct => !string.IsNullOrWhiteSpace(ct))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        return contentTypes.Length == 0
+            ? [DefaultAutoErrorResponseContentType]
+            : contentTypes;
+    }
+
+    private static OpenApiResponse CreateAutoClientErrorResponse(string statusCode, string errorSchemaId, IReadOnlyList<string> contentTypes)
+    {
+        var description = statusCode switch
+        {
+            "400" => "Bad Request",
+            "406" => "Not Acceptable",
+            "415" => "Unsupported Media Type",
+            "422" => "Unprocessable Entity",
+            _ => "Client Error"
+        };
+
+        var content = new Dictionary<string, IOpenApiMediaType>(StringComparer.Ordinal);
+        foreach (var contentType in contentTypes)
+        {
+            content[contentType] = new OpenApiMediaType
+            {
+                Schema = new OpenApiSchemaReference(errorSchemaId)
+            };
+        }
+
+        return new OpenApiResponse
+        {
+            Description = description,
+            Content = content
+        };
     }
     /// <summary>
     /// Applies extension information from metadata to the OpenApiOperation.

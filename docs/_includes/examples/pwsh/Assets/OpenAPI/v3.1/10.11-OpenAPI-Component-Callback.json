@@ -47,7 +47,44 @@
             }
           },
           "400": {
-            "description": "Invalid input"
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
           }
         },
         "callbacks": {
@@ -81,6 +118,46 @@
                 "responses": {
                   "204": {
                     "description": "Accepted"
+                  },
+                  "400": {
+                    "description": "Bad Request",
+                    "content": {
+                      "application/problem+json": {
+                        "schema": {
+                          "$ref": "#/components/schemas/KestrunErrorResponse"
+                        }
+                      }
+                    }
+                  },
+                  "422": {
+                    "description": "Unprocessable Entity",
+                    "content": {
+                      "application/problem+json": {
+                        "schema": {
+                          "$ref": "#/components/schemas/KestrunErrorResponse"
+                        }
+                      }
+                    }
+                  },
+                  "415": {
+                    "description": "Unsupported Media Type",
+                    "content": {
+                      "application/problem+json": {
+                        "schema": {
+                          "$ref": "#/components/schemas/KestrunErrorResponse"
+                        }
+                      }
+                    }
+                  },
+                  "406": {
+                    "description": "Not Acceptable",
+                    "content": {
+                      "application/problem+json": {
+                        "schema": {
+                          "$ref": "#/components/schemas/KestrunErrorResponse"
+                        }
+                      }
+                    }
                   }
                 }
               }
@@ -124,6 +201,36 @@
           },
           "404": {
             "description": "Payment not found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -157,6 +264,46 @@
         "responses": {
           "204": {
             "description": "Accepted"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -190,6 +337,46 @@
         "responses": {
           "204": {
             "description": "Accepted"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -223,6 +410,46 @@
         "responses": {
           "204": {
             "description": "Accepted"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -418,6 +645,46 @@
         },
         "additionalProperties": false,
         "description": "Callback event payload for shipping order creation."
+      },
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
       }
     },
     "callbacks": {
@@ -451,6 +718,46 @@
             "responses": {
               "204": {
                 "description": "Accepted"
+              },
+              "400": {
+                "description": "Bad Request",
+                "content": {
+                  "application/problem+json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/KestrunErrorResponse"
+                    }
+                  }
+                }
+              },
+              "422": {
+                "description": "Unprocessable Entity",
+                "content": {
+                  "application/problem+json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/KestrunErrorResponse"
+                    }
+                  }
+                }
+              },
+              "415": {
+                "description": "Unsupported Media Type",
+                "content": {
+                  "application/problem+json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/KestrunErrorResponse"
+                    }
+                  }
+                }
+              },
+              "406": {
+                "description": "Not Acceptable",
+                "content": {
+                  "application/problem+json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/KestrunErrorResponse"
+                    }
+                  }
+                }
               }
             }
           }
@@ -486,6 +793,46 @@
             "responses": {
               "204": {
                 "description": "Accepted"
+              },
+              "400": {
+                "description": "Bad Request",
+                "content": {
+                  "application/problem+json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/KestrunErrorResponse"
+                    }
+                  }
+                }
+              },
+              "422": {
+                "description": "Unprocessable Entity",
+                "content": {
+                  "application/problem+json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/KestrunErrorResponse"
+                    }
+                  }
+                }
+              },
+              "415": {
+                "description": "Unsupported Media Type",
+                "content": {
+                  "application/problem+json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/KestrunErrorResponse"
+                    }
+                  }
+                }
+              },
+              "406": {
+                "description": "Not Acceptable",
+                "content": {
+                  "application/problem+json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/KestrunErrorResponse"
+                    }
+                  }
+                }
               }
             }
           }

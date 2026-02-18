@@ -5,7 +5,7 @@
     Registers a POST route that parses multipart/form-data payloads using
     KrFormParser. Additional request content types (e.g., multipart/mixed
     and application/x-www-form-urlencoded) are opt-in via
-    KrFormOptions.AllowedRequestContentTypes.
+    KrFormOptions.AllowedContentTypes.
     Once parsed, it injects the parsed payload into the runspace as
     $FormPayload and invokes the provided script block.
 .PARAMETER Pattern

@@ -33,6 +33,7 @@ Describe 'Example 10.5 OpenAPI Component Response' -Tag 'OpenApi', 'Tutorial', '
 
     It 'Create Article (POST)' {
         $body = @{
+            id = 1
             title = 'New Article'
             content = 'Content here'
             author = 'Me'

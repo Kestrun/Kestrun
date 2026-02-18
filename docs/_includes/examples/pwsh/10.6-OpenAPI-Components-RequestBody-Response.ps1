@@ -179,7 +179,7 @@ function createOrder {
         createdAt = (Get-Date).ToUniversalTime().ToString('o')
         expectedDelivery = (Get-Date).AddDays(5).ToString('yyyy-MM-dd')
     }
-
+    Expand-KrObject -InputObject $response
     Write-KrResponse $response -StatusCode 201
 }
 

@@ -5,6 +5,7 @@ using Xunit;
 
 namespace KestrunTests.Scripting;
 
+[Collection("RunspaceSerial")]
 public class KestrunRunspacePoolManagerTest
 {
     [Fact]

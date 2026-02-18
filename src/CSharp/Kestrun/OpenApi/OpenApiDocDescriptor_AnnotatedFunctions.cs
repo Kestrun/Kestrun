@@ -62,7 +62,12 @@ public partial class OpenApiDocDescriptor
                 return;
             }
             // Create route options and OpenAPI metadata
-            var routeOptions = new MapRouteOptions();
+            var routeOptions = new MapRouteOptions
+            {
+                // Seed defaults up-front so response attributes can safely add per-status entries
+                // without losing the host-level 'default' fallback.
+                DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>(Host.Options.DefaultApiResponseMediaType)
+            };
             var openApiMetadata = new OpenAPIPathMetadata(mapOptions: routeOptions);
             // Process attributes to populate route options and OpenAPI metadata
             var parsedVerb = ProcessFunctionAttributes(func, help!, attrs, routeOptions, openApiMetadata);
@@ -115,7 +120,7 @@ public partial class OpenApiDocDescriptor
                         ApplyExtensionAttribute(openApiMetadata, extensionAttr);
                         break;
                     case OpenApiResponseRefAttribute responseRef:
-                        ApplyResponseRefAttribute(openApiMetadata, responseRef);
+                        ApplyResponseRefAttribute(openApiMetadata, responseRef, routeOptions);
                         break;
                     case OpenApiResponseAttribute responseAttr:
                         ApplyResponseAttribute(openApiMetadata, responseAttr, routeOptions);
@@ -406,9 +411,10 @@ public partial class OpenApiDocDescriptor
     /// <summary>
     /// Applies the OpenApiResponseRef attribute to the function's OpenAPI metadata.
     /// </summary>
-    ///     <param name="metadata">The OpenAPI metadata to update.</param>
+    /// <param name="metadata">The OpenAPI metadata to update.</param>
     /// <param name="attribute">The OpenApiResponseRef attribute containing response reference details.</param>
-    private void ApplyResponseRefAttribute(OpenAPIPathMetadata metadata, OpenApiResponseRefAttribute attribute)
+    /// <param name="routeOptions">The route options to update.</param>
+    private void ApplyResponseRefAttribute(OpenAPIPathMetadata metadata, OpenApiResponseRefAttribute attribute, MapRouteOptions routeOptions)
     {
         metadata.Responses ??= [];
 
@@ -430,6 +436,30 @@ public partial class OpenApiDocDescriptor
         }
 
         metadata.Responses.Add(attribute.StatusCode, iResponse);
+        routeOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<ContentTypeWithSchema>>(StringComparer.OrdinalIgnoreCase);
+
+        if (response?.Content is not { Count: > 0 })
+        {
+            routeOptions.DefaultResponseContentType[attribute.StatusCode] = [];
+            return;
+        }
+
+        // Note: if the existing response is a reference, we still apply the new response details to it.
+        // This allows attributes to override referenced responses without needing to define new references for each variation. However, if the existing response is a reference and we're not inlining, we replace it with a new reference to avoid modifying the original component.
+        //   if (CreateResponseFromAttribute(attribute, response))
+        // {
+        // SetDefaultResponseContentType(metadata.Responses, routeOptions, attribute.StatusCode);
+        // Merge into existing dictionary instead of overwriting so we preserve host defaults
+        // and can add multiple entries (e.g., 201 + 4XX).
+
+        // Materialize keys to avoid OpenAPI collections being mutated later.
+        // Also capture the schema CLR type (best-effort) to enable runtime negotiation/serialization decisions.
+        routeOptions.DefaultResponseContentType[attribute.StatusCode] =
+        [
+            .. response.Content.Select(kvp =>
+                new ContentTypeWithSchema(kvp.Key, kvp.Value.Schema!.Id))
+        ];
+        //}
     }
 
     /// <summary>
@@ -441,22 +471,175 @@ public partial class OpenApiDocDescriptor
     private void ApplyResponseAttribute(OpenAPIPathMetadata metadata, IOpenApiResponseAttribute attribute, MapRouteOptions routeOptions)
     {
         metadata.Responses ??= [];
-        var response = metadata.Responses.TryGetValue(attribute.StatusCode, out var value) ? value as OpenApiResponse : new OpenApiResponse();
-        if (response is not null && CreateResponseFromAttribute(attribute, response))
+        OpenApiResponse response;
+        if (!metadata.Responses.TryGetValue(attribute.StatusCode, out var existing))
         {
-            _ = metadata.Responses.TryAdd(attribute.StatusCode, response);
-            if (routeOptions.DefaultResponseContentType is null)
-            {
-                var defaultStatusCode = SelectDefaultSuccessResponse(metadata.Responses);
-                if (defaultStatusCode is not null && metadata.Responses.TryGetValue(defaultStatusCode, out var defaultResponse) &&
-                    defaultResponse.Content is not null && defaultResponse.Content.Count > 0)
-                {
-                    routeOptions.DefaultResponseContentType =
-                        defaultResponse.Content.Keys.First();
-                }
-            }
+            response = new OpenApiResponse();
+            metadata.Responses.Add(attribute.StatusCode, response);
+        }
+        else if (existing is OpenApiResponse existingResponse)
+        {
+            response = existingResponse;
+        }
+        else
+        {
+            response = new OpenApiResponse();
+            metadata.Responses[attribute.StatusCode] = response;
+        }
+
+        // Note: if the existing response is a reference, we still apply the new response details to it.
+        // This allows attributes to override referenced responses without needing to define new references for each variation. However, if the existing response is a reference and we're not inlining, we replace it with a new reference to avoid modifying the original component.
+        if (CreateResponseFromAttribute(attribute, response))
+        {
+            var schema = (attribute is OpenApiResponseAttribute concreteAttr && concreteAttr.Schema is not null) ? concreteAttr.Schema.Name : null;
+            SetDefaultResponseContentType(metadata.Responses, routeOptions, attribute.StatusCode, schema);
         }
     }
+
+    /// <summary>
+    /// Updates <see cref="MapRouteOptions.DefaultResponseContentType"/> with the response content types for the provided status code.
+    /// This enables runtime content negotiation in <c>Write-KrResponse</c> for exact codes (e.g. <c>400</c>) and OpenAPI ranges (e.g. <c>4XX</c>).
+    /// </summary>
+    /// <param name="responses">The collection of OpenAPI responses to check and update.</param>
+    /// <param name="routeOptions">The route options to update.</param>
+    /// <param name="newStatusCode">The status code of the new response that was just added.</param>
+    /// <param name="schema">The schema type associated with the response content type.</param>
+    private static void SetDefaultResponseContentType(OpenApiResponses responses, MapRouteOptions routeOptions, string newStatusCode, string? schema)
+    {
+        ArgumentNullException.ThrowIfNull(responses);
+        ArgumentNullException.ThrowIfNull(routeOptions);
+        if (string.IsNullOrWhiteSpace(newStatusCode))
+        {
+            return;
+        }
+
+        if (!responses.TryGetValue(newStatusCode, out var newResponse))
+        {
+            return;
+        }
+
+        // Merge into existing dictionary instead of overwriting so we preserve host defaults
+        // and can add multiple entries (e.g., 201 + 4XX).
+        routeOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<ContentTypeWithSchema>>(StringComparer.OrdinalIgnoreCase);
+
+        if (newResponse.Content is null || newResponse.Content.Count == 0)
+        {
+            routeOptions.DefaultResponseContentType[newStatusCode] = [];
+            return;
+        }
+
+        // Materialize keys to avoid OpenAPI collections being mutated later.
+        routeOptions.DefaultResponseContentType[newStatusCode] =
+        [
+            .. newResponse.Content.Select(kvp =>
+                new ContentTypeWithSchema(kvp.Key, schema))
+        ];
+    }
+
+    /// <summary>
+    /// Attempts to infer a reasonable CLR <see cref="Type"/> from an OpenAPI schema.
+    /// This is best-effort only; reference/complex schemas will typically map to <see cref="object"/>.
+    /// </summary>
+    /// <param name="schema">The OpenAPI schema.</param>
+    /// <returns>The inferred CLR type, or null when unknown.</returns>
+    private static Type? TryInferClrTypeFromSchema(IOpenApiSchema? schema)
+    {
+        if (schema is null)
+        {
+            return null;
+        }
+
+        // References (components) can represent arbitrary shapes.
+        if (schema is OpenApiSchemaReference)
+        {
+            return typeof(object);
+        }
+
+        if (schema is not OpenApiSchema s)
+        {
+            return typeof(object);
+        }
+
+        // Ignore nullability bit; we only capture the underlying CLR type.
+        var type = (s.Type ?? JsonSchemaType.Object) & ~JsonSchemaType.Null;
+
+        if ((type & JsonSchemaType.Array) != 0)
+        {
+            var itemType = TryInferClrTypeFromSchema(s.Items);
+            return itemType is null ? typeof(object[]) : itemType.MakeArrayType();
+        }
+
+        return InferNonArrayClrType(s, type);
+    }
+
+    /// <summary>
+    /// Infers a CLR type for non-array OpenAPI schema kinds.
+    /// </summary>
+    /// <param name="schema">The concrete OpenAPI schema.</param>
+    /// <param name="type">The normalized OpenAPI schema type flags.</param>
+    /// <returns>The inferred CLR type.</returns>
+    private static Type InferNonArrayClrType(OpenApiSchema schema, JsonSchemaType type)
+    {
+        // For objects, we have no better information to go on, so we default to object.
+        if ((type & JsonSchemaType.Object) != 0)
+        {
+            return typeof(object);
+        }
+        // For booleans, we can directly map to bool.
+        if ((type & JsonSchemaType.Boolean) != 0)
+        {
+            return typeof(bool);
+        }
+        // For integers, we attempt to infer more specific types based on the format, but if the format is unrecognized, we default to int for maximum compatibility with JSON Schema's "integer" type.
+        if ((type & JsonSchemaType.Integer) != 0)
+        {
+            return InferIntegerClrType(schema.Format);
+        }
+        // For numbers, we attempt to infer more specific types based on the format, but if the format is unrecognized, we default to double for maximum compatibility with JSON Schema's "number" type.
+        if ((type & JsonSchemaType.Number) != 0)
+        {
+            return InferNumberClrType(schema.Format);
+        }
+        // For strings, we can attempt to infer more specific types based on the format, but if the format is unrecognized, we default to string.
+        if ((type & JsonSchemaType.String) != 0)
+        {
+            return InferStringClrType(schema.Format);
+        }
+        // If we have no type or an unrecognized type, default to object. This is a best-effort inference and may not be accurate for complex schemas.
+        return (type & JsonSchemaType.Null) != 0 ? typeof(void) : typeof(object);
+    }
+
+    /// <summary>
+    /// Infers the CLR integer type from an OpenAPI integer format.
+    /// </summary>
+    /// <param name="format">The OpenAPI schema format value.</param>
+    /// <returns>The inferred CLR integer type.</returns>
+    private static Type InferIntegerClrType(string? format)
+        => string.Equals(format, "int64", StringComparison.OrdinalIgnoreCase) ? typeof(long) : typeof(int);
+
+    /// <summary>
+    /// Infers the CLR numeric type from an OpenAPI number format.
+    /// </summary>
+    /// <param name="format">The OpenAPI schema format value.</param>
+    /// <returns>The inferred CLR number type.</returns>
+    private static Type InferNumberClrType(string? format)
+        => string.Equals(format, "float", StringComparison.OrdinalIgnoreCase) ? typeof(float) : typeof(double);
+
+    /// <summary>
+    /// Infers the CLR string-like type from an OpenAPI string format.
+    /// </summary>
+    /// <param name="format">The OpenAPI schema format value.</param>
+    /// <returns>The inferred CLR type for the string format.</returns>
+    private static Type InferStringClrType(string? format)
+        => format?.ToLowerInvariant() switch
+        {
+            "binary" => typeof(byte[]),
+            "uuid" => typeof(Guid),
+            "uri" => typeof(Uri),
+            "duration" => typeof(TimeSpan),
+            "date-time" => typeof(DateTimeOffset),
+            _ => typeof(string)
+        };
 
     /// <summary>
     /// Selects the default success response (2xx) from the given OpenApiResponses.
@@ -522,12 +705,12 @@ public partial class OpenApiDocDescriptor
         {
             throw new InvalidOperationException($"Response for status code '{attribute.StatusCode}' is not defined for this operation.");
         }
-
+        // Note: if the existing response is a reference, we still apply the new response details to it. This allows attributes to override referenced responses without needing to define new references for each variation. However, if the existing response is a reference and we're not inlining, we replace it with a new reference to avoid modifying the original component.
         if (res is OpenApiResponseReference)
         {
             throw new InvalidOperationException($"Cannot apply OpenApiPropertyAttribute to response '{attribute.StatusCode}' because it is a reference. Use inline OpenApiResponseAttribute instead.");
         }
-
+        // We have to be able to modify the response content to apply the property attribute, so we require a concrete OpenApiResponse here. If it's not already, we replace it with a new instance (copy-on-write) to avoid modifying the original reference.
         if (res is OpenApiResponse response)
         {
             if (response.Content is null || response.Content.Count == 0)
@@ -945,9 +1128,13 @@ public partial class OpenApiDocDescriptor
 
         if (routeOptions.FormOptions is not null && requestBody.Content?.Keys.Count > 0)
         {
-            routeOptions.FormOptions.AllowedRequestContentTypes.Clear();
-            routeOptions.FormOptions.AllowedRequestContentTypes.AddRange(requestBody.Content?.Keys ?? []);
+            routeOptions.FormOptions.AllowedContentTypes.Clear();
+            routeOptions.FormOptions.AllowedContentTypes.AddRange(requestBody.Content?.Keys ?? []);
         }
+        // If the request body defines content types, use them as allowed content types for the route and form options
+        routeOptions.AllowedRequestContentTypes.Clear();
+        routeOptions.AllowedRequestContentTypes.AddRange(requestBody.Content?.Keys ?? []);
+
         // Add the parameter for injection
         routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, requestBody, routeOptions.FormOptions));
     }
@@ -1001,8 +1188,8 @@ public partial class OpenApiDocDescriptor
         OpenApiRequestBodyAttribute attribute)
     {
         var contentTypes = ResolveFormContentTypes(attribute, routeOptions.FormOptions!);
-        routeOptions.FormOptions!.AllowedRequestContentTypes.Clear();
-        routeOptions.FormOptions.AllowedRequestContentTypes.AddRange(contentTypes);
+        routeOptions.FormOptions!.AllowedContentTypes.Clear();
+        routeOptions.FormOptions.AllowedContentTypes.AddRange(contentTypes);
 
         var formSchema = InferPrimitiveSchema(type: paramInfo.ParameterType, inline: attribute.Inline);
         var requestBodyContent = BuildFormRequestBodyWithSchema(formSchema, contentTypes, routeOptions.FormOptions, attribute);
@@ -1092,9 +1279,9 @@ public partial class OpenApiDocDescriptor
         }
 
         // if allowed content types are specified, use those
-        if (options.AllowedRequestContentTypes.Count > 0)
+        if (options.AllowedContentTypes.Count > 0)
         {
-            return [.. options.AllowedRequestContentTypes];
+            return [.. options.AllowedContentTypes];
         }
         // default to multipart/form-data
         return ["multipart/form-data"];
@@ -1275,7 +1462,8 @@ public partial class OpenApiDocDescriptor
 
         // Set the script block or wrap for form options
         routeOptions.ScriptCode.ScriptBlock = sb;
-        routeOptions.DefaultResponseContentType = "application/json";
+        routeOptions.IsOpenApiAnnotatedFunctionRoute = true;
+        routeOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<ContentTypeWithSchema>>(Host.Options.DefaultApiResponseMediaType);
         _ = Host.AddMapRoute(routeOptions);
     }
 

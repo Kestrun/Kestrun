@@ -7,6 +7,7 @@ using Xunit;
 namespace KestrunTests.Scripting;
 
 [Trait("Category", "Scripting")]
+[Collection("RunspaceSerial")]
 public class KestrunRunspacePoolManagerTests : IDisposable
 {
     private readonly KestrunHost _host;

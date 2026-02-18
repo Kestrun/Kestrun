@@ -26,7 +26,6 @@ using System.Security.Claims;
 using Microsoft.IdentityModel.JsonWebTokens;
 using System.Text.Json.Serialization;
 
-
 namespace Kestrun.Certificates;
 
 /// <summary>
@@ -233,7 +232,6 @@ public static class CertificateManager
         );
     }
 
-
     #endregion
 
     #region  Import
@@ -304,7 +302,6 @@ public static class CertificateManager
 #else
         => new(File.ReadAllBytes(certPath));
 #endif
-
 
     /// <summary>
     /// Imports a PEM certificate from the specified file path.
@@ -640,8 +637,6 @@ public static class CertificateManager
         return result;
     }
 
-
-
     #endregion
 
     #region Export
@@ -907,7 +902,6 @@ public static class CertificateManager
         }
     }
 
-
     /// <summary>
     /// Exports the specified X509 certificate to a file in the given format, using a SecureString password and optional private key inclusion.
     /// </summary>
@@ -937,7 +931,6 @@ public static class CertificateManager
             );
         }
     }
-
 
     /// <summary>
     /// Creates a self-signed certificate from the given RSA JWK JSON and exports it
@@ -1005,11 +998,9 @@ public static class CertificateManager
         });
     }
 
-
     #endregion
 
     #region JWK
-
 
     private static readonly JsonSerializerOptions s_jwkJsonOptions = new()
     {
@@ -1153,7 +1144,6 @@ public static class CertificateManager
         return BuildPrivateKeyJwt(jwk, clientId, tokenEndpoint);
     }
 
-
     /// <summary>
     /// Builds a JWK JSON (RSA) representation of the given certificate.
     /// By default only public parameters are included (safe for publishing as JWKS).
@@ -1271,8 +1261,6 @@ public static class CertificateManager
         return CreateJwkJsonFromRsa(rsa, keyId);
     }
 
-
-
     #endregion
 
     #region  Validation helpers (Test-PodeCertificate equivalent)
@@ -1307,8 +1295,11 @@ public static class CertificateManager
             return false;
         }
 
+        // Pre-compute weakness so we can apply it consistently across validation steps.
+        var isWeak = UsesWeakAlgorithms(cert);
+
         // 3) Chain build (with optional revocation)
-        if (!BuildChainOk(cert, checkRevocation, isSelfSigned))
+        if (!BuildChainOk(cert, checkRevocation, isSelfSigned, allowWeakAlgorithms, isWeak))
         {
             return false;
         }
@@ -1320,7 +1311,7 @@ public static class CertificateManager
         }
 
         // 5) Weak algorithms
-        if (!allowWeakAlgorithms && UsesWeakAlgorithms(cert))
+        if (!allowWeakAlgorithms && isWeak)
         {
             return false;
         }
@@ -1334,7 +1325,18 @@ public static class CertificateManager
     /// <param name="cert">The X509Certificate2 to check.</param>
     /// <returns>True if the certificate is within its validity period; otherwise, false.</returns>
     private static bool IsWithinValidityPeriod(X509Certificate2 cert)
-        => DateTime.UtcNow >= cert.NotBefore && DateTime.UtcNow <= cert.NotAfter;
+    {
+        var notBeforeUtc = cert.NotBefore.Kind == DateTimeKind.Utc
+            ? cert.NotBefore
+            : cert.NotBefore.ToUniversalTime();
+
+        var notAfterUtc = cert.NotAfter.Kind == DateTimeKind.Utc
+            ? cert.NotAfter
+            : cert.NotAfter.ToUniversalTime();
+
+        var nowUtc = DateTime.UtcNow;
+        return nowUtc >= notBeforeUtc && nowUtc <= notAfterUtc;
+    }
 
     /// <summary>
     /// Checks if the certificate chain is valid.
@@ -1352,11 +1354,57 @@ public static class CertificateManager
 
         if (isSelfSigned)
         {
-            chain.ChainPolicy.VerificationFlags = X509VerificationFlags.AllowUnknownCertificateAuthority;
+            // Make self-signed validation deterministic across platforms.
+            // Using the platform trust store differs between Windows/macOS/Linux; custom root trust
+            // avoids false negatives for dev/self-signed certificates.
+            chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+            _ = chain.ChainPolicy.CustomTrustStore.Add(cert);
+            chain.ChainPolicy.VerificationFlags = X509VerificationFlags.NoFlag;
         }
 
-        return chain.Build(cert);
+        var ok = chain.Build(cert);
+        if (ok)
+        {
+            return true;
+        }
+
+        if (!isSelfSigned)
+        {
+            return false;
+        }
+
+        // Some platforms still report non-fatal statuses for self-signed roots.
+        // Treat these as acceptable for self-signed certificates.
+        var allowed = X509ChainStatusFlags.UntrustedRoot | X509ChainStatusFlags.PartialChain;
+        if (!checkRevocation)
+        {
+            allowed |= X509ChainStatusFlags.RevocationStatusUnknown | X509ChainStatusFlags.OfflineRevocation;
+        }
+
+        var combined = X509ChainStatusFlags.NoError;
+        foreach (var status in chain.ChainStatus)
+        {
+            combined |= status.Status;
+        }
+
+        return (combined & ~allowed) == 0;
     }
+
+    /// <summary>
+    /// Checks if the certificate chain is valid.
+    /// </summary>
+    /// <param name="cert">The X509Certificate2 to check.</param>
+    /// <param name="checkRevocation">Whether to check certificate revocation status.</param>
+    /// <param name="isSelfSigned">Whether the certificate is self-signed.</param>
+    /// <param name="allowWeakAlgorithms">Whether weak algorithms are allowed.</param>
+    /// <param name="isWeak">Whether the certificate is considered weak by this library.</param>
+    /// <returns>True if the certificate chain is valid; otherwise, false.</returns>
+    private static bool BuildChainOk(
+        X509Certificate2 cert,
+        bool checkRevocation,
+        bool isSelfSigned,
+        bool allowWeakAlgorithms,
+        bool isWeak) => (isSelfSigned && allowWeakAlgorithms && isWeak) || BuildChainOk(cert, checkRevocation, isSelfSigned);
 
     /// <summary>
     /// Checks if the certificate has the expected key purposes (EKU).
@@ -1372,17 +1420,45 @@ public static class CertificateManager
             return true; // nothing to check
         }
 
-        var eku = cert.Extensions
-                       .OfType<X509EnhancedKeyUsageExtension>()
-                       .SelectMany(e => e.EnhancedKeyUsages.Cast<Oid>())
-                       .Select(o => o.Value)
-                       .ToHashSet();
+        var eku = GetEkuOids(cert);
+        var wanted = expectedPurpose
+            .Cast<Oid>()
+            .Select(static o => o.Value)
+            .Where(static v => !string.IsNullOrWhiteSpace(v))
+            .Select(static v => v!)
+            .ToHashSet(StringComparer.Ordinal);
 
-        var wanted = expectedPurpose.Cast<Oid>()
-                                    .Select(o => o.Value)
-                                    .ToHashSet();
+        return wanted.Count == 0 || (eku.Count != 0 && (strictPurpose ? eku.SetEquals(wanted) : wanted.IsSubsetOf(eku)));
+    }
 
-        return strictPurpose ? eku.SetEquals(wanted) : wanted.All(eku.Contains);
+    /// <summary>
+    /// Extracts EKU OIDs from the certificate, robustly across platforms.
+    /// </summary>
+    /// <param name="cert">The certificate to inspect.</param>
+    /// <returns>A set of EKU OID strings.</returns>
+    private static HashSet<string> GetEkuOids(X509Certificate2 cert)
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+
+        // EKU extension OID
+        var ext = cert.Extensions["2.5.29.37"];
+        if (ext == null)
+        {
+            return set;
+        }
+
+        var ekuExt = ext as X509EnhancedKeyUsageExtension
+            ?? new X509EnhancedKeyUsageExtension(ext, ext.Critical);
+
+        foreach (var oid in ekuExt.EnhancedKeyUsages.Cast<Oid>())
+        {
+            if (!string.IsNullOrWhiteSpace(oid.Value))
+            {
+                _ = set.Add(oid.Value);
+            }
+        }
+
+        return set;
     }
 
     /// <summary>
@@ -1401,7 +1477,6 @@ public static class CertificateManager
 
         return isSha1 || weakRsa || weakDsa || weakEcdsa;
     }
-
 
     /// <summary>
     /// Gets the enhanced key usage purposes (EKU) from the specified X509 certificate.

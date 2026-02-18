@@ -1,4 +1,5 @@
 using Kestrun.Models;
+using Kestrun.Hosting.Options;
 using Microsoft.AspNetCore.Http;
 using Serilog;
 using System.Text;
@@ -9,8 +10,134 @@ namespace KestrunTests.Models;
 
 public partial class KestrunResponseTests
 {
-    private static KestrunContext MakeCtx(string accept = "application/json") =>
-        TestRequestFactory.CreateContext(path: "/test", headers: new Dictionary<string, string> { { "Accept", accept } });
+    private sealed class QueueSchemaDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public int Count { get; set; }
+    }
+
+    private sealed class QueueValidationFailsDto
+    {
+        public string Name { get; set; } = string.Empty;
+
+        public bool ValidateRequiredProperties() => false;
+
+        public string[] GetMissingRequiredProperties() => ["Name"];
+    }
+
+    private static KestrunContext MakeCtx(string accept = "application/json")
+    {
+        var ctx = TestRequestFactory.CreateContext(path: "/test", headers: new Dictionary<string, string> { { "Accept", accept } });
+        ctx.MapRouteOptions.DefaultResponseContentType ??= new Dictionary<string, ICollection<ContentTypeWithSchema>>
+        {
+            ["default"] =
+            [
+                new("text/plain"),
+                new("application/json"),
+                new("application/xml"),
+                new("application/yaml"),
+                new("text/csv"),
+                new("application/x-www-form-urlencoded")
+            ]
+        };
+        return ctx;
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void QueueResponseForWrite_WithoutSchema_QueuesOriginalValue()
+    {
+        var ctx = MakeCtx();
+        var res = ctx.Response;
+        var payload = new { Name = "alice" };
+
+        res.QueueResponseForWrite(payload, StatusCodes.Status202Accepted);
+
+        Assert.Equal(StatusCodes.Status202Accepted, res.PostPonedWriteObject.Status);
+        Assert.Null(res.PostPonedWriteObject.Error);
+        Assert.Same(payload, res.PostPonedWriteObject.Value);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void QueueResponseForWrite_WithSchema_ConvertsDictionaryToSchemaType()
+    {
+        var ctx = MakeCtx();
+        ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>
+        {
+            ["200"] = [new("application/json", typeof(QueueSchemaDto).FullName)]
+        };
+
+        var res = ctx.Response;
+        var payload = new Dictionary<string, object?>
+        {
+            ["name"] = "widget",
+            ["count"] = 7
+        };
+
+        res.QueueResponseForWrite(payload, StatusCodes.Status200OK);
+
+        Assert.Equal(StatusCodes.Status200OK, res.PostPonedWriteObject.Status);
+        Assert.Null(res.PostPonedWriteObject.Error);
+        var converted = Assert.IsType<QueueSchemaDto>(res.PostPonedWriteObject.Value);
+        Assert.Equal("widget", converted.Name);
+        Assert.Equal(7, converted.Count);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void QueueResponseForWrite_UnresolvableSchema_SetsPostponedError()
+    {
+        var ctx = MakeCtx();
+        ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>
+        {
+            ["200"] = [new("application/json", "KestrunTests.Models.MissingSchemaType")]
+        };
+
+        var res = ctx.Response;
+        res.QueueResponseForWrite(new { Name = "x" }, StatusCodes.Status200OK);
+
+        Assert.Equal(StatusCodes.Status500InternalServerError, res.PostPonedWriteObject.Error);
+        Assert.Equal(StatusCodes.Status200OK, res.PostPonedWriteObject.Status);
+        Assert.Null(res.PostPonedWriteObject.Value);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void QueueResponseForWrite_ValidationFailure_SetsPostponedError()
+    {
+        var ctx = MakeCtx();
+        ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>
+        {
+            ["200"] = [new("application/json", typeof(QueueValidationFailsDto).FullName)]
+        };
+
+        var res = ctx.Response;
+        var payload = new Dictionary<string, object?>
+        {
+            ["name"] = string.Empty
+        };
+
+        res.QueueResponseForWrite(payload, StatusCodes.Status200OK);
+
+        Assert.Equal(StatusCodes.Status500InternalServerError, res.PostPonedWriteObject.Error);
+        Assert.Equal(StatusCodes.Status200OK, res.PostPonedWriteObject.Status);
+        Assert.Null(res.PostPonedWriteObject.Value);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void QueueResponseForWrite_NullInput_SetsPostponedError()
+    {
+        var ctx = MakeCtx();
+        var res = ctx.Response;
+
+        res.QueueResponseForWrite(null, StatusCodes.Status201Created);
+
+        Assert.Equal(StatusCodes.Status500InternalServerError, res.PostPonedWriteObject.Error);
+        Assert.Equal(StatusCodes.Status201Created, res.PostPonedWriteObject.Status);
+        Assert.Null(res.PostPonedWriteObject.Value);
+    }
 
     [Theory]
     [InlineData("text/plain", true)]
@@ -42,6 +169,45 @@ public partial class KestrunResponseTests
 
     [Fact]
     [Trait("Category", "Models")]
+    public async Task WriteResponse_WriteObject_WithNullValue_AllowsStatusOnlyResponse()
+    {
+        var ctx = MakeCtx("application/json");
+        var res = ctx.Response;
+
+        await res.WriteResponseAsync(new KestrunResponse.WriteObject(null, StatusCodes.Status204NoContent));
+
+        Assert.Equal(StatusCodes.Status204NoContent, res.StatusCode);
+        Assert.Null(res.Body);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public async Task WriteResponse_ObjectOverload_WithNull_ThrowsArgumentNullException()
+    {
+        var ctx = MakeCtx("application/json");
+        var res = ctx.Response;
+
+        var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => res.WriteResponseAsync((object?)null, StatusCodes.Status200OK));
+
+        Assert.Equal("inputObject", ex.ParamName);
+        Assert.Contains("Use WriteResponseAsync(WriteObject)", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public void WriteResponse_SyncOverload_WithNull_ThrowsArgumentNullException()
+    {
+        var ctx = MakeCtx("application/json");
+        var res = ctx.Response;
+
+        var ex = Assert.Throws<ArgumentNullException>(() => res.WriteResponse(null, StatusCodes.Status200OK));
+
+        Assert.Equal("inputObject", ex.ParamName);
+        Assert.Contains("Use WriteResponseAsync(WriteObject)", ex.Message);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
     public async Task WriteResponse_Chooses_Highest_QValue_From_Accept()
     {
         var ctx = MakeCtx("application/xml;q=0.1, application/json;q=0.9");
@@ -56,6 +222,26 @@ public partial class KestrunResponseTests
 
     [Fact]
     [Trait("Category", "Models")]
+    public async Task WriteResponse_Uses_Range_Default_For_4xx()
+    {
+        var ctx = TestRequestFactory.CreateContext(
+            path: "/test",
+            headers: new Dictionary<string, string> { { "Accept", "application/json" } });
+        ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>
+        {
+            ["4XX"] = [new("application/json"), new("text/plain")]
+        };
+        var res = ctx.Response;
+
+        await res.WriteResponseAsync(new { error = "not found" }, StatusCodes.Status404NotFound);
+
+        Assert.Equal(StatusCodes.Status404NotFound, res.StatusCode);
+        Assert.Contains("application/json", res.ContentType);
+        _ = Assert.IsType<string>(res.Body);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
     public async Task WriteResponse_Treats_VendorPlusJson_As_Json()
     {
         var ctx = MakeCtx("application/vnd.foo+json");
@@ -63,9 +249,30 @@ public partial class KestrunResponseTests
 
         await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status200OK);
 
+        Assert.Equal(StatusCodes.Status200OK, res.StatusCode);
         Assert.Contains("application/json", res.ContentType);
         var strBody = Assert.IsType<string>(res.Body);
         Assert.Contains("alice", strBody);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public async Task WriteResponse_Treats_Canonical_Json_As_Supported_VendorPlusJson()
+    {
+        var ctx = TestRequestFactory.CreateContext(
+            path: "/test",
+            headers: new Dictionary<string, string> { { "Accept", "application/json" } });
+
+        ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>
+        {
+            ["default"] = [new("application/vnd.foo+json")]
+        };
+
+        var res = ctx.Response;
+        await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status200OK);
+
+        Assert.Equal(StatusCodes.Status200OK, res.StatusCode);
+        Assert.DoesNotContain("406", res.Body?.ToString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -80,6 +287,91 @@ public partial class KestrunResponseTests
         Assert.Contains("text/plain", res.ContentType);
         var strBody = Assert.IsType<string>(res.Body);
         Assert.Contains("alice", strBody);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public async Task WriteResponse_WithoutOpenApiMetadata_UsesLegacyNegotiation()
+    {
+        var ctx = TestRequestFactory.CreateContext(
+            path: "/test",
+            headers: new Dictionary<string, string> { { "Accept", "application/json" } });
+
+        ctx.MapRouteOptions.DefaultResponseContentType = null;
+        ctx.MapRouteOptions.OpenAPI.Clear();
+
+        var res = ctx.Response;
+
+        await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status200OK);
+
+        Assert.Equal(StatusCodes.Status200OK, res.StatusCode);
+        Assert.Contains("application/json", res.ContentType);
+        var strBody = Assert.IsType<string>(res.Body);
+        Assert.Contains("alice", strBody);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public async Task WriteResponse_WithOpenApiAnnotatedFunctionMarker_AndMissingMap_Returns406()
+    {
+        var ctx = TestRequestFactory.CreateContext(
+            path: "/test",
+            headers: new Dictionary<string, string> { { "Accept", "application/json" } });
+
+        ctx.MapRouteOptions.DefaultResponseContentType = null;
+        ctx.MapRouteOptions.IsOpenApiAnnotatedFunctionRoute = true;
+
+        var res = ctx.Response;
+
+        await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status200OK);
+
+        Assert.Equal(StatusCodes.Status406NotAcceptable, res.StatusCode);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public async Task WriteResponse_WithOpenApiAnnotatedFunctionMarker_AndExactNoContentMapping_Returns500()
+    {
+        var ctx = TestRequestFactory.CreateContext(
+            path: "/test",
+            headers: new Dictionary<string, string> { { "Accept", "application/json" } });
+
+        ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>
+        {
+            ["200"] = [],
+            ["default"] = [new("application/json")]
+        };
+        ctx.MapRouteOptions.IsOpenApiAnnotatedFunctionRoute = true;
+
+        var res = ctx.Response;
+
+        await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status200OK);
+
+        Assert.Equal(StatusCodes.Status500InternalServerError, res.StatusCode);
+        Assert.Contains("declared without content", res.Body?.ToString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Category", "Models")]
+    public async Task WriteResponse_WithOpenApiAnnotatedFunctionMarker_AndRangeNoContentMapping_Returns500()
+    {
+        var ctx = TestRequestFactory.CreateContext(
+            path: "/test",
+            headers: new Dictionary<string, string> { { "Accept", "application/json" } });
+
+        ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>
+        {
+            ["2XX"] = [],
+            ["default"] = [new("application/json")]
+        };
+        ctx.MapRouteOptions.IsOpenApiAnnotatedFunctionRoute = true;
+
+        var res = ctx.Response;
+
+        await res.WriteResponseAsync(new { Name = "alice" }, StatusCodes.Status200OK);
+
+        Assert.Equal(StatusCodes.Status500InternalServerError, res.StatusCode);
+        Assert.Contains("declared without content", res.Body?.ToString() ?? string.Empty, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

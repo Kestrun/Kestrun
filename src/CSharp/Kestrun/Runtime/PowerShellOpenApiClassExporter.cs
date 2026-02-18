@@ -604,8 +604,8 @@ public static class PowerShellOpenApiClassExporter
     /// <summary>
     /// Determines if the specified type has an OpenAPI component attribute.
     /// </summary>
-    /// <param name="t"></param>
-    /// <returns></returns>
+    /// <param name="t">The type to inspect.</param>
+    /// <returns>True if the type has an OpenAPI component attribute; otherwise, false.</returns>
     private static bool HasOpenApiComponentAttribute(Type t)
     {
         return t.GetCustomAttributes(inherit: true)
@@ -617,36 +617,22 @@ public static class PowerShellOpenApiClassExporter
     /// <summary>
     /// Appends the PowerShell class definition for the specified type to the StringBuilder.
     /// </summary>
-    /// <param name="type"></param>
-    /// <param name="componentSet"></param>
-    /// <param name="sb"></param>
+    /// <param name="type">The type to export as a PowerShell class.</param>
+    /// <param name="componentSet">The set of known component types.</param>
+    /// <param name="sb">The StringBuilder to append the class definition to.</param>
     private static void AppendClass(Type type, HashSet<Type> componentSet, StringBuilder sb)
     {
         var bindFormAttribute = TryBuildKrBindFormAttribute(type, out var formMaxDepth);
+        var requiredProperties = GetRequiredProperties(type);
         var additionalPropertiesMetadata = BuildAdditionalPropertiesMetadata(type);
 
-        // Detect base type (for parenting). For OpenAPI form models, base type is chosen
-        // by KrBindForm.MaxNestingDepth rather than requiring inheritance on the original class.
-        var baseClause = string.Empty;
-        if ((bindFormAttribute is null || formMaxDepth > 0)
-            && TryGetFormPayloadBasePsName(type, out var formBasePsName))
-        {
-            baseClause = $" : {formBasePsName}";
-        }
-        else
-        {
-            var baseType = type.BaseType;
-            if (baseType != null && baseType != typeof(object))
-            {
-                // Use PS-friendly type name for the base
-                var basePsName = ToPowerShellTypeName(baseType, componentSet, collapseToUnderlyingPrimitives: false);
-                baseClause = $" : {basePsName}";
-            }
-        }
+        var baseClause = ResolveClassBaseClause(type, componentSet, bindFormAttribute, formMaxDepth);
+
         if (bindFormAttribute is not null)
         {
             _ = sb.AppendLine(bindFormAttribute);
         }
+
         _ = sb.AppendLine("[NoRunspaceAffinity()]");
         _ = sb.AppendLine($"class {type.Name}{baseClause} {{");
 
@@ -654,24 +640,23 @@ public static class PowerShellOpenApiClassExporter
         var props = type.GetProperties(
             BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly);
 
-        if (ShouldEmitAdditionalProperties(type, props))
-        {
-            _ = sb.AppendLine("    [hashtable]$AdditionalProperties");
-        }
+        AppendAdditionalPropertiesMembers(type, props, additionalPropertiesMetadata, sb);
 
-        if (!string.IsNullOrWhiteSpace(additionalPropertiesMetadata))
+        if (requiredProperties.Length > 0)
         {
-            _ = sb.AppendLine();
-            _ = sb.AppendLine("    # Static AdditionalProperties metadata for this class");
-            _ = sb.AppendLine("    static [hashtable] $AdditionalPropertiesMetadata = @{");
-            _ = sb.Append(additionalPropertiesMetadata);
-            _ = sb.AppendLine("    }");
+            AppendRequiredPropertiesMetadata(requiredProperties, sb);
         }
 
         foreach (var p in props)
         {
+            AppendValidationAttributes(p, sb);
             var psType = ToPowerShellTypeName(p.PropertyType, componentSet, collapseToUnderlyingPrimitives: true);
             _ = sb.AppendLine($"    [{psType}]${p.Name}");
+        }
+
+        if (requiredProperties.Length > 0)
+        {
+            AppendRequiredPropertiesValidationMethods(requiredProperties, sb);
         }
 
         // Add static XML metadata to guide XmlHelper without requiring PowerShell method invocation
@@ -680,6 +665,64 @@ public static class PowerShellOpenApiClassExporter
         _ = sb.AppendLine("}");
     }
 
+    /// <summary>
+    /// Resolves the PowerShell class base clause for an exported OpenAPI component.
+    /// </summary>
+    /// <param name="type">The component type being exported.</param>
+    /// <param name="componentSet">The set of known component types.</param>
+    /// <param name="bindFormAttribute">The generated KrBindForm attribute text, if any.</param>
+    /// <param name="formMaxDepth">The resolved KrBindForm.MaxNestingDepth value.</param>
+    /// <returns>The base clause including leading colon, or an empty string when no base type is emitted.</returns>
+    private static string ResolveClassBaseClause(Type type, HashSet<Type> componentSet, string? bindFormAttribute, int formMaxDepth)
+    {
+        if ((bindFormAttribute is null || formMaxDepth > 0)
+            && TryGetFormPayloadBasePsName(type, out var formBasePsName))
+        {
+            return $" : {formBasePsName}";
+        }
+
+        var baseType = type.BaseType;
+        if (baseType is null || baseType == typeof(object))
+        {
+            return string.Empty;
+        }
+
+        var basePsName = ToPowerShellTypeName(baseType, componentSet, collapseToUnderlyingPrimitives: false);
+        return $" : {basePsName}";
+    }
+
+    /// <summary>
+    /// Appends AdditionalProperties members and metadata for a generated class when applicable.
+    /// </summary>
+    /// <param name="type">The component type being exported.</param>
+    /// <param name="props">Declared public instance properties on the type.</param>
+    /// <param name="additionalPropertiesMetadata">Prebuilt AdditionalProperties metadata block.</param>
+    /// <param name="sb">The output builder.</param>
+    private static void AppendAdditionalPropertiesMembers(Type type, PropertyInfo[] props, string additionalPropertiesMetadata, StringBuilder sb)
+    {
+        if (ShouldEmitAdditionalProperties(type, props))
+        {
+            _ = sb.AppendLine("    [hashtable]$AdditionalProperties");
+        }
+
+        if (string.IsNullOrWhiteSpace(additionalPropertiesMetadata))
+        {
+            return;
+        }
+
+        _ = sb.AppendLine();
+        _ = sb.AppendLine("    # Static AdditionalProperties metadata for this class");
+        _ = sb.AppendLine("    static [hashtable] $AdditionalPropertiesMetadata = @{");
+        _ = sb.Append(additionalPropertiesMetadata);
+        _ = sb.AppendLine("    }");
+    }
+
+    /// <summary>
+    /// Determines whether to emit an AdditionalProperties hashtable and metadata based on the presence of an AdditionalProperties property or OpenApiPatternProperties attribute.
+    /// </summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <param name="maxDepth">The maximum nesting depth for the form.</param>
+    /// <returns>A string representing the KrBindForm attribute, or null if not applicable.</returns>
     private static string? TryBuildKrBindFormAttribute(Type type, out int maxDepth)
     {
         maxDepth = 0;
@@ -697,6 +740,81 @@ public static class PowerShellOpenApiClassExporter
         return maxDepth > 0
             ? $"[KrBindForm(MaxNestingDepth = {maxDepth})]"
             : "[KrBindForm()]";
+    }
+
+    /// <summary>
+    /// Gets required property names from OpenApiSchemaComponent metadata on a type.
+    /// </summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <returns>An array of required property names.</returns>
+    private static string[] GetRequiredProperties(Type type)
+    {
+        var schemaAttr = type.GetCustomAttributes(inherit: false)
+            .FirstOrDefault(a => a.GetType().Name.Equals("OpenApiSchemaComponent", StringComparison.OrdinalIgnoreCase));
+
+        if (schemaAttr is null)
+        {
+            return [];
+        }
+
+        var requiredValues = schemaAttr.GetType().GetProperty("RequiredProperties")?.GetValue(schemaAttr) as string[];
+        return requiredValues is { Length: > 0 }
+            ? [.. requiredValues.Where(v => !string.IsNullOrWhiteSpace(v)).Distinct(StringComparer.OrdinalIgnoreCase)]
+            : [];
+    }
+
+    /// <summary>
+    /// Appends static required-properties metadata to the generated class.
+    /// </summary>
+    /// <param name="requiredValues">Required property names to emit.</param>
+    /// <param name="sb">The output builder.</param>
+    private static void AppendRequiredPropertiesMetadata(string[] requiredValues, StringBuilder sb)
+    {
+        if (requiredValues is not { Length: > 0 })
+        {
+            return;
+        }
+
+        var requiredTuple = string.Join(", ", requiredValues.Select(v => $"'{EscapePowerShellString(v)}'"));
+        _ = sb.AppendLine();
+        _ = sb.AppendLine("    # Static required property names for this class");
+        _ = sb.AppendLine($"    static [string[]] $RequiredProperties = @({requiredTuple})");
+    }
+
+    /// <summary>
+    /// Appends instance methods that validate required properties for generated PowerShell classes.
+    /// </summary>
+    /// <param name="requiredProperties">The required property names.</param>
+    /// <param name="sb">The output builder.</param>
+    private static void AppendRequiredPropertiesValidationMethods(string[] requiredProperties, StringBuilder sb)
+    {
+        var requiredTuple = string.Join(", ", requiredProperties.Select(v => $"'{EscapePowerShellString(v)}'"));
+
+        _ = sb.AppendLine();
+        _ = sb.AppendLine("    [string[]] GetMissingRequiredProperties() {");
+        _ = sb.AppendLine($"        $required = @({requiredTuple})");
+        _ = sb.AppendLine("        $missing = [System.Collections.Generic.List[string]]::new()");
+        _ = sb.AppendLine("        foreach ($name in $required) {");
+        _ = sb.AppendLine("            $value = $this.$name");
+        _ = sb.AppendLine("            if ($null -eq $value) {");
+        _ = sb.AppendLine("                $missing.Add($name)");
+        _ = sb.AppendLine("                continue");
+        _ = sb.AppendLine("            }");
+        _ = sb.AppendLine("            if ($value -is [string] -and [string]::IsNullOrWhiteSpace([string]$value)) {");
+        _ = sb.AppendLine("                $missing.Add($name)");
+        _ = sb.AppendLine("                continue");
+        _ = sb.AppendLine("            }");
+        _ = sb.AppendLine("            if ($value -is [System.Collections.ICollection] -and $value.Count -eq 0) {");
+        _ = sb.AppendLine("                $missing.Add($name)");
+        _ = sb.AppendLine("            }");
+        _ = sb.AppendLine("        }");
+        _ = sb.AppendLine("        return $missing.ToArray()");
+        _ = sb.AppendLine("    }");
+
+        _ = sb.AppendLine();
+        _ = sb.AppendLine("    [bool] ValidateRequiredProperties() {");
+        _ = sb.AppendLine("        return $this.GetMissingRequiredProperties().Length -eq 0");
+        _ = sb.AppendLine("    }");
     }
 
     private static bool ShouldEmitAdditionalProperties(Type type, PropertyInfo[] props)
@@ -896,6 +1014,94 @@ public static class PowerShellOpenApiClassExporter
     /// <param name="str">The string to escape.</param>
     /// <returns>Escaped string safe for PowerShell single-quoted strings.</returns>
     private static string EscapePowerShellString(string str) => str.Replace("'", "''");
+
+    private static void AppendValidationAttributes(PropertyInfo property, StringBuilder sb)
+    {
+        var attributes = property.GetCustomAttributes(inherit: false)
+            .Select(TryFormatValidationAttribute)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .ToList();
+
+        foreach (var attribute in attributes)
+        {
+            _ = sb.Append("    ").AppendLine(attribute);
+        }
+    }
+
+    private static string? TryFormatValidationAttribute(object attribute)
+    {
+        var typeName = attribute.GetType().Name;
+
+        return typeName switch
+        {
+            "ValidateRangeAttribute" => FormatValidateRange(attribute),
+            "ValidateLengthAttribute" => FormatValidateLength(attribute),
+            "ValidateSetAttribute" => FormatValidateSet(attribute),
+            "ValidatePatternAttribute" => FormatValidatePattern(attribute),
+            "ValidateCountAttribute" => FormatValidateCount(attribute),
+            "ValidateNotNullOrEmptyAttribute" => "[ValidateNotNullOrEmpty()]",
+            "ValidateNotNullAttribute" => "[ValidateNotNull()]",
+            "ValidateNotNullOrWhiteSpaceAttribute" => "[ValidateNotNullOrWhiteSpace()]",
+            _ => null
+        };
+    }
+
+    private static string? FormatValidateRange(object attribute)
+    {
+        var min = attribute.GetType().GetProperty("MinRange")?.GetValue(attribute);
+        var max = attribute.GetType().GetProperty("MaxRange")?.GetValue(attribute);
+        return min is null || max is null ? null : $"[ValidateRange({FormatPowerShellLiteral(min)}, {FormatPowerShellLiteral(max)})]";
+    }
+
+    private static string? FormatValidateLength(object attribute)
+    {
+        var min = attribute.GetType().GetProperty("MinLength")?.GetValue(attribute);
+        var max = attribute.GetType().GetProperty("MaxLength")?.GetValue(attribute);
+        return min is null || max is null ? null : $"[ValidateLength({FormatPowerShellLiteral(min)}, {FormatPowerShellLiteral(max)})]";
+    }
+
+    private static string? FormatValidateCount(object attribute)
+    {
+        var min = attribute.GetType().GetProperty("MinLength")?.GetValue(attribute);
+        var max = attribute.GetType().GetProperty("MaxLength")?.GetValue(attribute);
+        return min is null || max is null ? null : $"[ValidateCount({FormatPowerShellLiteral(min)}, {FormatPowerShellLiteral(max)})]";
+    }
+
+    private static string? FormatValidatePattern(object attribute)
+    {
+        var pattern = attribute.GetType().GetProperty("RegexPattern")?.GetValue(attribute) as string;
+        return string.IsNullOrWhiteSpace(pattern) ? null : $"[ValidatePattern('{EscapePowerShellString(pattern)}')]";
+    }
+
+    private static string? FormatValidateSet(object attribute)
+    {
+        if (attribute.GetType().GetProperty("ValidValues")?.GetValue(attribute) is not IEnumerable<object> values)
+        {
+            return null;
+        }
+
+        var formatted = values
+            .Select(FormatPowerShellLiteral)
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .ToArray();
+
+        return formatted.Length == 0 ? null : $"[ValidateSet({string.Join(", ", formatted)})]";
+    }
+
+    private static string? FormatPowerShellLiteral(object? value)
+    {
+        return value is null
+            ? "$null"
+            : value switch
+            {
+                string s => $"'{EscapePowerShellString(s)}'",
+                char c => $"'{EscapePowerShellString(c.ToString())}'",
+                bool b => b ? "$true" : "$false",
+                byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal =>
+                    Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture),
+                _ => $"'{EscapePowerShellString(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? value.ToString() ?? string.Empty)}'"
+            };
+    }
 
     /// <summary>
     /// Converts a .NET type to a PowerShell type name.

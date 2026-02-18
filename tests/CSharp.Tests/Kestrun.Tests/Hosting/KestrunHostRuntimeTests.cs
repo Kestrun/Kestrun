@@ -36,7 +36,7 @@ public class KestrunHostRuntimeTests
         };
 
         var uptime = runtime.Uptime;
-        Assert.NotNull(uptime);
+        _ = Assert.NotNull(uptime);
         Assert.InRange(uptime.Value.TotalSeconds, 4, 10);
     }
 }

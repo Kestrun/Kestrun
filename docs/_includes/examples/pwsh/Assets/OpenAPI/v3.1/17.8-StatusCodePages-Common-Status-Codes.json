@@ -1,0 +1,409 @@
+{
+  "openapi": "3.1.2",
+  "info": {
+    "title": "Status Codes",
+    "description": "Endpoints to exercise common HTTP status codes.",
+    "contact": {
+      "email": "support@example.com"
+    },
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/secure/resource/{id}": {
+      "delete": {
+        "tags": [
+          "StatusCodes"
+        ],
+        "summary": "Protected DELETE (requires CanDelete)",
+        "description": "This endpoint deletes a resource identified by its ID.",
+        "operationId": "deleteSecureResource",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Resource id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "StatusBasic": [
+              "CanDelete"
+            ]
+          }
+        ]
+      }
+    },
+    "/only-get": {
+      "get": {
+        "tags": [
+          "StatusCodes"
+        ],
+        "summary": "GET-only endpoint",
+        "description": "This endpoint only supports the GET method.",
+        "operationId": "getOnlyGet",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/public": {
+      "get": {
+        "tags": [
+          "StatusCodes"
+        ],
+        "summary": "Public health check",
+        "operationId": "getPublic",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/secure/hello": {
+      "get": {
+        "tags": [
+          "StatusCodes"
+        ],
+        "summary": "Protected GET (Basic auth)",
+        "operationId": "getSecureHello",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "StatusBasic": [ ]
+          }
+        ]
+      }
+    },
+    "/json/echo": {
+      "post": {
+        "tags": [
+          "StatusCodes"
+        ],
+        "summary": "POST requires application/json",
+        "description": "This endpoint echoes back the received JSON payload.",
+        "operationId": "postJsonEcho",
+        "requestBody": {
+          "description": "The JSON body to echo back.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonEchoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "422": {
+            "description": "Unprocessable Entity"
+          },
+          "415": {
+            "description": "Unsupported Media Type"
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/json/echoPlus": {
+      "post": {
+        "tags": [
+          "StatusCodes"
+        ],
+        "summary": "POST requires application/json",
+        "description": "This endpoint echoes back the received JSON payload.",
+        "operationId": "postJsonEchoPlus",
+        "requestBody": {
+          "description": "The JSON body to echo back.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonEchoRequestPlus"
+              }
+            },
+            "application/yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/JsonEchoRequestPlus"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "422": {
+            "description": "Unprocessable Entity"
+          },
+          "415": {
+            "description": "Unsupported Media Type"
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/test": {
+      "get": {
+        "summary": "Demonstrate no-content response contract enforcement.",
+        "description": "Declares a 200 response without content and intentionally writes a payload.\nRuntime should reject this and return a 500 contract error.",
+        "operationId": "testNoContentContract",
+        "responses": {
+          "200": {
+            "description": "No content response contract"
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "JsonEchoRequest": {
+        "required": [
+          "name",
+          "quantity"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "minLength": 1,
+            "type": "string",
+            "description": "Friendly name",
+            "example": "widget"
+          },
+          "quantity": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer",
+            "description": "Quantity (1..100)",
+            "format": "int32",
+            "example": 2
+          },
+          "priority": {
+            "enum": [
+              "low",
+              "normal",
+              "high"
+            ],
+            "type": "string",
+            "description": "Optional priority",
+            "example": "normal"
+          }
+        },
+        "additionalProperties": false,
+        "description": "JSON echo request payload."
+      },
+      "JsonEchoRequestPlus": {
+        "$ref": "#/components/schemas/JsonEchoRequest"
+      },
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "StatusBasic": {
+        "type": "http",
+        "scheme": "basic"
+      }
+    }
+  }
+}

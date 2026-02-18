@@ -359,7 +359,6 @@ function deleteUser {
     [OpenApiResponseHeaderRef(StatusCode = '204', Key = 'X-RateLimit-Remaining', ReferenceId = 'X-RateLimit-Remaining')]
     [OpenApiResponseHeaderRef(StatusCode = '204', Key = 'X-RateLimit-Reset', ReferenceId = 'X-RateLimit-Reset')]
 
-    [OpenApiResponse(StatusCode = '404', Description = 'User not found')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]
         [int]$userId
@@ -380,7 +379,7 @@ function deleteUser {
     }
 
     if (-not $removed) {
-        Write-KrJsonResponse @{ error = "User '$userId' not found" } -StatusCode 404
+        Write-KrResponse @{ error = "User '$userId' not found" } -StatusCode 404
         return
     }
 

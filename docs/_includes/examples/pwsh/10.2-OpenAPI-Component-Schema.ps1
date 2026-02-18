@@ -182,17 +182,6 @@ class PurchaseResponse {
     [OpenApiDateTime]$createdAt
 }
 
-[OpenApiSchemaComponent(Description = 'Standard error response.', RequiredProperties = ('code', 'message'))]
-class ErrorResponse {
-    [OpenApiProperty(Description = 'HTTP-like error code.', Example = 400)]
-    [int]$code
-
-    [OpenApiProperty(Description = 'Human-readable error message.', Example = 'Invalid input')]
-    [string]$message
-}
-
-
-
 [OpenApiSchemaComponent(Description = "Inventory counts by status key.")]
 [OpenApiPatternProperties(KeyPattern = "^[a-z][a-z0-9_]*$", SchemaType = [int])]
 class InventoryCounts {}
@@ -222,7 +211,7 @@ function listEmployees {
     param()
 
     $employees = @(
-        [EmployeeResponse]@{
+        @{
             employeeId = 'a54a57ca-36f8-421b-a6b4-2e8f26858a4c'
             createdAt = (Get-Date).ToUniversalTime().ToString('o')
             firstName = 'Avery'
@@ -233,7 +222,7 @@ function listEmployees {
             roles = @('guide')
             address = @{ street = '1 Museum Way'; city = 'Seattle'; postalCode = '98101' }
         },
-        [EmployeeResponse]@{
+        @{
             employeeId = '3d8f5c2c-6e3c-4a7a-8f79-1f2a4b1c9a10'
             createdAt = (Get-Date).AddDays(-7).ToUniversalTime().ToString('o')
             firstName = 'Jordan'
@@ -262,7 +251,6 @@ function listEmployees {
 function purchaseTickets {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/tickets/purchase')]
     [OpenApiResponse(StatusCode = '201', Description = 'Created', Schema = [PurchaseResponse], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid input', Schema = [ErrorResponse], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
     param(
         [OpenApiRequestBody(
             Description = 'Ticket purchase request payload.',
@@ -271,16 +259,6 @@ function purchaseTickets {
         )]
         [PurchaseRequest]$body
     )
-
-    if ($null -eq $body -or $null -eq $body.customer -or -not $body.customer.email) {
-        Write-KrResponse @{ code = 400; message = 'customer.email is required' } -StatusCode 400
-        return
-    }
-
-    if ($null -eq $body.items -or $body.items.Count -lt 1) {
-        Write-KrResponse @{ code = 400; message = 'At least one line item is required' } -StatusCode 400
-        return
-    }
 
     $total = 0.0
     foreach ($item in $body.items) {

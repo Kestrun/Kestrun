@@ -79,10 +79,11 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
             price = 159.99
         } | ConvertTo-Json -Compress
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products?dryRun=true" -Method Post -ContentType 'application/json' -Body $body -SkipCertificateCheck -SkipHttpErrorCheck
-        $result.StatusCode | Should -Be 400
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products?dryRun=true" -Method Post -ContentType 'application/json' -Body $body -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result.StatusCode | Should -Be 422
         $json = $result.Content | ConvertFrom-Json
-        $json.message | Should -Be 'name is required'
+        $json.status | Should -Be 422
+        $json.error | Should -Match 'Invalid request parameters'
     }
 
     It 'List Categories (GET Default includeCounts=true)' {
@@ -130,6 +131,26 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
         $json.components.parameters.myCategory.'x-kestrun-demo'.kind | Should -Be 'catalog-context'
         $json.components.parameters.correlationId.'x-kestrun-demo'.kind | Should -Be 'trace'
         $json.components.parameters.correlationId.'x-kestrun-demo'.format | Should -Be 'uuid'
+    }
+
+    It 'OpenAPI includes specific client-error responses for POST /v1/products' {
+        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result.StatusCode | Should -Be 200
+
+        $json = $result.Content | ConvertFrom-Json
+        $responses = $json.paths.'/v1/products'.post.responses
+
+        $responses.'400' | Should -Not -BeNullOrEmpty
+        $responses.'406' | Should -Not -BeNullOrEmpty
+        $responses.'415' | Should -Not -BeNullOrEmpty
+        $responses.'422' | Should -Not -BeNullOrEmpty
+
+        $responses.'406'.content.'application/json'.schema.'$ref' | Should -Be '#/components/schemas/KestrunErrorResponse'
+        $responses.'406'.content.'application/problem+json'.schema.'$ref' | Should -Be '#/components/schemas/KestrunErrorResponse'
+        $responses.'415'.content.'application/json'.schema.'$ref' | Should -Be '#/components/schemas/KestrunErrorResponse'
+        $responses.'415'.content.'application/problem+json'.schema.'$ref' | Should -Be '#/components/schemas/KestrunErrorResponse'
+        $responses.'422'.content.'application/json'.schema.'$ref' | Should -Be '#/components/schemas/KestrunErrorResponse'
+        $responses.'422'.content.'application/problem+json'.schema.'$ref' | Should -Be '#/components/schemas/KestrunErrorResponse'
     }
 
     It 'OpenAPI includes all example paths' {

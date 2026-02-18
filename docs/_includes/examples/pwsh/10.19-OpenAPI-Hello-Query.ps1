@@ -32,36 +32,49 @@ Add-KrOpenApiInfo -Title 'Products API' `
 # Reusable schema components
 [OpenApiSchemaComponent(RequiredProperties = ('id', 'name', 'price'))]
 class Product {
-    [OpenApiPropertyAttribute(Description = 'Unique product identifier', Minimum = 1, Example = 101)]
+    [OpenApiProperty(Description = 'Unique product identifier', Minimum = 1, Example = 101)]
     [long]$id
 
-    [OpenApiPropertyAttribute(Description = 'Product name', Example = 'Laptop Pro')]
+    [OpenApiProperty(Description = 'Product name', Example = 'Laptop Pro')]
     [string]$name
 
-    [OpenApiPropertyAttribute(Description = 'Product price', Format = 'double', Example = 1299.99, Minimum = 0)]
+    [OpenApiProperty(Description = 'Product price', Format = 'double', Example = 1299.99, Minimum = 0)]
     [double]$price
 
-    [OpenApiPropertyAttribute(Description = 'Inventory count', Minimum = 0)]
+    [OpenApiProperty(Description = 'Inventory count', Minimum = 0)]
     [int]$stock
 }
 
 [OpenApiSchemaComponent()]
 class ProductSearchRequest {
-    [OpenApiPropertyAttribute(Description = 'Free-text search', Example = 'laptop')]
+    [OpenApiProperty(Description = 'Free-text search', Example = 'laptop')]
     [string]$q
 
-    [OpenApiPropertyAttribute(Description = 'Category filter', Example = 'electronics')]
+    [OpenApiProperty(Description = 'Category filter', Example = 'electronics')]
     [string]$category
 
-    [OpenApiPropertyAttribute(Description = 'Minimum price', Format = 'double', Minimum = 0, Example = 500)]
+    [OpenApiProperty(Description = 'Minimum price', Format = 'double', Minimum = 0, Example = 500)]
     [double]$minPrice
 
-    [OpenApiPropertyAttribute(Description = 'Maximum price', Format = 'double', Minimum = 0, Example = 2000)]
+    [OpenApiProperty(Description = 'Maximum price', Format = 'double', Minimum = 0, Example = 2000)]
     [double]$maxPrice
 
-    [OpenApiPropertyAttribute(Description = 'Only products in stock', Example = $true)]
+    [OpenApiProperty(Description = 'Only products in stock', Example = $true)]
     [bool]$inStock
 }
+
+[OpenApiSchemaComponent(Description = 'Paginated product search result')]
+class ProductSearchResult {
+    [OpenApiProperty(Description = 'Current page number', Example = 1)]
+    [int]$page
+    [OpenApiProperty(Description = 'Number of items per page', Example = 25)]
+    [int]$pageSize
+    [OpenApiProperty(Description = 'Total number of items', Example = 100)]
+    [int]$total
+    [OpenApiProperty(Description = 'Number of items in the current page', Example = 25)]
+    [Product[]]$items
+}
+
 # =========================================================
 #                 ROUTES / OPERATIONS
 # =========================================================
@@ -95,6 +108,7 @@ Add-KrApiDocumentationRoute -DocumentType Elements -OpenApiEndpoint "/openapi/v3
 #>
 function searchProducts {
     [OpenApiPath(HttpVerb = 'query', Pattern = '/v1/products/search')]
+    [OpenApiResponse(StatusCode = '200', Description = 'OK', Schema = [ProductSearchResult], ContentType = ('application/json', 'application/xml', 'application/yaml'))]
     param(
         [OpenApiParameterRef(ReferenceId = 'page')]
         [int]$page,
@@ -134,13 +148,13 @@ function searchProducts {
     $skip = ($page - 1) * $pageSize
     $paged = $filtered | Select-Object -Skip $skip -First $pageSize
 
-    $result = [ordered]@{
+    $result = @{
         page = $page
         pageSize = $pageSize
         total = ($filtered | Measure-Object).Count
         items = $paged
     }
-
+    Expand-KrObject -InputObject $result
     # Negotiate response by Accept header (JSON/XML/YAML when supported)
     Write-KrResponse -InputObject $result -StatusCode 200
 }

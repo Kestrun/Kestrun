@@ -213,8 +213,16 @@ public class ClientCertificateAuthHandler : AuthenticationHandler<ClientCertific
                 return (true, null);
             }
 
-            var now = DateTime.UtcNow;
-            return certificate.NotBefore > now || certificate.NotAfter < now
+            var notBeforeUtc = certificate.NotBefore.Kind == DateTimeKind.Utc
+                ? certificate.NotBefore
+                : certificate.NotBefore.ToUniversalTime();
+
+            var notAfterUtc = certificate.NotAfter.Kind == DateTimeKind.Utc
+                ? certificate.NotAfter
+                : certificate.NotAfter.ToUniversalTime();
+
+            var nowUtc = DateTime.UtcNow;
+            return notBeforeUtc > nowUtc || notAfterUtc < nowUtc
                 ? (false, "Certificate is not within its validity period")
                 : (true, null);
         }

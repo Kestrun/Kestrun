@@ -376,7 +376,7 @@ public partial class OpenApiDocDescriptor
     /// <param name="schema">The retrieved schema if found; otherwise, null.</param>
     /// <param name="isInline">Indicates whether the schema was found in inline components.</param>
     /// <returns>True if the schema was found; otherwise, false.</returns>
-    private bool TryGetSchemaItem(string schemaName, out OpenApiSchema? schema, out bool isInline)
+    private bool TryGetSchemaItem(string schemaName, out IOpenApiSchema? schema, out bool isInline)
     {
         if (TryGetInline(name: schemaName, kind: OpenApiComponentKind.Schemas, out schema))
         {
@@ -399,6 +399,6 @@ public partial class OpenApiDocDescriptor
     /// <param name="schemaName">The name of the schema to retrieve.</param>
     /// <param name="schema">The retrieved schema if found; otherwise, null.</param>
     /// <returns>True if the schema was found; otherwise, false.</returns>
-    private bool TryGetSchemaItem(string schemaName, out OpenApiSchema? schema) =>
+    private bool TryGetSchemaItem(string schemaName, out IOpenApiSchema? schema) =>
     TryGetSchemaItem(schemaName, out schema, out _);
 }

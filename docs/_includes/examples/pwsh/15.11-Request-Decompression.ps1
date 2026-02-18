@@ -1,4 +1,4 @@
-﻿<#
+<#
     15.11 Request Decompression Demo
 
     Demonstrates request-level decompression using RequestDecompression middleware.

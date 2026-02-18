@@ -104,6 +104,7 @@ public partial class KestrunHost : IDisposable
     /// Exception options for configuring exception handling.
     /// </summary>
     private ExceptionOptions? _exceptionOptions;
+    private string? _powerShellErrorResponseScript;
     /// <summary>
     /// Forwarded headers options for configuring forwarded headers handling.
     /// </summary>
@@ -127,7 +128,9 @@ public partial class KestrunHost : IDisposable
 #endif
 
     internal readonly Dictionary<(string Pattern, HttpVerb Method), MapRouteOptions> _registeredRoutes =
+#pragma warning disable IDE0028 // Simplify collection initialization
     new(new RouteKeyComparer());
+#pragma warning restore IDE0028 // Simplify collection initialization
 
     //internal readonly Dictionary<(string Scheme, string Type), AuthenticationSchemeOptions> _registeredAuthentications =
     //  new(new AuthKeyComparer());
@@ -254,6 +257,24 @@ public partial class KestrunHost : IDisposable
                 throw new InvalidOperationException("Cannot modify ExceptionOptions after configuration is applied.");
             }
             _exceptionOptions = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets an optional PowerShell script used by PowerShell route execution to generate error responses.
+    /// The script executes in the request runspace and is responsible for writing the response.
+    /// </summary>
+    public string? PowerShellErrorResponseScript
+    {
+        get => _powerShellErrorResponseScript;
+        set
+        {
+            if (IsConfigured)
+            {
+                throw new InvalidOperationException("Cannot modify PowerShellErrorResponseScript after configuration is applied.");
+            }
+
+            _powerShellErrorResponseScript = value;
         }
     }
 

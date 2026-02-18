@@ -60,12 +60,22 @@ public class MapRouteOptions
     /// <summary>
     /// Default response content type for this route.
     /// </summary>
-    public string? DefaultResponseContentType { get; set; }
+    public IDictionary<string, ICollection<ContentTypeWithSchema>>? DefaultResponseContentType { get; set; }
+
+    /// <summary>
+    /// Content types that this route can consume, if any.
+    /// </summary>
+    public List<string> AllowedRequestContentTypes { get; set; } = [];
 
     /// <summary>
     /// OpenAPI metadata for this route.
     /// </summary>
     public Dictionary<HttpVerb, OpenAPIPathMetadata> OpenAPI { get; set; } = []; // OpenAPI metadata for this route
+
+    /// <summary>
+    /// Indicates whether this route originated from an OpenAPI-annotated function definition.
+    /// </summary>
+    public bool IsOpenApiAnnotatedFunctionRoute { get; set; }
 
     /// <summary>
     /// Path-level OpenAPI common metadata for this route.

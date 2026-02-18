@@ -199,11 +199,11 @@
         <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
 
         <!-- Microsoft.AspNetCore -->
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.1" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="10.0.1" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.1" />
-        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="10.0.1" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.1" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.3" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="10.0.3" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.3" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="10.0.3" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.0" />
 
         <!-- Serilog -->
         <PackageReference Include="Serilog.Sinks.Http" Version="9.2.1" />
@@ -229,7 +229,6 @@
     <!-- Razor -->
     <ItemGroup>
         <PackageReference Include="Microsoft.CodeAnalysis.Razor" Version="6.0.36" />
-
     </ItemGroup>
 
     <!-- Logging -->

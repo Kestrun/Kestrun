@@ -32,7 +32,6 @@ $uiOrigin = "http://localhost:$ApiPort"
 Add-KrOpenApiInfo -Title 'CORS Multi-Policy Sample' -Version '1.0.0' `
     -Description 'Sample: Multiple CORS policies + multiple APIs + intentional browser CORS failures.'
 
-Add-KrOpenApiServer -Url '/' -Description 'Local Kestrun Server'
 Add-KrOpenApiTag -Name 'catalog' -Description 'Product catalog operations'
 Add-KrOpenApiTag -Name 'partner' -Description 'Partner-specific operations'
 Add-KrOpenApiTag -Name 'orders' -Description 'Order management operations'
@@ -85,6 +84,36 @@ class Order {
     [DateTime]$created
 }
 
+[OpenApiSchemaComponent(RequiredProperties = ('id', 'name', 'price'))]
+class ProductDto {
+    [int]$id
+    [string]$name
+    [double]$price
+}
+
+[OpenApiSchemaComponent(Array = $true, Description = 'Array of catalog products')]
+class ProductListDto : ProductDto {}
+
+[OpenApiSchemaComponent(RequiredProperties = ('sku', 'qty'))]
+class PartnerInventoryItem {
+    [string]$sku
+    [int]$qty
+}
+
+[OpenApiSchemaComponent(Array = $true, Description = 'Array of partner inventory entries')]
+class PartnerInventoryList : PartnerInventoryItem {}
+
+[OpenApiSchemaComponent(RequiredProperties = ('ok', 'note'))]
+class NoCorsInfoResponse {
+    [bool]$ok
+    [string]$note
+}
+
+[OpenApiSchemaComponent(RequiredProperties = ('error'))]
+class ApiErrorResponse {
+    [string]$error
+}
+
 Enable-KrConfiguration
 
 # =========================================================
@@ -112,7 +141,7 @@ Add-KrApiDocumentationRoute -DocumentType Elements
 #>
 function listProducts {
     [OpenApiPath(HttpVerb = 'Get', Pattern = '/products', Tags = 'catalog', CorsPolicy = 'PublicRead')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Product list', ContentType = 'application/json')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Product list', Schema = [ProductListDto], ContentType = 'application/json')]
     param()
     Write-KrLog -Level Information -Message 'GET /products'
     Write-KrJsonResponse -StatusCode 200 -InputObject $Products
@@ -128,7 +157,7 @@ function listProducts {
 #>
 function getProductById {
     [OpenApiPath(HttpVerb = 'Get', Pattern = '/products/{productId}', Tags = 'catalog', CorsPolicy = 'PublicRead')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Product details', ContentType = 'application/json')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Product details', Schema = [ProductDto], ContentType = 'application/json')]
     [OpenApiResponse(StatusCode = '404', Description = 'Not found')]
     param(
         [OpenApiParameter(In = [OaParameterLocation]::Path)]
@@ -138,7 +167,10 @@ function getProductById {
     Write-KrLog -Level Information -Message "GET /products/$productId"
     Expand-KrObject -InputObject $Products
     $item = $Products | Where-Object id -EQ $productId | Select-Object -First 1
-    if (-not $item) { return Write-KrStatusResponse -StatusCode 404 }
+    if (-not $item) {
+        Write-KrStatusResponse -StatusCode 404
+        return
+    }
 
     Write-KrJsonResponse -StatusCode 200 -InputObject $item
 }
@@ -152,12 +184,12 @@ function getProductById {
 #>
 function getPartnerInventory {
     [OpenApiPath(HttpVerb = 'Get', Pattern = '/partner/inventory', Tags = 'partner', CorsPolicy = 'PartnerOnly')]
-    [OpenApiResponse(StatusCode = '200', Description = 'Partner inventory list', ContentType = 'application/json')]
+    [OpenApiResponse(StatusCode = '200', Description = 'Partner inventory list', Schema = [PartnerInventoryList], ContentType = 'application/json')]
     param()
     Write-KrLog -Level Information -Message 'GET /partner/inventory'
     Write-KrJsonResponse -StatusCode 200 -InputObject @(
-        [pscustomobject]@{ sku = 'RB-001'; qty = 100 }
-        [pscustomobject]@{ sku = 'BB-002'; qty = 50 }
+        @{ sku = 'RB-001'; qty = 100 }
+        @{ sku = 'BB-002'; qty = 50 }
     )
 }
 
@@ -174,13 +206,15 @@ function getPartnerInventory {
 function createOrder {
     [OpenApiPath(HttpVerb = 'Post', Pattern = '/orders', Tags = 'orders', CorsPolicy = 'AdminWrite')]
     [OpenApiResponse(StatusCode = '201', Description = 'Order created', Schema = [Order], ContentType = 'application/json')]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid request')]
+    [OpenApiResponse(StatusCode = '400', Description = 'Invalid request', Schema = [ApiErrorResponse], ContentType = 'application/json')]
     param(
         [OpenApiRequestBody(Required = $true, ContentType = ('application/json'))]
         [Int]$productId
     )
     Write-KrLog -Level Information -Message "POST /orders with productId $productId"
-    if ( $productId -le 0) { Write-KrStatusResponse -StatusCode 400 }else {
+    if ( $productId -le 0) {
+        Write-KrJsonResponse -StatusCode 400 -InputObject @{ error = 'productId must be greater than 0' }
+    } else {
 
         $created = [Order]@{
             orderId = [guid]::NewGuid()
@@ -203,7 +237,6 @@ function createOrder {
 #>
 function deleteOrder {
     [OpenApiPath(HttpVerb = 'Delete', Pattern = '/orders/{orderId}', Tags = 'orders', CorsPolicy = 'AdminWrite')]
-
     [OpenApiResponse(StatusCode = '204', Description = 'Deleted')]
     param(
         [OpenApiParameter(Name = 'orderId', In = 'path', Required = $true)]
@@ -222,7 +255,7 @@ function deleteOrder {
 #>
 function getNoCorsInfo {
     [OpenApiPath(HttpVerb = 'Get', Pattern = '/nocors', Tags = 'misc')]
-    [OpenApiResponse(StatusCode = '200', Description = 'No CORS metadata', ContentType = 'application/json')]
+    [OpenApiResponse(StatusCode = '200', Description = 'No CORS metadata', Schema = [NoCorsInfoResponse], ContentType = 'application/json')]
     param()
 
     Write-KrJsonResponse -StatusCode 200 -InputObject @{

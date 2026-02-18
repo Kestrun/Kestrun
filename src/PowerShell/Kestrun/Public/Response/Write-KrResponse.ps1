@@ -26,10 +26,12 @@ function Write-KrResponse {
         [Parameter()]
         [int]$StatusCode = 200
     )
+
     # Only works inside a route script block where $Context is available
     if ($null -ne $Context.Response) {
-        # Call the C# method on the $Context.Response object
-        $Context.Response.WriteResponse($InputObject, $StatusCode)
+        Write-KrLog -Level Debug -Message "Write-KrResponse invoked for status code {statusCode}. Input type: {inputType}" -Values $StatusCode, ($InputObject.GetType().FullName)
+
+        $Context.Response.QueueResponseForWrite($InputObject, $StatusCode)
     } else {
         Write-KrOutsideRouteWarning
     }

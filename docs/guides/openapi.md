@@ -20,8 +20,102 @@ Focus areas:
 - **Inheritance**: Reuse schemas via class inheritance.
 
 > Kestrun uses a **code-first** approach where PowerShell classes define your data models and attributes define your API specification.
+This keeps your API definition close to your implementation and allows you to leverage PowerShell's type system and validation attributes for a rich OpenAPI contract.
+>
+> **OpenAPI as a contract (not just docs):** In Kestrun, OpenAPI metadata is used for documentation *and* can participate in runtime enforcement
+ (content negotiation, request body content types, and parameter/body validation). This makes your OpenAPI definition a real API contract.
 
 ---
+
+## 0. OpenAPI as a Contract (Runtime Enforcement)
+
+Kestrun treats OpenAPI as more than a descriptive artifact. When you use the OpenAPI attributes and Kestrun response helpers,
+the metadata can become an **allow-list** for what the endpoint accepts and returns.
+
+### Response content types (example: JSON ≠ YAML)
+
+If an operation declares that it produces JSON (for example via `[OpenApiResponse(ContentType = 'application/json')]`),
+then returning a different format (like YAML) is considered a contract violation.
+
+Practical rule of thumb:
+
+- Use `Write-KrResponse` when you want **content negotiation**. Kestrun will select a response content type that is both:
+  1) allowed by the client `Accept` header, and
+  2) allowed by the operation’s declared response content types.
+
+  If there is no overlap, Kestrun returns **406 Not Acceptable**.
+- Use `Write-KrJsonResponse` / `Write-KrYamlResponse` / `Write-KrXmlResponse` when you want to force a specific format.
+If you do this, make sure your OpenAPI response content types match what you actually return.
+
+### Request body content types (415)
+
+If you declare request body content types (for example via `[OpenApiRequestBody(ContentType = 'application/json')]`),
+Kestrun will reject mismatches with **415 Unsupported Media Type**.
+
+This is intentional: clients must send one of the declared `Content-Type` values.
+
+### Parameter and body schemas (validation)
+
+OpenAPI parameter schemas and model schemas are typically derived from:
+
+- The parameter type (`[int]`, `[string]`, PowerShell class types)
+- Validation attributes such as `[ValidateRange]`, `[ValidateSet]`, `[ValidatePattern]`, `[ValidateNotNullOrEmpty]`
+- OpenAPI component metadata (for example `[OpenApiParameterComponent]`, `[OpenApiSchemaComponent]`, `[OpenApiPropertyAttribute]`)
+
+At runtime, Kestrun applies these rules during binding/validation. If the input is structurally wrong or fails validation,
+the endpoint returns an error (commonly **400** for malformed input and **422** for semantic validation failures, depending on the operation and validator).
+
+The result: your OpenAPI definition and your actual behavior stay aligned.
+
+### Auto client-error responses (400/406/415/422)
+
+When OpenAPI metadata enables runtime contract checks, Kestrun can also add matching client-error responses to the OpenAPI operation.
+
+- **400 Bad Request**: Request binding/parsing failures (for example malformed JSON, invalid route/query conversions).
+- **422 Unprocessable Entity**: Validation failures after successful parsing/binding.
+- **415 Unsupported Media Type**: Request `Content-Type` is not allowed by the operation request body contract.
+- **406 Not Acceptable**: No overlap between client `Accept` header and operation response content types.
+
+These responses use a shared schema component (default name: `KestrunErrorResponse`) and default media type
+`application/problem+json`.
+
+Use `Set-KrOpenApiErrorSchema` to control both the schema component name and one or more response media types:
+
+```powershell
+# Default behavior (equivalent): application/problem+json
+Set-KrOpenApiErrorSchema -Name 'KestrunErrorResponse'
+
+# Custom schema name + multiple media types
+Set-KrOpenApiErrorSchema -Name 'ApiError' -ContentType @('application/problem+json', 'application/json')
+```
+
+Configure this before `Build-KrOpenApiDocument` / `Add-KrOpenApiRoute` so generated output is stable for tests and clients.
+
+### OpenAPI-focused runtime error payload customization
+
+Use `Set-KrPowerShellErrorResponse` when you also want to customize the **runtime**
+error payload shape for PowerShell route execution, while keeping the OpenAPI error
+contract aligned via `Set-KrOpenApiErrorSchema`.
+
+```powershell
+# OpenAPI contract for generated client errors
+Set-KrOpenApiErrorSchema -Name 'ApiError' -ContentType @('application/problem+json', 'application/json')
+
+# Runtime payload shape used when route execution hits an error path
+Set-KrPowerShellErrorResponse -ScriptBlock {
+  $payload = [ordered]@{
+    status = $StatusCode
+    title = 'Request failed'
+    detail = $ErrorMessage
+    path = [string]$Context.Request.Path
+    timestamp = (Get-Date).ToUniversalTime().ToString('o')
+  }
+
+  Write-KrJsonResponse -InputObject $payload -StatusCode $StatusCode -ContentType 'application/problem+json'
+}
+```
+
+If no custom script is configured (or the custom script fails), Kestrun falls back to the default error writer.
 
 ## 1. Concepts
 
@@ -924,6 +1018,18 @@ class ProductSchema {
 [ErrorResponse]$NotFound = NoDefault
 ```
 
+### Auto-generated error response component
+
+Even if you do not declare explicit 4xx components for every route, Kestrun can generate operation-level client-error responses
+that reference a shared error schema component.
+
+- Default schema component name: `KestrunErrorResponse`
+- Default media type: `application/problem+json`
+- Configurable via: `Set-KrOpenApiErrorSchema -Name <SchemaId> -ContentType @(...)`
+
+If you already maintain your own reusable response components, keep using `[OpenApiResponseComponent]` for those explicit cases.
+`Set-KrOpenApiErrorSchema` is specifically for auto-generated client-error responses tied to runtime contract enforcement.
+
 ### Usage in Route (Responses)
 
 ```powershell
@@ -982,6 +1088,10 @@ When possible, Kestrun reflects these into the generated OpenAPI parameter schem
 
 ### Usage in Route (Parameters)
 
+For operation parameters (especially path parameters), prefer explicit parameter
+attributes on function parameters so OpenAPI metadata and runtime binding stay
+aligned.
+
 ```powershell
 function listItems {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/items')]
@@ -992,6 +1102,18 @@ function listItems {
         [OpenApiParameterRef(ReferenceId = 'limit')]
         [int]$limit
     )
+}
+```
+
+Path-parameter example:
+
+```powershell
+function getItem {
+  [OpenApiPath(HttpVerb = 'get', Pattern = '/items/{id}')]
+  param(
+    [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]
+    [int]$id
+  )
 }
 ```
 

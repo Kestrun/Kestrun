@@ -28,6 +28,7 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 | [Status Code Pages](./statuscodepages) | Friendly error pages and re-execution flows |
 | [Certificates](./certificates) | Generate, import, export, and validate X.509 |
 | [File & Form Uploads](./uploads) | Multipart parsing, streaming storage, and validation rules/limits |
+| [Imperative vs Declarative Routing](./routing-styles) | Compare `Add-KrMapRoute` with `[OpenApiPath]` attribute routing |
 
 ## Planned
 

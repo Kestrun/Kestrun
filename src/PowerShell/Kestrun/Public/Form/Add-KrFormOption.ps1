@@ -134,8 +134,17 @@ function Add-KrFormOption {
             $Options.Description = $Description
         }
         if ($PSBoundParameters.ContainsKey('AllowedRequestContentTypes')) {
-            $Options.AllowedRequestContentTypes.Clear()
-            $Options.AllowedRequestContentTypes.AddRange($AllowedRequestContentTypes)
+            # The underlying C# property is KrFormOptions.AllowedContentTypes.
+            # Keep backward compatibility if an older assembly exposes AllowedRequestContentTypes.
+            if ($Options.PSObject.Properties.Match('AllowedContentTypes').Count -gt 0) {
+                $Options.AllowedContentTypes.Clear()
+                $Options.AllowedContentTypes.AddRange($AllowedRequestContentTypes)
+            } elseif ($Options.PSObject.Properties.Match('AllowedRequestContentTypes').Count -gt 0) {
+                $Options.AllowedRequestContentTypes.Clear()
+                $Options.AllowedRequestContentTypes.AddRange($AllowedRequestContentTypes)
+            } else {
+                throw 'KrFormOptions does not expose AllowedContentTypes/AllowedRequestContentTypes. Ensure Kestrun module DLLs are up to date.'
+            }
         }
         if ($PSBoundParameters.ContainsKey('AllowUnknownRequestContentType')) {
             $Options.RejectUnknownRequestContentType = -not $AllowUnknownRequestContentType.IsPresent

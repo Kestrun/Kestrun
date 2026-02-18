@@ -1,5 +1,7 @@
 using System.Management.Automation;
+using System.Net.Http.Headers;
 using Kestrun.Hosting;
+using Kestrun.KrException;
 using Kestrun.Logging;
 using Kestrun.Models;
 using Kestrun.Utilities;
@@ -58,6 +60,89 @@ internal static class PowerShellDelegateBuilder
             }
             krContext = GetKestrunContext(context);
 
+            var allowed = krContext.MapRouteOptions.AllowedRequestContentTypes;
+
+            if (allowed is { Count: > 0 })
+            {
+                // Reliable body detection
+                var hasBody =
+                    (context.Request.ContentLength.HasValue && context.Request.ContentLength.Value > 0) ||
+                    context.Request.Headers.TransferEncoding.Count > 0;
+
+                if (string.IsNullOrWhiteSpace(context.Request.ContentType))
+                {
+                    if (hasBody)
+                    {
+                        var message =
+                            "Content-Type header is required. Supported types: " + string.Join(", ", allowed);
+
+                        log.Warning(
+                            "Request with missing Content-Type header is not allowed. {Message}",
+                            message);
+
+                        await WriteErrorResponseWithCustomHandlerAsync(
+                            context,
+                            krContext,
+                            ps,
+                            log,
+                            message,
+                            StatusCodes.Status415UnsupportedMediaType).ConfigureAwait(false);
+                        return;
+                    }
+                }
+                else
+                {
+                    if (!MediaTypeHeaderValue.TryParse(context.Request.ContentType, out var mediaType))
+                    {
+                        // Malformed Content-Type → 400 (syntax error, not support issue)
+                        var message = $"Invalid Content-Type header value '{context.Request.ContentType}'.";
+
+                        log.WarningSanitized(
+                            "Malformed Content-Type header '{ContentType}'.",
+                            context.Request.ContentType);
+
+                        await WriteErrorResponseWithCustomHandlerAsync(
+                            context,
+                            krContext,
+                            ps,
+                            log,
+                            message,
+                            StatusCodes.Status400BadRequest).ConfigureAwait(false);
+                        return;
+                    }
+                    // Canonicalize the request content type and check against allowed list
+                    var requestContentTypeRaw = mediaType.MediaType ?? string.Empty;
+                    // Canonicalize the request content type and check against allowed list
+                    var requestContentTypeCanonical = MediaTypeHelper.Canonicalize(requestContentTypeRaw);
+                    // Check both raw and canonical forms against the allowed list to allow for flexible matching
+                    var rawAllowed = allowed.Contains(requestContentTypeRaw, StringComparer.OrdinalIgnoreCase);
+                    // Canonicalize the request content type and check against allowed list
+                    var canonicalAllowed = allowed
+                        .Select(MediaTypeHelper.Canonicalize)
+                        .Contains(requestContentTypeCanonical, StringComparer.OrdinalIgnoreCase);
+                    // If neither the raw nor canonical content type is allowed, return 415 Unsupported Media Type
+                    if (!rawAllowed && !canonicalAllowed)
+                    {
+                        var message =
+                            $"Request content type '{requestContentTypeRaw}' is not allowed. Supported types: {string.Join(", ", allowed)}";
+
+                        log.Warning(
+                            "Request content type '{ContentType}' (canonical '{Canonical}') is not allowed for this route.",
+                            requestContentTypeRaw,
+                            requestContentTypeCanonical);
+
+                        await WriteErrorResponseWithCustomHandlerAsync(
+                            context,
+                            krContext,
+                            ps,
+                            log,
+                            message,
+                            StatusCodes.Status415UnsupportedMediaType).ConfigureAwait(false);
+                        return;
+                    }
+                }
+            }
+
             if (krContext.HasRequestCulture)
             {
                 PowerShellExecutionHelpers.AddCulturePrelude(ps, krContext.Culture, log);
@@ -102,23 +187,65 @@ internal static class PowerShellDelegateBuilder
             {
                 log.Verbose("No redirect detected; applying response to HttpResponse...");
             }
+
+            var postponed = krContext.Response.PostPonedWriteObject;
+            if (postponed.Error is int postponedError && postponedError != 0)
+            {
+                log.Error("Postponed response contains error code {ErrorCode}; throwing before response write.", postponedError);
+                throw new InvalidOperationException($"Postponed response error detected: {postponedError}");
+            }
+
+            if (krContext.Response.HasPostPonedWriteObject)
+            {
+                if (isLogVerbose)
+                {
+                    log.Verbose("Postponed Write-KrResponse detected; applying response with Write-KrResponse.");
+                }
+                await krContext.Response.WriteResponseAsync(postponed).ConfigureAwait(false);
+            }
         }
         // optional: catch client cancellation to avoid noisy logs
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
         {
             // client disconnected – nothing to send
         }
+        catch (ParameterForInjectionException pfiiex)
+        {
+            // Log parameter resolution errors with preview of code
+            //   log.Error("Parameter resolution error ({Message}) - {Preview}",
+            // pfiiex.Message, code[..Math.Min(40, code.Length)]);
+            if (krContext is not null)
+            {
+                // Return 400 Bad Request for parameter resolution errors
+                await WriteErrorResponseWithCustomHandlerAsync(
+                    context,
+                    krContext,
+                    ps,
+                    log,
+                    "Invalid request parameters: " + pfiiex.Message,
+                    pfiiex.StatusCode,
+                    pfiiex).ConfigureAwait(false);
+            }
+            else
+            {
+                throw;
+            }
+        }
         catch (ParameterBindingException pbaex)
         {
             var fqid = pbaex.ErrorRecord?.FullyQualifiedErrorId;
             var cat = pbaex.ErrorRecord?.CategoryInfo?.Category;
-            // Log parameter binding errors with preview of code
-            log.Error("PowerShell parameter binding error ({Category}/{FQID}) - {Preview}",
-                cat, fqid, code[..Math.Min(40, code.Length)]);
             if (krContext is not null)
             {
                 // Return 400 Bad Request for parameter binding errors
-                await krContext.Response.WriteErrorResponseAsync("Invalid request parameters: " + pbaex.Message, StatusCodes.Status400BadRequest);
+                await WriteErrorResponseWithCustomHandlerAsync(
+                    context,
+                    krContext,
+                    ps,
+                    log,
+                    "Invalid request parameters: " + pbaex.Message,
+                    StatusCodes.Status400BadRequest,
+                    pbaex).ConfigureAwait(false);
             }
             else
             {
@@ -133,9 +260,35 @@ internal static class PowerShellDelegateBuilder
             if (krContext is not null)
             {
                 // Return 400 Bad Request for form parsing errors
-                await krContext.Response.WriteErrorResponseAsync("Invalid form data: " + kfex.Message, kfex.StatusCode);
+                await WriteErrorResponseWithCustomHandlerAsync(
+                    context,
+                    krContext,
+                    ps,
+                    log,
+                    "Invalid form data: " + kfex.Message,
+                    kfex.StatusCode,
+                    kfex).ConfigureAwait(false);
             }
             else { throw; }
+        }
+        catch (InvalidOperationException ioex) when (ioex.Message.StartsWith("Postponed response error detected:", StringComparison.Ordinal))
+        {
+            log.Error(ioex, "Postponed response error detected while applying Write-KrResponse result.");
+            if (krContext is not null)
+            {
+                await WriteErrorResponseWithCustomHandlerAsync(
+                    context,
+                    krContext,
+                    ps,
+                    log,
+                    "An internal server error occurred.",
+                    StatusCodes.Status500InternalServerError,
+                    ioex).ConfigureAwait(false);
+            }
+            else
+            {
+                throw;
+            }
         }
         catch (Exception ex)
         {
@@ -146,7 +299,14 @@ internal static class PowerShellDelegateBuilder
                 log.Error(ex, "PowerShell script failed - {Preview}", code[..Math.Min(40, code.Length)]);
                 if (krContext is not null)
                 {
-                    await krContext.Response.WriteErrorResponseAsync("An internal server error occurred.", StatusCodes.Status500InternalServerError);
+                    await WriteErrorResponseWithCustomHandlerAsync(
+                        context,
+                        krContext,
+                        ps,
+                        log,
+                        "An internal server error occurred.",
+                        StatusCodes.Status500InternalServerError,
+                        ex).ConfigureAwait(false);
                 }
                 else
                 {
@@ -169,6 +329,92 @@ internal static class PowerShellDelegateBuilder
             }
             // Do not call Response.CompleteAsync here; leaving the response open allows
             // downstream middleware like StatusCodePages to generate a body for status-only responses.
+        }
+    }
+
+    /// <summary>
+    /// Writes an error response using a custom PowerShell handler when configured; otherwise falls back to the built-in error response writer.
+    /// </summary>
+    /// <param name="context">Current HTTP context.</param>
+    /// <param name="krContext">Current Kestrun context.</param>
+    /// <param name="ps">PowerShell instance bound to the request runspace.</param>
+    /// <param name="log">Logger instance.</param>
+    /// <param name="message">Error message to expose to the handler/fallback writer.</param>
+    /// <param name="statusCode">HTTP status code for the error.</param>
+    /// <param name="exception">Optional exception that triggered the error flow.</param>
+    private static async Task WriteErrorResponseWithCustomHandlerAsync(
+        HttpContext context,
+        KestrunContext krContext,
+        PowerShell ps,
+        Serilog.ILogger log,
+        string message,
+        int statusCode,
+        Exception? exception = null)
+    {
+        if (!await TryExecuteCustomErrorResponseScriptAsync(context, krContext, ps, log, message, statusCode, exception).ConfigureAwait(false))
+        {
+            await krContext.Response.WriteErrorResponseAsync(message, statusCode).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Attempts to execute a configured custom PowerShell error response script for the current request.
+    /// </summary>
+    /// <param name="context">Current HTTP context.</param>
+    /// <param name="krContext">Current Kestrun context.</param>
+    /// <param name="ps">PowerShell instance bound to the request runspace.</param>
+    /// <param name="log">Logger instance.</param>
+    /// <param name="message">Error message to expose to the script.</param>
+    /// <param name="statusCode">HTTP status code to expose to the script.</param>
+    /// <param name="exception">Optional exception to expose to the script.</param>
+    /// <returns>True when a custom script executed successfully; otherwise false.</returns>
+    private static async Task<bool> TryExecuteCustomErrorResponseScriptAsync(
+        HttpContext context,
+        KestrunContext krContext,
+        PowerShell ps,
+        Serilog.ILogger log,
+        string message,
+        int statusCode,
+        Exception? exception)
+    {
+        var script = krContext.Host.PowerShellErrorResponseScript;
+        if (string.IsNullOrWhiteSpace(script) || ps.Runspace is null || context.Response.HasStarted)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var customErrorPs = PowerShell.Create();
+            customErrorPs.Runspace = ps.Runspace;
+
+            var sessionState = customErrorPs.Runspace.SessionStateProxy;
+            sessionState.SetVariable("Context", krContext);
+            sessionState.SetVariable("KrContext", krContext);
+            sessionState.SetVariable("StatusCode", statusCode);
+            sessionState.SetVariable("ErrorMessage", message);
+            sessionState.SetVariable("Exception", exception);
+
+            if (krContext.HasRequestCulture)
+            {
+                PowerShellExecutionHelpers.AddCulturePrelude(customErrorPs, krContext.Culture, log);
+            }
+
+            PowerShellExecutionHelpers.AddScript(customErrorPs, script);
+            _ = await customErrorPs.InvokeAsync(log, context.RequestAborted).ConfigureAwait(false);
+
+            if (customErrorPs.Streams.Error.Count > 0)
+            {
+                log.Warning("Custom PowerShell error response script reported errors; falling back to default error response.");
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            log.Error(ex, "Custom PowerShell error response script failed; falling back to default error response.");
+            return false;
         }
     }
 

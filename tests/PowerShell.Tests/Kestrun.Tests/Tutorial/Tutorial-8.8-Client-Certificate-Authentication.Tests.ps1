@@ -18,9 +18,16 @@ Describe 'Example 8.8 Client Certificate Authentication' -Tag 'Tutorial', 'Slow'
         # for output files) is randomized. Locate the generated PFX instead of guessing its name.
         $runRoot = Split-Path -Parent $script:instance.TempPath
         $certDir = Join-Path -Path $runRoot -ChildPath 'certs'
-        $clientPfx = Get-ChildItem -Path $certDir -Filter '*-client-cert.pfx' -ErrorAction SilentlyContinue |
-            Sort-Object -Property LastWriteTime -Descending |
-            Select-Object -First 1
+        $runBaseName = [System.IO.Path]::GetFileNameWithoutExtension($script:instance.TempPath)
+        $expectedClientPfxPath = Join-Path -Path $certDir -ChildPath "$runBaseName-client-cert.pfx"
+
+        $clientPfx = if (Test-Path $expectedClientPfxPath) {
+            Get-Item -Path $expectedClientPfxPath
+        } else {
+            Get-ChildItem -Path $certDir -Filter '*-client-cert.pfx' -ErrorAction SilentlyContinue |
+                Sort-Object -Property LastWriteTime -Descending |
+                Select-Object -First 1
+        }
 
         if (-not $clientPfx) {
             throw "Client certificate PFX not found under: $certDir"
@@ -32,6 +39,10 @@ Describe 'Example 8.8 Client Certificate Authentication' -Tag 'Tutorial', 'Slow'
 
         if (-not $script:clientCert.HasPrivateKey) {
             throw "Imported client certificate does not include a private key: $($clientPfx.FullName)"
+        }
+
+        if (-not (Test-KrCertificate -Certificate $script:clientCert -AllowWeakAlgorithms)) {
+            throw "Imported client certificate failed validation: $($clientPfx.FullName)"
         }
     }
 

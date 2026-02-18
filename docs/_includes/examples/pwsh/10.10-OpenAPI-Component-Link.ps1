@@ -148,7 +148,6 @@ function createUser {
     [OpenApiResponseLinkRef(StatusCode = '201', Key = 'get', ReferenceId = 'GetUserLink')]
     [OpenApiResponseLinkRef(StatusCode = '201', Key = 'update', ReferenceId = 'UpdateUserLink')]
     [OpenApiResponseLinkRef(StatusCode = '201', Key = 'delete', ReferenceId = 'DeleteUserLink')]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
     param(
         [OpenApiRequestBody(Required = $true, ContentType = ('application/json', 'application/xml', 'application/yaml'))]
         [UserPayload]$Body
@@ -207,13 +206,14 @@ function getUser {
         return
     }
 
-    $resp = [UserResourceResponse]::new()
-    $resp.id = $userId
-    $resp.user = [UserPayload]::new()
-    $resp.user.firstName = $user.firstName
-    $resp.user.lastName = $user.lastName
-    $resp.user.email = $user.email
-
+    $resp = @{
+        id = $userId
+        user = @{
+            firstName = $user.firstName
+            lastName = $user.lastName
+            email = $user.email
+        }
+    }
     Write-KrResponse $resp -StatusCode 200
 }
 
@@ -253,9 +253,10 @@ function updateUser {
         return
     }
 
-    $resp = [UserResourceResponse]::new()
-    $resp.id = $userId
-    $resp.user = $Body
+    $resp = @{
+        id = $userId
+        user = $Body
+    }
     Write-KrResponse $resp -StatusCode 200
 }
 

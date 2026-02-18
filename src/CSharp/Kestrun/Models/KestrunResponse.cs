@@ -22,6 +22,8 @@ using Microsoft.Net.Http.Headers;
 using Kestrun.Utilities.Yaml;
 using Kestrun.Hosting.Options;
 using Kestrun.Callback;
+using System.Management.Automation;
+using Kestrun.Logging;
 
 namespace Kestrun.Models;
 
@@ -33,6 +35,11 @@ namespace Kestrun.Models;
 /// </remarks>
 public class KestrunResponse
 {
+    private static readonly ContentTypeWithSchema[] LegacyNegotiatedResponseContentTypes =
+    [
+        new("*/*")
+    ];
+
     /// <summary>
     /// Flag indicating whether callbacks have already been enqueued.
     /// </summary>
@@ -61,7 +68,9 @@ public class KestrunResponse
     /// A set of MIME types that are considered text-based for response content.
     /// </summary>
     public static readonly HashSet<string> TextBasedMimeTypes =
+#pragma warning disable IDE0028 // Simplify collection initialization
     new(StringComparer.OrdinalIgnoreCase)
+#pragma warning restore IDE0028 // Simplify collection initialization
     {
         "application/json",
         "application/xml",
@@ -145,6 +154,23 @@ public class KestrunResponse
     /// </summary>
     public CacheControlHeaderValue? CacheControl { get; set; }
 
+    /// <summary>
+    /// Represents a simple object for writing responses with a value and status code.
+    /// </summary>
+    /// <param name="Value">The value to be written in the response.</param>
+    /// <param name="Status">The HTTP status code for the response.</param>
+    /// <param name="Error">An optional error code to include in the response.</param>
+    public record WriteObject(object? Value, int Status = StatusCodes.Status200OK, int? Error = null);
+
+    /// <summary>
+    /// Gets or sets a postponed write object that can be used for deferred response writing, allowing the response to be constructed in multiple stages or after certain operations are completed.
+    /// </summary>
+    public WriteObject PostPonedWriteObject { get; set; } = new WriteObject(null, StatusCodes.Status200OK);
+
+    /// <summary>
+    /// Indicates whether there is a postponed write object with a non-null value, which can be used to determine if a deferred response write is pending.
+    /// </summary>
+    public bool HasPostPonedWriteObject => PostPonedWriteObject.Value is not null;
     #region Constructors
     #endregion
 
@@ -456,6 +482,25 @@ public class KestrunResponse
 
     /// <summary>
     /// Asynchronously writes a response with the specified input object and HTTP status code.
+    /// </summary>
+    /// <param name="inputObject">The object to be sent in the response body.</param>
+    /// <returns>A task that represents the asynchronous write operation.</returns>
+    public Task WriteResponseAsync(WriteObject inputObject)
+    {
+        ArgumentNullException.ThrowIfNull(inputObject);
+
+        if (inputObject.Value is null)
+        {
+            Body = null;
+            StatusCode = inputObject.Status;
+            return Task.CompletedTask;
+        }
+
+        return WriteResponseAsync(inputObject.Value, inputObject.Status);
+    }
+
+    /// <summary>
+    /// Asynchronously writes a response with the specified input object and HTTP status code.
     /// Chooses the response format based on the Accept header or defaults to text/plain.
     /// </summary>
     /// <param name="inputObject">The object to be sent in the response body.</param>
@@ -463,38 +508,179 @@ public class KestrunResponse
     /// <returns>A task that represents the asynchronous write operation.</returns>
     public async Task WriteResponseAsync(object? inputObject, int statusCode = StatusCodes.Status200OK)
     {
+        if (inputObject is null)
+        {
+            throw new ArgumentNullException(nameof(inputObject), "Input object cannot be null. Use WriteResponseAsync(WriteObject) to specify a null value with a status code.");
+        }
+
         if (Logger.IsEnabled(LogEventLevel.Debug))
         {
             Logger.Debug("Writing response, StatusCode={StatusCode}", statusCode);
         }
 
         Body = inputObject;
+
         try
         {
+            // Read Accept header (may be missing)
             string? acceptHeader = null;
             _ = Request?.Headers.TryGetValue(HeaderNames.Accept, out acceptHeader);
-            // Pick best media type from Accept, default to text/plain
-            var selected = SelectResponseMediaType(acceptHeader, defaultType: KrContext.MapRouteOptions.DefaultResponseContentType);
 
-            if (selected is null)
+            if (!ShouldEnforceOpenApiResponseContentTypes())
             {
-                statusCode = StatusCodes.Status406NotAcceptable;
-                await WriteErrorResponseAsync("No acceptable media type found.", statusCode);
+                await WriteLegacyNegotiatedResponseAsync(inputObject, statusCode, acceptHeader);
                 return;
             }
 
-            if (Logger.IsEnabled(LogEventLevel.Verbose))
-            {
-                Logger.Verbose("Selected response media type={MediaType}", selected);
-            }
-
-            // Dispatch based on selected media type
-            await WriteByMediaTypeAsync(selected, inputObject, statusCode);
+            await WriteOpenApiNegotiatedResponseAsync(inputObject, statusCode, acceptHeader);
         }
         catch (Exception ex)
         {
-            Logger.Error("Error in WriteResponseAsync: {Message}", ex.Message);
-            await WriteErrorResponseAsync($"Internal server error: {ex.Message}", StatusCodes.Status500InternalServerError);
+            Logger.Error(ex, "Error in WriteResponseAsync");
+            await WriteErrorResponseAsync("Internal server error.", StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    /// <summary>
+    /// Writes a response using legacy Accept-header negotiation for non-OpenAPI routes.
+    /// </summary>
+    /// <param name="inputObject">The response payload.</param>
+    /// <param name="statusCode">The HTTP status code for the response.</param>
+    /// <param name="acceptHeader">The incoming Accept header value.</param>
+    /// <returns>A task representing the asynchronous write operation.</returns>
+    private async Task WriteLegacyNegotiatedResponseAsync(object inputObject, int statusCode, string? acceptHeader)
+    {
+        var negotiated = SelectResponseMediaType(acceptHeader, LegacyNegotiatedResponseContentTypes, defaultType: "text/plain")
+            ?? new ContentTypeWithSchema("text/plain", null);
+
+        if (Logger.IsEnabled(LogEventLevel.Verbose))
+        {
+            Logger.Verbose(
+                "Selected legacy response media type for status code: {StatusCode}, MediaType={MediaType}, Accept={Accept}",
+                statusCode,
+                negotiated,
+                acceptHeader);
+        }
+
+        await WriteByMediaTypeAsync(negotiated.ContentType, inputObject, statusCode);
+    }
+
+    /// <summary>
+    /// Writes a response using OpenAPI-declared response content types for the current status code.
+    /// </summary>
+    /// <param name="inputObject">The response payload.</param>
+    /// <param name="statusCode">The HTTP status code for the response.</param>
+    /// <param name="acceptHeader">The incoming Accept header value.</param>
+    /// <returns>A task representing the asynchronous write operation.</returns>
+    private async Task WriteOpenApiNegotiatedResponseAsync(object inputObject, int statusCode, string? acceptHeader)
+    {
+        if (!TryGetResponseContentTypes(KrContext.MapRouteOptions.DefaultResponseContentType, statusCode, out var values) || values is null)
+        {
+            var msg = $"No default response content type configured for status code {statusCode} and no range/default fallback found.";
+            Logger.Warning(msg);
+
+            await WriteErrorResponseAsync(msg, StatusCodes.Status406NotAcceptable);
+            return;
+        }
+
+        if (values.Count == 0)
+        {
+            var msg = $"Response status code {statusCode} is declared without content in OpenAPI. Returning a payload for this status is not allowed.";
+            Logger.Warning(msg);
+            await WriteErrorResponseAsync(msg, StatusCodes.Status500InternalServerError);
+            return;
+        }
+
+        var supported = values as IReadOnlyList<ContentTypeWithSchema> ?? [.. values];
+
+        var mediaType = SelectResponseMediaType(acceptHeader, supported, defaultType: supported[0].ContentType);
+        if (mediaType is null)
+        {
+            var supportedMediaTypes = string.Join(", ", supported.Select(x => x.ContentType));
+            var msg = $"No supported media type found for status code {statusCode} with Accept header '{acceptHeader}'. Supported types: {supportedMediaTypes}";
+            Logger.Warning(
+                "No supported media type found for status code {StatusCode} with Accept header '{AcceptHeader}'. Supported media types: {SupportedMediaTypes}. Supported entries: {@SupportedEntries}",
+                statusCode,
+                acceptHeader,
+                supportedMediaTypes,
+                supported);
+
+            await WriteErrorResponseAsync(msg, StatusCodes.Status406NotAcceptable);
+            return;
+        }
+
+        if (Logger.IsEnabled(LogEventLevel.Verbose))
+        {
+            Logger.Verbose(
+                "Selected response media type for status code: {StatusCode}, MediaType={MediaType}, Accept={Accept}",
+                statusCode,
+                mediaType,
+                acceptHeader);
+        }
+
+        await WriteByMediaTypeAsync(mediaType.ContentType, inputObject, statusCode);
+    }
+
+    /// <summary>
+    /// Determines whether OpenAPI response content-type enforcement should run for the current route.
+    /// </summary>
+    /// <remarks>
+    /// Enforcement is only enabled for routes that carry OpenAPI descriptive metadata.
+    /// Non-OpenAPI routes continue using legacy Accept-based negotiation.
+    /// </remarks>
+    /// <returns>True when the route has OpenAPI metadata; otherwise false.</returns>
+    private bool ShouldEnforceOpenApiResponseContentTypes() => MapRouteOptions.IsOpenApiAnnotatedFunctionRoute;
+
+    /// <summary>
+    /// Queues a response payload for deferred writing, applying configured response schema conversion and validation when available.
+    /// </summary>
+    /// <param name="inputObject">The payload to queue.</param>
+    /// <param name="statusCode">The HTTP status code associated with the payload.</param>
+    public void QueueResponseForWrite(object? inputObject, int statusCode = StatusCodes.Status200OK)
+    {
+        if (inputObject is null)
+        {
+            PostPonedWriteObject = new WriteObject(null, statusCode, StatusCodes.Status500InternalServerError);
+            return;
+        }
+
+        try
+        {
+            if (!TryGetResponseSchemaTypeForStatus(statusCode, out var schemaType, out var schemaTypeName))
+            {
+                PostPonedWriteObject = new WriteObject(inputObject, statusCode);
+                return;
+            }
+
+            if (schemaType is null)
+            {
+                Logger.Error("Unable to resolve response schema type '{SchemaTypeName}' for status code {StatusCode}.", schemaTypeName, statusCode);
+                PostPonedWriteObject = new WriteObject(null, statusCode, StatusCodes.Status500InternalServerError);
+                return;
+            }
+
+            var inputType = inputObject.GetType();
+            var valueToWrite = schemaType.IsInstanceOfType(inputObject) || inputType == schemaType
+                ? inputObject
+                : ConvertSchemaValue(inputObject, schemaType);
+
+            if (!ValidateRequiredProperties(valueToWrite, out var missingProperties))
+            {
+                Logger.WarningSanitized(
+                    "Response object failed required-property validation for schema type {SchemaTypeName}. Missing: {MissingProperties}.",
+                    schemaType.FullName,
+                    string.IsNullOrEmpty(missingProperties) ? "unknown required properties" : missingProperties);
+
+                PostPonedWriteObject = new WriteObject(null, statusCode, StatusCodes.Status500InternalServerError);
+                return;
+            }
+
+            PostPonedWriteObject = new WriteObject(valueToWrite, statusCode);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Failed to convert response object for status code {StatusCode}.", statusCode);
+            PostPonedWriteObject = new WriteObject(null, statusCode, StatusCodes.Status500InternalServerError);
         }
     }
 
@@ -502,55 +688,843 @@ public class KestrunResponse
     /// Selects the most appropriate response media type based on the Accept header.
     /// </summary>
     /// <param name="acceptHeader">The value of the Accept header from the request.</param>
+    /// <param name="supported">A list of supported media types to match against the Accept header.</param>
     /// <param name="defaultType">The default media type to use if no match is found. Defaults to "text/plain".</param>
     /// <returns>The selected media type as a string.</returns>
     /// <remarks>
     /// This method parses the Accept header, orders the media types by quality factor,
-    /// and selects the first supported media type. If none are supported, it returns the default type.
+    /// and selects the first supported media type. If none are supported returns null
     /// </remarks>
-    private static string? SelectResponseMediaType(string? acceptHeader, string? defaultType = "text/plain")
+    private static ContentTypeWithSchema? SelectResponseMediaType(string? acceptHeader, IReadOnlyList<ContentTypeWithSchema> supported, string defaultType = "text/plain")
     {
+        if (supported.Count == 0)
+        {
+            return new ContentTypeWithSchema(defaultType, null);
+        }
+
         if (string.IsNullOrWhiteSpace(acceptHeader))
         {
-            return defaultType;
+            return supported[0];
         }
-        // Parse and order by quality factor (q=)
-        var acceptValues = MediaTypeHeaderValue
-            .ParseList(acceptHeader.Split(','))
-            .OrderByDescending(v => v.Quality ?? 1.0);
-        // Try to find a supported media type
-        foreach (var v in acceptValues)
+
+        if (!MediaTypeHeaderValue.TryParseList([acceptHeader], out var accepts) || accepts.Count == 0)
         {
-            var mediaType = GetMediaTypeOrNull(v);
-            if (mediaType is not null)
+            return supported[0];
+        }
+
+        var supportsAnyMediaType = supported.Any(s => string.Equals(MediaTypeHelper.Normalize(s.ContentType), "*/*", StringComparison.OrdinalIgnoreCase));
+
+        var supportedNormalized = new string[supported.Count];
+        var supportedCanonical = new string[supported.Count];
+        for (var i = 0; i < supported.Count; i++)
+        {
+            supportedNormalized[i] = MediaTypeHelper.Normalize(supported[i].ContentType);
+            supportedCanonical[i] = MediaTypeHelper.Canonicalize(supported[i].ContentType);
+        }
+
+        foreach (var a in accepts.OrderByDescending(x => x.Quality ?? 1.0))
+        {
+            var accept = a.MediaType.Value;
+
+            if (accept is null)
             {
-                // Map to canonical media type if needed
-                var mapped = MediaTypeHelper.Canonicalize(mediaType);
-                if (mapped is not null)
-                {
-                    return mapped;
-                }
+                continue;
+            }
+
+            // Normalize first so we can reliably detect wildcards and avoid treating them as canonical aliases.
+            var acceptNormalized = MediaTypeHelper.Normalize(accept);
+
+            if (supportsAnyMediaType)
+            {
+                return SelectWhenAnyMediaTypeSupported(acceptNormalized, defaultType);
+            }
+
+            var matched = SelectFromConfiguredSupportedMediaTypes(acceptNormalized, supported, supportedNormalized, supportedCanonical);
+            if (matched is not null)
+            {
+                return matched;
             }
         }
-        // No supported media type found; return default
+        // No match found; return default
+        return null;
+    }
+
+    /// <summary>
+    /// Selects a response media type when the configured supported list includes <c>*/*</c>.
+    /// </summary>
+    /// <param name="acceptNormalized">The normalized Accept media type.</param>
+    /// <param name="defaultType">The default media type fallback.</param>
+    /// <returns>The selected media type entry.</returns>
+    private static ContentTypeWithSchema SelectWhenAnyMediaTypeSupported(string acceptNormalized, string defaultType)
+    {
+        if (string.Equals(acceptNormalized, "*/*", StringComparison.OrdinalIgnoreCase) ||
+            acceptNormalized.EndsWith("/*", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ContentTypeWithSchema(defaultType, null);
+        }
+
+        var writerMediaType = ResolveWriterMediaType(acceptNormalized, defaultType);
+        return new ContentTypeWithSchema(writerMediaType, null);
+    }
+
+    /// <summary>
+    /// Selects a response media type from explicitly configured supported media types.
+    /// </summary>
+    /// <param name="acceptNormalized">The normalized Accept media type.</param>
+    /// <param name="supported">The configured supported media type entries.</param>
+    /// <param name="supportedNormalized">Normalized supported media types in index-aligned order.</param>
+    /// <param name="supportedCanonical">Canonical supported media types in index-aligned order.</param>
+    /// <returns>The matched media type entry, or null when no match exists.</returns>
+    private static ContentTypeWithSchema? SelectFromConfiguredSupportedMediaTypes(
+        string acceptNormalized,
+        IReadOnlyList<ContentTypeWithSchema> supported,
+        IReadOnlyList<string> supportedNormalized,
+        IReadOnlyList<string> supportedCanonical)
+    {
+        if (string.Equals(acceptNormalized, "*/*", StringComparison.OrdinalIgnoreCase))
+        {
+            return supported[0];
+        }
+
+        if (acceptNormalized.EndsWith("/*", StringComparison.OrdinalIgnoreCase))
+        {
+            var prefix = acceptNormalized[..^1]; // "application/"
+            for (var i = 0; i < supported.Count; i++)
+            {
+                if (supportedNormalized[i].StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    return supported[i];
+                }
+            }
+
+            return null;
+        }
+
+        var acceptCanonical = MediaTypeHelper.Canonicalize(acceptNormalized);
+
+        for (var i = 0; i < supported.Count; i++)
+        {
+            if (string.Equals(supportedNormalized[i], acceptNormalized, StringComparison.OrdinalIgnoreCase))
+            {
+                return supported[i];
+            }
+        }
+
+        for (var i = 0; i < supported.Count; i++)
+        {
+            if (string.Equals(supportedCanonical[i], acceptCanonical, StringComparison.OrdinalIgnoreCase))
+            {
+                return supported[i];
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Resolves an incoming Accept media type to a concrete response writer media type.
+    /// </summary>
+    /// <param name="acceptNormalized">The normalized Accept media type.</param>
+    /// <param name="defaultType">The fallback media type.</param>
+    /// <returns>A concrete media type supported by response writers.</returns>
+    private static string ResolveWriterMediaType(string acceptNormalized, string defaultType)
+    {
+        var canonical = MediaTypeHelper.Canonicalize(acceptNormalized);
+        // For common structured types with well-known suffixes, return the canonical type to ensure we return a supported media type that also supports charset parameters.
+        if (string.Equals(canonical, "application/json", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(canonical, "application/xml", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(canonical, "application/yaml", StringComparison.OrdinalIgnoreCase))
+        {
+            return canonical;
+        }
+        // Allow text/csv and application/x-www-form-urlencoded as they are commonly used text-based formats that support charset and are often expected to be returned as-is without being treated as generic text/* types.
+        if (string.Equals(acceptNormalized, "text/csv", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(acceptNormalized, "application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
+        {
+            return acceptNormalized;
+        }
+        // For other text/* types, default to text/plain since we don't want to accidentally return HTML or similar types that may have security implications.
+        if (acceptNormalized.StartsWith("text/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "text/plain";
+        }
+        // For other types, we would need explicit support configured to return them; default to the provided default type.
         return defaultType;
     }
 
     /// <summary>
-    /// Gets the media type from the MediaTypeHeaderValue or null if not present.
+    /// Resolves response content types for a status code using exact, range (e.g., 4XX), then default.
     /// </summary>
-    /// <param name="v"> The MediaTypeHeaderValue instance to extract the media type from.</param>
-    /// <returns>The media type as a string if present; otherwise, null.</returns>
-    private static string? GetMediaTypeOrNull(MediaTypeHeaderValue v)
+    /// <param name="contentTypes">The content type map keyed by status code, range, or default.</param>
+    /// <param name="statusCode">The HTTP status code to resolve.</param>
+    /// <param name="values">The resolved content types, if found.</param>
+    /// <returns>True when a matching entry is found, including explicit empty mappings.</returns>
+    private static bool TryGetResponseContentTypes(
+        IDictionary<string, ICollection<ContentTypeWithSchema>>? contentTypes,
+        int statusCode,
+        out ICollection<ContentTypeWithSchema>? values)
     {
-        if (!v.MediaType.HasValue)
+        values = null;
+        if (contentTypes is null || contentTypes.Count == 0)
+        {
+            return false;
+        }
+
+        var statusKey = statusCode.ToString(CultureInfo.InvariantCulture);
+        if (TryGetValueIgnoreCase(contentTypes, statusKey, out values))
+        {
+            return true;
+        }
+
+        if (statusCode is >= 100 and <= 599)
+        {
+            // Allow OpenAPI-style wildcard keys such as:
+            // - 4XX (all 4xx)
+            // These are matched case-insensitively.
+            var rangeKey = $"{statusCode / 100}XX";
+            if (TryGetValueIgnoreCase(contentTypes, rangeKey, out values))
+            {
+                return true;
+            }
+        }
+
+        if (TryGetValueIgnoreCase(contentTypes, "default", out values))
+        {
+            return true;
+        }
+
+        values = null;
+        return false;
+    }
+
+    /// <summary>
+    /// Attempts to resolve a configured response schema type for the given status code.
+    /// </summary>
+    /// <param name="statusCode">The status code for which a schema should be resolved.</param>
+    /// <param name="schemaType">The resolved schema type, when available.</param>
+    /// <param name="schemaTypeName">The configured schema type name.</param>
+    /// <returns>True when a schema mapping exists for the status code and includes schema metadata.</returns>
+    private bool TryGetResponseSchemaTypeForStatus(int statusCode, out Type? schemaType, out string? schemaTypeName)
+    {
+        schemaType = null;
+        schemaTypeName = null;
+
+        if (!TryGetResponseContentTypes(MapRouteOptions.DefaultResponseContentType, statusCode, out var mappings) || mappings is null || mappings.Count == 0)
+        {
+            return false;
+        }
+
+        var first = mappings.FirstOrDefault();
+        if (first is null || string.IsNullOrWhiteSpace(first.Schema))
+        {
+            return false;
+        }
+
+        schemaTypeName = first.Schema;
+        schemaType = ResolveSchemaType(schemaTypeName);
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves a type by full name, short name, or assembly-qualified name from loaded assemblies.
+    /// </summary>
+    /// <param name="schemaTypeName">The schema type name to resolve.</param>
+    /// <returns>The resolved type when found; otherwise null.</returns>
+    private static Type? ResolveSchemaType(string schemaTypeName)
+    {
+        if (string.IsNullOrWhiteSpace(schemaTypeName))
         {
             return null;
         }
-        // Trim whitespace
-        var s = v.MediaType.Value.Trim();
-        // Return null for empty strings
-        return s.Length == 0 ? null : s;
+
+        var candidates = new List<Type>();
+
+        var directType = Type.GetType(schemaTypeName, throwOnError: false, ignoreCase: true);
+        if (directType is not null)
+        {
+            candidates.Add(directType);
+        }
+
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            CollectSchemaTypeCandidatesFromAssembly(assembly, schemaTypeName, candidates);
+        }
+
+        return SelectPreferredSchemaType(candidates);
+    }
+
+    /// <summary>
+    /// Collects schema type candidates from an assembly by direct and name-based matching.
+    /// </summary>
+    /// <param name="assembly">The assembly to scan.</param>
+    /// <param name="schemaTypeName">The schema type name to resolve.</param>
+    /// <param name="candidates">The destination list of matching candidates.</param>
+    private static void CollectSchemaTypeCandidatesFromAssembly(Assembly assembly, string schemaTypeName, List<Type> candidates)
+    {
+        var assemblyType = assembly.GetType(schemaTypeName, throwOnError: false, ignoreCase: true);
+        if (assemblyType is not null)
+        {
+            candidates.Add(assemblyType);
+        }
+
+        Type[] typeCandidates;
+        try
+        {
+            typeCandidates = assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            typeCandidates = [.. ex.Types.Where(t => t is not null)!];
+        }
+        catch
+        {
+            return;
+        }
+
+        foreach (var typeCandidate in typeCandidates)
+        {
+            if (typeCandidate is not null && IsMatchingSchemaTypeName(typeCandidate, schemaTypeName))
+            {
+                candidates.Add(typeCandidate);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Determines whether a candidate type matches the provided schema type name.
+    /// </summary>
+    /// <param name="typeCandidate">The type candidate to evaluate.</param>
+    /// <param name="schemaTypeName">The schema type name to match.</param>
+    /// <returns>True when the candidate matches by full name, short name, or assembly-qualified prefix.</returns>
+    private static bool IsMatchingSchemaTypeName(Type typeCandidate, string schemaTypeName)
+        => string.Equals(typeCandidate.FullName, schemaTypeName, StringComparison.OrdinalIgnoreCase)
+           || string.Equals(typeCandidate.Name, schemaTypeName, StringComparison.OrdinalIgnoreCase)
+           || (!string.IsNullOrWhiteSpace(typeCandidate.AssemblyQualifiedName)
+               && typeCandidate.AssemblyQualifiedName.StartsWith(schemaTypeName + ",", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Selects the preferred schema type from collected candidates.
+    /// </summary>
+    /// <param name="candidates">The collected type candidates.</param>
+    /// <returns>The preferred schema type, or null when no candidate exists.</returns>
+    private static Type? SelectPreferredSchemaType(IReadOnlyList<Type> candidates)
+    {
+        var distinct = candidates
+            .Where(t => t is not null)
+            .GroupBy(t => string.IsNullOrWhiteSpace(t.AssemblyQualifiedName) ? t.FullName : t.AssemblyQualifiedName, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+
+        if (distinct.Count == 0)
+        {
+            return null;
+        }
+
+        var generatedCandidate = distinct.FirstOrDefault(t =>
+            t.GetProperty("XmlMetadata", BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy) is not null);
+
+        return generatedCandidate ?? distinct[0];
+    }
+
+    /// <summary>
+    /// Converts a value to the target schema type.
+    /// </summary>
+    /// <param name="value">The source value.</param>
+    /// <param name="targetType">The destination type.</param>
+    /// <returns>The converted value.</returns>
+    private static object? ConvertSchemaValue(object? value, Type targetType)
+    {
+        value = UnwrapPowerShellValue(value);
+        if (value is null)
+        {
+            return null;
+        }
+        // If the value is already assignable to the target type, return it directly without further conversion.
+        var valueType = value.GetType();
+        if (targetType.IsInstanceOfType(value) || valueType == targetType)
+        {
+            return value;
+        }
+        // Handle nullable types by converting to the underlying type.
+        var nullableUnderlying = Nullable.GetUnderlyingType(targetType);
+        if (nullableUnderlying is not null)
+        {
+            return ConvertSchemaValue(value, nullableUnderlying);
+        }
+        // If the target type is a map-like type (e.g., IDictionary) and the value is an IDictionary, return it directly to allow for flexible dictionary handling in schemas without forcing unnecessary conversions that may not be compatible with all dictionary types.
+        if (IsMapLikeType(targetType) && value is IDictionary)
+        {
+            return value;
+        }
+        // If the target type is an array, attempt to convert the value to an array of the target element type. This handles cases where the schema expects an array but the provided value may be a single item or a different enumerable type.
+        if (targetType.IsArray)
+        {
+            return ConvertSchemaArrayValue(value, targetType);
+        }
+        // Attempt dictionary-to-type conversion for schema values, which allows for flexible object construction from dictionaries when the schema type is a complex object. This is attempted before PowerShell object conversion to prioritize direct dictionary mappings for schemas that may be designed to be populated from dictionaries.
+        if (TryConvertSchemaDictionaryValue(value, targetType, out var dictionaryConvertedValue))
+        {
+            return dictionaryConvertedValue;
+        }
+        // Attempt PowerShell object conversion, which allows for flexible handling of PowerShell-specific objects and types that may be passed as response values. This is attempted after dictionary conversion to allow schemas that can be populated from dictionaries to take precedence, while still supporting PowerShell object conversion when needed for schema types that may not be directly compatible with dictionary conversion.
+        if (TryConvertPowerShellObjectToType(value, targetType, out var convertedPowerShellObject))
+        {
+            return convertedPowerShellObject;
+        }
+        // Attempt single-argument constructor conversion as a last resort before simple conversions, as it may be more expensive and we want to prioritize more direct conversions when possible.
+        if (TryConvertViaSingleArgumentConstructor(value, targetType, out var constructorConvertedValue))
+        {
+            return constructorConvertedValue;
+        }
+        // As a final fallback, attempt simple conversions for primitive types and common convertible types, which allows for some flexibility in converting between basic types when the schema expects a different type but a simple conversion is possible (e.g., string to int). This is attempted last to allow all other more specific conversion strategies to take precedence, while still providing a fallback for simple type conversions that may be commonly needed in schemas.
+        return TryConvertSimple(value, targetType, out var convertedValue) ? convertedValue : value;
+    }
+
+    /// <summary>
+    /// Converts a schema value to an array of the requested target type.
+    /// </summary>
+    /// <param name="value">The source value to convert.</param>
+    /// <param name="targetArrayType">The destination array type.</param>
+    /// <returns>A typed array instance populated from the source value.</returns>
+    private static object ConvertSchemaArrayValue(object value, Type targetArrayType)
+    {
+        var elementType = targetArrayType.GetElementType() ?? typeof(object);
+        if (value is IEnumerable enumerable and not string)
+        {
+            return ConvertEnumerableToTypedArray(enumerable, elementType);
+        }
+        // If the value is not an enumerable, attempt to convert it as a single element array.
+        return ConvertSingleValueToTypedArray(value, elementType);
+    }
+
+    /// <summary>
+    /// Converts an enumerable source to a typed destination array.
+    /// </summary>
+    /// <param name="enumerable">The source enumerable values.</param>
+    /// <param name="elementType">The destination element type.</param>
+    /// <returns>A typed array containing converted elements.</returns>
+    private static Array ConvertEnumerableToTypedArray(IEnumerable enumerable, Type elementType)
+    {
+        var materialized = new List<object?>();
+        foreach (var item in enumerable)
+        {
+            materialized.Add(ConvertSchemaValue(item, elementType));
+        }
+        // Create a typed array of the destination element type and populate it with the converted values, ensuring that each element is assignable to the destination element type. This allows for flexible conversion of enumerable values to arrays of the expected schema element type, while still enforcing that the final array contains compatible element types as required by the schema.
+        var typedArray = Array.CreateInstance(elementType, materialized.Count);
+        for (var i = 0; i < materialized.Count; i++)
+        {
+            var itemToAssign = EnsureArrayElementAssignable(materialized[i], elementType, allowSimpleFallback: false);
+            typedArray.SetValue(itemToAssign, i);
+        }
+        // Return the fully converted and typed array to be used as the response value, which ensures that the response adheres to the expected schema-defined array type with properly converted elements.
+        return typedArray;
+    }
+
+    /// <summary>
+    /// Converts a single source value to a one-element typed destination array.
+    /// </summary>
+    /// <param name="value">The source value.</param>
+    /// <param name="elementType">The destination element type.</param>
+    /// <returns>A one-element typed array containing the converted value.</returns>
+    private static Array ConvertSingleValueToTypedArray(object value, Type elementType)
+    {
+        var singleItemArray = Array.CreateInstance(elementType, 1);
+        var singleElement = EnsureArrayElementAssignable(ConvertSchemaValue(value, elementType), elementType, allowSimpleFallback: true);
+        singleItemArray.SetValue(singleElement, 0);
+        return singleItemArray;
+    }
+
+    /// <summary>
+    /// Ensures that an array element is assignable to the destination element type.
+    /// </summary>
+    /// <param name="candidate">The candidate value to assign.</param>
+    /// <param name="elementType">The required destination element type.</param>
+    /// <param name="allowSimpleFallback">Whether to attempt simple conversion before throwing.</param>
+    /// <returns>A value assignable to the destination element type, or null.</returns>
+    /// <exception cref="InvalidCastException">Thrown when conversion to the destination element type fails.</exception>
+    private static object? EnsureArrayElementAssignable(object? candidate, Type elementType, bool allowSimpleFallback)
+    {
+        var unwrapped = UnwrapPowerShellValue(candidate);
+        if (unwrapped is null || elementType.IsInstanceOfType(unwrapped))
+        {
+            return unwrapped;
+        }
+
+        // Attempt schema conversion on the element to ensure it is compatible with the destination element type, which allows for flexible handling of array elements that may require conversion to match the schema-defined element type. This is done before simple fallback conversions to prioritize proper schema conversions for array elements, while still allowing for a simple conversion fallback when appropriate for single value to array conversions.
+        var convertedElement = UnwrapPowerShellValue(ConvertSchemaValue(unwrapped, elementType));
+        if (convertedElement is null || elementType.IsInstanceOfType(convertedElement))
+        {
+            return convertedElement;
+        }
+
+        // If allowed, attempt a simple conversion as a final fallback before throwing, which provides some leniency for converting single values to array element types when the value is not directly assignable but a simple conversion may succeed (e.g., string to int). This is only attempted for single value to array conversions, not for enumerable conversions, to avoid unintended consequences of applying simple conversions to each element in an enumerable when the source value is already an enumerable that failed element-wise conversion.
+        if (allowSimpleFallback &&
+            TryConvertSimple(convertedElement, elementType, out var simpleConverted) &&
+            (simpleConverted is null || elementType.IsInstanceOfType(simpleConverted)))
+        {
+            return simpleConverted;
+        }
+
+        // If the element cannot be converted to the required type, throw an exception to indicate a schema validation failure. This ensures that we don't silently produce arrays with incompatible element types that may cause issues later on when the array is used.
+        throw new InvalidCastException($"Object of type '{convertedElement.GetType().FullName}' cannot be converted to '{elementType.FullName}'.");
+    }
+
+    /// <summary>
+    /// Attempts dictionary-to-type conversion for schema values.
+    /// </summary>
+    /// <param name="value">The source value.</param>
+    /// <param name="targetType">The destination type.</param>
+    /// <param name="convertedValue">The converted value when successful.</param>
+    /// <returns>True when dictionary conversion succeeds; otherwise false.</returns>
+    private static bool TryConvertSchemaDictionaryValue(object value, Type targetType, out object? convertedValue)
+    {
+        convertedValue = null;
+        if (value is not IDictionary dictionary)
+        {
+            return false;
+        }
+
+        var (success, convertedDictionaryValue) = TryConvertDictionaryToType(dictionary, targetType);
+        if (!success)
+        {
+            return false;
+        }
+
+        convertedValue = convertedDictionaryValue;
+        return true;
+    }
+
+    /// <summary>
+    /// Attempts to convert a value to the target type by using single-argument constructors.
+    /// </summary>
+    /// <param name="value">The source value.</param>
+    /// <param name="targetType">The destination type.</param>
+    /// <param name="convertedValue">The constructed value when successful.</param>
+    /// <returns>True when a single-argument constructor conversion succeeds; otherwise false.</returns>
+    private static bool TryConvertViaSingleArgumentConstructor(object value, Type targetType, out object? convertedValue)
+    {
+        convertedValue = null;
+        foreach (var constructor in targetType.GetConstructors().Where(c => c.GetParameters().Length == 1))
+        {
+            var parameterType = constructor.GetParameters()[0].ParameterType;
+            if (!TryConvertSimple(value, parameterType, out var convertedArg))
+            {
+                continue;
+            }
+
+            convertedValue = constructor.Invoke([convertedArg]);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Unwraps common PowerShell wrapper/sentinel values into .NET runtime values.
+    /// </summary>
+    /// <param name="value">The value to unwrap.</param>
+    /// <returns>The unwrapped value, or null for AutomationNull.</returns>
+    private static object? UnwrapPowerShellValue(object? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        if (IsPowerShellAutomationNull(value))
+        {
+            return null;
+        }
+
+        if (value is PSObject psObject)
+        {
+            var baseObject = psObject.BaseObject;
+            return baseObject is null || IsPowerShellAutomationNull(baseObject)
+                ? null
+                : baseObject;
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    /// Determines whether a value represents PowerShell's AutomationNull sentinel.
+    /// </summary>
+    /// <param name="value">The value to inspect.</param>
+    /// <returns>True when the value is PowerShell AutomationNull.</returns>
+    private static bool IsPowerShellAutomationNull(object value)
+    {
+        var type = value.GetType();
+        return type.FullName?.Equals("System.Management.Automation.Internal.AutomationNull", StringComparison.Ordinal) == true;
+    }
+
+    /// <summary>
+    /// Attempts to convert dictionary values to a strongly typed object.
+    /// </summary>
+    /// <param name="dictionary">The source dictionary.</param>
+    /// <param name="targetType">The destination type.</param>
+    /// <returns>A tuple indicating conversion success and converted value.</returns>
+    private static (bool Success, object? Value) TryConvertDictionaryToType(IDictionary dictionary, Type targetType)
+    {
+        var defaultConstructor = targetType.GetConstructor(Type.EmptyTypes);
+        if (defaultConstructor is null)
+        {
+            return (false, null);
+        }
+
+        var instance = defaultConstructor.Invoke([]);
+        var writableProperties = targetType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.CanWrite)
+            .ToList();
+
+        foreach (var property in writableProperties)
+        {
+            var matchKey = FindDictionaryKey(dictionary, property.Name);
+            if (matchKey is null)
+            {
+                continue;
+            }
+
+            var rawValue = dictionary[matchKey];
+            if (rawValue is IDictionary && IsMapLikeType(property.PropertyType))
+            {
+                return (true, dictionary);
+            }
+
+            var convertedPropertyValue = ConvertSchemaValue(rawValue, property.PropertyType);
+            property.SetValue(instance, convertedPropertyValue);
+        }
+
+        return (true, instance);
+    }
+
+    /// <summary>
+    /// Attempts to convert a PowerShell custom object to a strongly typed object by mapping note properties.
+    /// </summary>
+    /// <param name="value">The source PowerShell object.</param>
+    /// <param name="targetType">The destination type.</param>
+    /// <param name="converted">The converted object when successful.</param>
+    /// <returns>True when conversion succeeds.</returns>
+    private static bool TryConvertPowerShellObjectToType(object value, Type targetType, out object? converted)
+    {
+        converted = null;
+
+        var typeName = value.GetType().FullName;
+        if (!string.Equals(typeName, "System.Management.Automation.PSCustomObject", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var asPsObject = value as PSObject ?? new PSObject(value);
+        var dictionary = new Hashtable(StringComparer.OrdinalIgnoreCase);
+        foreach (var property in asPsObject.Properties)
+        {
+            if (property is null || string.IsNullOrWhiteSpace(property.Name))
+            {
+                continue;
+            }
+
+            dictionary[property.Name] = property.Value;
+        }
+
+        var (success, convertedValue) = TryConvertDictionaryToType(dictionary, targetType);
+        if (!success)
+        {
+            return false;
+        }
+
+        converted = convertedValue;
+        return true;
+    }
+
+    /// <summary>
+    /// Finds a dictionary key by case-insensitive string comparison.
+    /// </summary>
+    /// <param name="dictionary">The dictionary to search.</param>
+    /// <param name="propertyName">The property name to match.</param>
+    /// <returns>The matching dictionary key, if found.</returns>
+    private static object? FindDictionaryKey(IDictionary dictionary, string propertyName)
+    {
+        foreach (DictionaryEntry entry in dictionary)
+        {
+            if (entry.Key is null)
+            {
+                continue;
+            }
+
+            var key = Convert.ToString(entry.Key, CultureInfo.InvariantCulture);
+            if (string.Equals(key, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                return entry.Key;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Validates required properties using generated helper methods when available.
+    /// </summary>
+    /// <param name="value">The converted value to validate.</param>
+    /// <param name="missingProperties">A comma-separated list of missing properties.</param>
+    /// <returns>True when validation succeeds or no validation helper exists.</returns>
+    private static bool ValidateRequiredProperties(object? value, out string missingProperties)
+    {
+        missingProperties = string.Empty;
+        if (value is null)
+        {
+            return true;
+        }
+
+        var runtimeType = value.GetType();
+        var validateMethod = runtimeType.GetMethod("ValidateRequiredProperties", BindingFlags.Public | BindingFlags.Instance);
+        if (validateMethod is null)
+        {
+            return true;
+        }
+
+        var validationResult = validateMethod.Invoke(value, null);
+        if (validationResult is bool isValid && isValid)
+        {
+            return true;
+        }
+
+        var missingMethod = runtimeType.GetMethod("GetMissingRequiredProperties", BindingFlags.Public | BindingFlags.Instance);
+        if (missingMethod is not null)
+        {
+            var missing = missingMethod.Invoke(value, null);
+            missingProperties = FormatMissingRequiredProperties(missing);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Formats missing required-property values returned by generated validation helpers.
+    /// </summary>
+    /// <param name="missing">The missing-properties payload returned by reflection invocation.</param>
+    /// <returns>A comma-separated string of missing property names, or an empty string when unavailable.</returns>
+    private static string FormatMissingRequiredProperties(object? missing)
+    {
+        if (missing is IEnumerable<string> missingEnumerable)
+        {
+            return string.Join(", ", missingEnumerable);
+        }
+
+        if (missing is IEnumerable genericEnumerable)
+        {
+            var values = new List<string>();
+            foreach (var item in genericEnumerable)
+            {
+                values.Add(item?.ToString() ?? string.Empty);
+            }
+
+            return string.Join(", ", values.Where(v => !string.IsNullOrWhiteSpace(v)));
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// Determines whether a type should be treated as map-like for dictionary passthrough.
+    /// </summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <returns>True when the type is map-like.</returns>
+    private static bool IsMapLikeType(Type type)
+    {
+        if (type.GetProperty("AdditionalProperties", BindingFlags.Public | BindingFlags.Instance | BindingFlags.FlattenHierarchy) is not null)
+        {
+            return true;
+        }
+
+        var attributes = type.GetCustomAttributes(inherit: true);
+        foreach (var attribute in attributes)
+        {
+            if (attribute.GetType().Name.Equals("OpenApiPatternPropertiesAttribute", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Attempts to perform basic runtime conversions.
+    /// </summary>
+    /// <param name="value">The source value.</param>
+    /// <param name="targetType">The destination type.</param>
+    /// <param name="converted">The converted value when successful.</param>
+    /// <returns>True when conversion succeeds.</returns>
+    private static bool TryConvertSimple(object? value, Type targetType, out object? converted)
+    {
+        converted = null;
+        if (value is null)
+        {
+            return false;
+        }
+
+        var valueType = value.GetType();
+        if (targetType.IsAssignableFrom(valueType))
+        {
+            converted = value;
+            return true;
+        }
+
+        try
+        {
+            if (targetType.IsEnum)
+            {
+                converted = value is string s
+                    ? Enum.Parse(targetType, s, ignoreCase: true)
+                    : Enum.ToObject(targetType, value);
+                return true;
+            }
+
+            converted = Convert.ChangeType(value, targetType, CultureInfo.InvariantCulture);
+            return true;
+        }
+        catch
+        {
+            try
+            {
+                converted = LanguagePrimitives.ConvertTo(value, targetType, CultureInfo.InvariantCulture);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Attempts to read a dictionary value with case-insensitive key matching.
+    /// </summary>
+    /// <typeparam name="T">The dictionary value type.</typeparam>
+    /// <param name="dict">The dictionary to read from.</param>
+    /// <param name="key">The key to search for.</param>
+    /// <param name="value">The matched value, if found.</param>
+    /// <returns>True when a matching key is found.</returns>
+    private static bool TryGetValueIgnoreCase<T>(IDictionary<string, T> dict, string key, out T? value)
+    {
+        if (dict.TryGetValue(key, out value))
+        {
+            return true;
+        }
+
+        foreach (var kvp in dict)
+        {
+            if (string.Equals(kvp.Key, key, StringComparison.OrdinalIgnoreCase))
+            {
+                value = kvp.Value;
+                return true;
+            }
+        }
+
+        value = default;
+        return false;
     }
 
     /// <summary>

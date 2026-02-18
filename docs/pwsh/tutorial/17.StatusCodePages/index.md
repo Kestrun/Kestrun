@@ -19,3 +19,4 @@ custom content formats, redirects, and re-execution.
 - [Content Format](./5.Content-Format)
 - [Redirects](./6.Redirects)
 - [Re-execute](./7.Re-execute)
+- [Common Status Codes](./8.Common-Status-Codes)

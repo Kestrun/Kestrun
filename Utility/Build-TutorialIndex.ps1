@@ -1,4 +1,4 @@
-﻿[CmdletBinding(SupportsShouldProcess = $true)]
+[CmdletBinding(SupportsShouldProcess = $true)]
 param(
     [string]$OutputPath = 'docs/pwsh/tutorial/index.md',
     [string]$TutorialRoot = 'docs/pwsh/tutorial'

@@ -282,7 +282,6 @@ function createArticle {
     Write-KrResponse $success -StatusCode 201
 }
 
-# DELETE article endpoint
 <#
 .SYNOPSIS
     Delete an article.

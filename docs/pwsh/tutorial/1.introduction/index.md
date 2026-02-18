@@ -17,6 +17,19 @@ This chapter gives you a hands‑on start using three tiny samples you can run i
 - Sample-2: Multiple content types (text, JSON, XML, YAML)
 - Sample-3: Multi-language routes (PowerShell, C#, VB.NET)
 
+## Routing styles (two ways to define endpoints)
+
+Kestrun supports two common routing styles in PowerShell:
+
+- **Imperative routing** (explicit mapping): you call `Add-KrMapRoute` and provide a script block.
+  - Start here: [Hello World](./1.Hello-World)
+- **Declarative attribute routing** (function + attributes): you decorate a function with `[OpenApiPath(...)]` (and optionally other OpenAPI attributes).
+  - Start here: [OpenAPI Hello World](../10.openapi/1.Hello-World)
+
+If you want a side-by-side comparison (including what “runtime status codes” vs “OpenAPI documented responses” means), see:
+
+- [Imperative vs Declarative Routing](/guides/routing-styles)
+
 All sample scripts live in [examples/PowerShell/Tutorial][Tutorial].
 
 ## Next steps

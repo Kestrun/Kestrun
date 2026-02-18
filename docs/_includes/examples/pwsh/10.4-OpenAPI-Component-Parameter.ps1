@@ -207,6 +207,8 @@ Enable-KrConfiguration
 #                OPENAPI DOC ROUTE / BUILD
 # =========================================================
 
+Set-KrOpenApiErrorSchema -Name 'KestrunErrorResponse' -ContentType @('application/json', 'application/problem+json')
+
 Add-KrOpenApiRoute
 Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrApiDocumentationRoute -DocumentType Redoc
@@ -236,7 +238,6 @@ Add-KrApiDocumentationRoute -DocumentType Redoc
 function listProducts {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/v1/products', Summary = 'List products')]
     [OpenApiResponse(StatusCode = '200', Description = 'List of products', Schema = [ProductListResponse], ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid parameters')]
     param(
 
         [OpenApiParameterRef(ReferenceId = 'myCategory')]
@@ -320,7 +321,7 @@ function listProducts {
     }
     Expand-KrObject -InputObject $productItems -Label 'Product Items'
     # Build typed response
-    $response = [ProductListResponse]@{
+    $response = @{
         page = $page
         limit = $limit
         total = $filtered.Count
@@ -342,7 +343,6 @@ function listProducts {
 function getProduct {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/v1/products/{productId}', Summary = 'Get product')]
     [OpenApiResponse(StatusCode = '200', Description = 'The product', Schema = [ProductItem], ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '404', Description = 'Not found', Schema = [ErrorResponse])]
     param(
         [OpenApiParameterRef(ReferenceId = 'correlationId')]
         [string]$correlationId,
@@ -361,7 +361,7 @@ function getProduct {
     # Read shared store
     $item = $null
     if (-not $Products.TryGetValue($productId, [ref]$item)) {
-        Write-KrResponse ([ErrorResponse]@{ message = 'Product not found' }) -StatusCode 404
+        Write-KrResponse (@{ message = 'Product not found' }) -StatusCode 404
         return
     }
 
@@ -382,7 +382,6 @@ function getProduct {
 function createProduct {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/v1/products', Summary = 'Create product')]
     [OpenApiResponse(StatusCode = '201', Description = 'Created product', Schema = [ProductItem], ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid request', Schema = [ErrorResponse])]
     param(
         [OpenApiParameterRef(ReferenceId = 'correlationId')]
         [string]$correlationId,
@@ -404,17 +403,17 @@ function createProduct {
     }
 
     if ([string]::IsNullOrWhiteSpace($body.name)) {
-        Write-KrResponse ([ErrorResponse]@{ message = 'name is required' }) -StatusCode 400
+        Write-KrResponse (@{ message = 'name is required' }) -StatusCode 400
         return
     }
 
     if ($body.price -le 0) {
-        Write-KrResponse ([ErrorResponse]@{ message = 'price must be > 0' }) -StatusCode 400
+        Write-KrResponse (@{ message = 'price must be > 0' }) -StatusCode 400
         return
     }
 
     if ($dryRun) {
-        $preview = [ProductItem]@{
+        $preview = @{
             id = 0
             name = $body.name
             category = $body.category
@@ -426,7 +425,7 @@ function createProduct {
     }
 
     $newId = $ProductIds.AddOrUpdate('NextId', 1, { param($k, $v) $v + 1 })
-    $created = [ProductItem]@{
+    $created = @{
         id = [long]$newId
         name = $body.name
         category = $body.category
@@ -467,7 +466,7 @@ function listCategories {
     $groups = $values | Group-Object -Property category | Sort-Object -Property Name
 
     $items = foreach ($g in $groups) {
-        [CategoryItem]@{
+        @{
             name = $g.Name
             count = if ($includeCounts) { $g.Count } else { 0 }
         }
@@ -475,7 +474,7 @@ function listCategories {
 
     Expand-KrObject -InputObject $items -Label 'Category Items'
 
-    Write-KrResponse ([CategoryListResponse]@{ items = $items }) -StatusCode 200
+    Write-KrResponse (@{ items = $items }) -StatusCode 200
 }
 
 # =========================================================

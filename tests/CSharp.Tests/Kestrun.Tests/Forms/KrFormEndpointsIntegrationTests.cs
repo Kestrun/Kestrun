@@ -3,7 +3,6 @@ using System.Net.Http.Json;
 using System.Text;
 using Kestrun.Forms;
 using Kestrun.Hosting;
-using Kestrun.Models;
 using Microsoft.AspNetCore.Builder;
 using Serilog;
 using Xunit;
@@ -58,7 +57,7 @@ public class KrFormEndpointsIntegrationTests
                 return ValueTask.FromResult<object?>(new { ok = true });
             }
         };
-        options.AllowedRequestContentTypes.Add("application/x-www-form-urlencoded");
+        options.AllowedContentTypes.Add("application/x-www-form-urlencoded");
 
         var host = CreateHost(app =>
         {
@@ -90,7 +89,7 @@ public class KrFormEndpointsIntegrationTests
     {
         var handlerCalled = false;
         var options = new KrFormOptions();
-        options.AllowedRequestContentTypes.Add("application/x-www-form-urlencoded");
+        options.AllowedContentTypes.Add("application/x-www-form-urlencoded");
 
         var host = CreateHost(app =>
         {
@@ -161,7 +160,7 @@ public class KrFormEndpointsIntegrationTests
     public async Task MapKestrunFormRoute_HandlerThrows_Returns500_AndMessage()
     {
         var options = new KrFormOptions();
-        options.AllowedRequestContentTypes.Add("application/x-www-form-urlencoded");
+        options.AllowedContentTypes.Add("application/x-www-form-urlencoded");
         var host = CreateHost(app =>
         {
             _ = app.MapKestrunFormRoute("/form4", options, _ => throw new InvalidOperationException("boom"));

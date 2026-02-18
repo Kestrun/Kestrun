@@ -119,6 +119,14 @@ class ShippingOrderCreatedEvent {
     [string]$shippingOrderId
 }
 
+class ProblemDetails {
+    [OpenApiPropertyAttribute(Description = 'Error code', Example = 'INVALID_INPUT')]
+    [string]$code
+
+    [OpenApiPropertyAttribute(Description = 'Detailed error message', Example = 'The amount field is required.')]
+    [string]$message
+}
+
 # =========================================================
 #                 CALLBACKS COMPONENTS
 # =========================================================
@@ -226,7 +234,6 @@ Add-KrApiDocumentationRoute -DocumentType Elements
 function createPayment {
     [OpenApiPath(HttpVerb = 'post', Pattern = '/v1/payments')]
     [OpenApiResponse(StatusCode = '201', Description = 'Payment created', Schema = [CreatePaymentResponse], ContentType = 'application/json')]
-    [OpenApiResponse(StatusCode = '400', Description = 'Invalid input')]
     [OpenApiCallbackRef(Key = 'paymentStatus', ReferenceId = 'paymentStatusCallback', Inline = $true)]
     [OpenApiCallbackRef(Key = 'reservation', ReferenceId = 'reservationCallback')]
     [OpenApiCallbackRef(Key = 'shippingOrder', ReferenceId = 'shippingOrderCallback')]
@@ -237,11 +244,6 @@ function createPayment {
         [OpenApiRequestBody(ContentType = 'application/json')]
         [CreatePaymentRequest]$body
     )
-
-    if (-not $body -or -not $body.amount -or -not $body.currency -or -not $body.callbackUrls) {
-        Write-KrJsonResponse @{ error = 'amount, currency, and callbackUrls are required' } -StatusCode 400
-        return
-    }
 
     $paymentId = 'PAY-' + ([guid]::NewGuid().ToString('N').Substring(0, 8))
     Write-Host "PaymentId: $paymentId OrderId: $orderId"
@@ -279,7 +281,7 @@ function createPayment {
 
 
     $paymentId = 'PAY-' + ([guid]::NewGuid().ToString('N').Substring(0, 8))
-    Write-KrJsonResponse ([ordered]@{
+    Write-KrResponse (@{
             paymentId = $paymentId
             status = 'pending'
         }) -StatusCode 201
@@ -302,12 +304,17 @@ function getPayment {
         [string]$paymentId
     )
 
-    Write-KrJsonResponse ([ordered]@{
+    if (-not $paymentId.StartsWith('PAY-')) {
+        Write-KrStatusResponse -StatusCode 404
+        return
+    }
+
+    Write-Host "Retrieving payment with ID: $paymentId"
+    Write-KrResponse (@{
             paymentId = $paymentId
             status = 'pending'
         }) -StatusCode 200
 }
-
 
 <#
 .SYNOPSIS

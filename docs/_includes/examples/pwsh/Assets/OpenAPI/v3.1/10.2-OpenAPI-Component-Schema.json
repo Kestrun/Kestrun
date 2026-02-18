@@ -31,6 +31,16 @@
                 }
               }
             }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -88,21 +98,41 @@
             }
           },
           "400": {
-            "description": "Invalid input",
+            "description": "Bad Request",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
                 }
-              },
-              "application/xml": {
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
                 }
-              },
-              "application/yaml": {
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
                 }
               }
             }
@@ -435,28 +465,6 @@
         "additionalProperties": false,
         "description": "Ticket purchase response."
       },
-      "ErrorResponse": {
-        "required": [
-          "code",
-          "message"
-        ],
-        "type": "object",
-        "properties": {
-          "code": {
-            "type": "integer",
-            "description": "HTTP-like error code.",
-            "format": "int32",
-            "example": 400
-          },
-          "message": {
-            "type": "string",
-            "description": "Human-readable error message.",
-            "example": "Invalid input"
-          }
-        },
-        "additionalProperties": false,
-        "description": "Standard error response."
-      },
       "InventoryCounts": {
         "patternProperties": {
           "^[a-z][a-z0-9_]*$": {
@@ -466,6 +474,46 @@
         },
         "additionalProperties": false,
         "description": "Inventory counts by status key."
+      },
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
       }
     }
   }

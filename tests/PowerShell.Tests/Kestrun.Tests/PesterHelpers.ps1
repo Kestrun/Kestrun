@@ -93,13 +93,26 @@ function Get-KestrunModulePath {
 #>
 function Get-FreeTcpPort {
     [CmdletBinding()]
+    [outputtype([int])]
     param(
         [int]$FallbackPort = 5000,
-        [int]$MaxPort = 50000
+        [int]$MaxPort = 65102
     )
+
+    if ($FallbackPort -lt 1 -or $FallbackPort -gt 65535) {
+        throw "FallbackPort must be between 1 and 65535. Got: $FallbackPort"
+    }
+
+    if ($MaxPort -lt $FallbackPort -or $MaxPort -gt 65535) {
+        throw "MaxPort must be between FallbackPort and 65535. Got: $MaxPort"
+    }
+
     try {
         $retryCount = 0
         $listener = $null
+
+        # OS-assigned ephemeral port probing.
+        # Keep trying until we get a port in range; never return an out-of-range value.
         do {
             if ($null -ne $listener) {
                 $listener.Stop()
@@ -109,7 +122,30 @@ function Get-FreeTcpPort {
             $listener.Start()
             $port = ($listener.LocalEndpoint).Port
             $retryCount++
-        } until ($port -lt $MaxPort -or $retryCount -ge 5)
+        } until (($port -le $MaxPort) -or ($retryCount -ge 50))
+
+        if ($port -le $MaxPort) {
+            return $port
+        }
+
+        # Deterministic fallback scan in configured range.
+        for ($candidate = $FallbackPort; $candidate -le $MaxPort; $candidate++) {
+            if ($null -ne $listener) {
+                $listener.Stop()
+                $listener.Dispose()
+                $listener = $null
+            }
+
+            try {
+                $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $candidate)
+                $listener.Start()
+                return $candidate
+            } catch {
+                continue
+            }
+        }
+
+        throw "Unable to find a free TCP port between $FallbackPort and $MaxPort"
     } catch {
         $port = $FallbackPort # fallback
         Write-Warning "Failed to get free TCP port: $_ (using fallback port $FallbackPort)"

@@ -14,7 +14,7 @@ New-KrLogger |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
 
-$Port2 = $Port + 433
+$Port2 = if ($Port -le 65102) { $Port + 433 } else { $Port - 433 }
 # Create a new Kestrun server
 New-KrServer -Name 'Endpoints Multi'
 

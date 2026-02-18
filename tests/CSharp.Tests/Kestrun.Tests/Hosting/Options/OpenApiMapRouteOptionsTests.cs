@@ -20,9 +20,10 @@ public class OpenApiMapRouteOptionsTests
     public void DocId_NonDefault_RewritesPattern_WhenDefaultPattern()
     {
         var map = new MapRouteOptions { Pattern = null };
-        var options = new OpenApiMapRouteOptions(map);
-
-        options.DocId = "custom";
+        var options = new OpenApiMapRouteOptions(map)
+        {
+            DocId = "custom"
+        };
 
         Assert.Equal("/openapi/{documentId}/{version}/openapi.{format}", options.MapOptions.Pattern);
     }
@@ -32,9 +33,10 @@ public class OpenApiMapRouteOptionsTests
     public void DocId_DoesNotRewritePattern_WhenCustomPatternAlreadySet()
     {
         var map = new MapRouteOptions { Pattern = "/custom/openapi" };
-        var options = new OpenApiMapRouteOptions(map);
-
-        options.DocId = "custom";
+        var options = new OpenApiMapRouteOptions(map)
+        {
+            DocId = "custom"
+        };
 
         Assert.Equal("/custom/openapi", options.MapOptions.Pattern);
         Assert.Equal("custom", options.DocId);
@@ -45,9 +47,10 @@ public class OpenApiMapRouteOptionsTests
     public void DocId_DefaultValue_DoesNotRewritePattern()
     {
         var map = new MapRouteOptions { Pattern = null };
-        var options = new OpenApiMapRouteOptions(map);
-
-        options.DocId = OpenApiDocDescriptor.DefaultDocumentationId;
+        var options = new OpenApiMapRouteOptions(map)
+        {
+            DocId = OpenApiDocDescriptor.DefaultDocumentationId
+        };
 
         Assert.Equal("/openapi/{version}/openapi.{format}", options.MapOptions.Pattern);
     }

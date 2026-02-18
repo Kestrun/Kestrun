@@ -841,6 +841,32 @@ Common URLs when running examples:
 - Swagger UI: `/swagger`
 - ReDoc: `/redoc`
 
+### OpenAPI error contract + runtime custom error payload
+
+For OpenAPI-focused PowerShell APIs, keep the generated error contract and runtime payload strategy aligned:
+
+- Use `Set-KrOpenApiErrorSchema` to control generated OpenAPI client-error schema/media types.
+- Use `Set-KrPowerShellErrorResponse` to customize runtime error payloads for PowerShell route execution.
+- If a custom error script is not configured (or it fails), runtime falls back to the default error writer.
+
+Recommended pattern:
+
+```powershell
+Set-KrOpenApiErrorSchema -Name 'ApiError' -ContentType @('application/problem+json', 'application/json')
+
+Set-KrPowerShellErrorResponse -ScriptBlock {
+  $payload = [ordered]@{
+    status = $StatusCode
+    title = 'Request failed'
+    detail = $ErrorMessage
+    path = [string]$Context.Request.Path
+    timestamp = (Get-Date).ToUniversalTime().ToString('o')
+  }
+
+  Write-KrJsonResponse -InputObject $payload -StatusCode $StatusCode -ContentType 'application/problem+json'
+}
+```
+
 ### Document metadata (info/license)
 
 - Prefer `Add-KrOpenApiInfo` for `info.title`, `info.version`, etc.
@@ -1166,6 +1192,22 @@ function listProducts {
     # ...
 }
 ```
+
+**Operation parameter attribute note (important):**
+
+- For route operation parameters (especially path params), prefer explicit attributes directly on function parameters:
+
+```powershell
+function getProduct {
+  [OpenApiPath(HttpVerb = 'get', Pattern = '/v1/products/{productId}')]
+  param(
+    [OpenApiParameter(In = [OaParameterLocation]::Path, Required = $true)]
+    [long]$productId
+  )
+}
+```
+
+- Runtime values are injected in the runspace by name; explicit `OpenApiParameter` metadata keeps the OpenAPI contract and runtime binding consistent.
 
 **Using PowerShell validation attributes to shape parameter schemas:**
 

@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Runs OpenAPI tutorial samples and exports generated OpenAPI JSON documents.
 

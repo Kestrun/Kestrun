@@ -122,8 +122,16 @@ Describe 'Example 10.9 Component Header' -Tag 'Tutorial', 'OpenApi', 'Slow' {
         $redoc.Content | Should -BeLike '*Redoc*'
     }
 
-    It 'OpenAPI output matches 10.9 fixture JSON' {
-        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
+    It 'OpenAPI v3.0 output matches 10.9 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance -Version 'v3.0'
+    }
+
+    It 'OpenAPI v3.1 output matches 10.9 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance -Version 'v3.1'
+    }
+
+    It 'OpenAPI v3.2 output matches 10.9 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance -Version 'v3.2'
     }
 }
 

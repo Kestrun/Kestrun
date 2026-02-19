@@ -588,7 +588,6 @@
     "schemas": {
       "Date": {
         "type": "string",
-        "additionalProperties": false,
         "format": "date",
         "example": "2023-10-29"
       },
@@ -625,24 +624,20 @@
         "items": {
           "$ref": "#/components/schemas/MuseumDailyHours"
         },
-        "additionalProperties": false,
         "description": "List of museum operating hours for consecutive days."
       },
       "EventName": {
         "type": "string",
-        "additionalProperties": false,
         "description": "Name of the special event",
         "example": "Pirate Coding Workshop"
       },
       "EventLocation": {
         "type": "string",
-        "additionalProperties": false,
         "description": "Location where the special event is held.",
         "example": "Computer Room"
       },
       "EventDescription": {
         "type": "string",
-        "additionalProperties": false,
         "description": "Description of the special event",
         "example": "Captain Blackbeard shares his love of the C...language. And possibly Arrrrr (R lang)."
       },
@@ -651,12 +646,10 @@
         "items": {
           "$ref": "#/components/schemas/Date"
         },
-        "additionalProperties": false,
         "description": "List of planned dates for the special event"
       },
       "EventPrice": {
         "type": "number",
-        "additionalProperties": false,
         "description": "Price of a ticket for the special event",
         "format": "float",
         "example": 25
@@ -714,7 +707,6 @@
       },
       "eventId": {
         "type": "string",
-        "additionalProperties": false,
         "description": "Identifier for a special event.",
         "format": "uuid",
         "example": "3be6453c-03eb-4357-ae5a-984a0e574a54"
@@ -794,7 +786,6 @@
         "items": {
           "$ref": "#/components/schemas/SpecialEventResponse"
         },
-        "additionalProperties": false,
         "description": "A list of upcoming special events."
       },
       "TicketType": {
@@ -803,39 +794,33 @@
           "general"
         ],
         "type": "string",
-        "additionalProperties": false,
         "description": "Type of ticket being purchased. Use `general` for regular entry and `event` for special events.",
         "example": "event"
       },
       "TicketId": {
         "type": "string",
-        "additionalProperties": false,
         "description": "Unique identifier for museum ticket. Generated when purchased.",
         "format": "uuid",
         "example": "a54a57ca-36f8-421b-a6b4-2e8f26858a4c"
       },
       "TicketMessage": {
         "type": "string",
-        "additionalProperties": false,
         "description": "Confirmation message after a ticket purchase.",
         "example": "Museum general entry ticket purchased"
       },
       "TicketConfirmation": {
         "type": "string",
-        "additionalProperties": false,
         "description": "Unique confirmation code used to verify ticket purchase.",
         "example": "ticket-event-a98c8f-7eb12"
       },
       "Email": {
         "type": "string",
-        "additionalProperties": false,
         "description": "Email address for ticket purchaser.",
         "format": "email",
         "example": "museum-lover@example.com"
       },
       "Phone": {
         "type": "string",
-        "additionalProperties": false,
         "description": "Phone number for the ticket purchaser (optional).",
         "example": "+1(234)-567-8910"
       },
@@ -903,7 +888,6 @@
       },
       "GetTicketCodeResponse": {
         "type": "string",
-        "additionalProperties": false,
         "description": "An image of a ticket with a QR code used for museum or event entry.",
         "format": "binary"
       },

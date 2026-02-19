@@ -16,8 +16,16 @@ Describe 'OpenAPI Petstore Example' -Tag 'OpenApi', 'Slow' {
             Write-KrExampleInstanceOnFailure -Instance $script:instance
         }
     }
-    
-    It 'OpenAPI output matches Petstore JSON' {
-        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
+
+    It 'OpenAPI v3.0 output matches Petstore JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance -Version 'v3.0'
+    }
+
+    It 'OpenAPI v3.1 output matches Petstore JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance -Version 'v3.1'
+    }
+
+    It 'OpenAPI v3.2 output matches Petstore JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance -Version 'v3.2'
     }
 }

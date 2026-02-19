@@ -1,0 +1,679 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "Kestrun SignalR Demo API",
+    "description": "Demonstrates generating an OpenAPI spec for SignalR-related routes and background tasks.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/hubs/kestrun": {
+      "get": {
+        "tags": [
+          "SignalR"
+        ],
+        "summary": "Notifications SignalR Hub",
+        "description": "Establishes a SignalR connection. The server may upgrade to WebSockets or fall back to SSE/Long Polling.",
+        "responses": {
+          "101": {
+            "description": "Switching Protocols (WebSocket upgrade)"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "x-signalr-role": "connect",
+        "x-signalr": {
+          "hub": "NotificationsHub",
+          "path": "/hubs/kestrun",
+          "negotiatePath": "/hubs/kestrun/negotiate",
+          "connectOperation": "get:/hubs/kestrun",
+          "transports": [
+            "websocket",
+            "sse",
+            "longPolling"
+          ],
+          "formats": [
+            "json"
+          ]
+        }
+      }
+    },
+    "/hubs/kestrun/negotiate": {
+      "post": {
+        "tags": [
+          "SignalR"
+        ],
+        "summary": "SignalR negotiate endpoint",
+        "description": "Negotiates connection parameters for a SignalR client before establishing the transport.",
+        "responses": {
+          "200": {
+            "description": "Successful negotiation"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        },
+        "x-signalr-role": "negotiate",
+        "x-signalr": {
+          "hub": "NotificationsHub",
+          "path": "/hubs/kestrun",
+          "negotiatePath": "/hubs/kestrun/negotiate",
+          "connectOperation": "get:/hubs/kestrun",
+          "transports": [
+            "websocket",
+            "sse",
+            "longPolling"
+          ],
+          "formats": [
+            "json"
+          ]
+        }
+      }
+    },
+    "/api/group/broadcast/{groupName}": {
+      "post": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "Broadcast a message to a specific SignalR group.",
+        "operationId": "BroadcastToGroup",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/groupName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Broadcasted to group",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/operation/status/{taskId}": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Get status for a long-running operation.",
+        "operationId": "GetOperationStatus",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/taskId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationStatusResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Task not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/group/join/{groupName}": {
+      "post": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "Request that clients join a SignalR group.",
+        "operationId": "RequestGroupJoin",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/groupName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Join request sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/group/leave/{groupName}": {
+      "post": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "Request that clients leave a SignalR group.",
+        "operationId": "RequestGroupLeave",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/groupName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Leave request sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ps/event": {
+      "get": {
+        "tags": [
+          "SignalR"
+        ],
+        "summary": "Broadcast a custom event to all connected SignalR clients.",
+        "operationId": "SendPowerShellEvent",
+        "responses": {
+          "200": {
+            "description": "Broadcasted a custom event",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ps/log/{level}": {
+      "get": {
+        "tags": [
+          "SignalR"
+        ],
+        "summary": "Broadcast a log message to all connected SignalR clients.",
+        "operationId": "SendPowerShellLog",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/level"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Broadcasted the log message to SignalR clients",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/operation/start": {
+      "post": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Start a long-running operation and broadcast progress updates via SignalR.",
+        "operationId": "StartOperation",
+        "parameters": [
+          {
+            "name": "seconds",
+            "in": "query",
+            "description": "Duration (seconds) for the long-running operation",
+            "deprecated": true,
+            "schema": {
+              "maximum": 3600,
+              "minimum": 1,
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            },
+            "example": 10
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operation started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationStartResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiResult": {
+        "required": [
+          "success",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "message": {
+            "type": "string",
+            "example": "OK"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GroupResult": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResult"
+          },
+          {
+            "required": [
+              "groupName"
+            ],
+            "type": "object",
+            "properties": {
+              "groupName": {
+                "type": "string",
+                "example": "Admins"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "OperationStartResult": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiResult"
+          },
+          {
+            "required": [
+              "taskId"
+            ],
+            "type": "object",
+            "properties": {
+              "taskId": {
+                "type": "string",
+                "example": "123"
+              }
+            },
+            "additionalProperties": false
+          }
+        ]
+      },
+      "OperationStatusResult": {
+        "type": "object",
+        "properties": {
+          "operationId": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "progress": {
+            "type": "number",
+            "format": "double"
+          },
+          "status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "parameters": {
+      "level": {
+        "name": "level",
+        "in": "path",
+        "description": "Log level",
+        "required": true,
+        "schema": {
+          "enum": [
+            "Trace",
+            "Debug",
+            "Information",
+            "Warning",
+            "Error",
+            "Critical"
+          ],
+          "type": "string"
+        },
+        "example": "Information"
+      },
+      "groupName": {
+        "name": "groupName",
+        "in": "path",
+        "description": "SignalR group name",
+        "required": true,
+        "schema": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "example": "Admins"
+      },
+      "taskId": {
+        "name": "taskId",
+        "in": "path",
+        "description": "Task identifier",
+        "required": true,
+        "schema": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "example": "123"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Realtime",
+      "description": "Protocols and endpoints for real-time, push-based communication such as SignalR and Server-Sent Events.",
+      "externalDocs": {
+        "description": "Real-time communication overview",
+        "url": "https://learn.microsoft.com/aspnet/core/signalr/"
+      },
+      "x-oas-summary": "Real-time communication",
+      "x-oas-kind": "nav"
+    },
+    {
+      "name": "SignalR",
+      "description": "SignalR hubs providing real-time, bidirectional communication over persistent connections.",
+      "externalDocs": {
+        "description": "ASP.NET Core SignalR documentation",
+        "url": "https://learn.microsoft.com/aspnet/core/signalr/introduction"
+      },
+      "x-oas-summary": "SignalR hubs",
+      "x-oas-parent": "Realtime"
+    }
+  ]
+}

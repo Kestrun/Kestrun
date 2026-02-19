@@ -1,0 +1,357 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "E-Commerce Webhook API",
+    "description": "E-Commerce API demonstrating webhook notifications for orders, payments, and inventory events.\nWebhooks allow your subscribers to receive real-time notifications when events occur in your system.",
+    "contact": {
+      "name": "API Support Team",
+      "email": "api-support@example.com"
+    },
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/webhooks/info": {
+      "get": {
+        "summary": "Get Webhook Documentation",
+        "description": "Returns information about available webhooks and how to subscribe.",
+        "operationId": "getWebhookInfo",
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    },
+    "/api/orders/simulate": {
+      "post": {
+        "summary": "Simulate Order Creation",
+        "description": "Creates a test order and demonstrates what webhook payload would be sent.\nIn a real system, this would trigger the webhook to all registered subscribers.",
+        "operationId": "simulateOrderCreation",
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    },
+    "/api/payments/simulate": {
+      "post": {
+        "summary": "Simulate Payment Event",
+        "description": "Creates a test payment event and shows the webhook payload structure.",
+        "operationId": "simulatePaymentEvent",
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "OrderItem": {
+        "required": [
+          "product_id",
+          "product_name",
+          "quantity",
+          "unit_price"
+        ],
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "description": "Product identifier",
+            "example": "PROD-001"
+          },
+          "product_name": {
+            "type": "string",
+            "description": "Product name",
+            "example": "Wireless Headphones"
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Quantity ordered",
+            "format": "int32",
+            "example": "1"
+          },
+          "unit_price": {
+            "type": "number",
+            "description": "Price per unit",
+            "format": "decimal",
+            "example": "79.99"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Individual item in an order."
+      },
+      "OrderData": {
+        "required": [
+          "order_id",
+          "customer_id",
+          "status",
+          "total_amount",
+          "currency",
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "description": "Unique order identifier",
+            "example": "ORD-abc12345"
+          },
+          "customer_id": {
+            "type": "string",
+            "description": "Customer identifier",
+            "example": "CUST-12345"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "processing",
+              "shipped",
+              "delivered",
+              "cancelled",
+              "refunded"
+            ],
+            "type": "string",
+            "description": "Current order status",
+            "example": "pending"
+          },
+          "total_amount": {
+            "type": "number",
+            "description": "Total order amount",
+            "format": "decimal",
+            "example": "129.99"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency code",
+            "example": "USD"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItem"
+            },
+            "description": "List of items in the order"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Order details for webhook events."
+      },
+      "OrderEventPayload": {
+        "required": [
+          "event_id",
+          "event_type",
+          "timestamp",
+          "data"
+        ],
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "description": "Unique identifier for this event",
+            "format": "uuid"
+          },
+          "event_type": {
+            "type": "string",
+            "description": "Type of order event",
+            "example": "order.created"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "When the event occurred",
+            "format": "date-time"
+          },
+          "data": {
+            "$ref": "#/components/schemas/OrderData"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Webhook payload for order-related events."
+      },
+      "PaymentData": {
+        "required": [
+          "payment_id",
+          "order_id",
+          "customer_id",
+          "amount",
+          "currency",
+          "status",
+          "payment_method",
+          "transaction_id"
+        ],
+        "type": "object",
+        "properties": {
+          "payment_id": {
+            "type": "string",
+            "description": "Unique payment identifier",
+            "example": "PAY-xyz98765"
+          },
+          "order_id": {
+            "type": "string",
+            "description": "Associated order identifier",
+            "example": "ORD-abc12345"
+          },
+          "customer_id": {
+            "type": "string",
+            "description": "Customer identifier",
+            "example": "CUST-12345"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Payment amount",
+            "format": "decimal",
+            "example": "129.99"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency code",
+            "example": "USD"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "completed",
+              "failed",
+              "refunded"
+            ],
+            "type": "string",
+            "description": "Payment status",
+            "example": "completed"
+          },
+          "payment_method": {
+            "type": "string",
+            "description": "Payment method used",
+            "example": "credit_card"
+          },
+          "transaction_id": {
+            "type": "string",
+            "description": "Transaction ID from payment processor",
+            "example": "TXN-1a2b3c4d"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Payment transaction details for webhook events."
+      },
+      "PaymentEventPayload": {
+        "required": [
+          "event_id",
+          "event_type",
+          "timestamp",
+          "data"
+        ],
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "description": "Unique identifier for this event",
+            "format": "uuid"
+          },
+          "event_type": {
+            "type": "string",
+            "description": "Type of payment event",
+            "example": "payment.completed"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "When the event occurred",
+            "format": "date-time"
+          },
+          "data": {
+            "$ref": "#/components/schemas/PaymentData"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Webhook payload for payment-related events."
+      },
+      "InventoryData": {
+        "required": [
+          "product_id",
+          "product_name",
+          "sku",
+          "current_stock",
+          "threshold"
+        ],
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "string",
+            "description": "Product identifier",
+            "example": "PROD-001"
+          },
+          "product_name": {
+            "type": "string",
+            "description": "Product name",
+            "example": "Wireless Headphones"
+          },
+          "sku": {
+            "type": "string",
+            "description": "Stock keeping unit",
+            "example": "WH-BLK-001"
+          },
+          "current_stock": {
+            "type": "integer",
+            "description": "Current stock level",
+            "format": "int32",
+            "example": "5"
+          },
+          "threshold": {
+            "type": "integer",
+            "description": "Low stock threshold",
+            "format": "int32",
+            "example": "10"
+          },
+          "warehouse_location": {
+            "type": "string",
+            "description": "Warehouse location",
+            "example": "Warehouse A, Aisle 3, Shelf 2"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Inventory level details for webhook events."
+      },
+      "InventoryEventPayload": {
+        "required": [
+          "event_id",
+          "event_type",
+          "timestamp",
+          "data"
+        ],
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "description": "Unique identifier for this event",
+            "format": "uuid"
+          },
+          "event_type": {
+            "type": "string",
+            "description": "Type of inventory event",
+            "example": "inventory.low_stock"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "When the event occurred",
+            "format": "date-time"
+          },
+          "data": {
+            "$ref": "#/components/schemas/InventoryData"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Webhook payload for inventory-related events."
+      }
+    }
+  }
+}

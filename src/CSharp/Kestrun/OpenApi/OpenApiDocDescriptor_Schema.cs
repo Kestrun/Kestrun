@@ -1075,8 +1075,15 @@ public partial class OpenApiDocDescriptor
     {
         schema.ReadOnly = properties.ReadOnly;
         schema.WriteOnly = properties.WriteOnly;
-        schema.AdditionalPropertiesAllowed = properties.AdditionalPropertiesAllowed;
-        ApplyAdditionalProperties(properties, schema);
+        if (schema.Type == JsonSchemaType.Object)
+        {
+            schema.AdditionalPropertiesAllowed = properties.AdditionalPropertiesAllowed;
+            ApplyAdditionalProperties(properties, schema);
+        }
+        else
+        {
+            schema.AdditionalPropertiesAllowed = true; // Non-object schemas must allow additional properties to be valid, so we force-enable when Type is not object
+        }
         schema.UnevaluatedProperties = properties.UnevaluatedProperties;
         if (properties is not OpenApiParameterComponentAttribute)
         {

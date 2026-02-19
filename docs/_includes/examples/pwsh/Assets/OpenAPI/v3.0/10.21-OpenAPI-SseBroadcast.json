@@ -1,0 +1,401 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "Kestrun SSE Broadcast Demo API",
+    "description": "Demonstrates documenting an SSE broadcast endpoint (text/event-stream) and a broadcast trigger API.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/sse/broadcast": {
+      "get": {
+        "tags": [
+          "SSE"
+        ],
+        "summary": "Broadcast SSE stream",
+        "description": "Opens a Server-Sent Events (text/event-stream) connection that receives server-side broadcast events.",
+        "operationId": "GetSseBroadcast",
+        "responses": {
+          "200": {
+            "description": "SSE stream (text/event-stream)",
+            "content": {
+              "text/event-stream": {
+                "x-oai-itemSchema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sse/broadcast/progress": {
+      "get": {
+        "tags": [
+          "SSE"
+        ],
+        "summary": "Broadcast SSE stream",
+        "description": "Opens a Server-Sent Events (text/event-stream) connection that receives server-side broadcast events.",
+        "operationId": "GetSseBroadcast",
+        "responses": {
+          "200": {
+            "description": "SSE stream (text/event-stream)",
+            "content": {
+              "text/event-stream": {
+                "x-oai-itemSchema": {
+                  "$ref": "#/components/schemas/OperationProgressEvent"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/broadcast": {
+      "post": {
+        "tags": [
+          "SSE"
+        ],
+        "summary": "Broadcasts an SSE event to all connected clients.",
+        "description": "Accepts a JSON payload containing an SSE event name and an arbitrary data object.\nThe server broadcasts the event to all connected clients of GET /sse/broadcast.",
+        "operationId": "InvokeSseBroadcast",
+        "requestBody": {
+          "description": "Broadcast SSE event payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SseBroadcastRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Broadcast succeeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SseBroadcastOkResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Broadcast failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SseBroadcastErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/broadcast/progress": {
+      "post": {
+        "tags": [
+          "SSE"
+        ],
+        "summary": "Broadcasts a progress SSE event to all connected clients.",
+        "description": "Accepts an OperationProgressEvent payload and broadcasts it as a 'progress' SSE event.\nClients can connect to either GET /sse/broadcast or GET /sse/broadcast/progress.",
+        "operationId": "InvokeSseBroadcastProgress",
+        "requestBody": {
+          "description": "Progress event payload",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OperationProgressEvent"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Broadcast succeeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SseBroadcastOkResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Broadcast failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SseBroadcastErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SseBroadcastRequest": {
+        "required": [
+          "event",
+          "data"
+        ],
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string",
+            "description": "SSE event name",
+            "example": "message"
+          },
+          "data": {
+            "type": "object",
+            "description": "Arbitrary payload object"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SseBroadcastOkResponse": {
+        "required": [
+          "ok",
+          "event",
+          "connected"
+        ],
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "True when broadcast succeeded",
+            "example": true
+          },
+          "event": {
+            "type": "string",
+            "description": "Event name that was broadcast",
+            "example": "message"
+          },
+          "connected": {
+            "type": "integer",
+            "description": "Connected SSE client count (null if unavailable)",
+            "format": "int32",
+            "nullable": true,
+            "example": 3
+          }
+        },
+        "additionalProperties": false
+      },
+      "SseBroadcastErrorResponse": {
+        "required": [
+          "ok",
+          "error"
+        ],
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "description": "False when broadcast failed",
+            "example": false
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message"
+          }
+        },
+        "additionalProperties": false
+      },
+      "OperationProgressEvent": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "Task identifier"
+          },
+          "progress": {
+            "type": "number",
+            "description": "Progress percent",
+            "format": "double"
+          },
+          "status": {
+            "type": "string",
+            "description": "Human status message"
+          },
+          "state": {
+            "type": "string",
+            "description": "State text"
+          },
+          "ts": {
+            "type": "string",
+            "description": "UTC timestamp",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Operation progress SSE event payload"
+      },
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Realtime",
+      "description": "Protocols and endpoints for real-time, push-based communication such as SignalR and Server-Sent Events.",
+      "externalDocs": {
+        "description": "Real-time communication overview",
+        "url": "https://learn.microsoft.com/aspnet/core/signalr/"
+      },
+      "x-oas-summary": "Real-time communication",
+      "x-oas-kind": "nav"
+    },
+    {
+      "name": "SSE",
+      "description": "Endpoints that stream server-to-client events using text/event-stream.",
+      "externalDocs": {
+        "description": "Server-Sent Events (MDN)",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events"
+      },
+      "x-oas-summary": "Server-Sent Events",
+      "x-oas-parent": "Realtime"
+    }
+  ]
+}

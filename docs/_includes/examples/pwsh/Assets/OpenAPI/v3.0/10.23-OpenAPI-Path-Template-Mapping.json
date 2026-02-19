@@ -1,0 +1,453 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "RFC 6570 Variable Mapping API",
+    "description": "Demonstrates RFC 6570 URI Template variable mapping for OpenAPI 3.2 path expressions.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v{version}/users/{userId}": {
+      "get": {
+        "tags": [
+          "API"
+        ],
+        "summary": "Get user by ID with API version.",
+        "description": "Returns a user with the specified API version extracted from the path.",
+        "operationId": "getApiUser",
+        "parameters": [
+          {
+            "name": "version",
+            "in": "path",
+            "description": "API version.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "User identifier.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User found with version info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/files/{+path}": {
+      "get": {
+        "tags": [
+          "Files"
+        ],
+        "operationId": "getFile",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "path",
+            "description": "File path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FileInfo"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "File not found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{userId}": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get user by ID.",
+        "description": "Returns a user with the specified ID.",
+        "operationId": "getUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "User identifier.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "User not found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mapping/{template}/{id}": {
+      "get": {
+        "tags": [
+          "API"
+        ],
+        "summary": "Get variable mapping details.",
+        "description": "Returns details about variable mapping for a given template and ID.",
+        "operationId": "getVariableMapping",
+        "parameters": [
+          {
+            "name": "template",
+            "in": "path",
+            "description": "Template name.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifier.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Variable mapping details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VariableMapping"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "User": {
+        "required": [
+          "id",
+          "username"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "User ID",
+            "format": "int32",
+            "example": 42
+          },
+          "username": {
+            "type": "string",
+            "description": "Username",
+            "example": "johndoe"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address",
+            "format": "email",
+            "example": "john@example.com"
+          }
+        },
+        "additionalProperties": false,
+        "description": "User information"
+      },
+      "FileInfo": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "File path",
+            "example": "documents/report.pdf"
+          },
+          "size": {
+            "type": "integer",
+            "description": "File size in bytes",
+            "format": "int64",
+            "example": 1024
+          },
+          "contentType": {
+            "type": "string",
+            "description": "Content type",
+            "example": "application/pdf"
+          }
+        },
+        "additionalProperties": false,
+        "description": "File metadata"
+      },
+      "ICollection": {
+        "type": "object",
+        "properties": {
+          "Count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "SyncRoot": {
+            "type": "object"
+          },
+          "IsSynchronized": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Hashtable": {
+        "type": "object",
+        "properties": {
+          "Item": {
+            "type": "object"
+          },
+          "IsReadOnly": {
+            "type": "boolean"
+          },
+          "IsFixedSize": {
+            "type": "boolean"
+          },
+          "IsSynchronized": {
+            "type": "boolean"
+          },
+          "Keys": {
+            "$ref": "#/components/schemas/ICollection"
+          },
+          "Values": {
+            "$ref": "#/components/schemas/ICollection"
+          },
+          "SyncRoot": {
+            "type": "object"
+          },
+          "Count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "VariableMapping": {
+        "type": "object",
+        "properties": {
+          "template": {
+            "type": "string",
+            "description": "RFC 6570 template used",
+            "example": "/api/v{version}/users/{userId}"
+          },
+          "variables": {
+            "$ref": "#/components/schemas/Hashtable"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Variable mapping result"
+      },
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Users",
+      "description": "User management endpoints"
+    },
+    {
+      "name": "Files",
+      "description": "File access endpoints"
+    },
+    {
+      "name": "API",
+      "description": "Versioned API endpoints"
+    }
+  ]
+}

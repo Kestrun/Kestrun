@@ -1,0 +1,540 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "Component Links API",
+    "description": "Demonstrates reusable OpenAPI link components and applying them via attributes.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/users": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Create a user.",
+        "description": "Returns an id + nested user object so response links can map:\n  - $response.body#/id\n  - $response.body#/user",
+        "operationId": "createUser",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPayload"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPayload"
+              }
+            },
+            "application/yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResourceResponse"
+                },
+                "examples": {
+                  "default_example": {
+                    "$ref": "#/components/examples/UserResourceResponseExample"
+                  }
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResourceResponse"
+                },
+                "examples": {
+                  "default_example": {
+                    "$ref": "#/components/examples/UserResourceResponseExample"
+                  }
+                }
+              },
+              "application/yaml": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResourceResponse"
+                },
+                "examples": {
+                  "default_example": {
+                    "$ref": "#/components/examples/UserResourceResponseExample"
+                  }
+                }
+              }
+            },
+            "links": {
+              "get": {
+                "$ref": "#/components/links/GetUserLink"
+              },
+              "update": {
+                "$ref": "#/components/links/UpdateUserLink"
+              },
+              "delete": {
+                "$ref": "#/components/links/DeleteUserLink"
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{userId}": {
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Delete a user.",
+        "operationId": "deleteUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "User identifier",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Get a user by id.",
+        "operationId": "getUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "User identifier",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResourceResponse"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResourceResponse"
+                }
+              },
+              "application/yaml": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResourceResponse"
+                }
+              }
+            },
+            "links": {
+              "update": {
+                "$ref": "#/components/links/UpdateUserLink"
+              },
+              "delete": {
+                "$ref": "#/components/links/DeleteUserLink"
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update a user.",
+        "description": "Update a user.",
+        "operationId": "updateUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "description": "User identifier",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPayload"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPayload"
+              }
+            },
+            "application/yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "User updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResourceResponse"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResourceResponse"
+                }
+              },
+              "application/yaml": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResourceResponse"
+                }
+              }
+            },
+            "links": {
+              "get": {
+                "$ref": "#/components/links/GetUserLink"
+              },
+              "delete": {
+                "$ref": "#/components/links/DeleteUserLink"
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "UserPayload": {
+        "required": [
+          "firstName",
+          "lastName",
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "description": "First name",
+            "example": "John"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Last name",
+            "example": "Doe"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email address",
+            "format": "email",
+            "example": "john.doe@example.com"
+          }
+        },
+        "additionalProperties": false,
+        "description": "User payload (create/update)."
+      },
+      "UserResourceResponse": {
+        "required": [
+          "id",
+          "user"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "User identifier.",
+            "format": "int32",
+            "example": 123
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserPayload"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Response payload for user operations. Contains an id and nested user object for link mapping."
+      },
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "examples": {
+      "UserResourceResponseExample": {
+        "summary": "User resource response",
+        "value": {
+          "id": 123,
+          "user": {
+            "firstName": "John",
+            "lastName": "Doe",
+            "email": "john.doe@example.com"
+          }
+        }
+      }
+    },
+    "links": {
+      "GetUserLink": {
+        "operationId": "getUser",
+        "parameters": {
+          "userId": "$response.body#/id"
+        },
+        "description": "Get the created/returned user.",
+        "x-kestrun-demo": {
+          "relation": "get",
+          "targetOperation": "getUser",
+          "parameterSource": "$response.body#/id",
+          "note": "Demonstrates runtime expressions inside reusable link components."
+        }
+      },
+      "UpdateUserLink": {
+        "operationId": "updateUser",
+        "parameters": {
+          "userId": "$response.body#/id"
+        },
+        "requestBody": "$response.body#/user",
+        "description": "Update the created/returned user.",
+        "x-kestrun-demo": {
+          "relation": "update",
+          "targetOperation": "updateUser",
+          "parameterSource": "$response.body#/id",
+          "requestBodySource": "$response.body#/user",
+          "note": "Shows requestBody mapping via runtime expression."
+        }
+      },
+      "DeleteUserLink": {
+        "operationId": "deleteUser",
+        "parameters": {
+          "userId": "$response.body#/id"
+        },
+        "description": "Delete the created/returned user.",
+        "x-kestrun-demo": {
+          "relation": "delete",
+          "targetOperation": "deleteUser",
+          "parameterSource": "$response.body#/id",
+          "note": "Links let clients discover follow-up operations after a response."
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Operations",
+      "description": "Operational endpoints."
+    },
+    {
+      "name": "Users",
+      "description": "User-related endpoints."
+    }
+  ]
+}

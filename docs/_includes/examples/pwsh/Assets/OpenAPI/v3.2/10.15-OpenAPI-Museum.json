@@ -1,0 +1,1324 @@
+{
+  "openapi": "3.2.0",
+  "info": {
+    "title": "Redocly Museum API",
+    "description": "An imaginary, but delightful Museum API for interacting with museum services and information. Built with love by Redocly.",
+    "contact": {
+      "url": "https://redocly.com/docs/cli/",
+      "email": "team@redocly.com",
+      "x-logo": {
+        "url": "https://redocly.github.io/redoc/museum-logo.png",
+        "altText": "Museum logo"
+      }
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/license/mit/"
+    },
+    "version": "1.1.1"
+  },
+  "paths": {
+    "/tickets": {
+      "post": {
+        "tags": [
+          "Tickets"
+        ],
+        "summary": "Buy museum tickets.",
+        "description": "Purchase museum tickets for general entry or special events.",
+        "operationId": "buyMuseumTickets",
+        "requestBody": {
+          "description": "Request payload describing the ticket purchase.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BuyMuseumTicketsRequest"
+              },
+              "examples": {
+                "event_entry": {
+                  "$ref": "#/components/examples/BuyEventTicketsRequestExample"
+                },
+                "general_entry": {
+                  "$ref": "#/components/examples/BuyGeneralTicketsRequestExample"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuyMuseumTicketsResponse"
+                },
+                "examples": {
+                  "general_entry": {
+                    "$ref": "#/components/examples/BuyGeneralTicketsResponseExample"
+                  },
+                  "event_entry": {
+                    "$ref": "#/components/examples/BuyEventTicketsResponseExample"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/special-events": {
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Create special event.",
+        "operationId": "createSpecialEvent",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSpecialEventRequest"
+              },
+              "examples": {
+                "default_example": {
+                  "$ref": "#/components/examples/CreateSpecialEventRequestExample"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpecialEventResponse"
+                },
+                "examples": {
+                  "default_example": {
+                    "$ref": "#/components/examples/CreateSpecialEventResponseExample"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "List special events.",
+        "description": "Return a list of upcoming special events at the museum.",
+        "operationId": "listSpecialEvents",
+        "parameters": [
+          {
+            "name": "StartDate",
+            "in": "query",
+            "description": "The starting date to retrieve future special events from. Defaults to today's date.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2023-02-23"
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "description": "The ending date to retrieve future special events up to. Defaults to no end date.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2023-04-18"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "The page number to retrieve. Default is 1.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            },
+            "example": "2"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "The number of special events per page. Default is 10, maximum is 30.",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 10
+            },
+            "example": "15"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSpecialEventsResponse"
+                },
+                "examples": {
+                  "default_example": {
+                    "$ref": "#/components/examples/ListSpecialEventsResponseExample"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/special-events/{eventId}": {
+      "delete": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Delete special event.",
+        "description": "Delete a special event from the collection. Allows museum to cancel planned events.",
+        "operationId": "deleteSpecialEvent",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/eventId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success - no content"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Get special event.",
+        "description": "Get details about a special event.",
+        "operationId": "getSpecialEvent",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/eventId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpecialEventResponse"
+                },
+                "examples": {
+                  "default_example": {
+                    "$ref": "#/components/examples/GetSpecialEventResponseExample"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Update special event.",
+        "description": "Update the details of a special event.",
+        "operationId": "updateSpecialEvent",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/eventId"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSpecialEventRequest"
+              },
+              "examples": {
+                "default_example": {
+                  "$ref": "#/components/examples/UpdateSpecialEventRequestExample"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpecialEventResponse"
+                },
+                "examples": {
+                  "default_example": {
+                    "$ref": "#/components/examples/UpdateSpecialEventResponseExample"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/museum-hours": {
+      "get": {
+        "tags": [
+          "Operations"
+        ],
+        "summary": "Get museum hours.",
+        "description": "Get upcoming museum operating hours.",
+        "operationId": "getMuseumHours",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/StartDate"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationPage"
+          },
+          {
+            "$ref": "#/components/parameters/PaginationLimit"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetMuseumHoursResponse"
+                },
+                "examples": {
+                  "default_example": {
+                    "$ref": "#/components/examples/GetMuseumHoursResponseExample"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-badges": {
+          "name": "Beta",
+          "position": "before",
+          "color": "purple"
+        }
+      }
+    },
+    "/tickets/{ticketId}/qr": {
+      "get": {
+        "tags": [
+          "Tickets"
+        ],
+        "summary": "Get ticket QR code.",
+        "description": "Return an image of your ticket with scannable QR code. Used for event entry.",
+        "operationId": "getTicketCode",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ticketId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scannable event ticket in image format",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetTicketCodeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "404": {
+            "description": "Not found"
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Date": {
+        "type": "string",
+        "format": "date",
+        "example": "2023-10-29"
+      },
+      "MuseumDailyHours": {
+        "required": [
+          "date",
+          "timeOpen",
+          "timeClose"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "description": "Date the operating hours apply to.",
+            "$ref": "#/components/schemas/Date"
+          },
+          "timeOpen": {
+            "pattern": "^([01]\\d|2[0-3]):([0-5]\\d)$",
+            "type": "string",
+            "description": "Time the museum opens on a specific date. Uses 24 hour time format (`HH:mm`).",
+            "example": "09:00"
+          },
+          "timeClose": {
+            "pattern": "^([01]\\d|2[0-3]):([0-5]\\d)$",
+            "type": "string",
+            "description": "Time the museum closes on a specific date. Uses 24 hour time format (`HH:mm`).",
+            "example": "18:00"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Daily operating hours for the museum."
+      },
+      "GetMuseumHoursResponse": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/MuseumDailyHours"
+        },
+        "description": "List of museum operating hours for consecutive days."
+      },
+      "EventName": {
+        "type": "string",
+        "description": "Name of the special event",
+        "example": "Pirate Coding Workshop"
+      },
+      "EventLocation": {
+        "type": "string",
+        "description": "Location where the special event is held.",
+        "example": "Computer Room"
+      },
+      "EventDescription": {
+        "type": "string",
+        "description": "Description of the special event",
+        "example": "Captain Blackbeard shares his love of the C...language. And possibly Arrrrr (R lang)."
+      },
+      "EventDates": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Date"
+        },
+        "description": "List of planned dates for the special event"
+      },
+      "EventPrice": {
+        "type": "number",
+        "description": "Price of a ticket for the special event",
+        "format": "float",
+        "example": 25
+      },
+      "CreateSpecialEventRequest": {
+        "required": [
+          "name",
+          "location",
+          "eventDescription",
+          "dates",
+          "price"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/EventName"
+          },
+          "location": {
+            "$ref": "#/components/schemas/EventLocation"
+          },
+          "eventDescription": {
+            "$ref": "#/components/schemas/EventDescription"
+          },
+          "dates": {
+            "$ref": "#/components/schemas/EventDates"
+          },
+          "price": {
+            "$ref": "#/components/schemas/EventPrice"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request payload for creating new special events at the museum."
+      },
+      "UpdateSpecialEventRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "$ref": "#/components/schemas/EventName"
+          },
+          "location": {
+            "$ref": "#/components/schemas/EventLocation"
+          },
+          "eventDescription": {
+            "$ref": "#/components/schemas/EventDescription"
+          },
+          "dates": {
+            "$ref": "#/components/schemas/EventDates"
+          },
+          "price": {
+            "$ref": "#/components/schemas/EventPrice"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request payload for updating an existing special event. Only included fields are updated in the event."
+      },
+      "eventId": {
+        "type": "string",
+        "description": "Identifier for a special event.",
+        "format": "uuid",
+        "example": "3be6453c-03eb-4357-ae5a-984a0e574a54"
+      },
+      "SpecialEventResponse": {
+        "required": [
+          "eventId",
+          "name",
+          "location",
+          "eventDescription",
+          "dates",
+          "price"
+        ],
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "$ref": "#/components/schemas/eventId"
+          },
+          "name": {
+            "$ref": "#/components/schemas/EventName"
+          },
+          "location": {
+            "$ref": "#/components/schemas/EventLocation"
+          },
+          "eventDescription": {
+            "$ref": "#/components/schemas/EventDescription"
+          },
+          "dates": {
+            "$ref": "#/components/schemas/EventDates"
+          },
+          "price": {
+            "$ref": "#/components/schemas/EventPrice"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Information about a special event."
+      },
+      "SpecialEvent": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the special event",
+            "example": "Fossil lecture"
+          },
+          "location": {
+            "type": "string",
+            "description": "Location where the special event is held",
+            "example": "Lecture theatre"
+          },
+          "eventDescription": {
+            "type": "string",
+            "description": "Description of the special event",
+            "example": "Our panel of experts will share their favorite fossils and explain why they are so great."
+          },
+          "dates": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "List of planned dates for the special event",
+            "example": "2024-03-29"
+          },
+          "price": {
+            "type": "number",
+            "description": "List of planned dates for the special event",
+            "format": "double",
+            "example": "12.50"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request payload for creating new special events at the museum."
+      },
+      "ListSpecialEventsResponse": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SpecialEventResponse"
+        },
+        "description": "A list of upcoming special events."
+      },
+      "TicketType": {
+        "enum": [
+          "event",
+          "general"
+        ],
+        "type": "string",
+        "description": "Type of ticket being purchased. Use `general` for regular entry and `event` for special events.",
+        "example": "event"
+      },
+      "TicketId": {
+        "type": "string",
+        "description": "Unique identifier for museum ticket. Generated when purchased.",
+        "format": "uuid",
+        "example": "a54a57ca-36f8-421b-a6b4-2e8f26858a4c"
+      },
+      "TicketMessage": {
+        "type": "string",
+        "description": "Confirmation message after a ticket purchase.",
+        "example": "Museum general entry ticket purchased"
+      },
+      "TicketConfirmation": {
+        "type": "string",
+        "description": "Unique confirmation code used to verify ticket purchase.",
+        "example": "ticket-event-a98c8f-7eb12"
+      },
+      "Email": {
+        "type": "string",
+        "description": "Email address for ticket purchaser.",
+        "format": "email",
+        "example": "museum-lover@example.com"
+      },
+      "Phone": {
+        "type": "string",
+        "description": "Phone number for the ticket purchaser (optional).",
+        "example": "+1(234)-567-8910"
+      },
+      "BuyMuseumTicketsRequest": {
+        "required": [
+          "ticketType",
+          "ticketDate",
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "ticketType": {
+            "$ref": "#/components/schemas/TicketType"
+          },
+          "eventId": {
+            "description": "Unique identifier for a special event. Required if purchasing tickets for the museum's special events.",
+            "$ref": "#/components/schemas/eventId"
+          },
+          "ticketDate": {
+            "description": "Date that the ticket is valid for.",
+            "$ref": "#/components/schemas/Date"
+          },
+          "email": {
+            "$ref": "#/components/schemas/Email"
+          },
+          "phone": {
+            "$ref": "#/components/schemas/Phone"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request payload used for purchasing museum tickets."
+      },
+      "BuyMuseumTicketsResponse": {
+        "required": [
+          "message",
+          "ticketId",
+          "ticketType",
+          "ticketDate",
+          "confirmationCode"
+        ],
+        "type": "object",
+        "properties": {
+          "message": {
+            "$ref": "#/components/schemas/TicketMessage"
+          },
+          "eventName": {
+            "$ref": "#/components/schemas/EventName"
+          },
+          "ticketId": {
+            "$ref": "#/components/schemas/TicketId"
+          },
+          "ticketType": {
+            "$ref": "#/components/schemas/TicketType"
+          },
+          "ticketDate": {
+            "description": "Date that the ticket is valid for.",
+            "$ref": "#/components/schemas/Date"
+          },
+          "confirmationCode": {
+            "$ref": "#/components/schemas/TicketConfirmation"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Details for a museum ticket after a successful purchase."
+      },
+      "GetTicketCodeResponse": {
+        "type": "string",
+        "description": "An image of a ticket with a QR code used for museum or event entry.",
+        "format": "binary"
+      },
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "parameters": {
+      "PaginationLimit": {
+        "name": "PaginationLimit",
+        "in": "query",
+        "description": "The number of days per page.",
+        "schema": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "PaginationPage": {
+        "name": "PaginationPage",
+        "in": "query",
+        "description": "The page number to retrieve.",
+        "schema": {
+          "type": "integer",
+          "format": "int32"
+        }
+      },
+      "StartDate": {
+        "name": "StartDate",
+        "in": "query",
+        "description": "The starting date to retrieve future operating hours from. Defaults to today's date.",
+        "schema": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "eventId": {
+        "name": "eventId",
+        "in": "path",
+        "description": "An identifier for a special event.",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "example": "dad4bce8-f5cb-4078-a211-995864315e39"
+      },
+      "endDate": {
+        "name": "endDate",
+        "in": "query",
+        "description": "The end of a date range to retrieve special events for. Defaults to 7 days after StartDate.",
+        "schema": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "ticketId": {
+        "name": "ticketId",
+        "in": "path",
+        "description": "An identifier for a ticket to a museum event. Used to generate ticket image.",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "examples": {
+      "BuyGeneralTicketsRequestExample": {
+        "summary": "General entry ticket",
+        "value": {
+          "ticketType": "general",
+          "ticketDate": "2023-09-07",
+          "email": "todd@example.com"
+        }
+      },
+      "BuyEventTicketsRequestExample": {
+        "summary": "Special event ticket",
+        "value": {
+          "ticketType": "general",
+          "eventId": "dad4bce8-f5cb-4078-a211-995864315e39",
+          "ticketDate": "2023-09-05",
+          "email": "todd@example.com"
+        }
+      },
+      "BuyGeneralTicketsResponseExample": {
+        "summary": "General entry ticket",
+        "value": {
+          "message": "Museum general entry ticket purchased",
+          "ticketId": "382c0820-0530-4f4b-99af-13811ad0f17a",
+          "ticketType": "general",
+          "ticketDate": "2023-09-07",
+          "confirmationCode": "ticket-general-e5e5c6-dce78"
+        }
+      },
+      "BuyEventTicketsResponseExample": {
+        "summary": "Special event ticket",
+        "value": {
+          "message": "Museum special event ticket purchased",
+          "ticketId": "b811f723-17b2-44f7-8952-24b03e43d8a9",
+          "eventName": "Mermaid Treasure Identification and Analysis",
+          "ticketType": "event",
+          "ticketDate": "2023-09-05",
+          "confirmationCode": "ticket-event-9c55eg-8v82a"
+        }
+      },
+      "CreateSpecialEventRequestExample": {
+        "summary": "Create special event",
+        "value": {
+          "name": "Mermaid Treasure Identification and Analysis",
+          "location": "Under the seaaa 🦀 🎶 🌊.",
+          "eventDescription": "Join us as we review and classify a rare collection of 20\nthingamabobs, gadgets, gizmos, whoosits, and whatsits, kindly donated\nby Ariel.",
+          "dates": [
+            "2023-09-05",
+            "2023-09-08"
+          ],
+          "price": 0
+        }
+      },
+      "CreateSpecialEventResponseExample": {
+        "summary": "Special event created",
+        "value": {
+          "eventId": "dad4bce8-f5cb-4078-a211-995864315e39",
+          "name": "Mermaid Treasure Identification and Analysis",
+          "location": "Under the seaaa 🦀 🎶 🌊.",
+          "eventDescription": "Join us as we review and classify a rare collection of 20\nthingamabobs, gadgets, gizmos, whoosits, and whatsits, kindly donated\nby Ariel.",
+          "dates": [
+            "2023-09-05",
+            "2023-09-08"
+          ],
+          "price": 30
+        }
+      },
+      "GetSpecialEventResponseExample": {
+        "summary": "Get special event",
+        "value": {
+          "eventId": "6744a0da-4121-49cd-8479-f8cc20526495",
+          "name": "Time Traveler Tea Party",
+          "location": "Temporal Tearoom",
+          "eventDescription": "Sip tea with important historical figures.",
+          "dates": [
+            "2023-11-18",
+            "2023-11-25",
+            "2023-12-02"
+          ],
+          "price": 60
+        }
+      },
+      "ListSpecialEventsResponseExample": {
+        "summary": "List of special events",
+        "value": [
+          {
+            "eventId": "f3e0e76e-e4a8-466e-ab9c-ae36c15b8e97",
+            "name": "Sasquatch Ballet",
+            "location": "Seattle... probably",
+            "eventDescription": "They're big, they're hairy, but they're also graceful. Come learn\nhow the biggest feet can have the lightest touch.",
+            "dates": [
+              "2023-12-15",
+              "2023-12-22"
+            ],
+            "price": 40
+          },
+          {
+            "eventId": "2f14374a-9c65-4ee5-94b7-fba66d893483",
+            "name": "Solar Telescope Demonstration",
+            "location": "Far from the sun.",
+            "eventDescription": "Look at the sun without going blind!",
+            "dates": [
+              "2023-09-07",
+              "2023-09-14"
+            ],
+            "price": 50
+          },
+          {
+            "eventId": "6aaa61ba-b2aa-4868-b803-603dbbf7bfdb",
+            "name": "Cook like a Caveman",
+            "location": "Fire Pit on East side",
+            "eventDescription": "Learn to cook on an open flame.",
+            "dates": [
+              "2023-11-10",
+              "2023-11-17",
+              "2023-11-24"
+            ],
+            "price": 5
+          },
+          {
+            "eventId": "602b75e1-5696-4ab8-8c7a-f9e13580f910",
+            "name": "Underwater Basket Weaving",
+            "location": "Rec Center Pool next door.",
+            "eventDescription": "Learn to weave baskets underwater.",
+            "dates": [
+              "2023-09-12",
+              "2023-09-15"
+            ],
+            "price": 15
+          },
+          {
+            "eventId": "dad4bce8-f5cb-4078-a211-995864315e39",
+            "name": "Mermaid Treasure Identification and Analysis",
+            "location": "Room Sea-12",
+            "eventDescription": "Join us as we review and classify a rare collection of 20\nthingamabobs, gadgets, gizmos, whoosits, and whatsits — kindly\ndonated by Ariel.",
+            "dates": [
+              "2023-09-05",
+              "2023-09-08"
+            ],
+            "price": 30
+          },
+          {
+            "eventId": "6744a0da-4121-49cd-8479-f8cc20526495",
+            "name": "Time Traveler Tea Party",
+            "location": "Temporal Tearoom",
+            "eventDescription": "Sip tea with important historical figures.",
+            "dates": [
+              "2023-11-18",
+              "2023-11-25",
+              "2023-12-02"
+            ],
+            "price": 60
+          },
+          {
+            "eventId": "3be6453c-03eb-4357-ae5a-984a0e574a54",
+            "name": "Pirate Coding Workshop",
+            "location": "Computer Room",
+            "eventDescription": "Captain Blackbeard shares his love of the C...language. And possibly\nArrrrr (R lang).",
+            "dates": [
+              "2023-10-29",
+              "2023-10-30",
+              "2023-10-31"
+            ],
+            "price": 45
+          },
+          {
+            "eventId": "9d90d29a-2af5-4206-97d9-9ea9ceadcb78",
+            "name": "Llama Street Art Through the Ages",
+            "location": "Auditorium",
+            "eventDescription": "Llama street art?! Alpaca my bags -- let's go!",
+            "dates": [
+              "2023-10-29",
+              "2023-10-30",
+              "2023-10-31"
+            ],
+            "price": 45
+          },
+          {
+            "eventId": "a3c7b2c4-b5fb-4ef7-9322-00a919864957",
+            "name": "The Great Parrot Debate",
+            "location": "Outdoor Amphitheatre",
+            "eventDescription": "See leading parrot minds discuss important geopolitical issues.",
+            "dates": [
+              "2023-11-03",
+              "2023-11-10"
+            ],
+            "price": 35
+          },
+          {
+            "eventId": "b92d46b7-4c5d-422b-87a5-287767e26f29",
+            "name": "Eat a Bunch of Corn",
+            "location": "Cafeteria",
+            "eventDescription": "We accidentally bought too much corn. Please come eat it.",
+            "dates": [
+              "2023-11-10",
+              "2023-11-17",
+              "2023-11-24"
+            ],
+            "price": 5
+          }
+        ]
+      },
+      "UpdateSpecialEventRequestExample": {
+        "summary": "Update special event request",
+        "value": {
+          "location": "On the beach.",
+          "price": 15
+        }
+      },
+      "UpdateSpecialEventResponseExample": {
+        "summary": "Update special event",
+        "value": {
+          "eventId": "dad4bce8-f5cb-4078-a211-995864315e39",
+          "name": "Mermaid Treasure Identification and Analysis",
+          "location": "On the beach.",
+          "eventDescription": "Join us as we review and classify a rare collection of 20\nthingamabobs, gadgets, gizmos, whoosits, and whatsits, kindly donated\nby Ariel.",
+          "dates": [
+            "2023-09-05",
+            "2023-09-08"
+          ],
+          "price": 15
+        }
+      },
+      "GetMuseumHoursResponseExample": {
+        "summary": "Get hours response",
+        "value": [
+          {
+            "date": "2023-09-11",
+            "timeOpen": "09:00",
+            "timeClose": "18:00"
+          },
+          {
+            "date": "2023-09-12",
+            "timeOpen": "09:00",
+            "timeClose": "18:00"
+          },
+          {
+            "date": "2023-09-13",
+            "timeOpen": "09:00",
+            "timeClose": "18:00"
+          },
+          {
+            "date": "2023-09-14",
+            "timeOpen": "09:00",
+            "timeClose": "18:00"
+          },
+          {
+            "date": "2023-09-15",
+            "timeOpen": "10:00",
+            "timeClose": "16:00"
+          },
+          {
+            "date": "2023-09-18",
+            "timeOpen": "09:00",
+            "timeClose": "18:00"
+          },
+          {
+            "date": "2023-09-19",
+            "timeOpen": "09:00",
+            "timeClose": "18:00"
+          },
+          {
+            "date": "2023-09-20",
+            "timeOpen": "09:00",
+            "timeClose": "18:00"
+          },
+          {
+            "date": "2023-09-21",
+            "timeOpen": "09:00",
+            "timeClose": "18:00"
+          },
+          {
+            "date": "2023-09-22",
+            "timeOpen": "10:00",
+            "timeClose": "16:00"
+          }
+        ]
+      }
+    },
+    "securitySchemes": {
+      "MuseumPlaceholderAuth": {
+        "type": "http",
+        "scheme": "basic"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Plan your visit",
+      "description": "Group for visit planning endpoints.",
+      "kind": "nav"
+    },
+    {
+      "name": "Purchases",
+      "description": "Group for purchase-related endpoints.",
+      "kind": "nav"
+    },
+    {
+      "name": "Operations",
+      "description": "Operational information about the museum.",
+      "parent": "Plan your visit",
+      "x-displayName": "About the museum"
+    },
+    {
+      "name": "Events",
+      "description": "Special events hosted by the Museum.",
+      "parent": "Plan your visit",
+      "x-displayName": "Upcoming events"
+    },
+    {
+      "name": "Tickets",
+      "description": "Museum tickets for general entrance or special events.",
+      "parent": "Purchases",
+      "x-displayName": "Buy tickets"
+    }
+  ],
+  "x-tagGroups": [
+    {
+      "name": "Plan your visit",
+      "tags": [
+        "Operations",
+        "Events"
+      ]
+    },
+    {
+      "name": "Purchases",
+      "tags": [
+        "Tickets"
+      ]
+    }
+  ]
+}

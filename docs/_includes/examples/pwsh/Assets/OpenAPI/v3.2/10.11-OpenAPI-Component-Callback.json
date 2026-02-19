@@ -1,0 +1,843 @@
+{
+  "openapi": "3.2.0",
+  "info": {
+    "title": "Hello World API",
+    "description": "Demonstrates OpenAPI callbacks (async notifications) using component references and inline callbacks.",
+    "contact": {
+      "email": "support@example.com"
+    },
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/v1/payments": {
+      "post": {
+        "summary": "Create a payment.",
+        "description": "Creates a new payment and demonstrates how callbacks are documented.\nThe request includes callback URLs used by the provider to notify the consumer asynchronously.",
+        "operationId": "createPayment",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "default": "ord-12345678"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Payment creation request including callback URLs.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatePaymentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "callbacks": {
+          "paymentStatus": {
+            "{$request.body#/callbackUrls/status}/v1/payments/{paymentId}/status": {
+              "post": {
+                "summary": "Payment Status Callback (component)",
+                "description": "Provider calls the consumer back when a payment status changes.",
+                "operationId": "paymentStatusCallback__post__status",
+                "parameters": [
+                  {
+                    "name": "paymentId",
+                    "in": "path",
+                    "description": "The ID of the payment",
+                    "required": true,
+                    "schema": {
+                      "type": "string"
+                    }
+                  }
+                ],
+                "requestBody": {
+                  "description": "The callback event payload",
+                  "content": {
+                    "application/json": {
+                      "schema": {
+                        "$ref": "#/components/schemas/PaymentStatusChangedEvent"
+                      }
+                    }
+                  }
+                },
+                "responses": {
+                  "204": {
+                    "description": "Accepted"
+                  },
+                  "400": {
+                    "description": "Bad Request",
+                    "content": {
+                      "application/problem+json": {
+                        "schema": {
+                          "$ref": "#/components/schemas/KestrunErrorResponse"
+                        }
+                      }
+                    }
+                  },
+                  "422": {
+                    "description": "Unprocessable Entity",
+                    "content": {
+                      "application/problem+json": {
+                        "schema": {
+                          "$ref": "#/components/schemas/KestrunErrorResponse"
+                        }
+                      }
+                    }
+                  },
+                  "415": {
+                    "description": "Unsupported Media Type",
+                    "content": {
+                      "application/problem+json": {
+                        "schema": {
+                          "$ref": "#/components/schemas/KestrunErrorResponse"
+                        }
+                      }
+                    }
+                  },
+                  "406": {
+                    "description": "Not Acceptable",
+                    "content": {
+                      "application/problem+json": {
+                        "schema": {
+                          "$ref": "#/components/schemas/KestrunErrorResponse"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "reservation": {
+            "$ref": "#/components/callbacks/reservationCallback"
+          },
+          "shippingOrder": {
+            "$ref": "#/components/callbacks/shippingOrderCallback"
+          }
+        }
+      }
+    },
+    "/v1/payments/{paymentId}": {
+      "get": {
+        "summary": "Get payment.",
+        "description": "Simple endpoint to retrieve a payment resource.",
+        "operationId": "getPayment",
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "description": "The payment identifier.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatePaymentResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Payment not found"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/callbacks/payment-status/v1/payments/{paymentId}/status": {
+      "post": {
+        "summary": "Payment Status Callback Receiver",
+        "description": "Endpoint to receive payment status change callbacks.",
+        "operationId": "paymentstatus",
+        "parameters": [
+          {
+            "name": "paymentId",
+            "in": "path",
+            "description": "The ID of the payment.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The callback event payload.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentStatusChangedEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Accepted"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/callbacks/reservation/v1/orders/{orderId}/reservation": {
+      "post": {
+        "summary": "Reservation Callback Receiver",
+        "description": "Endpoint to receive reservation callbacks.",
+        "operationId": "reservation",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "description": "The ID of the order.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The callback event payload.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReservationCreatedEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Accepted"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/callbacks/shipping-order/v1/orders/{orderId}/shippingOrder": {
+      "post": {
+        "summary": "Shipping Order Callback Receiver",
+        "description": "Endpoint to receive shipping order callbacks.",
+        "operationId": "shippingorder",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "description": "The ID of the order.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The callback event payload.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShippingOrderCreatedEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Accepted"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CallbackUrls": {
+        "required": [
+          "status",
+          "reservation",
+          "shippingOrder"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Callback URL for payment status updates.",
+            "format": "uri",
+            "example": "https://client.example.com/callbacks/payment-status"
+          },
+          "reservation": {
+            "type": "string",
+            "description": "Callback URL for reservation created events.",
+            "format": "uri",
+            "example": "https://client.example.com/callbacks/reservation"
+          },
+          "shippingOrder": {
+            "type": "string",
+            "description": "Callback URL for shipping order created events.",
+            "format": "uri",
+            "example": "https://client.example.com/callbacks/shipping-order"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Callback URLs supplied by the client for async notifications."
+      },
+      "CreatePaymentRequest": {
+        "required": [
+          "amount",
+          "currency",
+          "callbackUrls"
+        ],
+        "type": "object",
+        "properties": {
+          "amount": {
+            "minimum": 0,
+            "type": "number",
+            "description": "Payment amount",
+            "format": "double",
+            "example": 129.99
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency code",
+            "example": "USD"
+          },
+          "callbackUrls": {
+            "description": "Client-provided callback URLs",
+            "$ref": "#/components/schemas/CallbackUrls"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Request payload to create a payment. Includes callback URLs for async updates."
+      },
+      "CreatePaymentResponse": {
+        "required": [
+          "paymentId",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "paymentId": {
+            "type": "string",
+            "description": "Payment identifier",
+            "example": "PAY-12345678"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "authorized",
+              "captured",
+              "failed"
+            ],
+            "type": "string",
+            "description": "Current payment status",
+            "example": "pending"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Response returned after creating a payment."
+      },
+      "PaymentStatusChangedEvent": {
+        "required": [
+          "eventId",
+          "timestamp",
+          "paymentId",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Event identifier",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "When the event occurred",
+            "format": "date-time"
+          },
+          "paymentId": {
+            "type": "string",
+            "description": "Payment identifier",
+            "example": "PAY-12345678"
+          },
+          "status": {
+            "enum": [
+              "authorized",
+              "captured",
+              "failed"
+            ],
+            "type": "string",
+            "description": "New status",
+            "example": "authorized"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Callback event payload for payment status changes."
+      },
+      "ReservationCreatedEvent": {
+        "required": [
+          "eventId",
+          "timestamp",
+          "orderId",
+          "reservationId"
+        ],
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Event identifier",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "When the event occurred",
+            "format": "date-time"
+          },
+          "orderId": {
+            "type": "string",
+            "description": "Order identifier",
+            "example": "ORD-98765432"
+          },
+          "reservationId": {
+            "type": "string",
+            "description": "Reservation identifier",
+            "example": "RSV-12345678"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Callback event payload for reservation creation."
+      },
+      "ShippingOrderCreatedEvent": {
+        "required": [
+          "eventId",
+          "timestamp",
+          "orderId",
+          "shippingOrderId"
+        ],
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "description": "Event identifier",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "type": "string",
+            "description": "When the event occurred",
+            "format": "date-time"
+          },
+          "orderId": {
+            "type": "string",
+            "description": "Order identifier",
+            "example": "ORD-98765432"
+          },
+          "shippingOrderId": {
+            "type": "string",
+            "description": "Shipping order identifier",
+            "example": "SHP-12345678"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Callback event payload for shipping order creation."
+      },
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "callbacks": {
+      "reservationCallback": {
+        "{$request.body#/callbackUrls/reservation}/v1/orders/{orderId}/reservation": {
+          "post": {
+            "summary": "Reservation Callback (component)",
+            "description": "Provider calls the consumer back when a reservation is made.",
+            "operationId": "reservationCallback__post__reservation",
+            "parameters": [
+              {
+                "name": "orderId",
+                "in": "path",
+                "description": "The ID of the order",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            ],
+            "requestBody": {
+              "description": "The callback event payload",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ReservationCreatedEvent"
+                  }
+                }
+              }
+            },
+            "responses": {
+              "204": {
+                "description": "Accepted"
+              },
+              "400": {
+                "description": "Bad Request",
+                "content": {
+                  "application/problem+json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/KestrunErrorResponse"
+                    }
+                  }
+                }
+              },
+              "422": {
+                "description": "Unprocessable Entity",
+                "content": {
+                  "application/problem+json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/KestrunErrorResponse"
+                    }
+                  }
+                }
+              },
+              "415": {
+                "description": "Unsupported Media Type",
+                "content": {
+                  "application/problem+json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/KestrunErrorResponse"
+                    }
+                  }
+                }
+              },
+              "406": {
+                "description": "Not Acceptable",
+                "content": {
+                  "application/problem+json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/KestrunErrorResponse"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "shippingOrderCallback": {
+        "{$request.body#/callbackUrls/shippingOrder}/v1/orders/{orderId}/shippingOrder": {
+          "post": {
+            "summary": "Shipping Order Callback (component)",
+            "description": "Provider calls the consumer back when a shipping order is created.",
+            "operationId": "shippingOrderCallback__post__shippingOrder",
+            "parameters": [
+              {
+                "name": "orderId",
+                "in": "path",
+                "description": "The ID of the order",
+                "required": true,
+                "schema": {
+                  "type": "string"
+                }
+              }
+            ],
+            "requestBody": {
+              "description": "The callback event payload",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ShippingOrderCreatedEvent"
+                  }
+                }
+              }
+            },
+            "responses": {
+              "204": {
+                "description": "Accepted"
+              },
+              "400": {
+                "description": "Bad Request",
+                "content": {
+                  "application/problem+json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/KestrunErrorResponse"
+                    }
+                  }
+                }
+              },
+              "422": {
+                "description": "Unprocessable Entity",
+                "content": {
+                  "application/problem+json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/KestrunErrorResponse"
+                    }
+                  }
+                }
+              },
+              "415": {
+                "description": "Unsupported Media Type",
+                "content": {
+                  "application/problem+json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/KestrunErrorResponse"
+                    }
+                  }
+                }
+              },
+              "406": {
+                "description": "Not Acceptable",
+                "content": {
+                  "application/problem+json": {
+                    "schema": {
+                      "$ref": "#/components/schemas/KestrunErrorResponse"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

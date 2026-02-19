@@ -2,7 +2,7 @@
   "openapi": "3.1.2",
   "info": {
     "title": "Swagger Petstore - OpenAPI 3.1",
-    "description": "This is a sample Pet Store Server based on the OpenAPI 3.1 specification.  You can find out more about Swagger at [https://swagger.io](https://swagger.io).\r\nIn the third iteration of the pet store, we've switched to the design first approach!\r\nYou can now help us improve the API whether it's by making changes to the definition itself or to the code.\r\nThat way, with time, we can improve the API in general, and expose some of the new features in OAS3.\r\n\r\nSome useful links:\r\n- [The Pet Store repository](https://github.com/swagger-api/swagger-petstore)\r\n- [The source API definition for the Pet Store](https://github.com/swagger-api/swagger-petstore/blob/master/src/main/resources/openapi.yaml)",
+    "description": "This is a sample Pet Store Server based on the OpenAPI 3.1 specification.  You can find out more about Swagger at [https://swagger.io](https://swagger.io).\nIn the third iteration of the pet store, we've switched to the design first approach!\nYou can now help us improve the API whether it's by making changes to the definition itself or to the code.\nThat way, with time, we can improve the API in general, and expose some of the new features in OAS3.\n\nSome useful links:\n- [The Pet Store repository](https://github.com/swagger-api/swagger-petstore)\n- [The source API definition for the Pet Store](https://github.com/swagger-api/swagger-petstore/blob/master/src/main/resources/openapi.yaml)",
     "termsOfService": "https://swagger.io/terms/",
     "contact": {
       "email": "apiteam@swagger.io"
@@ -848,10 +848,6 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": {
-                    "type": "integer",
-                    "format": "int32"
-                  },
                   "description": "Inventory counts by status"
                 }
               }
@@ -870,7 +866,7 @@
         },
         "security": [
           {
-            "api_key": [ ]
+            "api_key": []
           }
         ]
       }
@@ -1264,10 +1260,6 @@
       },
       "Inventory": {
         "type": "object",
-        "additionalProperties": {
-          "type": "integer",
-          "format": "int32"
-        },
         "description": "Inventory counts by status"
       }
     },

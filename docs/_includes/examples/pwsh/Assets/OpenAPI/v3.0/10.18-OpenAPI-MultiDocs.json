@@ -1,0 +1,35 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "Hello World API",
+    "description": "A simple OpenAPI 3.1 example with a single endpoint.",
+    "contact": {
+      "email": "support@example.com"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:50375",
+      "description": "Local Server"
+    }
+  ],
+  "paths": {
+    "/greeting": {
+      "get": {
+        "summary": "Get greeting message.",
+        "description": "Returns a simple greeting message.",
+        "operationId": "getGreeting",
+        "responses": {
+          "200": {
+            "description": "Ok"
+          },
+          "default": {
+            "description": "Unexpected error"
+          }
+        }
+      }
+    }
+  },
+  "components": {}
+}

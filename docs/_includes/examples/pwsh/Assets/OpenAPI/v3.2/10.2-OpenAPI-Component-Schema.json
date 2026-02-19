@@ -1,0 +1,514 @@
+{
+  "openapi": "3.2.0",
+  "info": {
+    "title": "Component Schema API",
+    "description": "Demonstrates meaningful combinations of reusable component schemas.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/employees": {
+      "get": {
+        "summary": "List employees.",
+        "description": "Returns an array of employee records.",
+        "operationId": "listEmployees",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeList"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeList"
+                }
+              },
+              "application/yaml": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmployeeList"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tickets/purchase": {
+      "post": {
+        "summary": "Purchase tickets.",
+        "description": "Accepts a purchase request and returns a purchase confirmation.",
+        "operationId": "purchaseTickets",
+        "requestBody": {
+          "description": "Ticket purchase request payload.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseRequest"
+              }
+            },
+            "application/yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseRequest"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseResponse"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseResponse"
+                }
+              },
+              "application/yaml": {
+                "schema": {
+                  "$ref": "#/components/schemas/PurchaseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Date": {
+        "type": "string",
+        "description": "A calendar date (YYYY-MM-DD).",
+        "format": "date",
+        "example": "2026-01-13"
+      },
+      "Money": {
+        "minimum": 0,
+        "type": "number",
+        "description": "A monetary amount. Prefer decimals for currency values.",
+        "format": "decimal",
+        "example": 19.99
+      },
+      "EmployeeId": {
+        "type": "string",
+        "description": "Server-generated employee identifier.",
+        "format": "uuid",
+        "example": "a54a57ca-36f8-421b-a6b4-2e8f26858a4c"
+      },
+      "Dates": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/Date"
+        },
+        "description": "List of visit dates."
+      },
+      "Address": {
+        "required": [
+          "street",
+          "city",
+          "postalCode"
+        ],
+        "type": "object",
+        "properties": {
+          "street": {
+            "type": "string",
+            "description": "Street line.",
+            "example": "1 Museum Way"
+          },
+          "city": {
+            "type": "string",
+            "description": "City.",
+            "example": "Seattle"
+          },
+          "postalCode": {
+            "pattern": "^[0-9A-Za-z\\- ]{3,12}$",
+            "type": "string",
+            "description": "Postal code.",
+            "example": "98101"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Postal address.",
+        "x-badges": [
+          {
+            "name": "Beta",
+            "position": "before",
+            "color": "purple"
+          },
+          {
+            "name": "PII",
+            "position": "after",
+            "color": "orange"
+          }
+        ],
+        "x-kestrun-demo": {
+          "owner": "docs",
+          "stability": "beta",
+          "domain": "profiles",
+          "containsPii": true,
+          "notes": [
+            "Schema-level vendor extensions are emitted under components.schemas.<Name>",
+            "This schema also uses a regex ValidatePattern for postalCode"
+          ]
+        }
+      },
+      "PersonBase": {
+        "required": [
+          "firstName",
+          "lastName"
+        ],
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "description": "First name.",
+            "example": "Avery"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Last name.",
+            "example": "Rivera"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Base person identity."
+      },
+      "Person": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/PersonBase"
+          },
+          {
+            "required": [
+              "email"
+            ],
+            "type": "object",
+            "properties": {
+              "email": {
+                "type": "string",
+                "description": "Primary email address.",
+                "format": "email",
+                "example": "avery.rivera@example.com"
+              },
+              "phone": {
+                "pattern": "^[+0-9() \\-]{7,25}$",
+                "type": "string",
+                "description": "Optional phone number.",
+                "example": "+1-206-555-0123"
+              }
+            },
+            "additionalProperties": false,
+            "description": "Person contact information."
+          }
+        ]
+      },
+      "Employee": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Person"
+          },
+          {
+            "required": [
+              "hireDate"
+            ],
+            "type": "object",
+            "properties": {
+              "hireDate": {
+                "description": "Hire date (YYYY-MM-DD).",
+                "$ref": "#/components/schemas/Date"
+              },
+              "roles": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Employee roles.",
+                "example": [
+                  "guide",
+                  "cashier"
+                ]
+              },
+              "address": {
+                "description": "Mailing address.",
+                "$ref": "#/components/schemas/Address"
+              }
+            },
+            "additionalProperties": false,
+            "description": "Employee record."
+          }
+        ]
+      },
+      "EmployeeResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Employee"
+          },
+          {
+            "required": [
+              "employeeId",
+              "createdAt"
+            ],
+            "type": "object",
+            "properties": {
+              "employeeId": {
+                "description": "Employee identifier.",
+                "$ref": "#/components/schemas/EmployeeId"
+              },
+              "createdAt": {
+                "type": "string",
+                "description": "Creation timestamp (RFC 3339).",
+                "format": "date-time",
+                "example": "2026-01-13T20:15:30.123Z"
+              }
+            },
+            "additionalProperties": false,
+            "description": "Employee response with server-generated fields."
+          }
+        ]
+      },
+      "EmployeeList": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/EmployeeResponse"
+        },
+        "description": "List of employees."
+      },
+      "TicketType": {
+        "enum": [
+          "general",
+          "event"
+        ],
+        "type": "string"
+      },
+      "LineItem": {
+        "required": [
+          "ticketType",
+          "quantity",
+          "unitPrice"
+        ],
+        "type": "object",
+        "properties": {
+          "ticketType": {
+            "description": "Ticket category.",
+            "$ref": "#/components/schemas/TicketType"
+          },
+          "quantity": {
+            "maximum": 20,
+            "minimum": 1,
+            "type": "integer",
+            "description": "Quantity of tickets.",
+            "format": "int32",
+            "example": 2
+          },
+          "unitPrice": {
+            "description": "Unit price for the ticket.",
+            "$ref": "#/components/schemas/Money"
+          }
+        },
+        "additionalProperties": false,
+        "description": "A purchasable ticket line item."
+      },
+      "LineItemList": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/LineItem"
+        },
+        "description": "List of ticket line items."
+      },
+      "PurchaseRequest": {
+        "required": [
+          "customer",
+          "items",
+          "visitDates"
+        ],
+        "type": "object",
+        "properties": {
+          "customer": {
+            "description": "Customer details.",
+            "$ref": "#/components/schemas/Person"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LineItem"
+            },
+            "description": "Tickets being purchased."
+          },
+          "visitDates": {
+            "description": "Dates the tickets are valid for.",
+            "$ref": "#/components/schemas/Dates"
+          },
+          "preferredTicketType": {
+            "type": "object",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TicketType"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional preferred ticket type (nullable enum - produces anyOf with null).",
+            "example": "general"
+          },
+          "note": {
+            "type": "string",
+            "description": "Optional note attached to the purchase.",
+            "example": "Please email the receipt."
+          }
+        },
+        "additionalProperties": false,
+        "description": "Ticket purchase request."
+      },
+      "PurchaseResponse": {
+        "required": [
+          "ticketId",
+          "total",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "ticketId": {
+            "type": "string",
+            "description": "Server-generated ticket id.",
+            "format": "uuid",
+            "example": "a54a57ca-36f8-421b-a6b4-2e8f26858a4c"
+          },
+          "total": {
+            "description": "Total amount charged.",
+            "$ref": "#/components/schemas/Money"
+          },
+          "items": {
+            "description": "Echo of purchased items.",
+            "$ref": "#/components/schemas/LineItemList"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Purchase timestamp (RFC 3339).",
+            "format": "date-time",
+            "example": "2026-01-13T20:15:30.123Z"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Ticket purchase response."
+      },
+      "InventoryCounts": {
+        "patternProperties": {
+          "^[a-z][a-z0-9_]*$": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "type": "object",
+        "description": "Inventory counts by status key."
+      },
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

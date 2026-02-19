@@ -348,7 +348,6 @@
         "items": {
           "$ref": "#/components/schemas/ProductDto"
         },
-        "additionalProperties": false,
         "description": "Array of catalog products"
       },
       "PartnerInventoryItem": {
@@ -373,7 +372,6 @@
         "items": {
           "$ref": "#/components/schemas/PartnerInventoryItem"
         },
-        "additionalProperties": false,
         "description": "Array of partner inventory entries"
       },
       "NoCorsInfoResponse": {

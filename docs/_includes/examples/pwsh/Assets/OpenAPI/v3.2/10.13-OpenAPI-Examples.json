@@ -1,0 +1,518 @@
+{
+  "openapi": "3.2.0",
+  "info": {
+    "title": "Examples API",
+    "description": "Demonstrates OpenAPI example components and Kestrun inline examples applied via attributes.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/tickets": {
+      "post": {
+        "summary": "Buy a ticket.",
+        "description": "Shows request+response examples via ExampleRef attributes (components/examples).",
+        "operationId": "buyTicket",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BuyTicketRequest"
+              },
+              "examples": {
+                "general_entry_dataValue": {
+                  "$ref": "#/components/examples/BuyGeneralTicketsRequestDataValueExample"
+                },
+                "general_entry": {
+                  "$ref": "#/components/examples/BuyGeneralTicketsRequestExample"
+                }
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/BuyTicketRequest"
+              },
+              "examples": {
+                "general_entry_dataValue": {
+                  "$ref": "#/components/examples/BuyGeneralTicketsRequestDataValueExample"
+                },
+                "general_entry": {
+                  "$ref": "#/components/examples/BuyGeneralTicketsRequestExample"
+                }
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/BuyTicketRequest"
+              },
+              "examples": {
+                "general_entry_dataValue": {
+                  "$ref": "#/components/examples/BuyGeneralTicketsRequestDataValueExample"
+                },
+                "general_entry": {
+                  "$ref": "#/components/examples/BuyGeneralTicketsRequestExample"
+                }
+              }
+            },
+            "application/yaml": {
+              "schema": {
+                "$ref": "#/components/schemas/BuyTicketRequest"
+              },
+              "examples": {
+                "general_entry_dataValue": {
+                  "$ref": "#/components/examples/BuyGeneralTicketsRequestDataValueExample"
+                },
+                "general_entry": {
+                  "$ref": "#/components/examples/BuyGeneralTicketsRequestExample"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Ticket purchased",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuyTicketResponse"
+                },
+                "examples": {
+                  "general_entry": {
+                    "$ref": "#/components/examples/BuyGeneralTicketsResponseExample"
+                  }
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuyTicketResponse"
+                },
+                "examples": {
+                  "general_entry": {
+                    "$ref": "#/components/examples/BuyGeneralTicketsResponseExample"
+                  }
+                }
+              },
+              "application/x-www-form-urlencoded": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuyTicketResponse"
+                },
+                "examples": {
+                  "general_entry": {
+                    "$ref": "#/components/examples/BuyGeneralTicketsResponseExample"
+                  }
+                }
+              },
+              "application/yaml": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuyTicketResponse"
+                },
+                "examples": {
+                  "general_entry": {
+                    "$ref": "#/components/examples/BuyGeneralTicketsResponseExample"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/museum-hours": {
+      "get": {
+        "summary": "Get museum hours.",
+        "description": "Shows response example via OpenApiResponseExampleRef (components/examples).",
+        "operationId": "getMuseumHours",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetMuseumHoursResponse"
+                },
+                "examples": {
+                  "default_example": {
+                    "$ref": "#/components/examples/GetMuseumHoursResponseExample"
+                  },
+                  "external_example": {
+                    "$ref": "#/components/examples/GetMuseumHoursResponseExternalExample"
+                  }
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tickets/search": {
+      "get": {
+        "summary": "Search tickets by date.",
+        "description": "Shows scalar query parameter examples using inline example store (copied inline).",
+        "operationId": "searchTickets",
+        "parameters": [
+          {
+            "name": "ticketDate",
+            "in": "query",
+            "description": "Ticket date (YYYY-MM-DD).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "examples": {
+              "nextSunday": {
+                "summary": "Common next Sunday ticket date",
+                "value": "2026-08-30"
+              },
+              "nextSaturday": {
+                "summary": "Common next Saturday ticket date",
+                "value": "2026-09-05"
+              },
+              "today": {
+                "summary": "Common today ticket date",
+                "value": "2026-08-29"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchTicketsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BuyTicketRequest": {
+        "required": [
+          "ticketType",
+          "ticketDate",
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "ticketType": {
+            "type": "string",
+            "description": "Ticket type",
+            "example": "general"
+          },
+          "ticketDate": {
+            "type": "string",
+            "description": "Ticket date (YYYY-MM-DD)",
+            "format": "date",
+            "example": "2023-09-07"
+          },
+          "email": {
+            "type": "string",
+            "description": "Purchaser email",
+            "format": "email",
+            "example": "todd@example.com"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Ticket purchase request."
+      },
+      "BuyTicketResponse": {
+        "required": [
+          "message",
+          "ticketId",
+          "ticketType",
+          "ticketDate",
+          "confirmationCode"
+        ],
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Museum general entry ticket purchased"
+          },
+          "ticketId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ticketType": {
+            "type": "string",
+            "example": "general"
+          },
+          "ticketDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "confirmationCode": {
+            "type": "string",
+            "example": "ticket-general-e5e5c6-dce78"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Ticket purchase response."
+      },
+      "MuseumDailyHours": {
+        "required": [
+          "date",
+          "timeOpen",
+          "timeClose"
+        ],
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2023-09-11"
+          },
+          "timeOpen": {
+            "type": "string",
+            "example": "09:00"
+          },
+          "timeClose": {
+            "type": "string",
+            "example": "18:00"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Museum daily hours"
+      },
+      "SearchTicketsResponse": {
+        "required": [
+          "ticketDate",
+          "ok"
+        ],
+        "type": "object",
+        "properties": {
+          "ticketDate": {
+            "type": "string",
+            "description": "Search date",
+            "format": "date",
+            "example": "2023-09-07"
+          },
+          "ok": {
+            "type": "boolean",
+            "description": "Whether the search was successful",
+            "example": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Search tickets response"
+      },
+      "GetMuseumHoursResponse": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/MuseumDailyHours"
+        },
+        "description": "List of museum hours"
+      },
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "examples": {
+      "BuyGeneralTicketsRequestExample": {
+        "summary": "General entry ticket",
+        "value": {
+          "ticketType": "general",
+          "ticketDate": "2023-09-07",
+          "email": "todd@example.com"
+        },
+        "x-kestrun-demo": {
+          "scenario": "buy-ticket",
+          "payloadKind": "request",
+          "preferredContentTypes": [
+            "application/json",
+            "application/xml",
+            "application/yaml",
+            "application/x-www-form-urlencoded"
+          ]
+        }
+      },
+      "BuyGeneralTicketsRequestDataValueExample": {
+        "summary": "General entry ticket (dataValue)",
+        "description": "Same payload as the request example, using the OpenAPI 3.2 dataValue field (3.1 emits x-oai-dataValue).",
+        "dataValue": {
+          "ticketType": "general",
+          "ticketDate": "2023-09-07",
+          "email": "todd@example.com"
+        },
+        "serializedValue": "{\"ticketType\":\"general\",\"ticketDate\":\"2023-09-07\",\"email\":\"todd@example.com\"}",
+        "x-kestrun-demo": {
+          "scenario": "buy-ticket",
+          "payloadKind": "request",
+          "openApiField": "dataValue"
+        }
+      },
+      "BuyGeneralTicketsResponseExample": {
+        "summary": "General entry ticket purchased",
+        "value": {
+          "message": "Museum general entry ticket purchased",
+          "ticketId": "382c0820-0530-4f4b-99af-13811ad0f17a",
+          "ticketType": "general",
+          "ticketDate": "2023-09-07",
+          "confirmationCode": "ticket-general-e5e5c6-dce78"
+        },
+        "x-kestrun-demo": {
+          "scenario": "buy-ticket",
+          "payloadKind": "response",
+          "statusCode": 201
+        }
+      },
+      "GetMuseumHoursResponseExample": {
+        "summary": "Get hours response",
+        "value": [
+          {
+            "date": "2023-09-11",
+            "timeOpen": "09:00",
+            "timeClose": "18:00"
+          },
+          {
+            "date": "2023-09-12",
+            "timeOpen": "09:00",
+            "timeClose": "18:00"
+          },
+          {
+            "date": "2023-09-13",
+            "timeOpen": "09:00",
+            "timeClose": "18:00"
+          }
+        ],
+        "x-kestrun-demo": {
+          "scenario": "museum-hours",
+          "payloadKind": "response",
+          "statusCode": 200
+        }
+      },
+      "GetMuseumHoursResponseExternalExample": {
+        "summary": "Get hours response (external)",
+        "description": "Demonstrates externalValue (a URL to a literal example payload).",
+        "externalValue": "https://example.com/openapi/examples/museum-hours.json",
+        "x-kestrun-demo": {
+          "scenario": "museum-hours",
+          "payloadKind": "response",
+          "openApiField": "externalValue"
+        }
+      }
+    }
+  }
+}

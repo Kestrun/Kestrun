@@ -1,0 +1,244 @@
+{
+  "openapi": "3.1.2",
+  "info": {
+    "title": "Additional/Pattern Properties API",
+    "description": "Demonstrates schema components with AdditionalProperties and PatternProperties.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/features/flags": {
+      "get": {
+        "summary": "Get sample feature flags.",
+        "description": "Returns a FeatureFlags object backed by AdditionalProperties.",
+        "operationId": "getFeatureFlags",
+        "responses": {
+          "200": {
+            "description": "Feature flags",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureFlags"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/counts": {
+      "get": {
+        "summary": "Get sample inventory counts.",
+        "description": "Returns an InventoryCounts object with pattern-constrained keys.",
+        "operationId": "getInventoryCounts",
+        "responses": {
+          "200": {
+            "description": "Inventory counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryCounts"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog/update": {
+      "post": {
+        "summary": "Update catalog data.",
+        "description": "Accepts dynamic inventory counts and feature flags, then echoes the update.",
+        "operationId": "updateCatalog",
+        "requestBody": {
+          "description": "Catalog update request.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated catalog item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "InventoryCounts": {
+        "patternProperties": {
+          "^[a-z][a-z0-9_]*$": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "type": "object",
+        "description": "Inventory counts by status key."
+      },
+      "FeatureFlags": {
+        "type": "object",
+        "description": "Feature flags keyed by name."
+      },
+      "CatalogUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "description": "Item identifier.",
+            "example": "SKU-1001"
+          },
+          "inventory": {
+            "description": "Inventory counts by status key.",
+            "$ref": "#/components/schemas/InventoryCounts"
+          },
+          "flags": {
+            "description": "Feature flags for the item.",
+            "$ref": "#/components/schemas/FeatureFlags"
+          }
+        },
+        "additionalProperties": {
+          "type": "string"
+        },
+        "description": "Catalog update request."
+      },
+      "CatalogUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "description": "Item identifier.",
+            "example": "SKU-1001"
+          },
+          "inventory": {
+            "description": "Inventory snapshot.",
+            "$ref": "#/components/schemas/InventoryCounts"
+          },
+          "flags": {
+            "description": "Feature flags snapshot.",
+            "$ref": "#/components/schemas/FeatureFlags"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Server timestamp (RFC 3339).",
+            "format": "date-time",
+            "example": "2026-02-03T12:34:56.789Z"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Catalog update response."
+      },
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -129,7 +129,15 @@ Describe 'Example 10.2 OpenAPI Component Schema' -Tag 'OpenApi', 'Tutorial', 'Sl
         $json.paths.'/tickets/purchase'.post | Should -Not -BeNullOrEmpty
     }
 
-    It 'OpenAPI output matches 10.2 fixture JSON' {
-        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
+    It 'OpenAPI v3.0 output matches 10.2 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance -Version 'v3.0'
+    }
+
+    It 'OpenAPI v3.1 output matches 10.2 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance -Version 'v3.1'
+    }
+
+    It 'OpenAPI v3.2 output matches 10.2 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance -Version 'v3.2'
     }
 }

@@ -1,0 +1,171 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "Tags Demo API",
+    "description": "Demonstrates operation tags with external documentation links.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health.status",
+          "health",
+          "operations"
+        ],
+        "summary": "Service health",
+        "description": "Returns a simple health status payload.",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Health status"
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders": {
+      "get": {
+        "tags": [
+          "orders.read",
+          "orders",
+          "operations"
+        ],
+        "summary": "List demo orders",
+        "description": "Returns a simple list of order identifiers.",
+        "operationId": "getOrders",
+        "responses": {
+          "200": {
+            "description": "List of orders"
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "operations",
+      "description": "Common operational endpoints",
+      "x-oas-kind": "category",
+      "x-displayName": "Operations",
+      "x-sortOrder": 1,
+      "x-icon": "tools"
+    },
+    {
+      "name": "orders",
+      "description": "Order operations",
+      "externalDocs": {
+        "description": "Order docs",
+        "url": "https://example.com/orders",
+        "x-docType": "reference",
+        "x-audience": "public"
+      },
+      "x-oas-parent": "operations",
+      "x-oas-kind": "resource",
+      "x-displayName": "Orders",
+      "x-sortOrder": 10,
+      "x-owner": "commerce-team",
+      "x-releaseStage": "beta"
+    },
+    {
+      "name": "health",
+      "description": "Service health endpoints",
+      "x-oas-parent": "operations",
+      "x-oas-kind": "resource",
+      "x-displayName": "Health",
+      "x-sortOrder": 20,
+      "x-owner": "platform-team"
+    },
+    {
+      "name": "orders.read",
+      "description": "Read-only order operations",
+      "x-oas-parent": "orders",
+      "x-oas-kind": "operation",
+      "x-scope": "orders:read"
+    },
+    {
+      "name": "orders.write",
+      "description": "Mutating order operations",
+      "x-oas-parent": "orders",
+      "x-oas-kind": "operation",
+      "x-scope": "orders:write"
+    },
+    {
+      "name": "health.status",
+      "description": "Health status endpoints",
+      "x-oas-parent": "health",
+      "x-oas-kind": "operation",
+      "x-scope": "health:read"
+    }
+  ],
+  "externalDocs": {
+    "description": "API portal",
+    "url": "https://example.com/api-portal",
+    "x-docType": "portal",
+    "x-audience": "internal",
+    "x-owner": "api-platform"
+  }
+}

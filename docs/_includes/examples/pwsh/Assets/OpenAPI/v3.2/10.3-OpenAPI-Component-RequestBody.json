@@ -1,0 +1,373 @@
+{
+  "openapi": "3.2.0",
+  "info": {
+    "title": "RequestBody Component API",
+    "description": "Demonstrates reusable request body components.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/products": {
+      "post": {
+        "summary": "Create a new product.",
+        "description": "Creates a new product using the reusable CreateProductRequest component.",
+        "operationId": "createProduct",
+        "requestBody": {
+          "description": "Product creation request",
+          "$ref": "#/components/requestBodies/CreateProductRequest"
+        },
+        "responses": {
+          "201": {
+            "description": "Product created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              },
+              "application/x-www-form-urlencoded": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/products/{productId}": {
+      "put": {
+        "summary": "Update an existing product.",
+        "description": "Updates product details using the reusable UpdateProductRequest component.",
+        "operationId": "updateProduct",
+        "parameters": [
+          {
+            "name": "productId",
+            "in": "path",
+            "description": "The product ID to update",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Product update request",
+          "$ref": "#/components/requestBodies/UpdateProductRequest"
+        },
+        "responses": {
+          "200": {
+            "description": "Product updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              },
+              "application/x-www-form-urlencoded": {
+                "schema": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Product": {
+        "required": [
+          "productName",
+          "price"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Unique product identifier",
+            "format": "int64",
+            "example": 1
+          },
+          "productName": {
+            "type": "string",
+            "description": "Product name",
+            "example": "Laptop"
+          },
+          "price": {
+            "type": "number",
+            "description": "Product price",
+            "format": "double",
+            "example": 999.99
+          },
+          "description": {
+            "type": "string",
+            "description": "Product description",
+            "example": "A high-performance laptop"
+          },
+          "stock": {
+            "minimum": 0,
+            "type": "integer",
+            "description": "Stock quantity",
+            "format": "int32",
+            "example": 50
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Creation timestamp",
+            "format": "date-time",
+            "example": "2024-01-01T12:00:00Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "description": "Update timestamp",
+            "format": "date-time",
+            "example": "2024-01-01T12:00:00Z"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateProductRequest": {
+        "required": [
+          "productName",
+          "price"
+        ],
+        "type": "object",
+        "properties": {
+          "productName": {
+            "type": "string",
+            "description": "Product name",
+            "example": "Laptop Pro"
+          },
+          "price": {
+            "type": "number",
+            "description": "Product price",
+            "format": "double",
+            "example": 1299.99
+          },
+          "description": {
+            "type": "string",
+            "description": "Product description"
+          },
+          "stock": {
+            "minimum": 0,
+            "type": "integer",
+            "description": "Stock quantity",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "examples": {
+      "BuyGeneralTicketsRequestExample": {
+        "summary": "General entry ticket",
+        "value": {
+          "ticketType": "general",
+          "ticketDate": "2023-09-07",
+          "email": "todd@example.com"
+        }
+      }
+    },
+    "requestBodies": {
+      "CreateProductRequest": {
+        "description": "Product creation payload. Supports JSON and form data.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Product"
+            }
+          },
+          "application/x-www-form-urlencoded": {
+            "schema": {
+              "$ref": "#/components/schemas/Product"
+            }
+          },
+          "application/xml": {
+            "schema": {
+              "$ref": "#/components/schemas/Product"
+            }
+          },
+          "application/yaml": {
+            "schema": {
+              "$ref": "#/components/schemas/Product"
+            }
+          }
+        },
+        "required": true
+      },
+      "UpdateProductRequest": {
+        "description": "Product update payload.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/UpdateProductRequest"
+            },
+            "examples": {
+              "general_entry": {
+                "$ref": "#/components/examples/BuyGeneralTicketsRequestExample"
+              }
+            }
+          }
+        },
+        "required": true
+      },
+      "SimpleStringRequestBody": {
+        "description": "A simple string payload.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "maxLength": 100,
+              "minLength": 4,
+              "type": "string"
+            }
+          }
+        },
+        "required": true
+      },
+      "SimpleDateRequestBody": {
+        "description": "A simple date payload.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        },
+        "required": true
+      }
+    }
+  }
+}

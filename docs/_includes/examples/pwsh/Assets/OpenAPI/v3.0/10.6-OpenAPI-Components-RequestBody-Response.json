@@ -1,0 +1,414 @@
+{
+  "openapi": "3.0.4",
+  "info": {
+    "title": "Complete Components API",
+    "description": "Demonstrates complete reusable components: request bodies and responses together.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/orders": {
+      "post": {
+        "summary": "Create a new order.",
+        "description": "Creates a new order using the reusable CreateOrderRequestBody component.\nReturns OrderResponse on success or ErrorDetail on failure.",
+        "operationId": "createOrder",
+        "requestBody": {
+          "$ref": "#/components/requestBodies/CreateOrderRequestBody"
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/OrderResponseDefault"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponseDefault"
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orders/{orderId}": {
+      "get": {
+        "summary": "Get an order by ID.",
+        "description": "Retrieves order details using the OrderResponse component.",
+        "operationId": "getOrder",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "description": "The order ID to retrieve",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/OrderResponseDefault"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponseDefault"
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update an existing order.",
+        "description": "Updates order details using the CreateOrderRequestBody component.",
+        "operationId": "updateOrder",
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "description": "The order ID to update",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "a54a57ca-36f8-421b-a6b4-2e8f26858a4c"
+          }
+        ],
+        "requestBody": {
+          "description": "Updated order data",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderRequest"
+              }
+            },
+            "application/xml": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderRequest"
+              }
+            },
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/OrderResponseDefault"
+          },
+          "400": {
+            "$ref": "#/components/responses/ErrorResponseDefault"
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateOrderRequest": {
+        "required": [
+          "productId",
+          "quantity"
+        ],
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "integer",
+            "description": "Product ID",
+            "format": "int64",
+            "example": 1
+          },
+          "quantity": {
+            "minimum": 1,
+            "type": "integer",
+            "description": "Quantity ordered",
+            "format": "int32",
+            "example": 5
+          },
+          "customerEmail": {
+            "type": "string",
+            "description": "Customer email",
+            "format": "email",
+            "example": "customer@example.com"
+          },
+          "shippingAddress": {
+            "type": "string",
+            "description": "Shipping address"
+          }
+        },
+        "additionalProperties": false
+      },
+      "OrderResponse": {
+        "required": [
+          "orderId",
+          "productId",
+          "quantity",
+          "status",
+          "totalPrice"
+        ],
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "description": "Order ID",
+            "format": "uuid",
+            "example": "a54a57ca-36f8-421b-a6b4-2e8f26858a4c"
+          },
+          "productId": {
+            "type": "integer",
+            "description": "Product ID",
+            "format": "int64",
+            "example": 1
+          },
+          "quantity": {
+            "type": "integer",
+            "description": "Quantity ordered",
+            "format": "int32",
+            "example": 5
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "processing",
+              "shipped",
+              "delivered"
+            ],
+            "type": "string",
+            "description": "Order status"
+          },
+          "totalPrice": {
+            "type": "number",
+            "description": "Total price",
+            "format": "double",
+            "example": 499.95
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "Order creation date",
+            "format": "date-time"
+          },
+          "expectedDelivery": {
+            "type": "string",
+            "description": "Expected delivery date",
+            "format": "date"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ErrorDetail": {
+        "required": [
+          "code",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Error code",
+            "example": "INVALID_QUANTITY"
+          },
+          "message": {
+            "type": "string",
+            "description": "Error message",
+            "example": "Quantity must be greater than zero"
+          },
+          "field": {
+            "type": "string",
+            "description": "Field that caused the error"
+          },
+          "details": {
+            "type": "string",
+            "description": "Additional context"
+          }
+        },
+        "additionalProperties": false
+      },
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "responses": {
+      "OrderResponseDefault": {
+        "description": "Order successfully retrieved or created",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/OrderResponse"
+            }
+          },
+          "application/xml": {
+            "schema": {
+              "$ref": "#/components/schemas/OrderResponse"
+            }
+          }
+        },
+        "x-kestrun-demo": {
+          "stability": "stable",
+          "domain": "orders",
+          "kind": "success"
+        }
+      },
+      "ErrorResponseDefault": {
+        "description": "Request validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            }
+          },
+          "application/xml": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            }
+          }
+        },
+        "x-kestrun-demo": {
+          "stability": "stable",
+          "domain": "orders",
+          "kind": "error",
+          "retryable": false
+        }
+      }
+    },
+    "requestBodies": {
+      "CreateOrderRequestBody": {
+        "description": "Order creation payload",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CreateOrderRequest"
+            }
+          }
+        },
+        "required": true,
+        "x-kestrun-demo": {
+          "stability": "beta",
+          "containsPii": true,
+          "piiFields": [
+            "customerEmail"
+          ],
+          "domain": "orders",
+          "kind": "request"
+        }
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "orders",
+      "description": "Order management operations"
+    }
+  ]
+}

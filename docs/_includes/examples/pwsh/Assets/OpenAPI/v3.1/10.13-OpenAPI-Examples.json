@@ -386,7 +386,6 @@
         "items": {
           "$ref": "#/components/schemas/MuseumDailyHours"
         },
-        "additionalProperties": false,
         "description": "List of museum hours"
       },
       "KestrunErrorResponse": {

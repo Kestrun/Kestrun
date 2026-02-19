@@ -1075,8 +1075,15 @@ public partial class OpenApiDocDescriptor
     {
         schema.ReadOnly = properties.ReadOnly;
         schema.WriteOnly = properties.WriteOnly;
-        schema.AdditionalPropertiesAllowed = properties.AdditionalPropertiesAllowed;
-        ApplyAdditionalProperties(properties, schema);
+        if (IsObjectSchemaType(schema.Type))
+        {
+            schema.AdditionalPropertiesAllowed = properties.AdditionalPropertiesAllowed;
+            ApplyAdditionalProperties(properties, schema);
+        }
+        else
+        {
+            schema.AdditionalPropertiesAllowed = true; // Non-object schemas must allow additional properties to be valid, so we force-enable when Type is not object
+        }
         schema.UnevaluatedProperties = properties.UnevaluatedProperties;
         if (properties is not OpenApiParameterComponentAttribute)
         {
@@ -1134,13 +1141,21 @@ public partial class OpenApiDocDescriptor
     private static void EnsureAdditionalPropertiesAllowed(IOpenApiSchema? additionalSchema, OpenApiSchema targetSchema)
     {
         if (additionalSchema is OpenApiSchema apiSchema
-            && apiSchema.Type != JsonSchemaType.Object
+            && !IsObjectSchemaType(apiSchema.Type)
             && !apiSchema.AdditionalPropertiesAllowed
             && targetSchema.AdditionalProperties is OpenApiSchema targetAdditional)
         {
             targetAdditional.AdditionalPropertiesAllowed = true;
         }
     }
+
+    /// <summary>
+    /// Determines whether a schema type includes object semantics, including nullable object unions.
+    /// </summary>
+    /// <param name="schemaType">The schema type value to evaluate.</param>
+    /// <returns><c>true</c> when object is present in the schema type flags; otherwise, <c>false</c>.</returns>
+    private static bool IsObjectSchemaType(JsonSchemaType? schemaType)
+        => schemaType is not null && (schemaType.Value & JsonSchemaType.Object) == JsonSchemaType.Object;
 
     /// <summary>
     /// Applies examples and default values to an OpenApiSchema.

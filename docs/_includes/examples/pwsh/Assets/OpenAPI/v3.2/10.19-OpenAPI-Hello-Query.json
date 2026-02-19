@@ -1,0 +1,271 @@
+{
+  "openapi": "3.2.0",
+  "info": {
+    "title": "Products API",
+    "description": "Demonstrates HTTP QUERY for filtered product search (OpenAPI 3.2).",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/v1/products/search": {
+      "query": {
+        "summary": "Search products using HTTP QUERY.",
+        "description": "Demonstrates the OpenAPI 3.2 QUERY method with a structured request body\nfor filters and standard query parameters for pagination.",
+        "operationId": "searchProducts",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/pageSize"
+          }
+        ],
+        "requestBody": {
+          "description": "Search filters",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductSearchResult"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductSearchResult"
+                }
+              },
+              "application/yaml": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductSearchResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unsupported Media Type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Product": {
+        "required": [
+          "id",
+          "name",
+          "price"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "minimum": 1,
+            "type": "integer",
+            "description": "Unique product identifier",
+            "format": "int64",
+            "example": 101
+          },
+          "name": {
+            "type": "string",
+            "description": "Product name",
+            "example": "Laptop Pro"
+          },
+          "price": {
+            "minimum": 0,
+            "type": "number",
+            "description": "Product price",
+            "format": "double",
+            "example": 1299.99
+          },
+          "stock": {
+            "minimum": 0,
+            "type": "integer",
+            "description": "Inventory count",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductSearchRequest": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "Free-text search",
+            "example": "laptop"
+          },
+          "category": {
+            "type": "string",
+            "description": "Category filter",
+            "example": "electronics"
+          },
+          "minPrice": {
+            "minimum": 0,
+            "type": "number",
+            "description": "Minimum price",
+            "format": "double",
+            "example": 500
+          },
+          "maxPrice": {
+            "minimum": 0,
+            "type": "number",
+            "description": "Maximum price",
+            "format": "double",
+            "example": 2000
+          },
+          "inStock": {
+            "type": "boolean",
+            "description": "Only products in stock",
+            "example": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductSearchResult": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "description": "Current page number",
+            "format": "int32",
+            "example": 1
+          },
+          "pageSize": {
+            "type": "integer",
+            "description": "Number of items per page",
+            "format": "int32",
+            "example": 25
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of items",
+            "format": "int32",
+            "example": 100
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Product"
+            },
+            "description": "Number of items in the current page",
+            "example": 25
+          }
+        },
+        "additionalProperties": false,
+        "description": "Paginated product search result"
+      },
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "parameters": {
+      "page": {
+        "name": "page",
+        "in": "query",
+        "description": "Page number",
+        "schema": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer",
+          "format": "int32",
+          "default": 1
+        }
+      },
+      "pageSize": {
+        "name": "pageSize",
+        "in": "query",
+        "description": "Page size",
+        "schema": {
+          "maximum": 100,
+          "minimum": 1,
+          "type": "integer",
+          "format": "int32",
+          "default": 25
+        }
+      }
+    }
+  }
+}

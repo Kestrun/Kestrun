@@ -50,7 +50,15 @@ Describe 'Example 10.3 OpenAPI Component RequestBody' -Tag 'OpenApi', 'Tutorial'
         $json.components.requestBodies.UpdateProductRequest | Should -Not -BeNullOrEmpty
     }
 
-    It 'OpenAPI output matches 10.3 fixture JSON' {
-        Test-OpenApiDocumentMatchesExpected -Instance $script:instance
+    It 'OpenAPI v3.0 output matches 10.3 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance -Version 'v3.0'
+    }
+
+    It 'OpenAPI v3.1 output matches 10.3 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance -Version 'v3.1'
+    }
+
+    It 'OpenAPI v3.2 output matches 10.3 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance -Version 'v3.2'
     }
 }

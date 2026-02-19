@@ -82,6 +82,10 @@ Describe 'Example 10.7 OpenAPI Tags' -Tag 'OpenApi', 'Tutorial', 'Slow' {
         (Get-TagParentName -Tag $healthTag) | Should -Be 'operations'
     }
 
+    It 'OpenAPI v3.0 output matches 10.7 fixture JSON' {
+        Test-OpenApiDocumentMatchesExpected -Instance $script:instance -Version 'v3.0'
+    }
+
     It 'OpenAPI v3.1 output matches 10.7 fixture JSON' {
         Test-OpenApiDocumentMatchesExpected -Instance $script:instance -Version 'v3.1'
     }

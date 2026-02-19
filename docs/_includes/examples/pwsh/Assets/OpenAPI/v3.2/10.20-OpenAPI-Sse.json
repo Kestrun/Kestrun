@@ -1,0 +1,142 @@
+{
+  "openapi": "3.2.0",
+  "info": {
+    "title": "Kestrun SSE Demo API",
+    "description": "Demonstrates documenting an SSE (text/event-stream) endpoint with OpenAPI.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/sse": {
+      "get": {
+        "tags": [
+          "SSE"
+        ],
+        "summary": "Streams a Server-Sent Events (SSE) response.",
+        "description": "Sets Content-Type to text/event-stream and writes a series of SSE events (\"connected\" and \"tick\").",
+        "operationId": "GetSseStream",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/count"
+          },
+          {
+            "$ref": "#/components/parameters/intervalMs"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SSE stream (text/event-stream)",
+            "content": {
+              "text/event-stream": {
+                "itemSchema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not Acceptable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KestrunErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "KestrunErrorResponse": {
+        "required": [
+          "status",
+          "error",
+          "reason",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "error": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "details": {
+            "type": "string"
+          },
+          "exception": {
+            "type": "string"
+          },
+          "stackTrace": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "parameters": {
+      "count": {
+        "name": "count",
+        "in": "query",
+        "description": "Number of SSE events to send before closing the connection",
+        "schema": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer",
+          "format": "int32",
+          "default": 30
+        },
+        "example": 30
+      },
+      "intervalMs": {
+        "name": "intervalMs",
+        "in": "query",
+        "description": "Delay between events in milliseconds",
+        "schema": {
+          "maximum": 60000,
+          "minimum": 100,
+          "type": "integer",
+          "format": "int32",
+          "default": 1000
+        },
+        "example": 1000
+      }
+    }
+  }
+}

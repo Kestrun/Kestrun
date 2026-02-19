@@ -215,6 +215,7 @@ Add-BuildTask Help {
     Write-Host '- Build-Help: Generates PowerShell help documentation.'
     Write-Host '- Clean-Help: Cleans the PowerShell help documentation.'
     Write-Host '- Build-TutorialIndex: Regenerates docs/pwsh/tutorial/index.md.'
+    Write-Host '- Export-OpenApiSamples: Runs all OpenAPI 10.x samples and exports v3.0/v3.1/v3.2 JSON under docs/_includes/examples/pwsh/Assets/OpenAPI.'
     Write-Host '- Install-Module: Installs the Kestrun module.'
     Write-Host '- Remove-Module: Removes the Kestrun module.'
     Write-Host '- Update-Module: Updates the Kestrun module.'
@@ -410,6 +411,14 @@ Add-BuildTask 'Test-Tutorials' {
 Add-BuildTask 'Build-TutorialIndex' {
     Write-Host '🧩 Regenerating tutorial index...'
     & .\Utility\Build-TutorialIndex.ps1
+}
+
+Add-BuildTask 'Export-OpenApiSamples' {
+    Write-Host '🧾 Exporting OpenAPI sample JSON assets (v3.0, v3.1, v3.2)...'
+    pwsh -NoProfile -File .\Utility\Export-OpenApiSampleJson.ps1
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Export-OpenApiSamples failed.'
+    }
 }
 
 Add-BuildTask 'Package' 'Clean-Package', 'Build', {

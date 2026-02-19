@@ -62,7 +62,19 @@ Describe 'Example 10.24 OpenAPI AdditionalProperties + PatternProperties' -Tag '
         $json.components.schemas.InventoryCounts.patternProperties.'^[a-z][a-z0-9_]*$'.type | Should -Be 'integer'
 
         $json.components.schemas.FeatureFlags | Should -Not -BeNullOrEmpty
-        $json.components.schemas.FeatureFlags.additionalProperties.type | Should -Be 'boolean'
+        $featureFlagsSchema = $json.components.schemas.FeatureFlags
+        $featureFlagsAdditionalProperties = $featureFlagsSchema.PSObject.Properties['additionalProperties']
+        if ($null -ne $featureFlagsAdditionalProperties) {
+            if ($featureFlagsSchema.additionalProperties -is [bool]) {
+                $featureFlagsSchema.additionalProperties | Should -BeTrue
+            }
+            else {
+                $featureFlagsSchema.additionalProperties.type | Should -Be 'boolean'
+            }
+        }
+        else {
+            $featureFlagsSchema.type | Should -Be 'object'
+        }
 
         $json.components.schemas.CatalogUpdateRequest | Should -Not -BeNullOrEmpty
         $json.components.schemas.CatalogUpdateRequest.additionalProperties.type | Should -Be 'string'

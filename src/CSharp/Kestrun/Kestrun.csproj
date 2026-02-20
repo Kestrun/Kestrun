@@ -78,7 +78,8 @@
     <PropertyGroup>
         <!-- Enable packing for NuGet -->
         <IsPackable>true</IsPackable>
-        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Release'">true</GeneratePackageOnBuild>
+        <GeneratePackageOnBuild Condition="'$(Configuration)' != 'Release'">false</GeneratePackageOnBuild>
 
         <!-- Package identity -->
         <PackageId>Kestrun</PackageId>

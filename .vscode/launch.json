@@ -150,7 +150,7 @@
             "name": "Launch pwsh with script",
             "type": "coreclr",
             "request": "launch",
-            "program": "C:\\Program Files\\PowerShell\\7-preview\\pwsh.exe",
+            "program": "C:\\Program Files\\PowerShell\\7-rc\\pwsh.exe",
             "args": [
                 "-NoLogo",
                 "-NoProfile",
@@ -182,10 +182,10 @@
         },
 
               {
-            "name": "Launch pwsh (preview) with script (bootstrap)",
+            "name": "Launch pwsh (7.6 RC) with script (bootstrap)",
             "type": "coreclr",
             "request": "launch",
-            "program": "C:\\Program Files\\PowerShell\\7-preview\\pwsh.exe",
+            "program": "C:\\Program Files\\PowerShell\\7-rc\\pwsh.exe",
             "args": [
                 "-NoLogo",
                 "-NoProfile",

@@ -30,9 +30,10 @@ Kestrun — PowerShell brains. Kestrel speed.
 
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4)](https://dotnet.microsoft.com/download/dotnet/8.0)
 [![.NET 9](https://img.shields.io/badge/.NET-9.0-512BD4)](https://dotnet.microsoft.com/download/dotnet/9.0)
+[![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![PowerShell 7.4](https://img.shields.io/badge/PowerShell-7.4-blue)](https://github.com/PowerShell/PowerShell/releases/tag/v7.4.0)
 [![PowerShell 7.5](https://img.shields.io/badge/PowerShell-7.5-blue)](https://github.com/PowerShell/PowerShell/releases/tag/v7.5.0)
-[![PowerShell 7.6](https://img.shields.io/badge/PowerShell-7.6(preview)-blue)](https://github.com/PowerShell/PowerShell/releases/tag/v7.6.0-preview.4)
+[![PowerShell 7.6](https://img.shields.io/badge/PowerShell-7.6(rc)-blue)](https://github.com/PowerShell/PowerShell/releases/tag/v7.6.0-rc-1)
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 [![Contributions](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -106,7 +107,7 @@ matching the PowerShell version you are using:
 | PowerShell Version | Install (Run-only) | Rationale |
 |--------------------|--------------------|-----------|
 | 7.4 / 7.5 | [.NET 8 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) | Bundles Microsoft.NETCore.App + Microsoft.AspNetCore.App 8.x |
-| 7.6 (preview) | [.NET 10 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | Preview runtime aligning with PS 7.6 build |
+| 7.6 (rc) | [.NET 10 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | rc runtime aligning with PS 7.6 build |
 
 Installing the **.NET SDK** already gives you the corresponding runtimes. For run-only scenarios the
 **ASP.NET Core Runtime** alone is sufficient (it includes the base .NET runtime).

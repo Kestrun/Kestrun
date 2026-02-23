@@ -234,13 +234,13 @@ Step-by-step guides to build and ship with Kestrun. This index lists runnable sa
 
 ## Prerequisites
 
-- PowerShell 7.4, 7.5, or 7.6 (preview)
+- PowerShell 7.4, 7.5, or 7.6 (RC)
 - .NET (run-only scenarios do NOT require the full SDK)
 
 | PowerShell Version | Install (Run Samples) | Notes |
 |--------------------|-----------------------|-------|
 | 7.4 / 7.5 | [.NET 8 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) | Bundles base runtime + ASP.NET Core |
-| 7.6 (preview) | [.NET 10 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | Preview - updates frequently |
+| 7.6 (RC) | [.NET 10 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | Release candidate - may update before GA |
 
 If you already have the **.NET SDK** for those versions installed you don't need to install the runtime separately.
 
@@ -253,7 +253,7 @@ Verify (optional):
 dotnet --list-runtimes | Where-Object { $_ -match 'Microsoft.(AspNetCore|NETCore).App' }
 ```
 
-You should see `Microsoft.AspNetCore.App 8.0.x` (and 10.0.x if using PS 7.6 preview).
+You should see `Microsoft.AspNetCore.App 8.0.x` (and 10.0.x if using PS 7.6 RC).
 
 ## Quick start: run the samples
 

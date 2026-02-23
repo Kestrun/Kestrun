@@ -1,429 +1,551 @@
 name: Install PowerShell
 description: |
-  Install a specific version, or the latest stable version, of PowerShell Core
-  on any GitHub runner (Linux, macOS, Windows).
-  Skips the install if the requested version is already present.
+    Install a specific version, or the latest stable version, of PowerShell Core
+    on any GitHub runner (Linux, macOS, Windows).
+    Skips the install if the requested version is already present.
 author: PSModule
 branding:
-  icon: terminal
-  color: purple
+    icon: terminal
+    color: purple
 
 inputs:
-  Version:
-    description: |
-      PowerShell version to install (e.g. `7.4.1`).
-      Defaults to install the latest stable release.
-    required: false
-    default: 'latest'
+    Version:
+        description: |
+            PowerShell version to install (e.g. `7.4.1`).
+            Supports channels: `latest`, `preview`, `rc`, `prerelease`,
+            and scoped channels like `7.6-rc` or `7.6-preview`.
+            Defaults to install the latest stable release.
+        required: false
+        default: "latest"
 
 runs:
-  using: composite
-  steps:
-    - name: Install PowerShell (Linux)
-      if: runner.os == 'Linux'
-      shell: bash
-      working-directory: ${{ github.action_path }}
-      env:
-        REQUESTED_VERSION: ${{ inputs.Version }}
-        GITHUB_TOKEN: ${{ github.token }}
-      run: |
-        set -euo pipefail
-        echo "Requested version: [${REQUESTED_VERSION:-}]"
+    using: composite
+    steps:
+        - name: Install PowerShell (Linux)
+          if: runner.os == 'Linux'
+          shell: bash
+          working-directory: ${{ github.action_path }}
+          env:
+              REQUESTED_VERSION: ${{ inputs.Version }}
+              GITHUB_TOKEN: ${{ github.token }}
+          run: |
+              set -euo pipefail
+              echo "Requested version: [${REQUESTED_VERSION:-}]"
 
-        # Resolve 'latest' / 'preview' → concrete version
-        case "${REQUESTED_VERSION:-}" in
-          [Ll][Aa][Tt][Ee][Ss][Tt])
-            REQUESTED_VERSION=$(
-              curl -sSf -H "Accept: application/vnd.github+json" \
-                  -H "Authorization: Bearer $GITHUB_TOKEN" \
-                  -H "X-GitHub-Api-Version: 2022-11-28" \
-                  https://api.github.com/repos/PowerShell/PowerShell/releases/latest |
-              jq -r '.tag_name' | sed 's/^v//'
-            )
-            echo "Latest stable: $REQUESTED_VERSION"
-            ;;
-          [Pp][Rr][Ee][Vv][Ii][Ee][Ww])
-            REQUESTED_VERSION=$(
-              curl -sSf -H "Accept: application/vnd.github+json" \
-                  -H "Authorization: Bearer $GITHUB_TOKEN" \
-                  -H "X-GitHub-Api-Version: 2022-11-28" \
-                  https://api.github.com/repos/PowerShell/PowerShell/releases |
-              jq -r '.[].tag_name' | grep -i 'preview' | sed 's/^v//' | sort -V | tail -n 1
-            )
-            echo "Latest preview: $REQUESTED_VERSION"
-            PREVIEW_MODE=true
-            ;;
-          "")
-            echo "Error: Version input is required (or use 'latest'/'preview')"; exit 1;;
-        esac
+              PREVIEW_MODE=false
+              PRERELEASE_CHANNEL_FILTER=""
+              PRERELEASE_MM_FILTER=""
 
-        DETECTED_VERSION=$(pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()' 2>/dev/null || true)
-        [[ -n "${DETECTED_VERSION:-}" ]] && echo "Current pwsh: $DETECTED_VERSION" || echo "pwsh not installed"
+              # Resolve channels → concrete version
+              case "${REQUESTED_VERSION:-}" in
+                [Ll][Aa][Tt][Ee][Ss][Tt])
+                  REQUESTED_VERSION=$(
+                    curl -sSf -H "Accept: application/vnd.github+json" \
+                        -H "Authorization: Bearer $GITHUB_TOKEN" \
+                        -H "X-GitHub-Api-Version: 2022-11-28" \
+                        https://api.github.com/repos/PowerShell/PowerShell/releases/latest |
+                    jq -r '.tag_name' | sed 's/^v//'
+                  )
+                  echo "Latest stable: $REQUESTED_VERSION"
+                  ;;
+                [Pp][Rr][Ee][Vv][Ii][Ee][Ww]|[Pp][Rr][Ee][Rr][Ee][Ll][Ee][Aa][Ss][Ee])
+                  PRERELEASE_CHANNEL_FILTER='preview|rc'
+                  PREVIEW_MODE=true
+                  ;;
+                [Rr][Cc])
+                  PRERELEASE_CHANNEL_FILTER='rc'
+                  PREVIEW_MODE=true
+                  ;;
+                [0-9]*.[0-9]*-[Pp][Rr][Ee][Vv][Ii][Ee][Ww])
+                  PRERELEASE_CHANNEL_FILTER='preview'
+                  PRERELEASE_MM_FILTER="${REQUESTED_VERSION%-*}"
+                  PREVIEW_MODE=true
+                  ;;
+                [0-9]*.[0-9]*-[Rr][Cc])
+                  PRERELEASE_CHANNEL_FILTER='rc'
+                  PRERELEASE_MM_FILTER="${REQUESTED_VERSION%-*}"
+                  PREVIEW_MODE=true
+                  ;;
+                [0-9]*.[0-9]*-[Pp][Rr][Ee][Rr][Ee][Ll][Ee][Aa][Ss][Ee])
+                  PRERELEASE_CHANNEL_FILTER='preview|rc'
+                  PRERELEASE_MM_FILTER="${REQUESTED_VERSION%-*}"
+                  PREVIEW_MODE=true
+                  ;;
+                "")
+                  echo "Error: Version input is required (or use 'latest'/'preview'/'rc'/'prerelease')"; exit 1;;
+              esac
 
-        if [[ "${PREVIEW_MODE:-}" != "true" && "${DETECTED_VERSION:-}" == "$REQUESTED_VERSION" ]]; then
-          echo "PowerShell $DETECTED_VERSION already installed. Skipping."
-          exit 0
-        fi
+              if [[ -n "$PRERELEASE_CHANNEL_FILTER" ]]; then
+                REQUESTED_VERSION=$(
+                  curl -sSf -H "Accept: application/vnd.github+json" \
+                      -H "Authorization: Bearer $GITHUB_TOKEN" \
+                      -H "X-GitHub-Api-Version: 2022-11-28" \
+                      "https://api.github.com/repos/PowerShell/PowerShell/releases?per_page=100" |
+                  jq -r '.[].tag_name' |
+                  sed 's/^v//' |
+                  grep -Ei "^[0-9]+\.[0-9]+\.[0-9]+-(${PRERELEASE_CHANNEL_FILTER})\.[0-9]+$" |
+                  { if [[ -n "$PRERELEASE_MM_FILTER" ]]; then grep -E "^${PRERELEASE_MM_FILTER}\\.[0-9]+-"; else cat; fi; } |
+                  sort -V |
+                  tail -n 1
+                )
 
-        # --- Normalize architecture names ---
-        UNAME_ARCH="$(uname -m)"
-        DEB_ARCH=""; RPM_ARCH=""; TARBALL_ARCH=""
-        case "$UNAME_ARCH" in
-          x86_64|amd64) DEB_ARCH="amd64";  RPM_ARCH="x86_64"; TARBALL_ARCH="x64" ;;   # tarball uses 'linux-x64'
-          aarch64|arm64) DEB_ARCH="arm64"; RPM_ARCH="aarch64"; TARBALL_ARCH="arm64" ;;
-          armv7l|armhf)  DEB_ARCH="armhf"; RPM_ARCH="armhfp";  TARBALL_ARCH="arm32" ;;
-          *) echo "Unsupported arch: $UNAME_ARCH"; exit 1 ;;
-        esac
-        echo "Arch → deb=$DEB_ARCH rpm=$RPM_ARCH tar=$TARBALL_ARCH (uname -m=$UNAME_ARCH)"
-
-        has_apt=false; has_rpm=false
-        command -v apt-get >/dev/null 2>&1 && has_apt=true
-        command -v rpm >/dev/null 2>&1 && has_rpm=true
-
-        if $has_apt; then
-          echo "Detected Debian/Ubuntu…"
-          if [[ "$DEB_ARCH" == "amd64" ]]; then
-            # Use .deb only for amd64
-            if [[ "${PREVIEW_MODE:-}" == "true" ]]; then
-              PKG="powershell_${REQUESTED_VERSION}-1.deb_${DEB_ARCH}.deb"
-            else
-              PKG="powershell_${REQUESTED_VERSION}-1.deb_${DEB_ARCH}.deb"
-            fi
-            URL="https://github.com/PowerShell/PowerShell/releases/download/v${REQUESTED_VERSION}/${PKG}"
-            echo "Downloading: $URL"
-            curl -fsSL "$URL" -o "$PKG"
-            echo "Installing $PKG…"
-            sudo dpkg -i "$PKG" || sudo apt-get -y -f install
-            # If preview, make it the default 'pwsh' (Debian/Ubuntu)
-            if [[ "${PREVIEW_MODE:-}" == "true" ]]; then
-              echo "Setting PowerShell Preview as the default 'pwsh' via update-alternatives..."
-              if command -v pwsh-preview >/dev/null 2>&1; then
-                PREVIEW_BIN="$(command -v pwsh-preview)"
-                PREVIEW_REAL="$(readlink -f "$PREVIEW_BIN" || echo "$PREVIEW_BIN")"
-              else
-                # Fallback: search the preview install root
-                PREVIEW_REAL="$(ls -d /opt/microsoft/powershell-preview/*/pwsh 2>/dev/null | sort -V | tail -n 1 || true)"
-              fi
-
-              if [[ -n "$PREVIEW_REAL" && -x "$PREVIEW_REAL" ]]; then
-                # Register stable (if present) so the alt group is consistent
-                if command -v pwsh >/dev/null 2>&1; then
-                  STABLE_BIN="$(command -v pwsh)"
-                  STABLE_REAL="$(readlink -f "$STABLE_BIN" || echo "$STABLE_BIN")"
-                  sudo update-alternatives --install /usr/bin/pwsh pwsh "$STABLE_REAL" 10 || true
+                if [[ -z "${REQUESTED_VERSION:-}" ]]; then
+                  if [[ -n "$PRERELEASE_MM_FILTER" ]]; then
+                    echo "Error: Could not find prerelease for ${PRERELEASE_MM_FILTER} with channel '${PRERELEASE_CHANNEL_FILTER}'."; exit 1
+                  else
+                    echo "Error: Could not find prerelease with channel '${PRERELEASE_CHANNEL_FILTER}'."; exit 1
+                  fi
                 fi
 
-                # Register preview with higher priority and select it
-                sudo update-alternatives --install /usr/bin/pwsh pwsh "$PREVIEW_REAL" 200
-                sudo update-alternatives --set pwsh "$PREVIEW_REAL"
+                echo "Resolved prerelease: $REQUESTED_VERSION"
+              fi
 
-                hash -r  # refresh bash's command hash
-                echo "Default 'pwsh' -> $(command -v pwsh)"
+              DETECTED_VERSION=$(pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()' 2>/dev/null || true)
+              [[ -n "${DETECTED_VERSION:-}" ]] && echo "Current pwsh: $DETECTED_VERSION" || echo "pwsh not installed"
+
+              if [[ "${PREVIEW_MODE:-}" != "true" && "${DETECTED_VERSION:-}" == "$REQUESTED_VERSION" ]]; then
+                echo "PowerShell $DETECTED_VERSION already installed. Skipping."
+                exit 0
+              fi
+
+              # --- Normalize architecture names ---
+              UNAME_ARCH="$(uname -m)"
+              DEB_ARCH=""; RPM_ARCH=""; TARBALL_ARCH=""
+              case "$UNAME_ARCH" in
+                x86_64|amd64) DEB_ARCH="amd64";  RPM_ARCH="x86_64"; TARBALL_ARCH="x64" ;;   # tarball uses 'linux-x64'
+                aarch64|arm64) DEB_ARCH="arm64"; RPM_ARCH="aarch64"; TARBALL_ARCH="arm64" ;;
+                armv7l|armhf)  DEB_ARCH="armhf"; RPM_ARCH="armhfp";  TARBALL_ARCH="arm32" ;;
+                *) echo "Unsupported arch: $UNAME_ARCH"; exit 1 ;;
+              esac
+              echo "Arch → deb=$DEB_ARCH rpm=$RPM_ARCH tar=$TARBALL_ARCH (uname -m=$UNAME_ARCH)"
+
+              has_apt=false; has_rpm=false
+              command -v apt-get >/dev/null 2>&1 && has_apt=true
+              command -v rpm >/dev/null 2>&1 && has_rpm=true
+
+              if $has_apt; then
+                echo "Detected Debian/Ubuntu…"
+                if [[ "$DEB_ARCH" == "amd64" ]]; then
+                  # Use .deb only for amd64
+                  if [[ "${PREVIEW_MODE:-}" == "true" ]]; then
+                    PKG="powershell_${REQUESTED_VERSION}-1.deb_${DEB_ARCH}.deb"
+                  else
+                    PKG="powershell_${REQUESTED_VERSION}-1.deb_${DEB_ARCH}.deb"
+                  fi
+                  URL="https://github.com/PowerShell/PowerShell/releases/download/v${REQUESTED_VERSION}/${PKG}"
+                  echo "Downloading: $URL"
+                  curl -fsSL "$URL" -o "$PKG"
+                  echo "Installing $PKG…"
+                  sudo dpkg -i "$PKG" || sudo apt-get -y -f install
+                  # If preview, make it the default 'pwsh' (Debian/Ubuntu)
+                  if [[ "${PREVIEW_MODE:-}" == "true" ]]; then
+                    echo "Setting PowerShell Preview as the default 'pwsh' via update-alternatives..."
+                    if command -v pwsh-preview >/dev/null 2>&1; then
+                      PREVIEW_BIN="$(command -v pwsh-preview)"
+                      PREVIEW_REAL="$(readlink -f "$PREVIEW_BIN" || echo "$PREVIEW_BIN")"
+                    else
+                      # Fallback: search the preview install root
+                      PREVIEW_REAL="$(ls -d /opt/microsoft/powershell-preview/*/pwsh 2>/dev/null | sort -V | tail -n 1 || true)"
+                    fi
+
+                    if [[ -n "$PREVIEW_REAL" && -x "$PREVIEW_REAL" ]]; then
+                      # Register stable (if present) so the alt group is consistent
+                      if command -v pwsh >/dev/null 2>&1; then
+                        STABLE_BIN="$(command -v pwsh)"
+                        STABLE_REAL="$(readlink -f "$STABLE_BIN" || echo "$STABLE_BIN")"
+                        sudo update-alternatives --install /usr/bin/pwsh pwsh "$STABLE_REAL" 10 || true
+                      fi
+
+                      # Register preview with higher priority and select it
+                      sudo update-alternatives --install /usr/bin/pwsh pwsh "$PREVIEW_REAL" 200
+                      sudo update-alternatives --set pwsh "$PREVIEW_REAL"
+
+                      hash -r  # refresh bash's command hash
+                      echo "Default 'pwsh' -> $(command -v pwsh)"
+                    else
+                      echo "Warning: could not locate 'pwsh-preview' binary after install."
+                    fi
+                  fi
+                else
+                  # ARM/ARMHF → tarball install
+                  TARBALL="powershell-${REQUESTED_VERSION}-linux-${TARBALL_ARCH}.tar.gz"
+                  URL="https://github.com/PowerShell/PowerShell/releases/download/v${REQUESTED_VERSION}/${TARBALL}"
+                  echo "Downloading tarball: $URL"
+                  curl -fsSL "$URL" -o "$TARBALL"
+
+                  DEST="/opt/microsoft/powershell/${REQUESTED_VERSION}"
+                  echo "Installing to $DEST…"
+                  sudo mkdir -p "$DEST"
+                  sudo tar -xzf "$TARBALL" -C "$DEST"
+                  sudo chmod +x "$DEST/pwsh"
+
+                  # Update symlink so 'pwsh' points to the requested version
+                  sudo ln -sf "$DEST/pwsh" /usr/bin/pwsh
+
+                  # Optional: prefer preview via update-alternatives if you want system-wide switching
+                  if [[ "${PREVIEW_MODE:-}" == "true" ]]; then
+                    sudo update-alternatives --install /usr/bin/pwsh pwsh "$DEST/pwsh" 200
+                    sudo update-alternatives --set pwsh "$DEST/pwsh"
+                  fi
+                fi
+              elif $has_rpm; then
+                echo "Detected RHEL/Fedora/CentOS…"
+                if [[ "${PREVIEW_MODE:-}" == "true" ]]; then
+                  # NOTE: preview RPM uses dash and 'cm' builds include aarch64
+                  PKG="powershell-preview-${REQUESTED_VERSION}-1.cm.${RPM_ARCH}.rpm"
+                else
+                  PKG="powershell-${REQUESTED_VERSION}-1.cm.${RPM_ARCH}.rpm"
+                fi
+                # Fallback to rh.x86_64 exists; aarch64 often only 'cm'
+                URL="https://github.com/PowerShell/PowerShell/releases/download/v${REQUESTED_VERSION}/${PKG}"
+                echo "Downloading: $URL"
+                curl -fsSL "$URL" -o "$PKG" || { echo "Could not fetch $PKG"; exit 1; }
+                echo "Installing $PKG…"
+                sudo rpm -i "$PKG" || sudo yum install -y "$PKG" || sudo dnf install -y "$PKG"
               else
-                echo "Warning: could not locate 'pwsh-preview' binary after install."
+                echo "Unsupported distro (no apt/dpkg or rpm)."; exit 1
               fi
-            fi
-          else
-            # ARM/ARMHF → tarball install
-            TARBALL="powershell-${REQUESTED_VERSION}-linux-${TARBALL_ARCH}.tar.gz"
-            URL="https://github.com/PowerShell/PowerShell/releases/download/v${REQUESTED_VERSION}/${TARBALL}"
-            echo "Downloading tarball: $URL"
-            curl -fsSL "$URL" -o "$TARBALL"
 
-            DEST="/opt/microsoft/powershell/${REQUESTED_VERSION}"
-            echo "Installing to $DEST…"
-            sudo mkdir -p "$DEST"
-            sudo tar -xzf "$TARBALL" -C "$DEST"
-            sudo chmod +x "$DEST/pwsh"
+              echo "pwsh now: $(pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')"
 
-            # Update symlink so 'pwsh' points to the requested version
-            sudo ln -sf "$DEST/pwsh" /usr/bin/pwsh
+        - name: Install PowerShell (macOS)
+          if: runner.os == 'macOS'
+          shell: bash
+          working-directory: ${{ github.action_path }}
+          env:
+              REQUESTED_VERSION: ${{ inputs.Version }}
+              GITHUB_TOKEN: ${{ github.token }}
+          run: |
+              set -euo pipefail
+              echo "Requested version: [${REQUESTED_VERSION:-}]"
 
-            # Optional: prefer preview via update-alternatives if you want system-wide switching
-            if [[ "${PREVIEW_MODE:-}" == "true" ]]; then
-              sudo update-alternatives --install /usr/bin/pwsh pwsh "$DEST/pwsh" 200
-              sudo update-alternatives --set pwsh "$DEST/pwsh"
-            fi
-          fi
-        elif $has_rpm; then
-          echo "Detected RHEL/Fedora/CentOS…"
-          if [[ "${PREVIEW_MODE:-}" == "true" ]]; then
-            # NOTE: preview RPM uses dash and 'cm' builds include aarch64
-            PKG="powershell-preview-${REQUESTED_VERSION}-1.cm.${RPM_ARCH}.rpm"
-          else
-            PKG="powershell-${REQUESTED_VERSION}-1.cm.${RPM_ARCH}.rpm"
-          fi
-          # Fallback to rh.x86_64 exists; aarch64 often only 'cm'
-          URL="https://github.com/PowerShell/PowerShell/releases/download/v${REQUESTED_VERSION}/${PKG}"
-          echo "Downloading: $URL"
-          curl -fsSL "$URL" -o "$PKG" || { echo "Could not fetch $PKG"; exit 1; }
-          echo "Installing $PKG…"
-          sudo rpm -i "$PKG" || sudo yum install -y "$PKG" || sudo dnf install -y "$PKG"
-        else
-          echo "Unsupported distro (no apt/dpkg or rpm)."; exit 1
-        fi
+              PREVIEW_MODE=false
+              PRERELEASE_CHANNEL_FILTER=""
+              PRERELEASE_MM_FILTER=""
 
-        echo "pwsh now: $(pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')"
+              # Resolve channels → concrete version
+              case "${REQUESTED_VERSION:-}" in
+                [Ll][Aa][Tt][Ee][Ss][Tt])
+                  REQUESTED_VERSION=$(
+                    curl -sSf \
+                      -H "Accept: application/vnd.github+json" \
+                      -H "Authorization: Bearer $GITHUB_TOKEN" \
+                      -H "X-GitHub-Api-Version: 2022-11-28" \
+                      https://api.github.com/repos/PowerShell/PowerShell/releases/latest |
+                    jq -r '.tag_name' | sed 's/^v//'
+                  )
+                  echo "Latest stable PowerShell release detected: $REQUESTED_VERSION"
+                  ;;
+                [Pp][Rr][Ee][Vv][Ii][Ee][Ww]|[Pp][Rr][Ee][Rr][Ee][Ll][Ee][Aa][Ss][Ee])
+                  PRERELEASE_CHANNEL_FILTER='preview|rc'
+                  PREVIEW_MODE=true
+                  ;;
+                [Rr][Cc])
+                  PRERELEASE_CHANNEL_FILTER='rc'
+                  PREVIEW_MODE=true
+                  ;;
+                [0-9]*.[0-9]*-[Pp][Rr][Ee][Vv][Ii][Ee][Ww])
+                  PRERELEASE_CHANNEL_FILTER='preview'
+                  PRERELEASE_MM_FILTER="${REQUESTED_VERSION%-*}"
+                  PREVIEW_MODE=true
+                  ;;
+                [0-9]*.[0-9]*-[Rr][Cc])
+                  PRERELEASE_CHANNEL_FILTER='rc'
+                  PRERELEASE_MM_FILTER="${REQUESTED_VERSION%-*}"
+                  PREVIEW_MODE=true
+                  ;;
+                [0-9]*.[0-9]*-[Pp][Rr][Ee][Rr][Ee][Ll][Ee][Aa][Ss][Ee])
+                  PRERELEASE_CHANNEL_FILTER='preview|rc'
+                  PRERELEASE_MM_FILTER="${REQUESTED_VERSION%-*}"
+                  PREVIEW_MODE=true
+                  ;;
+                "")
+                  echo "Error: Version input is required (or use 'latest'/'preview'/'rc'/'prerelease')"
+                  exit 1
+                  ;;
+              esac
 
-    - name: Install PowerShell (macOS)
-      if: runner.os == 'macOS'
-      shell: bash
-      working-directory: ${{ github.action_path }}
-      env:
-        REQUESTED_VERSION: ${{ inputs.Version }}
-        GITHUB_TOKEN: ${{ github.token }}
-      run: |
-        set -euo pipefail
-        echo "Requested version: [${REQUESTED_VERSION:-}]"
+              if [[ -n "$PRERELEASE_CHANNEL_FILTER" ]]; then
+                REQUESTED_VERSION=$(
+                  curl -sSf \
+                    -H "Accept: application/vnd.github+json" \
+                    -H "Authorization: Bearer $GITHUB_TOKEN" \
+                    -H "X-GitHub-Api-Version: 2022-11-28" \
+                    "https://api.github.com/repos/PowerShell/PowerShell/releases?per_page=100" |
+                  jq -r '.[].tag_name' |
+                  sed 's/^v//' |
+                  grep -Ei "^[0-9]+\.[0-9]+\.[0-9]+-(${PRERELEASE_CHANNEL_FILTER})\.[0-9]+$" |
+                  { if [[ -n "$PRERELEASE_MM_FILTER" ]]; then grep -E "^${PRERELEASE_MM_FILTER}\\.[0-9]+-"; else cat; fi; } |
+                  sort -V |
+                  tail -n 1
+                )
 
-        # Resolve 'latest' / 'preview' → concrete version
-        case "${REQUESTED_VERSION:-}" in
-          [Ll][Aa][Tt][Ee][Ss][Tt])
-            REQUESTED_VERSION=$(
-              curl -sSf \
-                -H "Accept: application/vnd.github+json" \
-                -H "Authorization: Bearer $GITHUB_TOKEN" \
-                -H "X-GitHub-Api-Version: 2022-11-28" \
-                https://api.github.com/repos/PowerShell/PowerShell/releases/latest |
-              jq -r '.tag_name' | sed 's/^v//'
-            )
-            echo "Latest stable PowerShell release detected: $REQUESTED_VERSION"
-            ;;
-          [Pp][Rr][Ee][Vv][Ii][Ee][Ww])
-            REQUESTED_VERSION=$(
-              curl -sSf \
-                -H "Accept: application/vnd.github+json" \
-                -H "Authorization: Bearer $GITHUB_TOKEN" \
-                -H "X-GitHub-Api-Version: 2022-11-28" \
-                https://api.github.com/repos/PowerShell/PowerShell/releases |
-              jq -r '.[].tag_name' | grep -i 'preview' | sed 's/^v//' | sort -V | tail -n 1
-            )
-            echo "Latest preview PowerShell release detected: $REQUESTED_VERSION"
-            PREVIEW_MODE=true
-            ;;
-          "")
-            echo "Error: Version input is required (or use 'latest'/'preview')"
-            exit 1
-            ;;
-        esac
+                if [[ -z "${REQUESTED_VERSION:-}" ]]; then
+                  if [[ -n "$PRERELEASE_MM_FILTER" ]]; then
+                    echo "Error: Could not find prerelease for ${PRERELEASE_MM_FILTER} with channel '${PRERELEASE_CHANNEL_FILTER}'."
+                  else
+                    echo "Error: Could not find prerelease with channel '${PRERELEASE_CHANNEL_FILTER}'."
+                  fi
+                  exit 1
+                fi
 
-        DETECTED_VERSION=$(pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()' 2>/dev/null || true)
-        if [[ -n "${DETECTED_VERSION:-}" ]]; then
-          echo "Currently installed PowerShell version: $DETECTED_VERSION"
-        else
-          echo "PowerShell is not currently installed"
-        fi
-
-        if [[ "${PREVIEW_MODE:-}" != "true" && "${DETECTED_VERSION:-}" == "$REQUESTED_VERSION" ]]; then
-          echo "PowerShell $DETECTED_VERSION already installed. Skipping."
-          exit 0
-        fi
-
-        # Determine architecture and download appropriate package
-        ARCH=$(uname -m)
-        if [[ "$ARCH" == "arm64" ]]; then
-          PKG_NAME="powershell-${REQUESTED_VERSION}-osx-arm64.pkg"
-        else
-          PKG_NAME="powershell-${REQUESTED_VERSION}-osx-x64.pkg"
-        fi
-
-        URL="https://github.com/PowerShell/PowerShell/releases/download/v${REQUESTED_VERSION}/${PKG_NAME}"
-        echo "Downloading from: $URL"
-        curl -sSfL "$URL" -o "$PKG_NAME"
-
-        echo "Starting installation of PowerShell [$REQUESTED_VERSION]..."
-        sudo installer -pkg "$PKG_NAME" -target /
-        echo "Installation complete."
-
-        # If preview, prefer it for this job with a PATH shim (macOS has no update-alternatives)
-        if [[ "${PREVIEW_MODE:-}" == "true" ]]; then
-          echo "Preferring PowerShell Preview as 'pwsh' via PATH shim..."
-          PREVIEW_BIN=""
-          if command -v pwsh-preview >/dev/null 2>&1; then
-            PREVIEW_BIN="$(command -v pwsh-preview)"
-          else
-            # Fallback: look under standard install roots
-            for root in /usr/local/microsoft/powershell-preview /usr/local/microsoft/powershell; do
-              cand=$(ls -d "$root"/* 2>/dev/null | grep -i 'preview' | sort -V | tail -n 1 || true)
-              if [[ -n "$cand" && -x "$cand/pwsh" ]]; then
-                PREVIEW_BIN="$cand/pwsh"
-                break
+                echo "Resolved prerelease PowerShell release: $REQUESTED_VERSION"
               fi
-            done
-          fi
 
-          if [[ -n "$PREVIEW_BIN" ]]; then
-            SHIM_DIR="$RUNNER_TEMP/pwsh-preview-shim"
-            mkdir -p "$SHIM_DIR"
-            # simple, portable shim (avoids sed -i differences on macOS)
-            printf '%s\n' '#!/usr/bin/env bash' "exec \"$PREVIEW_BIN\" \"\$@\"" > "$SHIM_DIR/pwsh"
-            chmod +x "$SHIM_DIR/pwsh"
-            echo "$SHIM_DIR" >> "$GITHUB_PATH"
-            export PATH="$SHIM_DIR:$PATH"
-            echo "Preview shim active at: $SHIM_DIR"
-          else
-            echo "Warning: could not locate preview pwsh binary after install."
-          fi
-        fi
+              DETECTED_VERSION=$(pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()' 2>/dev/null || true)
+              if [[ -n "${DETECTED_VERSION:-}" ]]; then
+                echo "Currently installed PowerShell version: $DETECTED_VERSION"
+              else
+                echo "PowerShell is not currently installed"
+              fi
 
-        echo "pwsh now: $(pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')"
+              if [[ "${PREVIEW_MODE:-}" != "true" && "${DETECTED_VERSION:-}" == "$REQUESTED_VERSION" ]]; then
+                echo "PowerShell $DETECTED_VERSION already installed. Skipping."
+                exit 0
+              fi
 
-    - name: Install PowerShell (Windows)
-      if: runner.os == 'Windows'
-      shell: powershell
-      working-directory: ${{ github.action_path }}
-      env:
-        REQUESTED_VERSION: ${{ inputs.Version }}
-        GITHUB_TOKEN: ${{ github.token }}
-      run: |
-        # Install-PowerShell
-        Write-Host "Requested version: [$env:REQUESTED_VERSION]"
+              # Determine architecture and download appropriate package
+              ARCH=$(uname -m)
+              if [[ "$ARCH" == "arm64" ]]; then
+                PKG_NAME="powershell-${REQUESTED_VERSION}-osx-arm64.pkg"
+              else
+                PKG_NAME="powershell-${REQUESTED_VERSION}-osx-x64.pkg"
+              fi
 
-        $req = $env:REQUESTED_VERSION
-        $previewMode = $false
+              URL="https://github.com/PowerShell/PowerShell/releases/download/v${REQUESTED_VERSION}/${PKG_NAME}"
+              echo "Downloading from: $URL"
+              curl -sSfL "$URL" -o "$PKG_NAME"
 
-        # Resolve 'latest' / 'preview' → concrete version
-        if ($req -and $req.Trim().ToLower() -eq 'latest') {
-          $latest = (
-            Invoke-RestMethod -Uri 'https://api.github.com/repos/PowerShell/PowerShell/releases/latest' `
-              -Headers @{
-                'Accept'='application/vnd.github+json'
-                'Authorization'="Bearer $($env:GITHUB_TOKEN)"
-                'X-GitHub-Api-Version'='2022-11-28'
+              echo "Starting installation of PowerShell [$REQUESTED_VERSION]..."
+              sudo installer -pkg "$PKG_NAME" -target /
+              echo "Installation complete."
+
+              # If preview, prefer it for this job with a PATH shim (macOS has no update-alternatives)
+              if [[ "${PREVIEW_MODE:-}" == "true" ]]; then
+                echo "Preferring PowerShell Preview as 'pwsh' via PATH shim..."
+                PREVIEW_BIN=""
+                if command -v pwsh-preview >/dev/null 2>&1; then
+                  PREVIEW_BIN="$(command -v pwsh-preview)"
+                else
+                  # Fallback: look under standard install roots
+                  for root in /usr/local/microsoft/powershell-preview /usr/local/microsoft/powershell; do
+                    cand=$(ls -d "$root"/* 2>/dev/null | grep -i 'preview' | sort -V | tail -n 1 || true)
+                    if [[ -n "$cand" && -x "$cand/pwsh" ]]; then
+                      PREVIEW_BIN="$cand/pwsh"
+                      break
+                    fi
+                  done
+                fi
+
+                if [[ -n "$PREVIEW_BIN" ]]; then
+                  SHIM_DIR="$RUNNER_TEMP/pwsh-preview-shim"
+                  mkdir -p "$SHIM_DIR"
+                  # simple, portable shim (avoids sed -i differences on macOS)
+                  printf '%s\n' '#!/usr/bin/env bash' "exec \"$PREVIEW_BIN\" \"\$@\"" > "$SHIM_DIR/pwsh"
+                  chmod +x "$SHIM_DIR/pwsh"
+                  echo "$SHIM_DIR" >> "$GITHUB_PATH"
+                  export PATH="$SHIM_DIR:$PATH"
+                  echo "Preview shim active at: $SHIM_DIR"
+                else
+                  echo "Warning: could not locate preview pwsh binary after install."
+                fi
+              fi
+
+              echo "pwsh now: $(pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')"
+
+        - name: Install PowerShell (Windows)
+          if: runner.os == 'Windows'
+          shell: powershell
+          working-directory: ${{ github.action_path }}
+          env:
+              REQUESTED_VERSION: ${{ inputs.Version }}
+              GITHUB_TOKEN: ${{ github.token }}
+          run: |
+              # Install-PowerShell
+              Write-Host "Requested version: [$env:REQUESTED_VERSION]"
+
+              $req = $env:REQUESTED_VERSION
+              $previewMode = $false
+              $prereleaseChannelFilter = $null
+              $prereleaseMajorMinor = $null
+
+              # Resolve channels → concrete version
+              if ($req -and $req.Trim().ToLower() -eq 'latest') {
+                $latest = (
+                  Invoke-RestMethod -Uri 'https://api.github.com/repos/PowerShell/PowerShell/releases/latest' `
+                    -Headers @{
+                      'Accept'='application/vnd.github+json'
+                      'Authorization'="Bearer $($env:GITHUB_TOKEN)"
+                      'X-GitHub-Api-Version'='2022-11-28'
+                    }
+                ).tag_name.TrimStart('v')
+                Write-Host "Latest stable PowerShell release detected: $latest"
+                $env:REQUESTED_VERSION = $latest
               }
-          ).tag_name.TrimStart('v')
-          Write-Host "Latest stable PowerShell release detected: $latest"
-          $env:REQUESTED_VERSION = $latest
-        }
-        elseif ($req -and $req.Trim().ToLower() -eq 'preview') {
-          $rels = Invoke-RestMethod -Uri 'https://api.github.com/repos/PowerShell/PowerShell/releases?per_page=100' `
-                  -Headers @{
-                    'Accept'='application/vnd.github+json'
-                    'Authorization'="Bearer $($env:GITHUB_TOKEN)"
-                    'X-GitHub-Api-Version'='2022-11-28'
+              elseif ($req) {
+                $reqLower = $req.Trim().ToLower()
+
+                if ($reqLower -eq 'preview' -or $reqLower -eq 'prerelease') {
+                  $prereleaseChannelFilter = '(preview|rc)'
+                  $previewMode = $true
+                }
+                elseif ($reqLower -eq 'rc') {
+                  $prereleaseChannelFilter = 'rc'
+                  $previewMode = $true
+                }
+                elseif ($reqLower -match '^(\d+\.\d+)-(preview|rc|prerelease)$') {
+                  $prereleaseMajorMinor = $matches[1]
+                  $prereleaseChannelFilter = if ($matches[2] -eq 'prerelease') { '(preview|rc)' } else { $matches[2] }
+                  $previewMode = $true
+                }
+
+                if ($prereleaseChannelFilter) {
+                  $rels = Invoke-RestMethod -Uri 'https://api.github.com/repos/PowerShell/PowerShell/releases?per_page=100' `
+                          -Headers @{
+                            'Accept'='application/vnd.github+json'
+                            'Authorization'="Bearer $($env:GITHUB_TOKEN)"
+                            'X-GitHub-Api-Version'='2022-11-28'
+                          }
+                  $tags = $rels |
+                    Select-Object -ExpandProperty tag_name |
+                    ForEach-Object { $_.TrimStart('v') } |
+                    Where-Object {
+                      $_ -match "^(\d+)\.(\d+)\.(\d+)-$prereleaseChannelFilter\.(\d+)$" -and
+                      (-not $prereleaseMajorMinor -or $_ -match "^$([regex]::Escape($prereleaseMajorMinor))\.\d+-")
+                    }
+
+                  if (-not $tags) {
+                    if ($prereleaseMajorMinor) {
+                      Write-Error "Could not find prerelease for $prereleaseMajorMinor (channel filter: $prereleaseChannelFilter)."
+                    } else {
+                      Write-Error "Could not find prerelease with channel filter: $prereleaseChannelFilter."
+                    }
+                    exit 1
                   }
-          $tags = $rels | Where-Object prerelease |
-            Select-Object -ExpandProperty tag_name |
-            ForEach-Object { $_.TrimStart('v') }
-          if (-not $tags) { Write-Error "Could not find a preview release."; exit 1 }
-          $env:REQUESTED_VERSION = $tags | Sort-Object {
-            if ($_ -match '^(\d+)\.(\d+)\.(\d+)-preview\.(\d+)$') { [int]$matches[1], [int]$matches[2], [int]$matches[3], [int]$matches[4] } else { 0,0,0,-1 }
-          } | Select-Object -Last 1
-          Write-Host "Latest preview PowerShell release detected: $($env:REQUESTED_VERSION)"
-          $previewMode = $true
-        }
-        elseif ([string]::IsNullOrWhiteSpace($req)) {
-          Write-Error "Version input is required (or use 'latest' or 'preview')"
-          exit 1
-        }
 
-        # Detect CPU arch: arm64 / x64 / x86
-        $arch =
-          if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64' -or $env:PROCESSOR_ARCHITEW6432 -eq 'ARM64') { 'arm64' }
-          elseif ($env:PROCESSOR_ARCHITECTURE -match '64') { 'x64' }
-          elseif ($env:PROCESSOR_ARCHITECTURE -match '86') { 'x86' }
-          else { 'x64' }
-        Write-Host "Windows CPU architecture detected: $arch"
+                  $env:REQUESTED_VERSION = $tags | Sort-Object {
+                    if ($_ -match '^(\d+)\.(\d+)\.(\d+)-(preview|rc)\.(\d+)$') {
+                      $stageWeight = if ($matches[4] -eq 'preview') { 0 } else { 1 }
+                      [int]$matches[1], [int]$matches[2], [int]$matches[3], $stageWeight, [int]$matches[5]
+                    } else {
+                      0,0,0,-1,-1
+                    }
+                  } | Select-Object -Last 1
 
-        # Detect currently installed version (if any)
-        $detected = $null
-        try {
-          $detected = (pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')
-          Write-Host "Currently installed PowerShell version: $detected"
-        } catch {
-          Write-Host "PowerShell is not currently installed (or not on PATH)"
-        }
-
-        # Skip install only for exact stable match; for preview we install side-by-side
-        if (-not $previewMode -and $detected -eq $env:REQUESTED_VERSION) {
-          Write-Host "PowerShell $detected already installed. Skipping."
-          exit 0
-        }
-
-        # On ARM64, proactively uninstall any existing stable PowerShell 7 to avoid mixed-arch BadImageFormat issues
-        if ($arch -eq 'arm64' -and -not $previewMode) {
-          Write-Host "Ensuring no mixed-architecture stable installs remain (ARM64 cleanup)..."
-          $regPaths = @(
-            'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
-            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
-          )
-          $pwshStable = Get-ItemProperty -Path $regPaths -ErrorAction SilentlyContinue |
-            Where-Object {
-              $_.Publisher -eq 'Microsoft Corporation' -and
-              $_.DisplayName -like 'PowerShell 7*' -and
-              $_.DisplayName -notlike '*Preview*'
-            }
-          foreach ($entry in $pwshStable) {
-            $cmd = if ($entry.QuietUninstallString) { $entry.QuietUninstallString } else { $entry.UninstallString }
-            if ($cmd) {
-              if ($cmd -match 'msiexec') {
-                if ($cmd -notmatch '/quiet')     { $cmd += ' /quiet' }
-                if ($cmd -notmatch '/norestart') { $cmd += ' /norestart' }
+                  Write-Host "Resolved prerelease PowerShell release: $($env:REQUESTED_VERSION)"
+                }
               }
-              Write-Host "Uninstalling existing stable PowerShell: $($entry.DisplayName) $($entry.DisplayVersion)"
-              $p = Start-Process 'cmd.exe' -ArgumentList '/c', $cmd -Wait -PassThru
-              if ($p.ExitCode -ne 0) { Write-Warning "Uninstall returned $($p.ExitCode)" }
-            }
-          }
-        }
+              elseif ([string]::IsNullOrWhiteSpace($req)) {
+                Write-Error "Version input is required (or use 'latest', 'preview', 'rc', or 'prerelease')"
+                exit 1
+              }
 
-        # Download requested MSI (arch-aware)
-        $msi = "PowerShell-$($env:REQUESTED_VERSION)-win-$arch.msi"
-        $url = "https://github.com/PowerShell/PowerShell/releases/download/v$($env:REQUESTED_VERSION)/$msi"
-        Write-Host "Downloading: $url"
-        Invoke-WebRequest -Uri $url -OutFile $msi -UseBasicParsing -ErrorAction Stop
+              # Detect CPU arch: arm64 / x64 / x86
+              $arch =
+                if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64' -or $env:PROCESSOR_ARCHITEW6432 -eq 'ARM64') { 'arm64' }
+                elseif ($env:PROCESSOR_ARCHITECTURE -match '64') { 'x64' }
+                elseif ($env:PROCESSOR_ARCHITECTURE -match '86') { 'x86' }
+                else { 'x64' }
+              Write-Host "Windows CPU architecture detected: $arch"
 
-        # Install requested version
-        Write-Host "Installing PowerShell $($env:REQUESTED_VERSION) for $arch..."
-        $p = Start-Process msiexec.exe -ArgumentList '/i', $msi, '/quiet', '/norestart' -Wait -PassThru
-        if ($p.ExitCode -ne 0) {
-          Write-Error "Installation failed (exit code $($p.ExitCode))."
-          exit 1
-        }
-
-        # Prefer preview in PATH for this job
-        if ($previewMode) {
-          Write-Host "Setting PowerShell Preview as the default 'pwsh' for this job..."
-          $candidates = @(
-            (Join-Path $env:ProgramFiles 'PowerShell\7-preview\pwsh.exe'),
-            (Join-Path $env:ProgramFiles 'PowerShell\7\pwsh-preview\pwsh.exe')
-          ) | Where-Object { Test-Path $_ }
-          if (-not $candidates) {
-            # Broad fallback: search for *preview*\pwsh.exe
-            $roots = @("$env:ProgramFiles\PowerShell", "$env:ProgramFiles")
-            foreach ($r in $roots) {
+              # Detect currently installed version (if any)
+              $detected = $null
               try {
-                $found = Get-ChildItem -Path $r -Recurse -Filter pwsh.exe -ErrorAction SilentlyContinue |
-                        Where-Object { $_.FullName -match 'preview' } |
-                        Select-Object -ExpandProperty FullName -First 1
-                if ($found) { $candidates = ,$found; break }
-              } catch {}
-            }
-          }
-          if ($candidates) {
-            $previewBin = $candidates | Select-Object -First 1
-            $previewDir = Split-Path $previewBin -Parent
-            Add-Content -Path $env:GITHUB_PATH -Value $previewDir
-            $env:PATH = "$previewDir;$env:PATH"
-            Write-Host "Preview path added to PATH: $previewDir"
-          } else {
-            Write-Warning "Could not locate PowerShell Preview binary; leaving system default."
-          }
-        }
+                $detected = (pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')
+                Write-Host "Currently installed PowerShell version: $detected"
+              } catch {
+                Write-Host "PowerShell is not currently installed (or not on PATH)"
+              }
 
-        # Verify
-        try {
-          $ver = (& pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')
-          Write-Host "pwsh now: $ver"
-        } catch {
-          Write-Warning "Launching 'pwsh' failed. Trying explicit path..."
-          $fallback = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
-          if (Test-Path $fallback) {
-            $ver = & $fallback -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
-            Write-Host "pwsh (explicit) now: $ver"
-          } else {
-            Write-Error "PowerShell not found after install."
-            exit 1
-          }
-        }
+              # Skip install only for exact stable match; for preview we install side-by-side
+              if (-not $previewMode -and $detected -eq $env:REQUESTED_VERSION) {
+                Write-Host "PowerShell $detected already installed. Skipping."
+                exit 0
+              }
 
+              # On ARM64, proactively uninstall any existing stable PowerShell 7 to avoid mixed-arch BadImageFormat issues
+              if ($arch -eq 'arm64' -and -not $previewMode) {
+                Write-Host "Ensuring no mixed-architecture stable installs remain (ARM64 cleanup)..."
+                $regPaths = @(
+                  'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                  'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+                )
+                $pwshStable = Get-ItemProperty -Path $regPaths -ErrorAction SilentlyContinue |
+                  Where-Object {
+                    $_.Publisher -eq 'Microsoft Corporation' -and
+                    $_.DisplayName -like 'PowerShell 7*' -and
+                    $_.DisplayName -notlike '*Preview*'
+                  }
+                foreach ($entry in $pwshStable) {
+                  $cmd = if ($entry.QuietUninstallString) { $entry.QuietUninstallString } else { $entry.UninstallString }
+                  if ($cmd) {
+                    if ($cmd -match 'msiexec') {
+                      if ($cmd -notmatch '/quiet')     { $cmd += ' /quiet' }
+                      if ($cmd -notmatch '/norestart') { $cmd += ' /norestart' }
+                    }
+                    Write-Host "Uninstalling existing stable PowerShell: $($entry.DisplayName) $($entry.DisplayVersion)"
+                    $p = Start-Process 'cmd.exe' -ArgumentList '/c', $cmd -Wait -PassThru
+                    if ($p.ExitCode -ne 0) { Write-Warning "Uninstall returned $($p.ExitCode)" }
+                  }
+                }
+              }
+
+              # Download requested MSI (arch-aware)
+              $msi = "PowerShell-$($env:REQUESTED_VERSION)-win-$arch.msi"
+              $url = "https://github.com/PowerShell/PowerShell/releases/download/v$($env:REQUESTED_VERSION)/$msi"
+              Write-Host "Downloading: $url"
+              Invoke-WebRequest -Uri $url -OutFile $msi -UseBasicParsing -ErrorAction Stop
+
+              # Install requested version
+              Write-Host "Installing PowerShell $($env:REQUESTED_VERSION) for $arch..."
+              $p = Start-Process msiexec.exe -ArgumentList '/i', $msi, '/quiet', '/norestart' -Wait -PassThru
+              if ($p.ExitCode -ne 0) {
+                Write-Error "Installation failed (exit code $($p.ExitCode))."
+                exit 1
+              }
+
+              # Prefer preview in PATH for this job
+              if ($previewMode) {
+                Write-Host "Setting PowerShell Preview as the default 'pwsh' for this job..."
+                $candidates = @(
+                  (Join-Path $env:ProgramFiles 'PowerShell\7-preview\pwsh.exe'),
+                  (Join-Path $env:ProgramFiles 'PowerShell\7\pwsh-preview\pwsh.exe')
+                ) | Where-Object { Test-Path $_ }
+                if (-not $candidates) {
+                  # Broad fallback: search for *preview*\pwsh.exe
+                  $roots = @("$env:ProgramFiles\PowerShell", "$env:ProgramFiles")
+                  foreach ($r in $roots) {
+                    try {
+                      $found = Get-ChildItem -Path $r -Recurse -Filter pwsh.exe -ErrorAction SilentlyContinue |
+                              Where-Object { $_.FullName -match 'preview' } |
+                              Select-Object -ExpandProperty FullName -First 1
+                      if ($found) { $candidates = ,$found; break }
+                    } catch {}
+                  }
+                }
+                if ($candidates) {
+                  $previewBin = $candidates | Select-Object -First 1
+                  $previewDir = Split-Path $previewBin -Parent
+                  Add-Content -Path $env:GITHUB_PATH -Value $previewDir
+                  $env:PATH = "$previewDir;$env:PATH"
+                  Write-Host "Preview path added to PATH: $previewDir"
+                } else {
+                  Write-Warning "Could not locate PowerShell Preview binary; leaving system default."
+                }
+              }
+
+              # Verify
+              try {
+                $ver = (& pwsh -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()')
+                Write-Host "pwsh now: $ver"
+              } catch {
+                Write-Warning "Launching 'pwsh' failed. Trying explicit path..."
+                $fallback = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
+                if (Test-Path $fallback) {
+                  $ver = & $fallback -NoLogo -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
+                  Write-Host "pwsh (explicit) now: $ver"
+                } else {
+                  Write-Error "PowerShell not found after install."
+                  exit 1
+                }
+              }

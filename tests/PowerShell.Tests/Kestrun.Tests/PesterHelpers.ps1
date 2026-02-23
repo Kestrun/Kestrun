@@ -95,7 +95,7 @@ function Get-FreeTcpPort {
     [CmdletBinding()]
     [outputtype([int])]
     param(
-        [int]$FallbackPort = 5000,
+        [int]$FallbackPort = 52000,
         [int]$MaxPort = 65102
     )
 
@@ -122,9 +122,9 @@ function Get-FreeTcpPort {
             $listener.Start()
             $port = ($listener.LocalEndpoint).Port
             $retryCount++
-        } until (($port -le $MaxPort) -or ($retryCount -ge 50))
+        } until (((($port -ge $FallbackPort) -and ($port -le $MaxPort)) -or ($retryCount -ge 50)))
 
-        if ($port -le $MaxPort) {
+        if (($port -ge $FallbackPort) -and ($port -le $MaxPort)) {
             return $port
         }
 

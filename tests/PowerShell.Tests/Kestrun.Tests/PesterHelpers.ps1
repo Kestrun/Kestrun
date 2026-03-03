@@ -220,6 +220,7 @@ function Start-ExampleScript {
         [int]$Port,
         [int]$StartupTimeoutSeconds = 40,
         [int]$HttpProbeDelayMs = 150,
+        [switch]$SkipPortProbe,
         [switch]$FromRootDirectory,
         [string[]]$EnvironmentVariables = @('UPSTASH_REDIS_URL')
     )
@@ -314,31 +315,33 @@ Start-KrServer
 
     # Wait for the process to start accepting connections or timeout
     $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
-    $ready = $false
+    $ready = $SkipPortProbe.IsPresent
     $attempt = 0
-    Start-Sleep -Seconds 1 # Initial delay before probing
-    while ([DateTime]::UtcNow -lt $deadline -and -not $ready) {
-        if ($proc.HasExited) { break }
-        $attempt++
-        # Optional lightweight HTTP/HTTPS probe of '/' and '/online' endpoints to detect readiness
-        $probeUrls = @(
-            "http://$serverIp`:$Port/online",
-            "https://$serverIp`:$Port/online",
-            "http://$serverIp`:$Port/",
-            "https://$serverIp`:$Port/"
-        )
-        foreach ($url in $probeUrls) {
-            try {
-                $probe = Get-HttpHeadersRaw -Uri $url -Insecure -AsHashtable
-                if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) {
-                    $ready = $true
-                    break
+    if (-not $SkipPortProbe.IsPresent) {
+        Start-Sleep -Seconds 1 # Initial delay before probing
+        while ([DateTime]::UtcNow -lt $deadline -and -not $ready) {
+            if ($proc.HasExited) { break }
+            $attempt++
+            # Optional lightweight HTTP/HTTPS probe of '/' and '/online' endpoints to detect readiness
+            $probeUrls = @(
+                "http://$serverIp`:$Port/online",
+                "https://$serverIp`:$Port/online",
+                "http://$serverIp`:$Port/",
+                "https://$serverIp`:$Port/"
+            )
+            foreach ($url in $probeUrls) {
+                try {
+                    $probe = Get-HttpHeadersRaw -Uri $url -Insecure -AsHashtable
+                    if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) {
+                        $ready = $true
+                        break
+                    }
+                } catch {
+                    $script:errorMessage = $_.Exception.Message
                 }
-            } catch {
-                $script:errorMessage = $_.Exception.Message
             }
+            Start-Sleep -Milliseconds $HttpProbeDelayMs
         }
-        Start-Sleep -Milliseconds $HttpProbeDelayMs
     }
     $exited = $proc.HasExited
     if (-not $ready -and -not $exited) {

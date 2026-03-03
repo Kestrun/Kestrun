@@ -2306,6 +2306,14 @@ public class KestrunResponse
             }
             return;
         }
+        if (response.HasStarted)
+        {
+            if (Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                Logger.Debug("HttpResponse has already started, skipping KestrunResponse.ApplyTo().");
+            }
+            return;
+        }
         if (!string.IsNullOrEmpty(RedirectUrl))
         {
             response.Redirect(RedirectUrl);

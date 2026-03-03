@@ -82,6 +82,14 @@ jobs:
               with:
                   dotnet-version: "10.0.x"
 
+            - name: 🧰 Install QUIC runtime (Ubuntu)
+              if: startsWith(matrix.os, 'ubuntu-')
+              shell: bash
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y libmsquic
+                  sudo ldconfig
+
             # 🔊 Only enable super-verbose logs in debug runs
             - name: 🔧 Enable debug flags
               if: ${{ steps.detect_debug.outputs.enabled == 'true' }}

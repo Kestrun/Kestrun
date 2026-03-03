@@ -39,4 +39,13 @@ Describe 'Runtime Version Information' {
         ($caps | Get-Member -Name Supported) | Should -Not -BeNullOrEmpty
         ($caps | Where-Object Feature -EQ 'Http3') | Should -Not -BeNullOrEmpty
     }
+
+    It 'Test-KrCapability returns bool for Http3 and Quic and both match' {
+        $http3 = Test-KrCapability -Feature 'Http3'
+        $quic = Test-KrCapability -Feature 'Quic'
+
+        $http3 | Should -BeOfType [bool]
+        $quic | Should -BeOfType [bool]
+        $quic | Should -Be $http3
+    }
 }

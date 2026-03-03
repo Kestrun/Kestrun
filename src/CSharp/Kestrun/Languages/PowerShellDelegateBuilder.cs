@@ -160,7 +160,7 @@ internal static class PowerShellDelegateBuilder
             var psResults = await ps.InvokeAsync(log, context.RequestAborted).ConfigureAwait(false);
             LogTopResults(log, psResults);
 
-            if (await HandleErrorsIfAnyAsync(context, ps).ConfigureAwait(false))
+            if (await HandleErrorsIfAnyAsync(context, krContext, ps, log).ConfigureAwait(false))
             {
                 return;
             }
@@ -478,12 +478,22 @@ internal static class PowerShellDelegateBuilder
     /// Handles any errors that occurred during the PowerShell script execution.
     /// </summary>
     /// <param name="context">The HttpContext for the current request.</param>
+    /// <param name="krContext">The Kestrun context for the current request.</param>
     /// <param name="ps">The PowerShell instance used for script execution.</param>
+    /// <param name="log">The logger used for diagnostic messages.</param>
     /// <returns>True if errors were handled, false otherwise.</returns>
-    private static async Task<bool> HandleErrorsIfAnyAsync(HttpContext context, PowerShell ps)
+    private static async Task<bool> HandleErrorsIfAnyAsync(HttpContext context, KestrunContext krContext, PowerShell ps, Serilog.ILogger log)
     {
         if (ps.HadErrors || ps.Streams.Error.Count != 0)
         {
+            if (context.Response.HasStarted || krContext.Response.StatusCode >= StatusCodes.Status400BadRequest)
+            {
+                log.Debug(
+                    "PowerShell error stream contains records but response is already set (StatusCode={StatusCode}); skipping default 500 error writer.",
+                    krContext.Response.StatusCode);
+                return false;
+            }
+
             await BuildError.ResponseAsync(context, ps).ConfigureAwait(false);
             return true;
         }

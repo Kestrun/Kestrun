@@ -278,7 +278,6 @@ public static class KestrunHostAuthnExtensions
             TokenEndpoint = "https://github.com/login/oauth/access_token",
             UserInformationEndpoint = "https://api.github.com/user",
             SaveTokens = true,
-            SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme,
             Scope = { "read:user", "user:email" }
         };
     }

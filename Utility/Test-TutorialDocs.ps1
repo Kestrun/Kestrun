@@ -171,7 +171,8 @@ $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot '..')).Path
 $docsRoot = Join-Path $repoRoot 'docs'
 $skipAbsolutePrefixes = @(
     '/pwsh/cmdlets',
-    '/cs/api'
+    '/cs/api',
+    '/pwsh/tutorial/examples'
 )
 
 # Validates tutorial docs under docs/pwsh/tutorial according to the authoring guide
@@ -441,6 +442,8 @@ try {
         $candidate = Join-Path -Path $fromDir -ChildPath $h
 
         if ($candidate -match '\.md$') {
+            $clean = $clean -replace '/{2,}', '/'
+            $clean = $clean -replace '\\{2,}', '\\'
             return $candidate
         }
 

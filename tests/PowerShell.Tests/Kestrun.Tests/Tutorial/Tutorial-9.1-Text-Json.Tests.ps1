@@ -12,7 +12,7 @@ Describe 'Example 9.1-Text-Json' {
             Write-KrExampleInstanceOnFailure -Instance $script:instance
         }
     }
-    
+
     It 'Text and JSON routes return expected payloads' {
         # /ping -> pong (text)
         Assert-RouteContent -Uri "$($script:instance.Url)/ping" -Contains 'pong'

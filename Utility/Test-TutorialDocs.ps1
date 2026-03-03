@@ -442,8 +442,8 @@ try {
         $candidate = Join-Path -Path $fromDir -ChildPath $h
 
         if ($candidate -match '\.md$') {
-            $clean = $clean -replace '/{2,}', '/'
-            $clean = $clean -replace '\\{2,}', '\\'
+            $candidate = $candidate -replace '/{2,}', '/'
+            $candidate = $candidate -replace '\\{2,}', '\\'
             return $candidate
         }
 

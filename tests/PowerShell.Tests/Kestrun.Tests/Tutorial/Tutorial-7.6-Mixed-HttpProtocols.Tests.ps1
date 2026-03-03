@@ -3,7 +3,7 @@ BeforeAll {
     . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
 }
 
-Describe 'Example 7.6-Mixed-HttpProtocols' -Tag 'Tutorial', 'Slow' {
+Describe 'Example 7.6-Mixed-HttpProtocols' -Skip:$(-not $IsWindows) -Tag 'Tutorial', 'Slow' {
     BeforeAll {
         $script:instance = Start-ExampleScript -Name '7.6-Mixed-HttpProtocols.ps1' -StartupTimeoutSeconds 80
         $script:requestHost = '127.0.0.1'

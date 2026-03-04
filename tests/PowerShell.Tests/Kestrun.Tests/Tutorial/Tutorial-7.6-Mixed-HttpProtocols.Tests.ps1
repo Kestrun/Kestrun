@@ -1,12 +1,20 @@
 param()
-BeforeAll {
+
+BeforeDiscovery {
     . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+    $script:supportsHttp3 = Test-KrCapability -Feature 'Http3'
 }
 
-Describe 'Example 7.6-Mixed-HttpProtocols'  -Tag 'Tutorial', 'Slow' {
+BeforeAll {
+    . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
+    if (-not (Get-Variable -Name supportsHttp3 -Scope Script -ErrorAction SilentlyContinue)) {
+        $script:supportsHttp3 = Test-KrCapability -Feature 'Http3'
+    }
+}
+
+Describe 'Example 7.6-Mixed-HttpProtocols' -Tag 'Tutorial', 'Slow' {
     BeforeAll {
         $script:instance = Start-ExampleScript -Name '7.6-Mixed-HttpProtocols.ps1' -StartupTimeoutSeconds 80
-        $script:requestHost = '127.0.0.1'
     }
 
     AfterAll {
@@ -17,26 +25,107 @@ Describe 'Example 7.6-Mixed-HttpProtocols'  -Tag 'Tutorial', 'Slow' {
     }
 
     It 'GET /version responds on HTTP/1.1 listener' {
-        $uri = "https://$($script:requestHost):$($script:instance.Port)/version"
+        $uri = "https://$($script:instance.Host):$($script:instance.Port)/version"
         $resp = Invoke-WebRequest -Uri $uri -HttpVersion 1.1 -SkipCertificateCheck -UseBasicParsing -TimeoutSec 8 -ErrorAction Stop
 
         $resp.StatusCode | Should -Be 200
-        ($resp.Content.Trim()) | Should -Match '^Hello via HTTP/'
+        $resp.BaseResponse.Version | Should -Be '1.1'
+        ($resp.Content.Trim()) | Should -Be 'Hello via HTTP/1.1'
     }
 
     It 'GET /version responds on HTTP/2 listener' {
-        $uri = "https://$($script:requestHost):$($script:instance.Port + 1)/version"
+        $uri = "https://$($script:instance.Host):$($script:instance.Port + 1)/version"
         $resp = Invoke-WebRequest -Uri $uri -HttpVersion 2.0 -SkipCertificateCheck -UseBasicParsing -TimeoutSec 8 -ErrorAction Stop
 
         $resp.StatusCode | Should -Be 200
-        ($resp.Content.Trim()) | Should -Match '^Hello via HTTP/'
+        $resp.BaseResponse.Version | Should -Be '2.0'
+        ($resp.Content.Trim()) | Should -Be 'Hello via HTTP/2'
     }
 
-    It 'GET /version responds on mixed HTTP/1.1+HTTP/2 listener' {
-        $uri = "https://$($script:requestHost):$($script:instance.Port + 3)/version"
-        $resp = Invoke-WebRequest -Uri $uri -SkipCertificateCheck -UseBasicParsing -TimeoutSec 8 -ErrorAction Stop
+    It 'GET /version responds on HTTP/3 listener' -Skip:(-not $script:supportsHttp3) {
+        $uri = "https://127.0.0.1:$($script:instance.Port + 2)/version"
+        $handler = [System.Net.Http.HttpClientHandler]::new()
+        $handler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
+        $client = [System.Net.Http.HttpClient]::new($handler)
+        $request = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get, $uri)
+        $request.Version = [Version]::new(3, 0)
+        $request.VersionPolicy = [System.Net.Http.HttpVersionPolicy]::RequestVersionExact
 
-        $resp.StatusCode | Should -Be 200
-        ($resp.Content.Trim()) | Should -Match '^Hello via HTTP/'
+        try {
+            $response = $client.SendAsync($request).GetAwaiter().GetResult()
+            $content = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+
+            [int]$response.StatusCode | Should -Be 200
+            $response.Version.ToString() | Should -Be '3.0'
+            $content.Trim() | Should -Be 'Hello via HTTP/3'
+        } finally {
+            $request.Dispose()
+            $client.Dispose()
+            $handler.Dispose()
+        }
+
+    }
+
+    Describe 'Combined HTTP/1.1+HTTP/2 listener' {
+        It 'GET /version responds on HTTP/1.1 request' {
+            $uri = "https://$($script:instance.Host):$($script:instance.Port + 3)/version"
+            $resp = Invoke-WebRequest -Uri $uri -HttpVersion 1.1 -SkipCertificateCheck -UseBasicParsing -TimeoutSec 8 -ErrorAction Stop
+
+            $resp.StatusCode | Should -Be 200
+            $resp.BaseResponse.Version | Should -Be '1.1'
+            ($resp.Content.Trim()) | Should -Be 'Hello via HTTP/1.1'
+        }
+
+        It 'GET /version responds on HTTP/2.0 request' {
+            $uri = "https://$($script:instance.Host):$($script:instance.Port + 3)/version"
+            $resp = Invoke-WebRequest -Uri $uri -HttpVersion 2.0 -SkipCertificateCheck -UseBasicParsing -TimeoutSec 8 -ErrorAction Stop
+
+            $resp.StatusCode | Should -Be 200
+            $resp.BaseResponse.Version | Should -Be '2.0'
+            ($resp.Content.Trim()) | Should -Be 'Hello via HTTP/2'
+        }
+    }
+
+    Describe 'Combined HTTP/1.1+HTTP/2+HTTP/3 listener' {
+        It 'GET /version responds on HTTP/1.1 request' {
+            $uri = "https://$($script:instance.Host):$($script:instance.Port + 4)/version"
+            $resp = Invoke-WebRequest -Uri $uri -HttpVersion 1.1 -SkipCertificateCheck -UseBasicParsing -TimeoutSec 8 -ErrorAction Stop
+
+            $resp.StatusCode | Should -Be 200
+            $resp.BaseResponse.Version | Should -Be '1.1'
+            ($resp.Content.Trim()) | Should -Be 'Hello via HTTP/1.1'
+        }
+
+        It 'GET /version responds on HTTP/2.0 request' {
+            $uri = "https://$($script:instance.Host):$($script:instance.Port + 4)/version"
+            $resp = Invoke-WebRequest -Uri $uri -HttpVersion 2.0 -SkipCertificateCheck -UseBasicParsing -TimeoutSec 8 -ErrorAction Stop
+
+            $resp.StatusCode | Should -Be 200
+            $resp.BaseResponse.Version | Should -Be '2.0'
+            ($resp.Content.Trim()) | Should -Be 'Hello via HTTP/2'
+        }
+
+        It 'GET /version responds on HTTP/3.0 request' -Skip:(-not ($script:supportsHttp3 )) {
+            $uri = "https://127.0.0.1:$($script:instance.Port + 4)/version"
+            $handler = [System.Net.Http.HttpClientHandler]::new()
+            $handler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
+            $client = [System.Net.Http.HttpClient]::new($handler)
+            $request = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get, $uri)
+            $request.Version = [Version]::new(3, 0)
+            $request.VersionPolicy = [System.Net.Http.HttpVersionPolicy]::RequestVersionExact
+
+            try {
+                $response = $client.SendAsync($request).GetAwaiter().GetResult()
+                $content = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+
+                [int]$response.StatusCode | Should -Be 200
+                $response.Version.ToString() | Should -Be '3.0'
+                $content.Trim() | Should -Match '^Hello via HTTP/'
+            } finally {
+                $request.Dispose()
+                $client.Dispose()
+                $handler.Dispose()
+            }
+        }
     }
 }

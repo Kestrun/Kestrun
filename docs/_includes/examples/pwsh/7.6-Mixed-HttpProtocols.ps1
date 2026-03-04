@@ -27,11 +27,15 @@ Add-KrEndpoint -Port ($Port + 1) -IPAddress $IPAddress -Protocols ([Microsoft.As
 if (Test-KrCapability -Feature 'Http3') {
     Add-KrEndpoint -Port ($Port + 2) -IPAddress $IPAddress -Protocols ([Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols]::Http3) -X509Certificate $cert
 } else {
-    Write-KrLog -Level Warning -Message 'Skipping HTTP/3 endpoint because QUIC is not supported on this platform/runtime. On Linux, install libmsquic.'
+    if ($IsLinux) {
+        Write-KrLog -Level Warning -Message 'Skipping HTTP/3 endpoint because QUIC is not supported on this platform/runtime. Install libmsquic (e.g. apt-get install -y libmsquic) to enable.'
+    } else {
+        Write-KrLog -Level Warning -Message 'Skipping HTTP/3 endpoint because QUIC is not supported on this platform/runtime.'
+    }
 }
 #    - 5004: Combined HTTP/1.1 + HTTP/2 (single listener negotiating via ALPN when TLS used; here plain for demo)
 Add-KrEndpoint -Port ($Port + 3) -IPAddress $IPAddress -Protocols ([Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols]::Http1AndHttp2) -X509Certificate $cert
-
+Add-KrEndpoint -Port ($Port + 4) -IPAddress $IPAddress -Protocols ([Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols]::Http1AndHttp2AndHttp3) -X509Certificate $cert
 
 # 5. Enable configuration
 Enable-KrConfiguration

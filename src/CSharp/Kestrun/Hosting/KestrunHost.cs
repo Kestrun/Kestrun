@@ -853,7 +853,7 @@ public partial class KestrunHost : IDisposable
             throw new InvalidOperationException("Cannot configure listeners after configuration is applied.");
         }
         // Validate protocols
-        if (protocols == HttpProtocols.Http1AndHttp2AndHttp3 && !CcUtilities.PreviewFeaturesEnabled())
+        if (protocols == HttpProtocols.Http1AndHttp2AndHttp3 && !IsQuicSupported())
         {
             Logger.Warning("Http3 is not supported in this version of Kestrun. Using Http1 and Http2 only.");
             protocols = HttpProtocols.Http1AndHttp2;

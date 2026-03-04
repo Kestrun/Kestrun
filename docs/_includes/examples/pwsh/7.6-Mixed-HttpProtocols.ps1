@@ -2,7 +2,8 @@
     Sample: Mixed HTTP Protocol Versions
     Purpose: Demonstrate configuring multiple listeners each with a different HTTP protocol set (HTTP/1.1, HTTP/2, HTTP/3*) plus a combined HTTP/1.1+HTTP/2 listener.
     File:    7.6-Mixed-HttpProtocols.ps1
-    Notes:   HTTP/3 requires platform & runtime support + QUIC enabled. If HTTP/3 is not available, that listener may fail to bind.
+    Notes:   HTTP/3 requires platform & runtime support + QUIC enabled.
+             Linux: install libmsquic (e.g. apt-get install -y libmsquic) before using HTTP/3.
 #>
 param(
     [int]$Port = 5000,
@@ -22,11 +23,19 @@ $cert = New-KrSelfSignedCertificate -DnsNames localhost, 127.0.0.1 -Exportable -
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress -Protocols ([Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols]::Http1) -X509Certificate $cert
 #    - 5002: HTTP/2 only (no HTTP/1.1)
 Add-KrEndpoint -Port ($Port + 1) -IPAddress $IPAddress -Protocols ([Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols]::Http2) -X509Certificate $cert
-#    - 5003: HTTP/3 only (QUIC) Requires OS + runtime support; may need environment variable ASPNETCORE_URLS / alt config.
-Add-KrEndpoint -Port ($Port + 2) -IPAddress $IPAddress -Protocols ([Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols]::Http3) -X509Certificate $cert
+#    - 5003: HTTP/3 only (QUIC) Requires OS + runtime support.
+if (Test-KrCapability -Feature 'Http3') {
+    Add-KrEndpoint -Port ($Port + 2) -IPAddress $IPAddress -Protocols ([Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols]::Http3) -X509Certificate $cert
+} else {
+    if ($IsLinux) {
+        Write-KrLog -Level Warning -Message 'Skipping HTTP/3 endpoint because QUIC is not supported on this platform/runtime. Install libmsquic (e.g. apt-get install -y libmsquic) to enable.'
+    } else {
+        Write-KrLog -Level Warning -Message 'Skipping HTTP/3 endpoint because QUIC is not supported on this platform/runtime.'
+    }
+}
 #    - 5004: Combined HTTP/1.1 + HTTP/2 (single listener negotiating via ALPN when TLS used; here plain for demo)
 Add-KrEndpoint -Port ($Port + 3) -IPAddress $IPAddress -Protocols ([Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols]::Http1AndHttp2) -X509Certificate $cert
-
+Add-KrEndpoint -Port ($Port + 4) -IPAddress $IPAddress -Protocols ([Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols]::Http1AndHttp2AndHttp3) -X509Certificate $cert
 
 # 5. Enable configuration
 Enable-KrConfiguration

@@ -853,9 +853,10 @@ public partial class KestrunHost : IDisposable
             throw new InvalidOperationException("Cannot configure listeners after configuration is applied.");
         }
         // Validate protocols
-        if (protocols == HttpProtocols.Http1AndHttp2AndHttp3 && !CcUtilities.PreviewFeaturesEnabled())
+        if (protocols == HttpProtocols.Http1AndHttp2AndHttp3 && !IsQuicSupported())
         {
-            Logger.Warning("Http3 is not supported in this version of Kestrun. Using Http1 and Http2 only.");
+            Logger.Warning("HTTP/3 cannot be enabled because QUIC/libmsquic is not available on this platform. Falling back to HTTP/1.1 and HTTP/2.");
+
             protocols = HttpProtocols.Http1AndHttp2;
         }
         // Resolve dynamic port when requested
@@ -1216,6 +1217,8 @@ public partial class KestrunHost : IDisposable
             ConfigureKestrelBase();
             // Configure named pipe listeners if any
             ConfigureNamedPipes();
+            // Normalize HTTP/3 listeners and configure QUIC if supported, or adjust listeners if QUIC is unavailable
+            NormalizeHttp3ListenersAndConfigureQuic();
 
             // Apply Kestrel listeners and HTTPS settings
             _ = Builder.WebHost.ConfigureKestrel(serverOptions =>
@@ -1243,6 +1246,64 @@ public partial class KestrunHost : IDisposable
             HandleConfigurationError(ex);
         }
     }
+
+    /// <summary>
+    /// Normalizes listeners that request HTTP/3 and configures QUIC when supported.
+    /// </summary>
+    /// <remarks>
+    /// When QUIC is unavailable, HTTP/3-only listeners fail fast with an explicit error.
+    /// Mixed listeners are left unchanged so Kestrel can negotiate fallback protocols.
+    /// </remarks>
+    private void NormalizeHttp3ListenersAndConfigureQuic()
+    {
+        var http3Listeners = Options.Listeners
+            .Where(listener => (listener.Protocols & HttpProtocols.Http3) != 0)
+            .ToList();
+
+        if (http3Listeners.Count == 0)
+        {
+            return;
+        }
+
+        if (IsQuicSupported())
+        {
+            var ports = string.Join(", ", http3Listeners.Select(listener => listener.Port));
+            Logger.Information("Enabling QUIC support for HTTP/3 listeners on port(s): {Ports}.", ports);
+            _ = Builder.WebHost.UseQuic();
+            return;
+        }
+
+        Logger.Warning("HTTP/3 was requested for {Count} listener(s), but QUIC is not supported on this platform/runtime. On Linux, install libmsquic.", http3Listeners.Count);
+
+        var http3OnlyListeners = http3Listeners
+            .Where(listener => listener.Protocols == HttpProtocols.Http3)
+            .Select(listener => listener.Port)
+            .ToArray();
+
+        if (http3OnlyListeners.Length > 0)
+        {
+            var ports = string.Join(", ", http3OnlyListeners);
+            throw new InvalidOperationException($"Unable to bind HTTP/3-only endpoint(s) on port(s): {ports}. QUIC is not supported on this platform/runtime. On Linux, install libmsquic.");
+        }
+
+        Logger.Information("Continuing with mixed HTTP protocol listeners unchanged; Kestrel will negotiate fallback protocols when HTTP/3 is unavailable.");
+    }
+
+    /// <summary>
+    /// Determines whether QUIC is supported by the current runtime/platform without directly calling preview-only APIs.
+    /// </summary>
+    /// <returns><c>true</c> when QUIC support is available; otherwise, <c>false</c>.</returns>
+    public static bool IsQuicSupported() => _isQuicSupported.Value;
+
+    /// <summary>
+    /// Cached reflection-based evaluator for QUIC support, using QuicListener.IsSupported.
+    /// </summary>
+    private static readonly Lazy<bool> _isQuicSupported = new(() =>
+    {
+        var quicListenerType = Type.GetType("System.Net.Quic.QuicListener, System.Net.Quic", throwOnError: false);
+        var isSupportedProperty = quicListenerType?.GetProperty("IsSupported", BindingFlags.Public | BindingFlags.Static);
+        return isSupportedProperty?.GetValue(null) as bool? ?? false;
+    });
 
     /// <summary>
     /// Applies user-defined variables to the shared state.

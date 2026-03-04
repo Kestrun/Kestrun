@@ -112,7 +112,7 @@ public class KestrunHostFollowUpTests
 
     [Fact]
     [Trait("Category", "Hosting")]
-    public void ConfigureListener_Downgrades_Http3_When_PreviewDisabled()
+    public void ConfigureListener_Uses_QuicSupport_When_Http3_Requested_PreviewDisabled()
     {
         Reset();
         using var preview = SetPreviewSwitch(false);
@@ -120,12 +120,15 @@ public class KestrunHostFollowUpTests
         _ = host.ConfigureListener(12345, ipAddress: null, x509Certificate: null, protocols: HttpProtocols.Http1AndHttp2AndHttp3, useConnectionLogging: false);
         Assert.NotEmpty(host.Options.Listeners);
         var last = host.Options.Listeners[^1];
-        Assert.Equal(HttpProtocols.Http1AndHttp2, last.Protocols);
+        var expected = KestrunHost.IsQuicSupported()
+            ? HttpProtocols.Http1AndHttp2AndHttp3
+            : HttpProtocols.Http1AndHttp2;
+        Assert.Equal(expected, last.Protocols);
     }
 
     [Fact]
     [Trait("Category", "Hosting")]
-    public void ConfigureListener_Keeps_Http3_When_PreviewEnabled()
+    public void ConfigureListener_Uses_QuicSupport_When_Http3_Requested_PreviewEnabled()
     {
         Reset();
         using var preview = SetPreviewSwitch(true);
@@ -133,7 +136,10 @@ public class KestrunHostFollowUpTests
         _ = host.ConfigureListener(12346, ipAddress: null, x509Certificate: null, protocols: HttpProtocols.Http1AndHttp2AndHttp3, useConnectionLogging: true);
         Assert.NotEmpty(host.Options.Listeners);
         var last = host.Options.Listeners[^1];
-        Assert.Equal(HttpProtocols.Http1AndHttp2AndHttp3, last.Protocols);
+        var expected = KestrunHost.IsQuicSupported()
+            ? HttpProtocols.Http1AndHttp2AndHttp3
+            : HttpProtocols.Http1AndHttp2;
+        Assert.Equal(expected, last.Protocols);
     }
 
     [Fact]

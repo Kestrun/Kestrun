@@ -156,7 +156,7 @@ public class KestrunHostTest
 
     [Fact]
     [Trait("Category", "Hosting")]
-    public void ConfigureListener_DowngradesHttp3_WhenPreviewDisabled()
+    public void ConfigureListener_UsesQuicSupport_WhenHttp3Requested_PreviewDisabled()
     {
         AppContext.SetSwitch("System.Runtime.EnablePreviewFeatures", false);
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
@@ -166,13 +166,16 @@ public class KestrunHostTest
         var listener = host.Options.Listeners.Last();
         Assert.Equal(12345, listener.Port);
         Assert.Equal(IPAddress.Loopback, listener.IPAddress);
-        Assert.Equal(HttpProtocols.Http1AndHttp2, listener.Protocols);
+        var expected = KestrunHost.IsQuicSupported()
+            ? HttpProtocols.Http1AndHttp2AndHttp3
+            : HttpProtocols.Http1AndHttp2;
+        Assert.Equal(expected, listener.Protocols);
         Assert.True(listener.UseConnectionLogging);
     }
 
     [Fact]
     [Trait("Category", "Hosting")]
-    public void ConfigureListener_AllowsHttp3_WhenPreviewEnabled()
+    public void ConfigureListener_UsesQuicSupport_WhenHttp3Requested_PreviewEnabled()
     {
         AppContext.SetSwitch("System.Runtime.EnablePreviewFeatures", true);
         var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
@@ -180,7 +183,10 @@ public class KestrunHostTest
         _ = host.ConfigureListener(12346, IPAddress.Loopback, x509Certificate: null, protocols: HttpProtocols.Http1AndHttp2AndHttp3);
 
         var listener = host.Options.Listeners.Last();
-        Assert.Equal(HttpProtocols.Http1AndHttp2AndHttp3, listener.Protocols);
+        var expected = KestrunHost.IsQuicSupported()
+            ? HttpProtocols.Http1AndHttp2AndHttp3
+            : HttpProtocols.Http1AndHttp2;
+        Assert.Equal(expected, listener.Protocols);
     }
 
     [Fact]

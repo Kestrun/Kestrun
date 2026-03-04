@@ -855,7 +855,8 @@ public partial class KestrunHost : IDisposable
         // Validate protocols
         if (protocols == HttpProtocols.Http1AndHttp2AndHttp3 && !IsQuicSupported())
         {
-            Logger.Warning("Http3 is not supported in this version of Kestrun. Using Http1 and Http2 only.");
+            Logger.Warning("HTTP/3 cannot be enabled because QUIC/libmsquic is not available on this platform. Falling back to HTTP/1.1 and HTTP/2.");
+
             protocols = HttpProtocols.Http1AndHttp2;
         }
         // Resolve dynamic port when requested
@@ -1292,12 +1293,17 @@ public partial class KestrunHost : IDisposable
     /// Determines whether QUIC is supported by the current runtime/platform without directly calling preview-only APIs.
     /// </summary>
     /// <returns><c>true</c> when QUIC support is available; otherwise, <c>false</c>.</returns>
-    public static bool IsQuicSupported()
+    public static bool IsQuicSupported() => _isQuicSupported.Value;
+
+    /// <summary>
+    /// Cached reflection-based evaluator for QUIC support, using QuicListener.IsSupported.
+    /// </summary>
+    private static readonly Lazy<bool> _isQuicSupported = new(() =>
     {
-        var quicConnectionType = Type.GetType("System.Net.Quic.QuicConnection, System.Net.Quic", throwOnError: false);
-        var isSupportedProperty = quicConnectionType?.GetProperty("IsSupported", BindingFlags.Public | BindingFlags.Static);
+        var quicListenerType = Type.GetType("System.Net.Quic.QuicListener, System.Net.Quic", throwOnError: false);
+        var isSupportedProperty = quicListenerType?.GetProperty("IsSupported", BindingFlags.Public | BindingFlags.Static);
         return isSupportedProperty?.GetValue(null) as bool? ?? false;
-    }
+    });
 
     /// <summary>
     /// Applies user-defined variables to the shared state.

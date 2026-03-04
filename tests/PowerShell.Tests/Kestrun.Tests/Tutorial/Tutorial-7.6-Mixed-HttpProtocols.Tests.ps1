@@ -47,9 +47,11 @@ Describe 'Example 7.6-Mixed-HttpProtocols' -Tag 'Tutorial', 'Slow' {
         $handler = [System.Net.Http.HttpClientHandler]::new()
         $handler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
         $client = [System.Net.Http.HttpClient]::new($handler)
+        $client.Timeout = [TimeSpan]::FromSeconds(8)
         $request = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get, $uri)
         $request.Version = [Version]::new(3, 0)
         $request.VersionPolicy = [System.Net.Http.HttpVersionPolicy]::RequestVersionExact
+        $response = $null
 
         try {
             $response = $client.SendAsync($request).GetAwaiter().GetResult()
@@ -59,6 +61,7 @@ Describe 'Example 7.6-Mixed-HttpProtocols' -Tag 'Tutorial', 'Slow' {
             $response.Version.ToString() | Should -Be '3.0'
             $content.Trim() | Should -Be 'Hello via HTTP/3'
         } finally {
+            if ($response) { $response.Dispose() }
             $request.Dispose()
             $client.Dispose()
             $handler.Dispose()
@@ -109,9 +112,11 @@ Describe 'Example 7.6-Mixed-HttpProtocols' -Tag 'Tutorial', 'Slow' {
             $handler = [System.Net.Http.HttpClientHandler]::new()
             $handler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
             $client = [System.Net.Http.HttpClient]::new($handler)
+            $client.Timeout = [TimeSpan]::FromSeconds(8)
             $request = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get, $uri)
             $request.Version = [Version]::new(3, 0)
             $request.VersionPolicy = [System.Net.Http.HttpVersionPolicy]::RequestVersionExact
+            $response = $null
 
             try {
                 $response = $client.SendAsync($request).GetAwaiter().GetResult()
@@ -121,6 +126,7 @@ Describe 'Example 7.6-Mixed-HttpProtocols' -Tag 'Tutorial', 'Slow' {
                 $response.Version.ToString() | Should -Be '3.0'
                 $content.Trim() | Should -Match '^Hello via HTTP/'
             } finally {
+                if ($response) { $response.Dispose() }
                 $request.Dispose()
                 $client.Dispose()
                 $handler.Dispose()

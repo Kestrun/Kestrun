@@ -26,9 +26,14 @@ function Test-KrCapability {
         [string]$Feature
     )
 
-    # QUIC/HTTP3 capability requires both runtime feature support and platform QUIC availability
-    if ($Feature -in @('Http3', 'Quic', 'QuicSupport')) {
-        return [Kestrun.KestrunRuntimeInfo]::Supports('Http3') -and [Kestrun.Hosting.KestrunHost]::IsQuicSupported()
+    # HTTP/3 capability: relies on runtime feature support (which already checks QUIC availability)
+    if ($Feature -in @('Http3', 'Http3Support')) {
+        return [Kestrun.KestrunRuntimeInfo]::Supports('Http3')
+    }
+
+    # QUIC capability: reflects platform QUIC availability via Kestrun host detection
+    if ($Feature -in @('Quic', 'QuicSupport')) {
+        return [Kestrun.Hosting.KestrunHost]::IsQuicSupported()
     }
 
     # Allow either enum name or raw string

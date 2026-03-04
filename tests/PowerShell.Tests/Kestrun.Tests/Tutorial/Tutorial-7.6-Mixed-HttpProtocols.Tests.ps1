@@ -63,7 +63,6 @@ Describe 'Example 7.6-Mixed-HttpProtocols' -Tag 'Tutorial', 'Slow' {
             $client.Dispose()
             $handler.Dispose()
         }
-
     }
 
     Describe 'Combined HTTP/1.1+HTTP/2 listener' {

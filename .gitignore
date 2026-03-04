@@ -95,3 +95,5 @@ examples/CSharp/MultiRoutes/logs/audit-20250721.json
 docs/pwsh/tutorial/examples.zip
 
 /.package
+/src/PowerShell/Kestrun/runtimes
+src/PowerShell/Kestrun/krun.*

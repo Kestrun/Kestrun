@@ -115,7 +115,7 @@ internal static class Program
         _ = powershell.AddScript(". $__krRunnerScriptPath @__krRunnerScriptArgs", useLocalScope: false);
 
         var stopRequested = false;
-        ConsoleCancelEventHandler cancelHandler = (_, e) =>
+        void cancelHandler(object? _, ConsoleCancelEventArgs e)
         {
             e.Cancel = true;
             if (stopRequested)
@@ -126,7 +126,7 @@ internal static class Program
             stopRequested = true;
             Console.Error.WriteLine("Ctrl+C detected. Stopping Kestrun server...");
             _ = Task.Run(RequestManagedStopAsync);
-        };
+        }
 
         Console.CancelKeyPress += cancelHandler;
         IEnumerable<PSObject> output;
@@ -358,7 +358,7 @@ internal static class Program
         {
             return true;
         }
-
+        // Help is requested when the only non-global option is a help switch, or when the run command is followed by a help switch.
         return (filtered.Count == 1 && IsHelpToken(filtered[0]))
             || (filtered.Count == 2 && string.Equals(filtered[0], "run", StringComparison.OrdinalIgnoreCase) && IsHelpToken(filtered[1]));
     }
@@ -465,12 +465,8 @@ internal static class Program
     {
         var assembly = typeof(Program).Assembly;
         var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-        if (!string.IsNullOrWhiteSpace(informationalVersion))
-        {
-            return informationalVersion;
-        }
-
-        return assembly.GetName().Version?.ToString() ?? "0.0.0";
+        return !string.IsNullOrWhiteSpace(informationalVersion) ?
+        informationalVersion : assembly.GetName().Version?.ToString() ?? "0.0.0";
     }
 
     /// <summary>

@@ -202,6 +202,7 @@ Add-BuildTask Help {
     Write-Host '- Restore: Restores NuGet packages.'
     Write-Host '- Build: Builds the solution.'
     Write-Host '- Build-ScriptRunner: Publishes ScriptRunner runtimes and creates kestrun.cmd / kestrun.ps1 / kestrun.sh launchers in src/PowerShell/Kestrun.'
+    Write-Host '- Pack-ScriptRunnerTool: Packs Kestrun.Tool as a dotnet tool package (kestrun) into artifacts/tool-packages.'
     Write-Host '- Clean-ScriptRunner: Removes ScriptRunner publish artifacts, runtimes, and launcher scripts.'
     Write-Host '- Test: Runs tests and Pester tests.'
     Write-Host '- Package: Packages the solution.'
@@ -417,7 +418,7 @@ Add-BuildTask 'Build-ScriptRunner' {
             Remove-Item -Path $scriptRunnerPublishPath -Recurse -Force -ErrorAction SilentlyContinue
         }
 
-        dotnet publish "$KestrunScriptRunnerProjectPath" -c $Configuration -r $runtimeIdentifier --self-contained true /p:DebugSymbols=false /p:DebugType=None -o "$scriptRunnerPublishPath" -v:$DotNetVerbosity
+        dotnet publish "$KestrunScriptRunnerProjectPath" -c $Configuration -r $runtimeIdentifier --self-contained true /p:PackAsTool=false /p:DebugSymbols=false /p:DebugType=None -o "$scriptRunnerPublishPath" -v:$DotNetVerbosity
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet publish failed for ScriptRunner runtime '$runtimeIdentifier'."
         }
@@ -583,6 +584,33 @@ exec "$KESTRUN_PATH" --kestrun-folder "$SCRIPT_DIR" "$@"
     }
 
     Write-Host '✅ ScriptRunner publish completed for all configured runtimes.'
+}
+
+Add-BuildTask 'Pack-ScriptRunnerTool' {
+    Write-Host '📦 Packing ScriptRunner dotnet tool package (kestrun)...'
+
+    $toolOutputDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'tool-packages'
+    if (-not (Test-Path -Path $toolOutputDirectory)) {
+        New-Item -Path $toolOutputDirectory -ItemType Directory -Force | Out-Null
+    }
+
+    Remove-Item -Path (Join-Path -Path $toolOutputDirectory -ChildPath '*.nupkg') -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path (Join-Path -Path $toolOutputDirectory -ChildPath '*.snupkg') -Force -ErrorAction SilentlyContinue
+
+    # Build first to avoid intermittent pack-time publish artifact resolution issues.
+    dotnet build "$KestrunScriptRunnerProjectPath" -c $Configuration -v:$DotNetVerbosity
+    if ($LASTEXITCODE -ne 0) {
+        throw 'dotnet build failed for ScriptRunner tool packaging.'
+    }
+
+    dotnet pack "$KestrunScriptRunnerProjectPath" -c $Configuration -o "$toolOutputDirectory" -v:$DotNetVerbosity
+    if ($LASTEXITCODE -ne 0) {
+        throw 'dotnet pack failed for ScriptRunner tool packaging.'
+    }
+
+    Write-Host "✅ ScriptRunner dotnet tool package created in: $toolOutputDirectory"
+    Write-Host "   Install with: dotnet tool install Kestrun.Tool --add-source $toolOutputDirectory"
+    Write-Host '   Run with: dotnet kestrun -- --help'
 }
 
 Add-BuildTask 'Build' 'BuildNoPwsh', 'SyncPowerShellDll', 'Build-ScriptRunner', { Write-Host '🚀 Build completed.' }

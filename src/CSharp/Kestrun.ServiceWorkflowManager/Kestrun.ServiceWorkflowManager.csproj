@@ -2,6 +2,7 @@
     <PropertyGroup>
         <OutputType>Exe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
+        <RollForward>Major</RollForward>
         <AssemblyName>Kestrun.ServiceWorkflowManager</AssemblyName>
         <RootNamespace>Kestrun.ServiceWorkflowManager</RootNamespace>
         <AssemblyTitle>Kestrun.ServiceWorkflowManager</AssemblyTitle>
@@ -9,17 +10,35 @@
         <Description>Kestrun service workflow manager for script-hosted service lifecycle operations.</Description>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <IsPackable>false</IsPackable>
+        <IsPackable>true</IsPackable>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>kestrun</ToolCommandName>
 
-        <!-- Single-file publish defaults. Use a runtime identifier plus self-contained publish mode. -->
-        <PublishSingleFile>true</PublishSingleFile>
-        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-        <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+        <PackageId>Kestrun.Tool</PackageId>
+        <Authors>Kestrun Team</Authors>
+        <Company>Kestrun</Company>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/kestrun/Kestrun</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/kestrun/Kestrun</PackageProjectUrl>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageVersion Condition="'$(Version)' == ''">0.0.1</PackageVersion>
+        <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Release'">true</GeneratePackageOnBuild>
+        <GeneratePackageOnBuild Condition="'$(Configuration)' != 'Release'">false</GeneratePackageOnBuild>
+
+        <!-- Single-file publish defaults for runtime publish flow (disabled for dotnet tool packing). -->
+        <PublishSingleFile Condition="'$(PackAsTool)' != 'true'">true</PublishSingleFile>
+        <EnableCompressionInSingleFile Condition="'$(PackAsTool)' != 'true'">true</EnableCompressionInSingleFile>
+        <IncludeNativeLibrariesForSelfExtract Condition="'$(PackAsTool)' != 'true'">true</IncludeNativeLibrariesForSelfExtract>
+        <IncludeAllContentForSelfExtract Condition="'$(PackAsTool)' != 'true'">true</IncludeAllContentForSelfExtract>
         <PublishTrimmed>false</PublishTrimmed>
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.6.0-rc.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="../../../README.md" Pack="true" PackagePath="\" />
+        <None Include="../../../LICENSE.txt" Pack="true" PackagePath="\" />
     </ItemGroup>
 </Project>

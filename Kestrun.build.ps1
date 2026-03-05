@@ -466,12 +466,6 @@ if not exist "%KESTRUN_PATH%" (
     exit /b 1
 )
 
-if /I not "%~1"=="run" if not "%~1"=="" if not "%~2"=="" if /I not "%~2"=="--arguments" if /I not "%~2"=="--" if /I not "%~2"=="--kestrun-folder" if /I not "%~2"=="-k" if not "%~1:~0,1%"=="-" (
-    echo Script arguments must be preceded by --arguments ^(or --^). 1>&2
-    echo Example: kestrun run server.ps1 --arguments arg1 arg2 1>&2
-    exit /b 2
-)
-
 "%KESTRUN_PATH%" --kestrun-folder "%KESTRUN_DIR%" %*
 exit /b %ERRORLEVEL%
 '@
@@ -505,14 +499,6 @@ $kestrunPath = Join-Path -Path $runtimeDirectory -ChildPath $binaryName
 
 if (-not (Test-Path -Path $kestrunPath)) {
     throw "Unable to find ScriptRunner binary: $kestrunPath"
-}
-
-if ($Arguments.Count -ge 2) {
-    $first = $Arguments[0]
-    $second = $Arguments[1]
-    if ($first -ne 'run' -and -not $first.StartsWith('-') -and $second -notin @('--arguments', '--', '--kestrun-folder', '-k')) {
-        throw 'Script arguments must be preceded by --arguments (or --). Example: kestrun run server.ps1 --arguments arg1 arg2'
-    }
 }
 
 & $kestrunPath --kestrun-folder $scriptRoot @Arguments
@@ -553,25 +539,6 @@ fi
 
 if [ ! -x "$KESTRUN_PATH" ]; then
     chmod +x "$KESTRUN_PATH" 2>/dev/null || true
-fi
-
-if [ "$#" -ge 2 ]; then
-    first_arg="$1"
-    second_arg="$2"
-    case "$first_arg" in
-        -*) ;;
-        *)
-            case "$second_arg" in
-                --arguments|--|--kestrun-folder|-k) ;;
-                run) ;;
-                *)
-                    echo "Script arguments must be preceded by --arguments (or --)." >&2
-                    echo "Example: kestrun run server.ps1 --arguments arg1 arg2" >&2
-                    exit 2
-                    ;;
-            esac
-            ;;
-    esac
 fi
 
 exec "$KESTRUN_PATH" --kestrun-folder "$SCRIPT_DIR" "$@"

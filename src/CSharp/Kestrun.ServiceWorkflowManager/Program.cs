@@ -523,7 +523,7 @@ internal static class Program
             var fullPath = Path.GetFullPath(configuredPath);
             if (Directory.Exists(fullPath)
                 || configuredPath.EndsWith('\\')
-                || configuredPath.EndsWith("/", StringComparison.Ordinal))
+                || configuredPath.EndsWith('/'))
             {
                 return Path.Combine(fullPath, "script-runner-service.log");
             }

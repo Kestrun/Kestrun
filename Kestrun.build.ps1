@@ -202,7 +202,7 @@ Add-BuildTask Help {
     Write-Host '- Restore: Restores NuGet packages.'
     Write-Host '- Build: Builds the solution.'
     Write-Host '- Build-ScriptRunner: Publishes ScriptRunner runtimes and creates kestrun.cmd / kestrun.ps1 / kestrun.sh launchers in src/PowerShell/Kestrun.'
-    Write-Host '- Pack-ScriptRunnerTool: Packs Kestrun.Tool as a dotnet tool package (kestrun) into artifacts/tool-packages.'
+    Write-Host '- Pack-KestrunTool: Packs Kestrun.Tool as a dotnet tool package (kestrun) into artifacts/tool-packages.'
     Write-Host '- Clean-ScriptRunner: Removes ScriptRunner publish artifacts, runtimes, and launcher scripts.'
     Write-Host '- Test: Runs tests and Pester tests.'
     Write-Host '- Package: Packages the solution.'
@@ -586,7 +586,7 @@ exec "$KESTRUN_PATH" --kestrun-folder "$SCRIPT_DIR" "$@"
     Write-Host '✅ ScriptRunner publish completed for all configured runtimes.'
 }
 
-Add-BuildTask 'Pack-ScriptRunnerTool' {
+Add-BuildTask 'Pack-KestrunTool' {
     Write-Host '📦 Packing ScriptRunner dotnet tool package (kestrun)...'
 
     $toolOutputDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'tool-packages'

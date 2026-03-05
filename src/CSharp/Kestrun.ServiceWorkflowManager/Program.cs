@@ -10,7 +10,7 @@ using System.ServiceProcess;
 using System.Runtime.Loader;
 using System.Text;
 
-namespace Kestrun.ScriptRunner;
+namespace Kestrun.ServiceWorkflowManager;
 
 internal static class Program
 {
@@ -18,7 +18,7 @@ internal static class Program
     private const string ModuleName = "Kestrun";
     private const string DefaultScriptFileName = "server.ps1";
     private const string ProductName = "kestrun";
-    private static readonly object AssemblyLoadSync = new();
+    private static readonly Lock AssemblyLoadSync = new();
     private static string? s_kestrunModuleLibPath;
     private static bool s_dependencyResolverRegistered;
 
@@ -82,31 +82,22 @@ internal static class Program
 
         if (parsedCommand.Mode == CommandMode.ServiceInstall)
         {
-            if (OperatingSystem.IsWindows() && !IsWindowsAdministrator())
-            {
-                if (!TryPreflightWindowsServiceInstall(parsedCommand, out var preflightExitCode))
-                {
-                    return preflightExitCode;
-                }
-
-                return RelaunchElevatedOnWindows(args);
-            }
-
-            return InstallService(parsedCommand);
+            return OperatingSystem.IsWindows() && !IsWindowsAdministrator()
+                ? !TryPreflightWindowsServiceInstall(parsedCommand, out var preflightExitCode)
+                    ? preflightExitCode
+                    : RelaunchElevatedOnWindows(args)
+                : InstallService(parsedCommand);
         }
 
         if (parsedCommand.Mode == CommandMode.ServiceRemove)
         {
             if (OperatingSystem.IsWindows() && !IsWindowsAdministrator())
             {
-                if (!TryPreflightWindowsServiceRemove(parsedCommand, out var preflightExitCode))
-                {
-                    return preflightExitCode;
-                }
-
-                return RelaunchElevatedOnWindows(args);
+                return !TryPreflightWindowsServiceRemove(parsedCommand, out var preflightExitCode)
+                    ? preflightExitCode
+                    : RelaunchElevatedOnWindows(args);
             }
-
+            // For non-Windows OSes, attempt removal without elevation and rely on error handling for permission issues or missing services.
             return RemoveService(parsedCommand);
         }
 
@@ -114,14 +105,11 @@ internal static class Program
         {
             if (OperatingSystem.IsWindows() && !IsWindowsAdministrator())
             {
-                if (!TryPreflightWindowsServiceControl(parsedCommand, out var preflightExitCode))
-                {
-                    return preflightExitCode;
-                }
-
-                return RelaunchElevatedOnWindows(args);
+                return !TryPreflightWindowsServiceControl(parsedCommand, out var preflightExitCode)
+                    ? preflightExitCode
+                    : RelaunchElevatedOnWindows(args);
             }
-
+            // For non-Windows OSes, attempt start without elevation and rely on error handling for permission issues or missing services.
             return StartService(parsedCommand);
         }
 
@@ -129,14 +117,11 @@ internal static class Program
         {
             if (OperatingSystem.IsWindows() && !IsWindowsAdministrator())
             {
-                if (!TryPreflightWindowsServiceControl(parsedCommand, out var preflightExitCode))
-                {
-                    return preflightExitCode;
-                }
-
-                return RelaunchElevatedOnWindows(args);
+                return !TryPreflightWindowsServiceControl(parsedCommand, out var preflightExitCode)
+                    ? preflightExitCode
+                    : RelaunchElevatedOnWindows(args);
             }
-
+            // For non-Windows OSes, attempt stop without elevation and rely on error handling for permission issues or missing services.
             return StopService(parsedCommand);
         }
 
@@ -433,11 +418,11 @@ internal static class Program
                     Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
                     "Kestrun",
                     "module-cache");
-                Directory.CreateDirectory(cacheRoot);
+                _ = Directory.CreateDirectory(cacheRoot);
 
                 // Stable cache key from full source module path.
                 var normalized = sourceModuleRoot.ToLowerInvariant();
-                var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(normalized))).ToLowerInvariant();
+                var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(normalized))).ToLowerInvariant();
                 var cachedModuleRoot = Path.Combine(cacheRoot, hash);
 
                 // Keep cache fresh on each service start to avoid stale binaries after local builds.
@@ -472,7 +457,7 @@ internal static class Program
         /// <param name="destinationDirectory">Destination directory path.</param>
         private static void CopyDirectoryRecursive(string sourceDirectory, string destinationDirectory)
         {
-            Directory.CreateDirectory(destinationDirectory);
+            _ = Directory.CreateDirectory(destinationDirectory);
 
             foreach (var sourceFile in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
             {
@@ -481,7 +466,7 @@ internal static class Program
                 var targetFolder = Path.GetDirectoryName(targetPath);
                 if (!string.IsNullOrWhiteSpace(targetFolder))
                 {
-                    Directory.CreateDirectory(targetFolder);
+                    _ = Directory.CreateDirectory(targetFolder);
                 }
 
                 File.Copy(sourceFile, targetPath, overwrite: true);
@@ -521,14 +506,11 @@ internal static class Program
             }
 
             var fullPath = Path.GetFullPath(configuredPath);
-            if (Directory.Exists(fullPath)
+            return Directory.Exists(fullPath)
                 || configuredPath.EndsWith("\\", StringComparison.Ordinal)
-                || configuredPath.EndsWith("/", StringComparison.Ordinal))
-            {
-                return Path.Combine(fullPath, "script-runner-service.log");
-            }
-
-            return fullPath;
+                || configuredPath.EndsWith("/", StringComparison.Ordinal)
+                ? Path.Combine(fullPath, "script-runner-service.log")
+                : fullPath;
         }
     }
 
@@ -664,13 +646,8 @@ internal static class Program
         }
 
         var combined = $"{result.Output}\n{result.Error}";
-        if (combined.Contains("1060", StringComparison.OrdinalIgnoreCase)
-            || combined.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return false;
+        return (combined.Contains("1060", StringComparison.OrdinalIgnoreCase)
+            || combined.Contains("does not exist", StringComparison.OrdinalIgnoreCase)) && false;
     }
 
     /// <summary>
@@ -1098,15 +1075,12 @@ internal static class Program
         {
             return NormalizeServiceLogPath(configuredPath, defaultFileName: "script-runner-service.log");
         }
-
-        if (OperatingSystem.IsWindows() && !string.IsNullOrWhiteSpace(serviceName)
+        // When no explicit path is configured, attempt to discover a --service-log-path from the service config for better log correlation with the service instance.
+        return OperatingSystem.IsWindows() && !string.IsNullOrWhiteSpace(serviceName)
             && TryGetWindowsServiceLogPath(serviceName, out var discoveredPath)
-            && !string.IsNullOrWhiteSpace(discoveredPath))
-        {
-            return discoveredPath;
-        }
-
-        return defaultPath;
+            && !string.IsNullOrWhiteSpace(discoveredPath)
+            ? discoveredPath
+            : defaultPath;
     }
 
     /// <summary>
@@ -1157,14 +1131,11 @@ internal static class Program
     private static string NormalizeServiceLogPath(string inputPath, string defaultFileName)
     {
         var fullPath = Path.GetFullPath(inputPath);
-        if (Directory.Exists(fullPath)
+        return Directory.Exists(fullPath)
             || inputPath.EndsWith("\\", StringComparison.Ordinal)
-            || inputPath.EndsWith("/", StringComparison.Ordinal))
-        {
-            return Path.Combine(fullPath, defaultFileName);
-        }
-
-        return fullPath;
+            || inputPath.EndsWith("/", StringComparison.Ordinal)
+            ? Path.Combine(fullPath, defaultFileName)
+            : fullPath;
     }
 
     /// <summary>
@@ -1574,7 +1545,7 @@ internal static class Program
             return arg;
         }
 
-        var result = new System.Text.StringBuilder(arg.Length + 2);
+        var result = new StringBuilder(arg.Length + 2);
         _ = result.Append('"');
         var backslashes = 0;
         foreach (var c in arg)
@@ -1587,7 +1558,7 @@ internal static class Program
 
             if (c == '"')
             {
-                _ = result.Append('\\', backslashes * 2 + 1);
+                _ = result.Append('\\', (backslashes * 2) + 1);
                 _ = result.Append('"');
                 backslashes = 0;
                 continue;
@@ -1618,9 +1589,7 @@ internal static class Program
     /// <returns>Sanitized unit file name.</returns>
     private static string GetLinuxUnitName(string serviceName)
     {
-        var safeName = new string(serviceName
-            .Select(c => char.IsLetterOrDigit(c) || c is '-' or '_' or '.' ? c : '-')
-            .ToArray());
+        var safeName = new string([.. serviceName.Select(c => char.IsLetterOrDigit(c) || c is '-' or '_' or '.' ? c : '-')]);
 
         return safeName.EndsWith(".service", StringComparison.OrdinalIgnoreCase)
             ? safeName
@@ -1948,7 +1917,7 @@ internal static class Program
         if (whereResult.ExitCode == 0)
         {
             var discovered = whereResult.Output
-                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Select(Path.GetDirectoryName)
                 .Where(static p => !string.IsNullOrWhiteSpace(p))
                 .Select(static p => Path.GetFullPath(p!));
@@ -2066,8 +2035,6 @@ internal static class Program
     private static bool TryParseArguments(string[] args, out ParsedCommand parsedCommand, out string error)
     {
         parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], null, null, null, null);
-        error = string.Empty;
-
         if (args.Length == 0)
         {
             error = $"No command provided. Use '{ProductName} help' to list commands.";

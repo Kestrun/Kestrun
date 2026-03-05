@@ -56,7 +56,7 @@ AfterAll {
 
 Describe 'ScriptRunner service command surface' {
     It 'shows service install/remove/start/stop/query usage in help' {
-        $result = & $script:InvokeKestrunCommand -Arguments @('--help')
+        $result = & $script:InvokeKestrunCommand -Arguments @('service', 'help')
 
         $result.ExitCode | Should -Be 0
         $result.Output | Should -Match 'service install --name <service-name>'
@@ -65,6 +65,7 @@ Describe 'ScriptRunner service command surface' {
         $result.Output | Should -Match 'service stop --name <service-name>'
         $result.Output | Should -Match 'service query --name <service-name>'
         $result.Output | Should -Match 'service-log-path <path-to-log-file>'
+        $result.Output | Should -Match 'shows progress bars during bundle staging'
     }
 
     It 'fails service install without --name' {
@@ -124,6 +125,13 @@ Describe 'ScriptRunner service command surface' {
         $queryOutput = & sc.exe query $script:serviceNameToCleanup 2>&1 | Out-String
         $LASTEXITCODE | Should -Be 0
         $queryOutput | Should -Match 'STATE\s+:\s+\d+\s+STOPPED'
+
+        $qcOutput = & sc.exe qc $script:serviceNameToCleanup 2>&1 | Out-String
+        $LASTEXITCODE | Should -Be 0
+
+        $expectedBundleRuntimePath = Join-Path $env:ProgramData "Kestrun\services\$($script:serviceNameToCleanup)\runtime\kestrun.exe"
+        $qcOutput | Should -Match ([regex]::Escape($expectedBundleRuntimePath))
+        $qcOutput | Should -Not -Match 'dotnet\.exe'
     }
 
     It 'writes install and remove operations to the service log path' -Skip:($IsWindows -and -not $script:isWindowsAdmin) {

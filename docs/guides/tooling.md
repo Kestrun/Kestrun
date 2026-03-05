@@ -49,6 +49,9 @@ Run from the repo folder:
 dotnet tool run kestrun help
 ```
 
+`dotnet tool run` resolves the tool manifest from the current directory and its parent chain.
+If you run it from a folder outside this repo tree (for example `C:\Users\<you>`), it will not find this repo's manifest.
+
 ### Install from local package output
 
 If you built the package locally (for example via
@@ -64,6 +67,12 @@ Typical use:
 - `dotnet tool install Kestrun.Tool`: installs published NuGet version.
 - `dotnet tool install Kestrun.Tool --add-source .\artifacts\tool-packages`: installs local dev package.
 
+If you want to run `kestrun` from any folder, install globally instead:
+
+```powershell
+dotnet tool install -g Kestrun.Tool --add-source <repo-path>\artifacts\tool-packages
+```
+
 ## Update and uninstall
 
 ```powershell
@@ -78,6 +87,7 @@ For local tools, remove `-g`.
 Top-level commands:
 
 - `run`
+- `module`
 - `service`
 - `info`
 - `version`
@@ -92,6 +102,7 @@ Detailed help uses command-first style:
 
 ```powershell
 kestrun run help
+kestrun module help
 kestrun service help
 kestrun info help
 kestrun version help
@@ -111,6 +122,25 @@ kestrun service install --name MyService --script .\server.ps1
 
 ## Important options
 
+Global options:
+
+- `--nocheck` (alias: `--no-check`): skip the PowerShell Gallery newer-version warning check.
+
+For `module`:
+
+- `module install [--version <version>] [--scope <local|global>]`: install the module into the selected PowerShell module scope.
+- `module update [--version <version>] [--scope <local|global>] [--force]`: update the module in the selected scope (latest when version is omitted).
+- `module remove [--scope <local|global>]`: remove the module from the selected scope.
+- `module info [--scope <local|global>]`: show installed module versions and latest gallery version for the selected scope.
+- `module install` and `module update` show progress bars for download, extraction, and file installation when running in an interactive terminal.
+- `module remove` shows progress bars for file and folder deletion when running in an interactive terminal.
+- `module install` fails when a module is already installed in the selected scope; use `module update` instead.
+- `module update` fails when the target version folder already exists unless `--force` is provided.
+- `module info` reports semantic versions from manifest metadata (for example, `1.0.0-beta3`) when prerelease data exists.
+- Scope defaults to `local`; use `global` to target all-users module path.
+- On Windows, `--scope global` for install/update/remove triggers elevation (UAC) when required.
+- Installed module folders use the stable numeric module version (for example, `1.0.0` even when installing `1.0.0-beta4`) to match PowerShell module layout expectations.
+
 For `run`:
 
 - `--kestrun-manifest <path>`: explicitly use a `Kestrun.psd1` manifest file.
@@ -121,6 +151,10 @@ For `service install`:
 - `--kestrun-manifest <path>`: manifest used by the service runtime.
 - `--service-log-path <path>`: service bootstrap and operation log path.
 - `--arguments <args...>`: script arguments for installed service execution.
+- install creates a per-service bundle containing runtime, module, and script assets before registration.
+- install shows progress bars for bundle staging and module file copy in interactive terminals.
+- bundle roots: Windows `%ProgramData%\Kestrun\services`; Linux `/var/kestrun/services`
+  or `/usr/local/kestrun/services` (with user fallback when those are not writable).
 
 ## Service examples
 
@@ -130,6 +164,20 @@ kestrun service start --name demo
 kestrun service query --name demo
 kestrun service stop --name demo
 kestrun service remove --name demo
+```
+
+## Troubleshooting (Windows UAC)
+
+If `dotnet kestrun service install ...` prints `Elevated operation failed` but
+`./src/PowerShell/Kestrun/kestrun service install ...` works:
+
+- Run from an elevated shell to bypass UAC relaunch.
+- Ensure the local tool package is refreshed when version is unchanged.
+
+```powershell
+dotnet tool uninstall Kestrun.Tool --local
+Remove-Item "$env:USERPROFILE\.nuget\packages\kestrun.tool\0.0.1" -Recurse -Force
+dotnet tool install Kestrun.Tool --local --version 0.0.1 --add-source .\artifacts\tool-packages --no-cache
 ```
 
 ## Build and pack in this repo

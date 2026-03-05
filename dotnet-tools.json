@@ -1,5 +1,13 @@
 {
   "version": 1,
   "isRoot": true,
-  "tools": {}
+  "tools": {
+    "kestrun.tool": {
+      "version": "0.0.1",
+      "commands": [
+        "kestrun"
+      ],
+      "rollForward": false
+    }
+  }
 }

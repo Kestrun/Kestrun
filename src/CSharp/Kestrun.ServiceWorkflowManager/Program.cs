@@ -8,7 +8,13 @@ using System.Security.Principal;
 using System.Runtime.Versioning;
 using System.ServiceProcess;
 using System.Runtime.Loader;
+using System.Runtime.InteropServices;
+using System.IO.Compression;
+using System.Net;
+using System.Net.Http.Headers;
 using System.Text;
+using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
 namespace Kestrun.ServiceWorkflowManager;
 
@@ -18,18 +24,50 @@ internal static class Program
     private const string ModuleName = "Kestrun";
     private const string DefaultScriptFileName = "server.ps1";
     private const string ProductName = "kestrun";
+    private const string ModuleVersionOption = "--version";
+    private const string ModuleScopeOption = "--scope";
+    private const string ModuleForceOption = "--force";
+    private const string ModuleScopeLocalValue = "local";
+    private const string ModuleScopeGlobalValue = "global";
+    private const string NoCheckOption = "--nocheck";
+    private const string NoCheckAliasOption = "--no-check";
+    private const string PowerShellGalleryApiBaseUri = "https://www.powershellgallery.com/api/v2";
+    private static readonly Regex ModuleVersionRegex = new(
+        "^\\s*ModuleVersion\\s*=\\s*['\\\"](?<value>[^'\\\"]+)['\\\"]",
+        RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    private static readonly Regex ModulePrereleaseRegex = new(
+        "^\\s*Prerelease\\s*=\\s*['\\\"](?<value>[^'\\\"]+)['\\\"]",
+        RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
     private static readonly Lock AssemblyLoadSync = new();
+    private static readonly HttpClient GalleryHttpClient = CreateGalleryHttpClient();
     private static string? s_kestrunModuleLibPath;
     private static bool s_dependencyResolverRegistered;
 
     private enum CommandMode
     {
         Run,
+        ModuleInstall,
+        ModuleUpdate,
+        ModuleRemove,
+        ModuleInfo,
         ServiceInstall,
         ServiceRemove,
         ServiceStart,
         ServiceStop,
         ServiceQuery,
+    }
+
+    private enum ModuleCommandAction
+    {
+        Install,
+        Update,
+        Remove,
+    }
+
+    private enum ModuleStorageScope
+    {
+        Local,
+        Global,
     }
 
     private sealed record ParsedCommand(
@@ -39,7 +77,10 @@ internal static class Program
         string? KestrunFolder,
         string? KestrunManifestPath,
         string? ServiceName,
-        string? ServiceLogPath);
+        string? ServiceLogPath,
+        string? ModuleVersion,
+        ModuleStorageScope ModuleScope,
+        bool ModuleForce);
 
     private sealed record ServiceHostOptions(
         string ServiceName,
@@ -48,6 +89,141 @@ internal static class Program
         string? KestrunFolder,
         string? KestrunManifestPath,
         string? ServiceLogPath);
+
+    private sealed record GlobalOptions(
+        string[] CommandArgs,
+        bool SkipGalleryCheck);
+
+    private sealed record InstalledModuleRecord(
+        string Version,
+        string ManifestPath);
+
+    private sealed record ServiceBundleLayout(
+        string RootPath,
+        string RuntimeExecutablePath,
+        string ScriptPath,
+        string ModuleManifestPath);
+
+    /// <summary>
+    /// Writes in-place progress updates for module operations.
+    /// </summary>
+    private sealed class ConsoleProgressBar : IDisposable
+    {
+        private const int ProgressBarWidth = 28;
+        private static readonly TimeSpan RenderThrottle = TimeSpan.FromMilliseconds(80);
+
+        private readonly string _label;
+        private readonly long? _total;
+        private readonly Func<long, long?, string>? _detailFormatter;
+        private readonly bool _enabled;
+        private int _lastRenderedLength;
+        private int _lastPercent = -1;
+        private long _lastValue = -1;
+        private DateTime _lastRenderUtc = DateTime.MinValue;
+        private bool _hasRendered;
+        private bool _isComplete;
+
+        public ConsoleProgressBar(string label, long? total, Func<long, long?, string>? detailFormatter)
+        {
+            _label = label;
+            _total = total.HasValue && total.Value > 0 ? total : null;
+            _detailFormatter = detailFormatter;
+            _enabled = !Console.IsOutputRedirected;
+        }
+
+        public void Report(long value, bool force = false)
+        {
+            if (!_enabled || _isComplete)
+            {
+                return;
+            }
+
+            var sanitizedValue = Math.Max(0, value);
+            var percent = GetPercent(sanitizedValue);
+            var now = DateTime.UtcNow;
+
+            if (!force
+                && sanitizedValue == _lastValue
+                && percent == _lastPercent)
+            {
+                return;
+            }
+
+            if (!force
+                && percent == _lastPercent
+                && now - _lastRenderUtc < RenderThrottle)
+            {
+                return;
+            }
+
+            _lastValue = sanitizedValue;
+            _lastPercent = percent;
+            _lastRenderUtc = now;
+            Render(sanitizedValue, percent);
+        }
+
+        public void Complete(long value)
+        {
+            if (!_enabled || _isComplete)
+            {
+                return;
+            }
+
+            var completionValue = _total ?? Math.Max(0, value);
+            Report(completionValue, force: true);
+            Console.WriteLine();
+            _isComplete = true;
+        }
+
+        public void Dispose()
+        {
+            if (_enabled && _hasRendered && !_isComplete)
+            {
+                Console.WriteLine();
+            }
+        }
+
+        private int GetPercent(long value)
+        {
+            if (!_total.HasValue || _total.Value <= 0)
+            {
+                return -1;
+            }
+
+            return (int)Math.Clamp((value * 100L) / _total.Value, 0, 100);
+        }
+
+        private void Render(long value, int percent)
+        {
+            var detail = _detailFormatter is null
+                ? _total.HasValue
+                    ? $"{value}/{_total.Value}"
+                    : value.ToString()
+                : _detailFormatter(value, _total);
+
+            var line = percent >= 0
+                ? $"{_label} {BuildBar(percent)} {percent,3}% {detail}"
+                : $"{_label} {detail}";
+
+            if (line.Length < _lastRenderedLength)
+            {
+                line = line.PadRight(_lastRenderedLength);
+            }
+
+            _lastRenderedLength = line.Length;
+            _hasRendered = true;
+
+            Console.Write('\r');
+            Console.Write(line);
+        }
+
+        private static string BuildBar(int percent)
+        {
+            var filled = (int)Math.Round(percent / 100d * ProgressBarWidth, MidpointRounding.AwayFromZero);
+            filled = Math.Clamp(filled, 0, ProgressBarWidth);
+            return $"[{new string('#', filled)}{new string('-', ProgressBarWidth - filled)}]";
+        }
+    }
 
     private static int Main(string[] args)
     {
@@ -68,12 +244,15 @@ internal static class Program
             return 2;
         }
 
-        if (TryHandleMetaCommands(args, out var metaExitCode))
+        var globalOptions = ParseGlobalOptions(args);
+        var commandArgs = globalOptions.CommandArgs;
+
+        if (TryHandleMetaCommands(commandArgs, out var metaExitCode))
         {
             return metaExitCode;
         }
 
-        if (!TryParseArguments(args, out var parsedCommand, out var parseError))
+        if (!TryParseArguments(commandArgs, out var parsedCommand, out var parseError))
         {
             Console.Error.WriteLine(parseError);
             PrintUsage();
@@ -86,7 +265,20 @@ internal static class Program
                 ? !TryPreflightWindowsServiceInstall(parsedCommand, out var preflightExitCode)
                     ? preflightExitCode
                     : RelaunchElevatedOnWindows(args)
-                : InstallService(parsedCommand);
+                : InstallService(parsedCommand, globalOptions.SkipGalleryCheck);
+        }
+
+        if (parsedCommand.Mode is CommandMode.ModuleInstall or CommandMode.ModuleUpdate or CommandMode.ModuleRemove or CommandMode.ModuleInfo)
+        {
+            if (parsedCommand.Mode is CommandMode.ModuleInstall or CommandMode.ModuleUpdate or CommandMode.ModuleRemove
+                && parsedCommand.ModuleScope == ModuleStorageScope.Global
+                && OperatingSystem.IsWindows()
+                && !IsWindowsAdministrator())
+            {
+                return RelaunchElevatedOnWindows(args);
+            }
+
+            return ManageModuleCommand(parsedCommand);
         }
 
         if (parsedCommand.Mode == CommandMode.ServiceRemove)
@@ -145,20 +337,13 @@ internal static class Program
         var moduleManifestPath = LocateModuleManifest(kestrunManifestPath, kestrunFolder);
         if (moduleManifestPath is null)
         {
-            if (!string.IsNullOrWhiteSpace(kestrunManifestPath))
-            {
-                Console.Error.WriteLine($"Unable to locate manifest file: {Path.GetFullPath(kestrunManifestPath)}");
-            }
-            else if (!string.IsNullOrWhiteSpace(kestrunFolder))
-            {
-                Console.Error.WriteLine($"Unable to locate {ModuleManifestFileName} in folder: {Path.GetFullPath(kestrunFolder)}");
-            }
-            else
-            {
-                Console.Error.WriteLine($"Unable to locate {ModuleManifestFileName} under the executable folder or PSModulePath.");
-            }
-
+            WriteModuleNotFoundMessage(kestrunManifestPath, kestrunFolder, Console.Error.WriteLine);
             return 3;
+        }
+
+        if (!globalOptions.SkipGalleryCheck)
+        {
+            WarnIfNewerGalleryVersionExists(moduleManifestPath);
         }
 
         try
@@ -388,7 +573,7 @@ internal static class Program
             var moduleManifestPath = LocateModuleManifest(_options.KestrunManifestPath, _options.KestrunFolder);
             if (moduleManifestPath is null)
             {
-                WriteBootstrapLog("Unable to locate Kestrun.psd1 for service host run.");
+                WriteModuleNotFoundMessage(_options.KestrunManifestPath, _options.KestrunFolder, WriteBootstrapLog);
                 return 3;
             }
 
@@ -539,31 +724,18 @@ internal static class Program
             return false;
         }
 
-        var exePath = Environment.ProcessPath;
-        if (string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
-        {
-            Console.Error.WriteLine("Unable to resolve ScriptRunner executable path for service installation.");
-            exitCode = 1;
-            return false;
-        }
-
         var moduleManifestPath = LocateModuleManifest(command.KestrunManifestPath, command.KestrunFolder);
         if (moduleManifestPath is null)
         {
-            if (!string.IsNullOrWhiteSpace(command.KestrunManifestPath))
-            {
-                Console.Error.WriteLine($"Unable to locate manifest file: {Path.GetFullPath(command.KestrunManifestPath)}");
-            }
-            else if (!string.IsNullOrWhiteSpace(command.KestrunFolder))
-            {
-                Console.Error.WriteLine($"Unable to locate {ModuleManifestFileName} in folder: {Path.GetFullPath(command.KestrunFolder)}");
-            }
-            else
-            {
-                Console.Error.WriteLine($"Unable to locate {ModuleManifestFileName} under the executable folder or PSModulePath.");
-            }
-
+            WriteModuleNotFoundMessage(command.KestrunManifestPath, command.KestrunFolder, Console.Error.WriteLine);
             exitCode = 3;
+            return false;
+        }
+
+        if (!TryResolveServiceRuntimeExecutableFromModule(moduleManifestPath, out _, out var runtimeError))
+        {
+            Console.Error.WriteLine(runtimeError);
+            exitCode = 1;
             return false;
         }
 
@@ -667,10 +839,12 @@ internal static class Program
 
         Console.Error.WriteLine("Administrator rights are required. Requesting elevation...");
 
+        var relaunchArgs = BuildElevatedRelaunchArguments(exePath, args);
+
         var startInfo = new ProcessStartInfo
         {
             FileName = exePath,
-            Arguments = string.Join(" ", args.Select(EscapeWindowsCommandLineArgument)),
+            Arguments = string.Join(" ", relaunchArgs.Select(EscapeWindowsCommandLineArgument)),
             UseShellExecute = true,
             Verb = "runas",
             WorkingDirectory = Environment.CurrentDirectory,
@@ -708,17 +882,165 @@ internal static class Program
     }
 
     /// <summary>
+    /// Builds argument tokens for elevated relaunch scenarios.
+    /// </summary>
+    /// <param name="executablePath">Current process executable path.</param>
+    /// <param name="args">Original command-line arguments.</param>
+    /// <returns>Argument token list for elevated invocation.</returns>
+    private static IReadOnlyList<string> BuildElevatedRelaunchArguments(string executablePath, IReadOnlyList<string> args)
+    {
+        if (!IsDotnetHostExecutable(executablePath))
+        {
+            return [.. args];
+        }
+
+        var assemblyPath = typeof(Program).Assembly.Location;
+        if (!string.IsNullOrWhiteSpace(assemblyPath)
+            && File.Exists(assemblyPath)
+            && TryStageDotnetToolForElevation(assemblyPath, out var stagedAssemblyPath))
+        {
+            var elevatedArgs = new List<string>(args.Count + 1)
+            {
+                stagedAssemblyPath,
+            };
+
+            elevatedArgs.AddRange(args);
+            return elevatedArgs;
+        }
+
+        if (!string.IsNullOrWhiteSpace(assemblyPath) && File.Exists(assemblyPath))
+        {
+            var elevatedArgs = new List<string>(args.Count + 1)
+            {
+                Path.GetFullPath(assemblyPath),
+            };
+
+            elevatedArgs.AddRange(args);
+            return elevatedArgs;
+        }
+
+        // Fallback path when assembly location is unavailable.
+        var fallbackArgs = new List<string>(args.Count + 1)
+        {
+            ProductName,
+        };
+
+        fallbackArgs.AddRange(args);
+        return fallbackArgs;
+    }
+
+    /// <summary>
+    /// Determines whether the given executable path is the dotnet host executable.
+    /// </summary>
+    /// <param name="executablePath">Executable path to inspect.</param>
+    /// <returns>True when the executable is dotnet host.</returns>
+    private static bool IsDotnetHostExecutable(string executablePath)
+    {
+        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(executablePath);
+        return string.Equals(fileNameWithoutExtension, "dotnet", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Stages the current dotnet tool payload to a location suitable for elevated relaunch.
+    /// </summary>
+    /// <param name="assemblyPath">Current tool assembly path.</param>
+    /// <param name="stagedAssemblyPath">Staged assembly path when successful.</param>
+    /// <returns>True when staging succeeds.</returns>
+    private static bool TryStageDotnetToolForElevation(string assemblyPath, out string stagedAssemblyPath)
+    {
+        stagedAssemblyPath = string.Empty;
+
+        var sourceDirectory = Path.GetDirectoryName(Path.GetFullPath(assemblyPath));
+        if (string.IsNullOrWhiteSpace(sourceDirectory) || !Directory.Exists(sourceDirectory))
+        {
+            return false;
+        }
+
+        var directoryKey = Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(sourceDirectory.ToLowerInvariant())))
+            .ToLowerInvariant();
+
+        foreach (var candidateRoot in EnumerateElevationStagingRootCandidates())
+        {
+            if (string.IsNullOrWhiteSpace(candidateRoot))
+            {
+                continue;
+            }
+
+            try
+            {
+                var stagingDirectory = Path.Combine(candidateRoot, "Kestrun", "elevation", directoryKey);
+                if (Directory.Exists(stagingDirectory))
+                {
+                    Directory.Delete(stagingDirectory, recursive: true);
+                }
+
+                CopyDirectoryContents(sourceDirectory, stagingDirectory);
+                var candidateAssemblyPath = Path.Combine(stagingDirectory, Path.GetFileName(assemblyPath));
+                if (!File.Exists(candidateAssemblyPath))
+                {
+                    continue;
+                }
+
+                stagedAssemblyPath = Path.GetFullPath(candidateAssemblyPath);
+                return true;
+            }
+            catch
+            {
+                // Try the next staging root candidate.
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Enumerates candidate roots for elevation-safe staging.
+    /// </summary>
+    /// <returns>Candidate staging root directories.</returns>
+    private static IEnumerable<string> EnumerateElevationStagingRootCandidates()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var commonApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+            if (!string.IsNullOrWhiteSpace(commonApplicationData))
+            {
+                yield return commonApplicationData;
+            }
+
+            var commonDocuments = Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments);
+            if (!string.IsNullOrWhiteSpace(commonDocuments))
+            {
+                yield return commonDocuments;
+            }
+
+            if (!string.IsNullOrWhiteSpace(Environment.CurrentDirectory))
+            {
+                yield return Environment.CurrentDirectory;
+            }
+        }
+
+        var tempPath = Path.GetTempPath();
+        if (!string.IsNullOrWhiteSpace(tempPath))
+        {
+            yield return tempPath;
+        }
+    }
+
+    /// <summary>
     /// Installs a service/daemon entry that runs the target script through the ScriptRunner executable.
     /// </summary>
     /// <param name="command">Parsed command information.</param>
     /// <returns>Process exit code.</returns>
-    private static int InstallService(ParsedCommand command)
+    private static int InstallService(ParsedCommand command, bool skipGalleryCheck)
     {
         if (string.IsNullOrWhiteSpace(command.ServiceName))
         {
             Console.Error.WriteLine("Service name is required. Use --name <value>.");
             return 2;
         }
+
+        var serviceName = command.ServiceName;
 
         var scriptPath = Path.GetFullPath(command.ScriptPath);
         if (!File.Exists(scriptPath))
@@ -727,48 +1049,40 @@ internal static class Program
             return 2;
         }
 
-        var exePath = Environment.ProcessPath;
-        if (string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
-        {
-            Console.Error.WriteLine("Unable to resolve ScriptRunner executable path for service installation.");
-            return 1;
-        }
-
         var moduleManifestPath = LocateModuleManifest(command.KestrunManifestPath, command.KestrunFolder);
         if (moduleManifestPath is null)
         {
-            if (!string.IsNullOrWhiteSpace(command.KestrunManifestPath))
-            {
-                Console.Error.WriteLine($"Unable to locate manifest file: {Path.GetFullPath(command.KestrunManifestPath)}");
-            }
-            else if (!string.IsNullOrWhiteSpace(command.KestrunFolder))
-            {
-                Console.Error.WriteLine($"Unable to locate {ModuleManifestFileName} in folder: {Path.GetFullPath(command.KestrunFolder)}");
-            }
-            else
-            {
-                Console.Error.WriteLine($"Unable to locate {ModuleManifestFileName} under the executable folder or PSModulePath.");
-            }
-
+            WriteModuleNotFoundMessage(command.KestrunManifestPath, command.KestrunFolder, Console.Error.WriteLine);
             return 3;
         }
 
-        var runnerArgs = BuildRunnerArgumentsForService(scriptPath, command.ScriptArguments, command.KestrunFolder, command.KestrunManifestPath);
-        var workingDirectory = Path.GetDirectoryName(scriptPath) ?? Environment.CurrentDirectory;
+        if (!skipGalleryCheck)
+        {
+            WarnIfNewerGalleryVersionExists(moduleManifestPath);
+        }
+
+        if (!TryPrepareServiceBundle(serviceName, scriptPath, moduleManifestPath, out var serviceBundle, out var bundleError))
+        {
+            Console.Error.WriteLine(bundleError);
+            return 1;
+        }
+
+        var runnerArgs = BuildRunnerArgumentsForService(serviceBundle!.ScriptPath, command.ScriptArguments, null, serviceBundle.ModuleManifestPath);
+        var workingDirectory = Path.GetDirectoryName(serviceBundle.ScriptPath) ?? Environment.CurrentDirectory;
 
         if (OperatingSystem.IsWindows())
         {
-            return InstallWindowsService(command, exePath, scriptPath);
+            return InstallWindowsService(command, serviceBundle.RuntimeExecutablePath, serviceBundle.ScriptPath, serviceBundle.ModuleManifestPath);
         }
 
         if (OperatingSystem.IsLinux())
         {
-            return InstallLinuxUserDaemon(command.ServiceName, exePath, runnerArgs, workingDirectory);
+            return InstallLinuxUserDaemon(serviceName, serviceBundle.RuntimeExecutablePath, runnerArgs, workingDirectory);
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            return InstallMacLaunchAgent(command.ServiceName, exePath, runnerArgs, workingDirectory);
+            return InstallMacLaunchAgent(serviceName, serviceBundle.RuntimeExecutablePath, runnerArgs, workingDirectory);
         }
 
         Console.Error.WriteLine("Service installation is not supported on this OS.");
@@ -788,19 +1102,40 @@ internal static class Program
             return 2;
         }
 
+        var serviceName = command.ServiceName;
+
+        int result;
         if (OperatingSystem.IsWindows())
         {
-            return RemoveWindowsService(command);
+            result = RemoveWindowsService(command);
+            if (result == 0)
+            {
+                TryRemoveServiceBundle(serviceName);
+            }
+
+            return result;
         }
 
         if (OperatingSystem.IsLinux())
         {
-            return RemoveLinuxUserDaemon(command.ServiceName);
+            result = RemoveLinuxUserDaemon(serviceName);
+            if (result == 0)
+            {
+                TryRemoveServiceBundle(serviceName);
+            }
+
+            return result;
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            return RemoveMacLaunchAgent(command.ServiceName);
+            result = RemoveMacLaunchAgent(serviceName);
+            if (result == 0)
+            {
+                TryRemoveServiceBundle(serviceName);
+            }
+
+            return result;
         }
 
         Console.Error.WriteLine("Service removal is not supported on this OS.");
@@ -820,19 +1155,21 @@ internal static class Program
             return 2;
         }
 
+        var serviceName = command.ServiceName;
+
         if (OperatingSystem.IsWindows())
         {
-            return StartWindowsService(command.ServiceName);
+            return StartWindowsService(serviceName);
         }
 
         if (OperatingSystem.IsLinux())
         {
-            return StartLinuxUserDaemon(command.ServiceName);
+            return StartLinuxUserDaemon(serviceName);
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            return StartMacLaunchAgent(command.ServiceName);
+            return StartMacLaunchAgent(serviceName);
         }
 
         Console.Error.WriteLine("Service start is not supported on this OS.");
@@ -852,19 +1189,21 @@ internal static class Program
             return 2;
         }
 
+        var serviceName = command.ServiceName;
+
         if (OperatingSystem.IsWindows())
         {
-            return StopWindowsService(command.ServiceName);
+            return StopWindowsService(serviceName);
         }
 
         if (OperatingSystem.IsLinux())
         {
-            return StopLinuxUserDaemon(command.ServiceName);
+            return StopLinuxUserDaemon(serviceName);
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            return StopMacLaunchAgent(command.ServiceName);
+            return StopMacLaunchAgent(serviceName);
         }
 
         Console.Error.WriteLine("Service stop is not supported on this OS.");
@@ -884,19 +1223,21 @@ internal static class Program
             return 2;
         }
 
+        var serviceName = command.ServiceName;
+
         if (OperatingSystem.IsWindows())
         {
-            return QueryWindowsService(command.ServiceName);
+            return QueryWindowsService(serviceName);
         }
 
         if (OperatingSystem.IsLinux())
         {
-            return QueryLinuxUserDaemon(command.ServiceName);
+            return QueryLinuxUserDaemon(serviceName);
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            return QueryMacLaunchAgent(command.ServiceName);
+            return QueryMacLaunchAgent(serviceName);
         }
 
         Console.Error.WriteLine("Service query is not supported on this OS.");
@@ -909,6 +1250,7 @@ internal static class Program
     /// <param name="scriptPath">Absolute script path to execute.</param>
     /// <param name="scriptArguments">Script arguments for the run command.</param>
     /// <param name="kestrunFolder">Optional folder containing Kestrun module manifest.</param>
+    /// <param name="kestrunManifestPath">Optional explicit Kestrun module manifest path.</param>
     /// <returns>Ordered runner argument tokens.</returns>
     private static IReadOnlyList<string> BuildRunnerArgumentsForService(string scriptPath, IReadOnlyList<string> scriptArguments, string? kestrunFolder, string? kestrunManifestPath)
     {
@@ -940,13 +1282,14 @@ internal static class Program
     /// <summary>
     /// Installs a Windows service using sc.exe.
     /// </summary>
-    /// <param name="serviceName">Service name.</param>
+    /// <param name="command">Parsed service command.</param>
     /// <param name="exePath">Executable path.</param>
-    /// <param name="runnerArgs">Runner arguments.</param>
+    /// <param name="scriptPath">Bundled script path.</param>
+    /// <param name="moduleManifestPath">Bundled module manifest path.</param>
     /// <returns>Process exit code.</returns>
-    private static int InstallWindowsService(ParsedCommand command, string exePath, string scriptPath)
+    private static int InstallWindowsService(ParsedCommand command, string exePath, string scriptPath, string moduleManifestPath)
     {
-        var hostArgs = BuildWindowsServiceHostArguments(command, scriptPath);
+        var hostArgs = BuildWindowsServiceHostArguments(command, scriptPath, moduleManifestPath);
         var imagePath = BuildWindowsCommandLine(exePath, hostArgs);
         var createResult = RunProcess(
             "sc.exe",
@@ -969,8 +1312,9 @@ internal static class Program
     /// </summary>
     /// <param name="command">Parsed service command.</param>
     /// <param name="scriptPath">Absolute script path.</param>
+    /// <param name="moduleManifestPath">Manifest path staged for service runtime.</param>
     /// <returns>Ordered argument tokens.</returns>
-    private static IReadOnlyList<string> BuildWindowsServiceHostArguments(ParsedCommand command, string scriptPath)
+    private static IReadOnlyList<string> BuildWindowsServiceHostArguments(ParsedCommand command, string scriptPath, string moduleManifestPath)
     {
         var arguments = new List<string>(12 + command.ScriptArguments.Length)
         {
@@ -979,19 +1323,9 @@ internal static class Program
             command.ServiceName!,
             "--script",
             scriptPath,
+            "--kestrun-manifest",
+            Path.GetFullPath(moduleManifestPath),
         };
-
-        if (!string.IsNullOrWhiteSpace(command.KestrunFolder))
-        {
-            arguments.Add("--kestrun-folder");
-            arguments.Add(Path.GetFullPath(command.KestrunFolder));
-        }
-
-        if (!string.IsNullOrWhiteSpace(command.KestrunManifestPath))
-        {
-            arguments.Add("--kestrun-manifest");
-            arguments.Add(Path.GetFullPath(command.KestrunManifestPath));
-        }
 
         if (!string.IsNullOrWhiteSpace(command.ServiceLogPath))
         {
@@ -1120,6 +1454,453 @@ internal static class Program
 
         logPath = NormalizeServiceLogPath(rawPath, defaultFileName: "script-runner-service.log");
         return true;
+    }
+
+    /// <summary>
+    /// Resolves the runtime executable path from a Kestrun module manifest directory.
+    /// </summary>
+    /// <param name="moduleManifestPath">Path to Kestrun.psd1.</param>
+    /// <param name="runtimeExecutablePath">Resolved runtime executable path.</param>
+    /// <param name="error">Error details when resolution fails.</param>
+    /// <returns>True when a runtime executable is available for the current OS/architecture.</returns>
+    private static bool TryResolveServiceRuntimeExecutableFromModule(string moduleManifestPath, out string runtimeExecutablePath, out string error)
+    {
+        runtimeExecutablePath = string.Empty;
+        error = string.Empty;
+
+        var fullManifestPath = Path.GetFullPath(moduleManifestPath);
+        var moduleRoot = Path.GetDirectoryName(fullManifestPath);
+        if (string.IsNullOrWhiteSpace(moduleRoot) || !Directory.Exists(moduleRoot))
+        {
+            error = $"Unable to resolve module root from manifest path: {fullManifestPath}";
+            return false;
+        }
+
+        if (!TryGetServiceRuntimeRid(out var runtimeRid, out var ridError))
+        {
+            error = ridError;
+            return false;
+        }
+
+        var runtimeBinaryName = OperatingSystem.IsWindows() ? "kestrun.exe" : "kestrun";
+        foreach (var candidate in EnumerateServiceRuntimeExecutableCandidates(moduleRoot, runtimeRid, runtimeBinaryName))
+        {
+            if (!File.Exists(candidate))
+            {
+                continue;
+            }
+
+            runtimeExecutablePath = Path.GetFullPath(candidate);
+            return true;
+        }
+
+        error = $"Unable to locate runtime executable '{runtimeBinaryName}' for '{runtimeRid}'. Checked module path '{moduleRoot}' and fallback runtime locations. Use --kestrun-folder to point at a Kestrun module folder that contains runtimes, or run '{ProductName} module install' to refresh module runtimes.";
+        return false;
+    }
+
+    /// <summary>
+    /// Enumerates candidate runtime executable paths for service bundle staging.
+    /// </summary>
+    /// <param name="moduleRoot">Resolved module root path.</param>
+    /// <param name="runtimeRid">Runtime identifier segment (for example, win-x64).</param>
+    /// <param name="runtimeBinaryName">Runtime executable file name.</param>
+    /// <returns>Candidate runtime executable paths in resolution priority order.</returns>
+    private static IEnumerable<string> EnumerateServiceRuntimeExecutableCandidates(string moduleRoot, string runtimeRid, string runtimeBinaryName)
+    {
+        var candidates = new List<string>
+        {
+            Path.Combine(moduleRoot, "runtimes", runtimeRid, runtimeBinaryName),
+            Path.Combine(GetExecutableDirectory(), "runtimes", runtimeRid, runtimeBinaryName),
+        };
+
+        var baseDirectory = Path.GetFullPath(AppContext.BaseDirectory);
+        var executableDirectory = GetExecutableDirectory();
+        if (!string.Equals(baseDirectory, executableDirectory, StringComparison.OrdinalIgnoreCase))
+        {
+            candidates.Add(Path.Combine(baseDirectory, "runtimes", runtimeRid, runtimeBinaryName));
+        }
+
+        foreach (var parent in EnumerateDirectoryAndParents(Environment.CurrentDirectory))
+        {
+            candidates.Add(Path.Combine(parent, "src", "PowerShell", "Kestrun", "runtimes", runtimeRid, runtimeBinaryName));
+        }
+
+        foreach (var candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            yield return candidate;
+        }
+    }
+
+    /// <summary>
+    /// Enumerates a directory and all parents up to the filesystem root.
+    /// </summary>
+    /// <param name="startDirectory">Starting directory path.</param>
+    /// <returns>Normalized directory path sequence from leaf to root.</returns>
+    private static IEnumerable<string> EnumerateDirectoryAndParents(string startDirectory)
+    {
+        var current = Path.GetFullPath(startDirectory);
+        while (!string.IsNullOrWhiteSpace(current))
+        {
+            yield return current;
+
+            var parent = Directory.GetParent(current);
+            if (parent is null)
+            {
+                break;
+            }
+
+            current = parent.FullName;
+        }
+    }
+
+    /// <summary>
+    /// Creates a per-service deployment bundle with runtime binary, module files, and the script entrypoint.
+    /// </summary>
+    /// <param name="serviceName">Service name.</param>
+    /// <param name="sourceScriptPath">Source script path.</param>
+    /// <param name="sourceModuleManifestPath">Source module manifest path.</param>
+    /// <param name="serviceBundle">Created service bundle paths.</param>
+    /// <param name="error">Error details when bundling fails.</param>
+    /// <param name="deploymentRootOverride">Optional deployment root override for tests.</param>
+    /// <returns>True when service bundle creation succeeds.</returns>
+    private static bool TryPrepareServiceBundle(
+        string serviceName,
+        string sourceScriptPath,
+        string sourceModuleManifestPath,
+        out ServiceBundleLayout? serviceBundle,
+        out string error,
+        string? deploymentRootOverride = null)
+    {
+        serviceBundle = null;
+        error = string.Empty;
+
+        var fullScriptPath = Path.GetFullPath(sourceScriptPath);
+        if (!File.Exists(fullScriptPath))
+        {
+            error = $"Script file not found: {fullScriptPath}";
+            return false;
+        }
+
+        var fullManifestPath = Path.GetFullPath(sourceModuleManifestPath);
+        if (!File.Exists(fullManifestPath))
+        {
+            error = $"Kestrun manifest file not found: {fullManifestPath}";
+            return false;
+        }
+
+        if (!TryResolveServiceRuntimeExecutableFromModule(fullManifestPath, out var runtimeExecutablePath, out var runtimeError))
+        {
+            error = runtimeError;
+            return false;
+        }
+
+        var moduleRoot = Path.GetDirectoryName(fullManifestPath)!;
+        var serviceDirectoryName = GetServiceDeploymentDirectoryName(serviceName);
+
+        if (!TryResolveServiceDeploymentRoot(deploymentRootOverride, out var deploymentRoot, out var deploymentError))
+        {
+            error = deploymentError;
+            return false;
+        }
+
+        var serviceRoot = Path.Combine(deploymentRoot, serviceDirectoryName);
+        var runtimeDirectory = Path.Combine(serviceRoot, "runtime");
+        var moduleDirectory = Path.Combine(serviceRoot, "module");
+        var scriptDirectory = Path.Combine(serviceRoot, "script");
+        var showProgress = !Console.IsOutputRedirected;
+        using var bundleProgress = showProgress
+            ? new ConsoleProgressBar("Preparing service bundle", 4, FormatServiceBundleStepProgressDetail)
+            : null;
+        var completedBundleSteps = 0;
+        bundleProgress?.Report(0);
+
+        try
+        {
+            if (Directory.Exists(serviceRoot))
+            {
+                Directory.Delete(serviceRoot, recursive: true);
+            }
+
+            _ = Directory.CreateDirectory(runtimeDirectory);
+            _ = Directory.CreateDirectory(moduleDirectory);
+            _ = Directory.CreateDirectory(scriptDirectory);
+            completedBundleSteps++;
+            bundleProgress?.Report(completedBundleSteps);
+
+            var bundledRuntimePath = Path.Combine(runtimeDirectory, Path.GetFileName(runtimeExecutablePath));
+            File.Copy(runtimeExecutablePath, bundledRuntimePath, overwrite: true);
+            completedBundleSteps++;
+            bundleProgress?.Report(completedBundleSteps);
+
+            if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+            {
+                TryEnsureServiceRuntimeExecutablePermissions(bundledRuntimePath);
+            }
+
+            CopyDirectoryContents(moduleRoot, moduleDirectory, showProgress, "Bundling module files");
+            completedBundleSteps++;
+            bundleProgress?.Report(completedBundleSteps);
+
+            var bundledManifestPath = Path.Combine(moduleDirectory, Path.GetFileName(fullManifestPath));
+            if (!File.Exists(bundledManifestPath))
+            {
+                error = $"Service bundle copy did not include module manifest: {bundledManifestPath}";
+                return false;
+            }
+
+            var bundledScriptPath = Path.Combine(scriptDirectory, Path.GetFileName(fullScriptPath));
+            File.Copy(fullScriptPath, bundledScriptPath, overwrite: true);
+            completedBundleSteps++;
+            bundleProgress?.Report(completedBundleSteps);
+            bundleProgress?.Complete(completedBundleSteps);
+
+            serviceBundle = new ServiceBundleLayout(
+                Path.GetFullPath(serviceRoot),
+                Path.GetFullPath(bundledRuntimePath),
+                Path.GetFullPath(bundledScriptPath),
+                Path.GetFullPath(bundledManifestPath));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to prepare service bundle at '{serviceRoot}': {ex.Message}";
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the deployment root path used for service bundles.
+    /// </summary>
+    /// <param name="deploymentRootOverride">Optional explicit root path.</param>
+    /// <param name="deploymentRoot">Resolved writable deployment root.</param>
+    /// <param name="error">Error details when no writable root is available.</param>
+    /// <returns>True when a writable deployment root is resolved.</returns>
+    private static bool TryResolveServiceDeploymentRoot(string? deploymentRootOverride, out string deploymentRoot, out string error)
+    {
+        deploymentRoot = string.Empty;
+        error = string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(deploymentRootOverride))
+        {
+            try
+            {
+                deploymentRoot = Path.GetFullPath(deploymentRootOverride);
+                _ = Directory.CreateDirectory(deploymentRoot);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = $"Unable to create deployment root '{deploymentRootOverride}': {ex.Message}";
+                return false;
+            }
+        }
+
+        var failures = new List<string>();
+        foreach (var candidate in GetServiceDeploymentRootCandidates())
+        {
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                continue;
+            }
+
+            try
+            {
+                var fullCandidate = Path.GetFullPath(candidate);
+                _ = Directory.CreateDirectory(fullCandidate);
+                deploymentRoot = fullCandidate;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"{candidate} ({ex.Message})");
+            }
+        }
+
+        error = failures.Count == 0
+            ? "Unable to resolve a writable service deployment root."
+            : $"Unable to resolve a writable service deployment root. Attempted: {string.Join("; ", failures)}";
+        return false;
+    }
+
+    /// <summary>
+    /// Returns candidate deployment roots for service bundle storage.
+    /// </summary>
+    /// <returns>Candidate absolute or rooted paths in priority order.</returns>
+    private static IEnumerable<string> GetServiceDeploymentRootCandidates()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Kestrun", "services");
+            yield break;
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            yield return "/var/kestrun/services";
+            yield return "/usr/local/kestrun/services";
+
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (!string.IsNullOrWhiteSpace(userProfile))
+            {
+                yield return Path.Combine(userProfile, ".local", "share", "kestrun", "services");
+            }
+
+            yield break;
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            yield return "/usr/local/kestrun/services";
+
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (!string.IsNullOrWhiteSpace(userProfile))
+            {
+                yield return Path.Combine(userProfile, "Library", "Application Support", "Kestrun", "services");
+            }
+
+            yield break;
+        }
+
+        yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Kestrun", "services");
+    }
+
+    /// <summary>
+    /// Removes service bundle directories for a given service name from known deployment roots.
+    /// </summary>
+    /// <param name="serviceName">Service name.</param>
+    private static void TryRemoveServiceBundle(string serviceName)
+    {
+        var serviceDirectoryName = GetServiceDeploymentDirectoryName(serviceName);
+
+        foreach (var candidateRoot in GetServiceDeploymentRootCandidates())
+        {
+            if (string.IsNullOrWhiteSpace(candidateRoot))
+            {
+                continue;
+            }
+
+            var serviceRoot = Path.Combine(candidateRoot, serviceDirectoryName);
+            try
+            {
+                if (Directory.Exists(serviceRoot))
+                {
+                    Directory.Delete(serviceRoot, recursive: true);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Warning: Failed to remove service bundle '{serviceRoot}': {ex.Message}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns a filesystem-safe directory name for service deployment folders.
+    /// </summary>
+    /// <param name="serviceName">Service name.</param>
+    /// <returns>Sanitized directory name.</returns>
+    private static string GetServiceDeploymentDirectoryName(string serviceName)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var builder = new StringBuilder(serviceName.Length);
+        foreach (var ch in serviceName)
+        {
+            if (char.IsControl(ch) || ch == Path.DirectorySeparatorChar || ch == Path.AltDirectorySeparatorChar || invalid.Contains(ch))
+            {
+                _ = builder.Append('-');
+                continue;
+            }
+
+            _ = builder.Append(ch);
+        }
+
+        var sanitized = builder.ToString().Trim().Trim('.');
+        return string.IsNullOrWhiteSpace(sanitized) ? "service" : sanitized;
+    }
+
+    /// <summary>
+    /// Resolves runtime RID segment for service runtime payloads.
+    /// </summary>
+    /// <param name="runtimeRid">RID segment (for example win-x64).</param>
+    /// <param name="error">Error details when runtime architecture is unsupported.</param>
+    /// <returns>True when runtime RID can be resolved.</returns>
+    private static bool TryGetServiceRuntimeRid(out string runtimeRid, out string error)
+    {
+        runtimeRid = string.Empty;
+        error = string.Empty;
+
+        var osPrefix = OperatingSystem.IsWindows()
+            ? "win"
+            : OperatingSystem.IsLinux()
+                ? "linux"
+                : OperatingSystem.IsMacOS()
+                    ? "osx"
+                    : string.Empty;
+
+        if (string.IsNullOrWhiteSpace(osPrefix))
+        {
+            error = "Service runtime bundling is not supported on this operating system.";
+            return false;
+        }
+
+        var architecture = RuntimeInformation.ProcessArchitecture switch
+        {
+            Architecture.X64 => "x64",
+            Architecture.Arm64 => "arm64",
+            _ => string.Empty,
+        };
+
+        if (string.IsNullOrWhiteSpace(architecture))
+        {
+            error = $"Service runtime bundling does not support process architecture '{RuntimeInformation.ProcessArchitecture}'.";
+            return false;
+        }
+
+        runtimeRid = $"{osPrefix}-{architecture}";
+        return true;
+    }
+
+    /// <summary>
+    /// Copies all files from one directory tree to another preserving relative paths.
+    /// </summary>
+    /// <param name="sourceDirectory">Source directory path.</param>
+    /// <param name="destinationDirectory">Destination directory path.</param>
+    private static void CopyDirectoryContents(string sourceDirectory, string destinationDirectory)
+    {
+        _ = Directory.CreateDirectory(destinationDirectory);
+
+        foreach (var sourceFile in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+        {
+            var relativePath = Path.GetRelativePath(sourceDirectory, sourceFile);
+            var destinationPath = Path.Combine(destinationDirectory, relativePath);
+            var destinationFolder = Path.GetDirectoryName(destinationPath);
+            if (!string.IsNullOrWhiteSpace(destinationFolder))
+            {
+                _ = Directory.CreateDirectory(destinationFolder);
+            }
+
+            File.Copy(sourceFile, destinationPath, overwrite: true);
+        }
+    }
+
+    /// <summary>
+    /// Ensures execute permissions are present for service runtime files on Unix platforms.
+    /// </summary>
+    /// <param name="runtimePath">Runtime executable file path.</param>
+    [SupportedOSPlatform("linux")]
+    [SupportedOSPlatform("macos")]
+    private static void TryEnsureServiceRuntimeExecutablePermissions(string runtimePath)
+    {
+        try
+        {
+            var mode = File.GetUnixFileMode(runtimePath);
+            mode |= UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+            File.SetUnixFileMode(runtimePath, mode);
+        }
+        catch
+        {
+            // Ignore permission update failures and let service startup report execution errors if needed.
+        }
     }
 
     /// <summary>
@@ -2026,6 +2807,1303 @@ internal static class Program
     }
 
     /// <summary>
+    /// Parses runner-specific global options and returns arguments to pass into command parsing.
+    /// </summary>
+    /// <param name="args">Raw process arguments.</param>
+    /// <returns>Normalized argument set and global option flags.</returns>
+    private static GlobalOptions ParseGlobalOptions(string[] args)
+    {
+        var commandArgs = new List<string>(args.Length);
+        var skipGalleryCheck = false;
+        var passthroughArguments = false;
+
+        foreach (var arg in args)
+        {
+            if (!passthroughArguments && arg is "--arguments" or "--")
+            {
+                passthroughArguments = true;
+                commandArgs.Add(arg);
+                continue;
+            }
+
+            if (!passthroughArguments && IsNoCheckOption(arg))
+            {
+                skipGalleryCheck = true;
+                continue;
+            }
+
+            commandArgs.Add(arg);
+        }
+
+        return new GlobalOptions([.. commandArgs], skipGalleryCheck);
+    }
+
+    /// <summary>
+    /// Determines whether the token disables gallery version checks.
+    /// </summary>
+    /// <param name="token">Argument token.</param>
+    /// <returns>True when the token disables gallery checks.</returns>
+    private static bool IsNoCheckOption(string token)
+        => string.Equals(token, NoCheckOption, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(token, NoCheckAliasOption, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Executes a module management command.
+    /// </summary>
+    /// <param name="command">Parsed module command.</param>
+    /// <returns>Process exit code.</returns>
+    private static int ManageModuleCommand(ParsedCommand command)
+    {
+        return command.Mode switch
+        {
+            CommandMode.ModuleInstall => ManageModuleFromGallery(ModuleCommandAction.Install, command.ModuleVersion, command.ModuleScope, command.ModuleForce),
+            CommandMode.ModuleUpdate => ManageModuleFromGallery(ModuleCommandAction.Update, command.ModuleVersion, command.ModuleScope, command.ModuleForce),
+            CommandMode.ModuleRemove => ManageModuleFromGallery(ModuleCommandAction.Remove, null, command.ModuleScope, force: false),
+            CommandMode.ModuleInfo => PrintModuleInfo(command.ModuleScope),
+            _ => throw new InvalidOperationException($"Unsupported module mode: {command.Mode}"),
+        };
+    }
+
+    /// <summary>
+    /// Prints module installation details for local and gallery versions.
+    /// </summary>
+    /// <returns>Process exit code.</returns>
+    private static int PrintModuleInfo(ModuleStorageScope scope)
+    {
+        var modulePath = GetPowerShellModulePath(scope);
+        var moduleRoot = Path.Combine(modulePath, ModuleName);
+        var records = GetInstalledModuleRecords(moduleRoot);
+        var latestInstalledVersionText = records.Count > 0 ? records[0].Version : null;
+
+        Console.WriteLine($"Module name: {ModuleName}");
+        Console.WriteLine($"Selected module scope: {GetScopeToken(scope)}");
+        Console.WriteLine($"Module path root: {modulePath}");
+
+        if (records.Count == 0)
+        {
+            Console.WriteLine("Installed versions: none");
+        }
+        else
+        {
+            Console.WriteLine("Installed versions:");
+            foreach (var record in records)
+            {
+                Console.WriteLine($"  - {record.Version} ({Path.GetDirectoryName(record.ManifestPath)})");
+            }
+        }
+
+        if (TryGetLatestGalleryVersionString(out var galleryVersion, out _))
+        {
+            Console.WriteLine($"Latest PowerShell Gallery version: {galleryVersion}");
+
+            if (!string.IsNullOrWhiteSpace(latestInstalledVersionText)
+                && CompareModuleVersionValues(galleryVersion, latestInstalledVersionText) > 0)
+            {
+                Console.WriteLine($"Update available: run '{ProductName} module update'.");
+            }
+        }
+        else
+        {
+            Console.WriteLine("Latest PowerShell Gallery version: unavailable");
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Installs, updates, or removes the Kestrun module in the current-user module path.
+    /// </summary>
+    /// <param name="action">Module action to perform.</param>
+    /// <param name="version">Optional specific module version.</param>
+    /// <param name="scope">Module installation scope.</param>
+    /// <param name="force">When true, update overwrites an existing target version folder.</param>
+    /// <returns>Process exit code.</returns>
+    private static int ManageModuleFromGallery(ModuleCommandAction action, string? version, ModuleStorageScope scope, bool force)
+    {
+        var modulePath = GetPowerShellModulePath(scope);
+        var moduleRoot = Path.Combine(modulePath, ModuleName);
+
+        if (action == ModuleCommandAction.Remove)
+        {
+            if (!TryRemoveInstalledModule(moduleRoot, !Console.IsOutputRedirected, out var removeErrorText))
+            {
+                Console.Error.WriteLine($"Failed to remove '{ModuleName}' module.");
+                if (!string.IsNullOrWhiteSpace(removeErrorText))
+                {
+                    Console.Error.WriteLine(removeErrorText);
+                }
+
+                return 1;
+            }
+
+            Console.WriteLine($"{ModuleName} module removed from {GetScopeToken(scope)} module path.");
+            Console.WriteLine($"Module root: {moduleRoot}");
+            return 0;
+        }
+
+        if (action == ModuleCommandAction.Install
+            && !TryValidateInstallAction(moduleRoot, GetScopeToken(scope), out var installValidationError))
+        {
+            Console.Error.WriteLine(installValidationError);
+            return 1;
+        }
+
+        if (!TryInstallOrUpdateModuleFromGallery(action, version, moduleRoot, !Console.IsOutputRedirected, force, out var installedVersion, out var installedManifestPath, out var errorText))
+        {
+            Console.Error.WriteLine($"Failed to {action.ToString().ToLowerInvariant()} '{ModuleName}' module.");
+            if (!string.IsNullOrWhiteSpace(errorText))
+            {
+                Console.Error.WriteLine(errorText);
+            }
+
+            return 1;
+        }
+
+        var installedPath = Path.GetDirectoryName(installedManifestPath) ?? Path.Combine(moduleRoot, installedVersion);
+        var versionSuffix = string.IsNullOrWhiteSpace(installedVersion)
+            ? string.Empty
+            : $" (version {installedVersion})";
+
+        if (action == ModuleCommandAction.Install)
+        {
+            Console.WriteLine($"{ModuleName} module installed{versionSuffix} to {GetScopeToken(scope)} scope.");
+        }
+        else
+        {
+            Console.WriteLine($"{ModuleName} module updated{versionSuffix} in {GetScopeToken(scope)} scope.");
+        }
+
+        Console.WriteLine($"Module path: {installedPath}");
+        return 0;
+    }
+
+    /// <summary>
+    /// Downloads a module package from PowerShell Gallery and installs it into the user module path.
+    /// </summary>
+    /// <param name="action">Module action being executed.</param>
+    /// <param name="requestedVersion">Optional requested package version.</param>
+    /// <param name="moduleRoot">Root folder for module versions.</param>
+    /// <param name="installedVersion">Installed module version.</param>
+    /// <param name="installedManifestPath">Installed manifest path.</param>
+    /// <param name="errorText">Error details when installation fails.</param>
+    /// <returns>True when install/update succeeds.</returns>
+    private static bool TryInstallOrUpdateModuleFromGallery(
+        ModuleCommandAction action,
+        string? requestedVersion,
+        string moduleRoot,
+        bool showProgress,
+        bool force,
+        out string installedVersion,
+        out string installedManifestPath,
+        out string errorText)
+    {
+        installedVersion = string.Empty;
+        installedManifestPath = string.Empty;
+        errorText = string.Empty;
+
+        if (!TryDownloadModulePackage(requestedVersion, showProgress, out var packageBytes, out var packageVersion, out errorText))
+        {
+            return false;
+        }
+
+        if (action == ModuleCommandAction.Update
+            && !TryValidateUpdateAction(moduleRoot, packageVersion, force, out errorText))
+        {
+            return false;
+        }
+
+        if (!TryExtractModulePackage(packageBytes, packageVersion, moduleRoot, showProgress, force, out installedManifestPath, out errorText))
+        {
+            return false;
+        }
+
+        installedVersion = packageVersion;
+        return true;
+    }
+
+    /// <summary>
+    /// Downloads the Kestrun nupkg package from PowerShell Gallery.
+    /// </summary>
+    /// <param name="requestedVersion">Optional requested package version.</param>
+    /// <param name="packageBytes">Downloaded package payload.</param>
+    /// <param name="packageVersion">Resolved package version from nuspec metadata.</param>
+    /// <param name="errorText">Error details when download fails.</param>
+    /// <returns>True when the package download succeeds.</returns>
+    private static bool TryDownloadModulePackage(
+        string? requestedVersion,
+        bool showProgress,
+        out byte[] packageBytes,
+        out string packageVersion,
+        out string errorText)
+    {
+        packageBytes = [];
+        packageVersion = string.Empty;
+        errorText = string.Empty;
+
+        try
+        {
+            var normalizedVersion = string.IsNullOrWhiteSpace(requestedVersion)
+                ? null
+                : requestedVersion.Trim();
+
+            var packageUrl = string.IsNullOrWhiteSpace(normalizedVersion)
+                ? $"{PowerShellGalleryApiBaseUri}/package/{Uri.EscapeDataString(ModuleName)}"
+                : $"{PowerShellGalleryApiBaseUri}/package/{Uri.EscapeDataString(ModuleName)}/{Uri.EscapeDataString(normalizedVersion)}";
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, packageUrl);
+            using var response = GalleryHttpClient.Send(request, HttpCompletionOption.ResponseHeadersRead);
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode == HttpStatusCode.NotFound)
+                {
+                    if (string.IsNullOrWhiteSpace(normalizedVersion)
+                        && TryGetLatestGalleryVersionString(out var latestVersion, out _)
+                        && !string.IsNullOrWhiteSpace(latestVersion))
+                    {
+                        return TryDownloadModulePackage(latestVersion, showProgress, out packageBytes, out packageVersion, out errorText);
+                    }
+
+                    errorText = string.IsNullOrWhiteSpace(normalizedVersion)
+                        ? $"Module '{ModuleName}' was not found on PowerShell Gallery."
+                        : $"Module '{ModuleName}' version '{normalizedVersion}' was not found on PowerShell Gallery.";
+                    return false;
+                }
+
+                var reason = string.IsNullOrWhiteSpace(response.ReasonPhrase)
+                    ? "Unknown error"
+                    : response.ReasonPhrase;
+                errorText = $"PowerShell Gallery request failed with HTTP {(int)response.StatusCode} ({reason}).";
+                return false;
+            }
+
+            var contentLength = response.Content.Headers.ContentLength;
+            using var responseStream = response.Content.ReadAsStreamAsync().GetAwaiter().GetResult();
+            using var packageStream = contentLength.HasValue && contentLength.Value > 0 && contentLength.Value <= int.MaxValue
+                ? new MemoryStream((int)contentLength.Value)
+                : new MemoryStream();
+
+            using var downloadProgress = showProgress
+                ? new ConsoleProgressBar("Downloading package", contentLength, FormatByteProgressDetail)
+                : null;
+
+            CopyStreamWithProgress(responseStream, packageStream, downloadProgress);
+            packageBytes = packageStream.ToArray();
+            if (packageBytes.Length == 0)
+            {
+                errorText = "Downloaded package was empty.";
+                return false;
+            }
+
+            if (!TryReadPackageVersion(packageBytes, out packageVersion))
+            {
+                if (!string.IsNullOrWhiteSpace(normalizedVersion))
+                {
+                    if (TryNormalizeModuleVersion(normalizedVersion, out packageVersion))
+                    {
+                        return true;
+                    }
+
+                    errorText = $"Unable to normalize package version '{normalizedVersion}' for module folder naming.";
+                    return false;
+                }
+
+                errorText = "Unable to determine package version from downloaded metadata.";
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            errorText = ex.Message;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Validates install preconditions for module install operations.
+    /// </summary>
+    /// <param name="moduleRoot">Root folder for module versions.</param>
+    /// <param name="scopeToken">Module scope token for messaging.</param>
+    /// <param name="errorText">Validation error details when install should not proceed.</param>
+    /// <returns>True when install can proceed.</returns>
+    private static bool TryValidateInstallAction(string moduleRoot, string scopeToken, out string errorText)
+    {
+        errorText = string.Empty;
+        if (GetInstalledModuleRecords(moduleRoot).Count == 0)
+        {
+            return true;
+        }
+
+        errorText = $"{ModuleName} module is already installed in {scopeToken} scope. Use '{ProductName} module update' to update the existing installation.";
+        return false;
+    }
+
+    /// <summary>
+    /// Validates update preconditions for module update operations.
+    /// </summary>
+    /// <param name="moduleRoot">Root folder for module versions.</param>
+    /// <param name="packageVersion">Resolved target package version.</param>
+    /// <param name="force">When true, overwrite is allowed.</param>
+    /// <param name="errorText">Validation error details when update should not proceed.</param>
+    /// <returns>True when update can proceed.</returns>
+    private static bool TryValidateUpdateAction(string moduleRoot, string packageVersion, bool force, out string errorText)
+    {
+        errorText = string.Empty;
+        if (force)
+        {
+            return true;
+        }
+
+        var destinationModuleDirectory = Path.Combine(moduleRoot, packageVersion);
+        if (!Directory.Exists(destinationModuleDirectory))
+        {
+            return true;
+        }
+
+        errorText = $"Module version '{packageVersion}' is already installed at '{destinationModuleDirectory}'. Use '{ProductName} module update {ModuleForceOption}' to overwrite this version.";
+        return false;
+    }
+
+    /// <summary>
+    /// Reads the package version from a nupkg file payload.
+    /// </summary>
+    /// <param name="packageBytes">Package bytes.</param>
+    /// <param name="packageVersion">Parsed package version.</param>
+    /// <returns>True when a version was discovered.</returns>
+    private static bool TryReadPackageVersion(byte[] packageBytes, out string packageVersion)
+    {
+        packageVersion = string.Empty;
+
+        using var stream = new MemoryStream(packageBytes, writable: false);
+        using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: false);
+        var nuspecEntry = archive.Entries.FirstOrDefault(static entry => entry.FullName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase));
+        if (nuspecEntry is null)
+        {
+            return false;
+        }
+
+        using var reader = new StreamReader(nuspecEntry.Open(), Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        var nuspecText = reader.ReadToEnd();
+        if (string.IsNullOrWhiteSpace(nuspecText))
+        {
+            return false;
+        }
+
+        var document = XDocument.Parse(nuspecText);
+        var versionElement = document.Descendants()
+            .FirstOrDefault(static element => string.Equals(element.Name.LocalName, "version", StringComparison.OrdinalIgnoreCase));
+        if (versionElement is null)
+        {
+            return false;
+        }
+
+        packageVersion = versionElement.Value.Trim();
+        return TryNormalizeModuleVersion(packageVersion, out packageVersion);
+    }
+
+    /// <summary>
+    /// Extracts a module package payload and installs it under the versioned module directory.
+    /// </summary>
+    /// <param name="packageBytes">Downloaded package bytes.</param>
+    /// <param name="packageVersion">Package version used for destination folder naming.</param>
+    /// <param name="moduleRoot">Root directory for module versions.</param>
+    /// <param name="installedManifestPath">Installed module manifest path.</param>
+    /// <param name="errorText">Error details when extraction fails.</param>
+    /// <returns>True when package extraction and install succeed.</returns>
+    private static bool TryExtractModulePackage(
+        byte[] packageBytes,
+        string packageVersion,
+        string moduleRoot,
+        bool showProgress,
+        bool allowOverwrite,
+        out string installedManifestPath,
+        out string errorText)
+    {
+        installedManifestPath = string.Empty;
+        errorText = string.Empty;
+
+        if (packageVersion.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            errorText = $"Invalid package version '{packageVersion}' for filesystem install path.";
+            return false;
+        }
+
+        var stagingPath = Path.Combine(Path.GetTempPath(), $"{ProductName}-module-{Guid.NewGuid():N}");
+        var comparisonType = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+        try
+        {
+            _ = Directory.CreateDirectory(stagingPath);
+
+            using var packageStream = new MemoryStream(packageBytes, writable: false);
+            using var archive = new ZipArchive(packageStream, ZipArchiveMode.Read, leaveOpen: false);
+
+            var payloadEntries = new List<(ZipArchiveEntry Entry, string RelativePath)>();
+            foreach (var entry in archive.Entries)
+            {
+                if (TryGetPackagePayloadPath(entry.FullName, out var relativePath))
+                {
+                    payloadEntries.Add((entry, relativePath));
+                }
+            }
+
+            if (payloadEntries.Count == 0)
+            {
+                errorText = "Package did not contain any module payload files.";
+                return false;
+            }
+
+            var shouldStripModulePrefix = payloadEntries.All(static payloadEntry =>
+            {
+                var separatorIndex = payloadEntry.RelativePath.IndexOf('/');
+                return separatorIndex > 0
+                    && string.Equals(payloadEntry.RelativePath[..separatorIndex], ModuleName, StringComparison.OrdinalIgnoreCase);
+            });
+
+            using var extractProgress = showProgress
+                ? new ConsoleProgressBar("Extracting package", payloadEntries.Count, FormatFileProgressDetail)
+                : null;
+            var extractedEntryCount = 0;
+            extractProgress?.Report(0);
+
+            var fullStagingPath = Path.GetFullPath(stagingPath);
+            var fullStagingPathWithSeparator = Path.EndsInDirectorySeparator(fullStagingPath)
+                ? fullStagingPath
+                : fullStagingPath + Path.DirectorySeparatorChar;
+
+            foreach (var payloadEntry in payloadEntries)
+            {
+                var relativePath = payloadEntry.RelativePath;
+                if (shouldStripModulePrefix)
+                {
+                    var separatorIndex = relativePath.IndexOf('/');
+                    relativePath = separatorIndex >= 0
+                        ? relativePath[(separatorIndex + 1)..]
+                        : relativePath;
+                }
+
+                if (string.IsNullOrWhiteSpace(relativePath))
+                {
+                    continue;
+                }
+
+                var destinationPath = Path.GetFullPath(Path.Combine(stagingPath, relativePath));
+                if (!destinationPath.StartsWith(fullStagingPathWithSeparator, comparisonType))
+                {
+                    errorText = $"Package entry '{payloadEntry.Entry.FullName}' resolves outside staging directory.";
+                    return false;
+                }
+
+                var destinationDirectory = Path.GetDirectoryName(destinationPath);
+                if (!string.IsNullOrWhiteSpace(destinationDirectory))
+                {
+                    _ = Directory.CreateDirectory(destinationDirectory);
+                }
+
+                payloadEntry.Entry.ExtractToFile(destinationPath, overwrite: true);
+                extractedEntryCount++;
+                extractProgress?.Report(extractedEntryCount);
+            }
+
+            extractProgress?.Complete(extractedEntryCount);
+
+            var manifestPath = Directory.EnumerateFiles(stagingPath, ModuleManifestFileName, SearchOption.AllDirectories)
+                .FirstOrDefault(static path => path is not null);
+
+            if (string.IsNullOrWhiteSpace(manifestPath))
+            {
+                errorText = $"Package payload did not contain '{ModuleManifestFileName}'.";
+                return false;
+            }
+
+            var sourceModuleDirectory = Path.GetDirectoryName(manifestPath)!;
+            var destinationModuleDirectory = Path.Combine(moduleRoot, packageVersion);
+
+            if (Directory.Exists(destinationModuleDirectory))
+            {
+                if (!allowOverwrite)
+                {
+                    errorText = $"Target module version folder already exists: {destinationModuleDirectory}";
+                    return false;
+                }
+
+                Directory.Delete(destinationModuleDirectory, recursive: true);
+            }
+
+            CopyDirectoryContents(sourceModuleDirectory, destinationModuleDirectory, showProgress);
+
+            installedManifestPath = Path.Combine(destinationModuleDirectory, ModuleManifestFileName);
+            return File.Exists(installedManifestPath);
+        }
+        catch (Exception ex)
+        {
+            errorText = ex.Message;
+            return false;
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(stagingPath))
+                {
+                    Directory.Delete(stagingPath, recursive: true);
+                }
+            }
+            catch
+            {
+                // Cleanup failures are non-fatal for module install flow.
+            }
+        }
+    }
+
+    /// <summary>
+    /// Maps package entry paths to relative module payload paths.
+    /// </summary>
+    /// <param name="entryPath">Original package entry path.</param>
+    /// <param name="relativePath">Mapped relative payload path.</param>
+    /// <returns>True when the entry belongs to module payload content.</returns>
+    private static bool TryGetPackagePayloadPath(string entryPath, out string relativePath)
+    {
+        relativePath = string.Empty;
+        if (string.IsNullOrWhiteSpace(entryPath))
+        {
+            return false;
+        }
+
+        var normalizedPath = entryPath.Replace('\\', '/').TrimStart('/');
+        if (string.IsNullOrWhiteSpace(normalizedPath) || normalizedPath.EndsWith("/", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (normalizedPath.Equals("[Content_Types].xml", StringComparison.OrdinalIgnoreCase)
+            || normalizedPath.StartsWith("_rels/", StringComparison.OrdinalIgnoreCase)
+            || normalizedPath.StartsWith("package/", StringComparison.OrdinalIgnoreCase)
+            || normalizedPath.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (normalizedPath.StartsWith("tools/", StringComparison.OrdinalIgnoreCase))
+        {
+            normalizedPath = normalizedPath["tools/".Length..];
+        }
+        else if (normalizedPath.StartsWith("content/", StringComparison.OrdinalIgnoreCase))
+        {
+            normalizedPath = normalizedPath["content/".Length..];
+        }
+        else if (normalizedPath.StartsWith("contentFiles/any/any/", StringComparison.OrdinalIgnoreCase))
+        {
+            normalizedPath = normalizedPath["contentFiles/any/any/".Length..];
+        }
+
+        relativePath = normalizedPath.TrimStart('/');
+        return !string.IsNullOrWhiteSpace(relativePath);
+    }
+
+    /// <summary>
+    /// Copies all files recursively from one directory to another.
+    /// </summary>
+    /// <param name="sourceDirectory">Source directory.</param>
+    /// <param name="destinationDirectory">Destination directory.</param>
+    /// <param name="showProgress">When true, writes interactive progress bars.</param>
+    private static void CopyDirectoryContents(string sourceDirectory, string destinationDirectory, bool showProgress)
+        => CopyDirectoryContents(sourceDirectory, destinationDirectory, showProgress, "Installing files");
+
+    /// <summary>
+    /// Copies all files recursively from one directory to another.
+    /// </summary>
+    /// <param name="sourceDirectory">Source directory.</param>
+    /// <param name="destinationDirectory">Destination directory.</param>
+    /// <param name="showProgress">When true, writes interactive progress bars.</param>
+    /// <param name="progressLabel">Progress bar label for file copy operations.</param>
+    private static void CopyDirectoryContents(string sourceDirectory, string destinationDirectory, bool showProgress, string progressLabel)
+    {
+        _ = Directory.CreateDirectory(destinationDirectory);
+
+        var sourceFilePaths = Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories).ToList();
+        using var copyProgress = showProgress
+            ? new ConsoleProgressBar(progressLabel, sourceFilePaths.Count, FormatFileProgressDetail)
+            : null;
+        var copiedFiles = 0;
+        copyProgress?.Report(0);
+
+        foreach (var sourceFilePath in sourceFilePaths)
+        {
+            var relativePath = Path.GetRelativePath(sourceDirectory, sourceFilePath);
+            var destinationFilePath = Path.Combine(destinationDirectory, relativePath);
+            var destinationFileDirectory = Path.GetDirectoryName(destinationFilePath);
+            if (!string.IsNullOrWhiteSpace(destinationFileDirectory))
+            {
+                _ = Directory.CreateDirectory(destinationFileDirectory);
+            }
+
+            File.Copy(sourceFilePath, destinationFilePath, overwrite: true);
+            copiedFiles++;
+            copyProgress?.Report(copiedFiles);
+        }
+
+        copyProgress?.Complete(copiedFiles);
+    }
+
+    /// <summary>
+    /// Removes all installed module files and folders for the selected scope.
+    /// </summary>
+    /// <param name="moduleRoot">Module root directory to remove.</param>
+    /// <param name="showProgress">When true, writes interactive progress bars.</param>
+    /// <param name="errorText">Error details when removal fails.</param>
+    /// <returns>True when removal succeeds.</returns>
+    private static bool TryRemoveInstalledModule(string moduleRoot, bool showProgress, out string errorText)
+    {
+        errorText = string.Empty;
+
+        if (!Directory.Exists(moduleRoot))
+        {
+            return true;
+        }
+
+        try
+        {
+            var filePaths = Directory.EnumerateFiles(moduleRoot, "*", SearchOption.AllDirectories).ToList();
+            using var fileProgress = showProgress
+                ? new ConsoleProgressBar("Removing files", filePaths.Count, FormatFileProgressDetail)
+                : null;
+            var removedFiles = 0;
+            fileProgress?.Report(0);
+
+            foreach (var filePath in filePaths)
+            {
+                try
+                {
+                    File.SetAttributes(filePath, FileAttributes.Normal);
+                }
+                catch
+                {
+                    // Best-effort normalization; delete may still succeed without changing attributes.
+                }
+
+                File.Delete(filePath);
+                removedFiles++;
+                fileProgress?.Report(removedFiles);
+            }
+
+            fileProgress?.Complete(removedFiles);
+
+            var directoryPaths = Directory.EnumerateDirectories(moduleRoot, "*", SearchOption.AllDirectories)
+                .OrderByDescending(path => path.Length)
+                .ToList();
+
+            using var directoryProgress = showProgress
+                ? new ConsoleProgressBar("Removing folders", directoryPaths.Count + 1, FormatFileProgressDetail)
+                : null;
+            var removedDirectories = 0;
+            directoryProgress?.Report(0);
+
+            foreach (var directoryPath in directoryPaths)
+            {
+                Directory.Delete(directoryPath, recursive: false);
+                removedDirectories++;
+                directoryProgress?.Report(removedDirectories);
+            }
+
+            Directory.Delete(moduleRoot, recursive: false);
+            removedDirectories++;
+            directoryProgress?.Report(removedDirectories);
+            directoryProgress?.Complete(removedDirectories);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            errorText = ex.Message;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Copies one stream into another while reporting transfer progress.
+    /// </summary>
+    /// <param name="source">Source stream.</param>
+    /// <param name="destination">Destination stream.</param>
+    /// <param name="progress">Optional progress reporter.</param>
+    private static void CopyStreamWithProgress(Stream source, Stream destination, ConsoleProgressBar? progress)
+    {
+        var buffer = new byte[81920];
+        var totalCopied = 0L;
+        progress?.Report(0);
+
+        while (true)
+        {
+            var bytesRead = source.Read(buffer, 0, buffer.Length);
+            if (bytesRead <= 0)
+            {
+                break;
+            }
+
+            destination.Write(buffer, 0, bytesRead);
+            totalCopied += bytesRead;
+            progress?.Report(totalCopied);
+        }
+
+        progress?.Complete(totalCopied);
+    }
+
+    /// <summary>
+    /// Formats byte transfer progress details.
+    /// </summary>
+    /// <param name="current">Current transferred bytes.</param>
+    /// <param name="total">Total bytes when known.</param>
+    /// <returns>Formatted progress text.</returns>
+    private static string FormatByteProgressDetail(long current, long? total)
+        => total.HasValue
+            ? $"{FormatByteSize(current)} / {FormatByteSize(total.Value)}"
+            : FormatByteSize(current);
+
+    /// <summary>
+    /// Formats file count progress details.
+    /// </summary>
+    /// <param name="current">Current processed file count.</param>
+    /// <param name="total">Total file count when known.</param>
+    /// <returns>Formatted progress text.</returns>
+    private static string FormatFileProgressDetail(long current, long? total)
+        => total.HasValue
+            ? $"{current}/{total.Value} files"
+            : $"{current} files";
+
+    /// <summary>
+    /// Formats progress details for service bundle preparation steps.
+    /// </summary>
+    /// <param name="current">Current completed step number.</param>
+    /// <param name="total">Total step count.</param>
+    /// <returns>Formatted step progress detail.</returns>
+    private static string FormatServiceBundleStepProgressDetail(long current, long? total)
+    {
+        var stepLabel = current switch
+        {
+            <= 0 => "initializing",
+            1 => "creating folders",
+            2 => "copying runtime",
+            3 => "copying module",
+            _ => "copying script",
+        };
+
+        return total.HasValue
+            ? $"step {Math.Min(current, total.Value)}/{total.Value} ({stepLabel})"
+            : $"step {current} ({stepLabel})";
+    }
+
+    /// <summary>
+    /// Formats a byte value to a readable unit string.
+    /// </summary>
+    /// <param name="bytes">Byte count.</param>
+    /// <returns>Human-readable byte text.</returns>
+    private static string FormatByteSize(long bytes)
+    {
+        var unitIndex = 0;
+        var value = (double)Math.Max(0, bytes);
+        var units = new[] { "B", "KB", "MB", "GB", "TB" };
+
+        while (value >= 1024d && unitIndex < units.Length - 1)
+        {
+            value /= 1024d;
+            unitIndex++;
+        }
+
+        return unitIndex == 0
+            ? $"{bytes} {units[unitIndex]}"
+            : $"{value:0.##} {units[unitIndex]}";
+    }
+
+    /// <summary>
+    /// Prints an update warning when a newer PowerShell Gallery version exists.
+    /// </summary>
+    /// <param name="moduleManifestPath">Resolved local module manifest path.</param>
+    private static void WarnIfNewerGalleryVersionExists(string moduleManifestPath)
+    {
+        if (!TryGetLatestInstalledModuleVersionText(ModuleStorageScope.Local, out var installedVersion)
+            && !TryGetLatestInstalledModuleVersionText(ModuleStorageScope.Global, out installedVersion)
+            && !TryGetInstalledModuleVersionText(moduleManifestPath, out installedVersion))
+        {
+            return;
+        }
+
+        if (!TryGetLatestGalleryVersionString(out var galleryVersion, out _))
+        {
+            return;
+        }
+
+        if (CompareModuleVersionValues(galleryVersion, installedVersion) <= 0)
+        {
+            return;
+        }
+
+        Console.Error.WriteLine(
+            $"WARNING: A newer {ModuleName} module is available on PowerShell Gallery ({galleryVersion}). "
+            + $"Current version: {installedVersion}. Use '{ProductName} module update' or {NoCheckOption} to suppress this check.");
+    }
+
+    /// <summary>
+    /// Attempts to read the latest installed module version text from a selected scope.
+    /// </summary>
+    /// <param name="scope">Module storage scope.</param>
+    /// <param name="versionText">Installed semantic version text when available.</param>
+    /// <returns>True when an installed version was found in the scope.</returns>
+    private static bool TryGetLatestInstalledModuleVersionText(ModuleStorageScope scope, out string versionText)
+    {
+        versionText = string.Empty;
+
+        var modulePath = GetPowerShellModulePath(scope);
+        var moduleRoot = Path.Combine(modulePath, ModuleName);
+        var records = GetInstalledModuleRecords(moduleRoot);
+        if (records.Count == 0)
+        {
+            return false;
+        }
+
+        versionText = records[0].Version;
+        return !string.IsNullOrWhiteSpace(versionText);
+    }
+
+    /// <summary>
+    /// Attempts to read the local Kestrun module semantic version from manifest metadata.
+    /// </summary>
+    /// <param name="moduleManifestPath">Path to Kestrun.psd1.</param>
+    /// <param name="versionText">Installed semantic version text when available.</param>
+    /// <returns>True when a version was read.</returns>
+    private static bool TryGetInstalledModuleVersionText(string moduleManifestPath, out string versionText)
+    {
+        versionText = string.Empty;
+
+        if (TryReadModuleSemanticVersionFromManifest(moduleManifestPath, out var manifestVersionText))
+        {
+            versionText = manifestVersionText;
+            return true;
+        }
+
+        var versionDirectory = Path.GetFileName(Path.GetDirectoryName(moduleManifestPath));
+        if (TryNormalizeModuleVersion(versionDirectory, out var normalizedVersionDirectory))
+        {
+            versionText = normalizedVersionDirectory;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Attempts to read module semantic version (including prerelease) from a PowerShell module manifest file.
+    /// </summary>
+    /// <param name="manifestPath">Manifest path.</param>
+    /// <param name="versionText">Semantic version text when present.</param>
+    /// <returns>True when semantic version was discovered.</returns>
+    private static bool TryReadModuleSemanticVersionFromManifest(string manifestPath, out string versionText)
+    {
+        versionText = string.Empty;
+        if (!TryReadModuleVersionFromManifest(manifestPath, out var baseVersion))
+        {
+            return false;
+        }
+
+        var semanticVersion = baseVersion;
+        try
+        {
+            var content = File.ReadAllText(manifestPath);
+            var prereleaseMatch = ModulePrereleaseRegex.Match(content);
+            if (prereleaseMatch.Success)
+            {
+                var prereleaseValue = prereleaseMatch.Groups["value"].Value.Trim();
+                if (!string.IsNullOrWhiteSpace(prereleaseValue)
+                    && !baseVersion.Contains('-', StringComparison.Ordinal)
+                    && !baseVersion.Contains('+', StringComparison.Ordinal))
+                {
+                    semanticVersion = $"{baseVersion}-{prereleaseValue}";
+                }
+            }
+        }
+        catch
+        {
+            // Fall back to ModuleVersion when Prerelease inspection fails.
+        }
+
+        versionText = semanticVersion;
+        return !string.IsNullOrWhiteSpace(versionText);
+    }
+
+    /// <summary>
+    /// Attempts to query the latest Kestrun module version string from PowerShell Gallery.
+    /// </summary>
+    /// <param name="version">Latest gallery version string when available.</param>
+    /// <param name="errorText">Error details when discovery fails.</param>
+    /// <returns>True when latest gallery version was discovered.</returns>
+    private static bool TryGetLatestGalleryVersionString(out string version, out string errorText)
+    {
+        version = string.Empty;
+        if (!TryGetGalleryModuleVersions(out var versions, out errorText))
+        {
+            return false;
+        }
+
+        versions.Sort(CompareModuleVersionValues);
+        version = versions[^1];
+        return true;
+    }
+
+    /// <summary>
+    /// Queries all available Kestrun module versions from PowerShell Gallery.
+    /// </summary>
+    /// <param name="versions">Discovered gallery versions.</param>
+    /// <param name="errorText">Error details when discovery fails.</param>
+    /// <returns>True when at least one version was discovered.</returns>
+    private static bool TryGetGalleryModuleVersions(out List<string> versions, out string errorText)
+    {
+        versions = [];
+        errorText = string.Empty;
+
+        try
+        {
+            var requestUri = $"{PowerShellGalleryApiBaseUri}/FindPackagesById()?id='{Uri.EscapeDataString(ModuleName)}'";
+            using var response = GalleryHttpClient.GetAsync(requestUri).GetAwaiter().GetResult();
+            if (!response.IsSuccessStatusCode)
+            {
+                var reason = string.IsNullOrWhiteSpace(response.ReasonPhrase)
+                    ? "Unknown error"
+                    : response.ReasonPhrase;
+                errorText = $"PowerShell Gallery request failed with HTTP {(int)response.StatusCode} ({reason}).";
+                return false;
+            }
+
+            var content = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                errorText = "PowerShell Gallery response was empty.";
+                return false;
+            }
+
+            var document = XDocument.Parse(content);
+            var discoveredVersions = document.Descendants()
+                .Where(static element => string.Equals(element.Name.LocalName, "Version", StringComparison.OrdinalIgnoreCase))
+                .Select(static element => element.Value.Trim())
+                .Where(static versionText => !string.IsNullOrWhiteSpace(versionText))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (discoveredVersions.Count == 0)
+            {
+                errorText = $"Module '{ModuleName}' was not found on PowerShell Gallery.";
+                return false;
+            }
+
+            versions = discoveredVersions;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            errorText = ex.Message;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Creates the shared HTTP client used for PowerShell Gallery requests.
+    /// </summary>
+    /// <returns>Configured HTTP client instance.</returns>
+    private static HttpClient CreateGalleryHttpClient()
+    {
+        var client = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(60),
+        };
+
+        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(ProductName, "1.0"));
+        return client;
+    }
+
+    /// <summary>
+    /// Parses a module version value into a comparable <see cref="Version"/> instance.
+    /// </summary>
+    /// <param name="rawValue">Raw version string.</param>
+    /// <param name="version">Parsed version.</param>
+    /// <returns>True when parsing succeeds.</returns>
+    private static bool TryParseVersionValue(string? rawValue, out Version version)
+    {
+        version = new Version(0, 0);
+        if (string.IsNullOrWhiteSpace(rawValue))
+        {
+            return false;
+        }
+
+        var normalized = rawValue.Trim();
+        var suffixIndex = normalized.IndexOfAny(['-', '+']);
+        if (suffixIndex >= 0)
+        {
+            normalized = normalized[..suffixIndex];
+        }
+
+        if (!Version.TryParse(normalized, out var parsedVersion) || parsedVersion is null)
+        {
+            return false;
+        }
+
+        version = parsedVersion;
+        return true;
+    }
+
+    /// <summary>
+    /// Normalizes a module version value to the stable numeric folder format used by PowerShell module installs.
+    /// </summary>
+    /// <param name="rawValue">Raw version token that may include prerelease/build suffixes.</param>
+    /// <param name="normalizedVersion">Normalized numeric version text.</param>
+    /// <returns>True when normalization succeeds.</returns>
+    private static bool TryNormalizeModuleVersion(string? rawValue, out string normalizedVersion)
+    {
+        normalizedVersion = string.Empty;
+        if (!TryParseVersionValue(rawValue, out var parsedVersion))
+        {
+            return false;
+        }
+
+        normalizedVersion = parsedVersion.ToString();
+        return true;
+    }
+
+    /// <summary>
+    /// Tries to parse a module storage scope token.
+    /// </summary>
+    /// <param name="scopeToken">Scope token.</param>
+    /// <param name="scope">Parsed scope value.</param>
+    /// <returns>True when parsing succeeds.</returns>
+    private static bool TryParseModuleScope(string? scopeToken, out ModuleStorageScope scope)
+    {
+        scope = ModuleStorageScope.Local;
+        if (string.IsNullOrWhiteSpace(scopeToken))
+        {
+            return false;
+        }
+
+        if (string.Equals(scopeToken, ModuleScopeLocalValue, StringComparison.OrdinalIgnoreCase))
+        {
+            scope = ModuleStorageScope.Local;
+            return true;
+        }
+
+        if (string.Equals(scopeToken, ModuleScopeGlobalValue, StringComparison.OrdinalIgnoreCase))
+        {
+            scope = ModuleStorageScope.Global;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Gets a stable scope token for messages and help text.
+    /// </summary>
+    /// <param name="scope">Module storage scope.</param>
+    /// <returns>Normalized scope token.</returns>
+    private static string GetScopeToken(ModuleStorageScope scope)
+        => scope == ModuleStorageScope.Global ? ModuleScopeGlobalValue : ModuleScopeLocalValue;
+
+    /// <summary>
+    /// Compares two module version strings.
+    /// </summary>
+    /// <param name="leftVersion">Left version.</param>
+    /// <param name="rightVersion">Right version.</param>
+    /// <returns>Comparison result compatible with <see cref="IComparer{T}"/>.</returns>
+    private static int CompareModuleVersionValues(string? leftVersion, string? rightVersion)
+    {
+        if (ReferenceEquals(leftVersion, rightVersion))
+        {
+            return 0;
+        }
+
+        if (string.IsNullOrWhiteSpace(leftVersion))
+        {
+            return -1;
+        }
+
+        if (string.IsNullOrWhiteSpace(rightVersion))
+        {
+            return 1;
+        }
+
+        if (TryParseVersionValue(leftVersion, out var leftParsed)
+            && TryParseVersionValue(rightVersion, out var rightParsed))
+        {
+            var comparison = leftParsed.CompareTo(rightParsed);
+            if (comparison != 0)
+            {
+                return comparison;
+            }
+
+            var leftHasPrerelease = HasPrereleaseSuffix(leftVersion);
+            var rightHasPrerelease = HasPrereleaseSuffix(rightVersion);
+            if (leftHasPrerelease != rightHasPrerelease)
+            {
+                return leftHasPrerelease ? -1 : 1;
+            }
+        }
+
+        return string.Compare(leftVersion.Trim(), rightVersion.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Determines whether a module version string includes prerelease suffix data.
+    /// </summary>
+    /// <param name="versionText">Version string to inspect.</param>
+    /// <returns>True when prerelease or build suffix exists.</returns>
+    private static bool HasPrereleaseSuffix(string versionText)
+        => versionText.Contains('-', StringComparison.Ordinal) || versionText.Contains('+', StringComparison.Ordinal);
+
+    /// <summary>
+    /// Reads ModuleVersion from a PowerShell module manifest file.
+    /// </summary>
+    /// <param name="manifestPath">Manifest path.</param>
+    /// <param name="versionText">ModuleVersion text when present.</param>
+    /// <returns>True when ModuleVersion was discovered.</returns>
+    private static bool TryReadModuleVersionFromManifest(string manifestPath, out string versionText)
+    {
+        versionText = string.Empty;
+
+        try
+        {
+            var content = File.ReadAllText(manifestPath);
+            var match = ModuleVersionRegex.Match(content);
+            if (!match.Success)
+            {
+                return false;
+            }
+
+            versionText = match.Groups["value"].Value.Trim();
+            return !string.IsNullOrWhiteSpace(versionText);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Enumerates installed module manifest records from the user module root.
+    /// </summary>
+    /// <param name="moduleRoot">Module root path.</param>
+    /// <returns>Installed module records sorted by version descending.</returns>
+    private static List<InstalledModuleRecord> GetInstalledModuleRecords(string moduleRoot)
+    {
+        var records = new List<InstalledModuleRecord>();
+        if (!Directory.Exists(moduleRoot))
+        {
+            return records;
+        }
+
+        var seenManifestPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var manifestPath in Directory.EnumerateFiles(moduleRoot, ModuleManifestFileName, SearchOption.AllDirectories))
+        {
+            if (!seenManifestPaths.Add(manifestPath))
+            {
+                continue;
+            }
+
+            var versionDirectory = Path.GetFileName(Path.GetDirectoryName(manifestPath));
+            string? versionText = null;
+
+            if (TryReadModuleSemanticVersionFromManifest(manifestPath, out var manifestSemanticVersion))
+            {
+                versionText = manifestSemanticVersion;
+            }
+
+            if (string.IsNullOrWhiteSpace(versionText)
+                && !string.IsNullOrWhiteSpace(versionDirectory)
+                && TryNormalizeModuleVersion(versionDirectory, out var normalizedVersionDirectory))
+            {
+                versionText = normalizedVersionDirectory;
+            }
+
+            if (string.IsNullOrWhiteSpace(versionText))
+            {
+                versionText = versionDirectory;
+            }
+
+            if (string.IsNullOrWhiteSpace(versionText))
+            {
+                continue;
+            }
+
+            records.Add(new InstalledModuleRecord(versionText, manifestPath));
+        }
+
+        records.Sort(static (left, right) => CompareModuleVersionValues(right.Version, left.Version));
+        return records;
+    }
+
+    /// <summary>
+    /// Gets the module storage path for a selected scope.
+    /// </summary>
+    /// <param name="scope">Module storage scope.</param>
+    /// <returns>Absolute module storage path.</returns>
+    private static string GetPowerShellModulePath(ModuleStorageScope scope)
+        => scope == ModuleStorageScope.Global
+            ? GetGlobalPowerShellModulePath()
+            : GetDefaultPowerShellModulePath();
+
+    /// <summary>
+    /// Gets the default all-users PowerShell module path for the active OS.
+    /// </summary>
+    /// <returns>Absolute all-users module path.</returns>
+    private static string GetGlobalPowerShellModulePath()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            var root = string.IsNullOrWhiteSpace(programFiles) ? @"C:\Program Files" : programFiles;
+            return Path.Combine(root, "PowerShell", "Modules");
+        }
+
+        return "/usr/local/share/powershell/Modules";
+    }
+
+    /// <summary>
+    /// Gets the default current-user PowerShell module path for the active OS.
+    /// </summary>
+    /// <returns>Absolute module path.</returns>
+    private static string GetDefaultPowerShellModulePath()
+    {
+        var userHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (OperatingSystem.IsWindows())
+        {
+            var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            var root = string.IsNullOrWhiteSpace(documents) ? userHome : documents;
+            return Path.Combine(root, "PowerShell", "Modules");
+        }
+
+        return Path.Combine(userHome, ".local", "share", "powershell", "Modules");
+    }
+
+    /// <summary>
+    /// Writes a consistent module-not-found message with remediation guidance.
+    /// </summary>
+    /// <param name="kestrunManifestPath">Optional explicit manifest path argument.</param>
+    /// <param name="kestrunFolder">Optional explicit module folder argument.</param>
+    /// <param name="writeLine">Output writer callback.</param>
+    private static void WriteModuleNotFoundMessage(string? kestrunManifestPath, string? kestrunFolder, Action<string> writeLine)
+    {
+        if (!string.IsNullOrWhiteSpace(kestrunManifestPath))
+        {
+            writeLine($"Unable to locate manifest file: {Path.GetFullPath(kestrunManifestPath)}");
+        }
+        else if (!string.IsNullOrWhiteSpace(kestrunFolder))
+        {
+            writeLine($"Unable to locate {ModuleManifestFileName} in folder: {Path.GetFullPath(kestrunFolder)}");
+        }
+        else
+        {
+            writeLine($"Unable to locate {ModuleManifestFileName} under the executable folder or PSModulePath.");
+        }
+
+        writeLine($"No {ModuleName} module was found. Use '{ProductName} module install' to install it from PowerShell Gallery.");
+    }
+
+    /// <summary>
     /// Tries to parse command-line arguments into a concrete command payload.
     /// </summary>
     /// <param name="args">Raw command-line arguments.</param>
@@ -2034,7 +4112,7 @@ internal static class Program
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseArguments(string[] args, out ParsedCommand parsedCommand, out string error)
     {
-        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], null, null, null, null);
+        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], null, null, null, null, null, ModuleStorageScope.Local, false);
         if (args.Length == 0)
         {
             error = $"No command provided. Use '{ProductName} help' to list commands.";
@@ -2091,6 +4169,11 @@ internal static class Program
             return TryParseServiceArguments(args, commandTokenIndex + 1, kestrunFolder, kestrunManifestPath, out parsedCommand, out error);
         }
 
+        if (string.Equals(args[commandTokenIndex], "module", StringComparison.OrdinalIgnoreCase))
+        {
+            return TryParseModuleArguments(args, commandTokenIndex + 1, out parsedCommand, out error);
+        }
+
         error = $"Unknown command: {args[commandTokenIndex]}. Use '{ProductName} help' to list commands.";
         return false;
     }
@@ -2106,7 +4189,7 @@ internal static class Program
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseRunArguments(string[] args, int startIndex, string? kestrunFolder, string? kestrunManifestPath, out ParsedCommand parsedCommand, out string error)
     {
-        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], kestrunFolder, kestrunManifestPath, null, null);
+        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], kestrunFolder, kestrunManifestPath, null, null, null, ModuleStorageScope.Local, false);
         error = string.Empty;
 
         var scriptPathSet = false;
@@ -2186,8 +4269,138 @@ internal static class Program
             scriptPath = DefaultScriptFileName;
         }
 
-        parsedCommand = new ParsedCommand(CommandMode.Run, scriptPath, scriptArguments, kestrunFolder, kestrunManifestPath, null, null);
+        parsedCommand = new ParsedCommand(CommandMode.Run, scriptPath, scriptArguments, kestrunFolder, kestrunManifestPath, null, null, null, ModuleStorageScope.Local, false);
 
+        return true;
+    }
+
+    /// <summary>
+    /// Parses arguments for module install/update/remove/info commands.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="startIndex">Index after module token.</param>
+    /// <param name="parsedCommand">Parsed command payload.</param>
+    /// <param name="error">Error message when parsing fails.</param>
+    /// <returns>True when parsing succeeds.</returns>
+    private static bool TryParseModuleArguments(string[] args, int startIndex, out ParsedCommand parsedCommand, out string error)
+    {
+        parsedCommand = new ParsedCommand(CommandMode.ModuleInfo, string.Empty, [], null, null, null, null, null, ModuleStorageScope.Local, false);
+        error = string.Empty;
+
+        if (startIndex >= args.Length)
+        {
+            error = "Missing module action. Use 'module install', 'module update', 'module remove', or 'module info'.";
+            return false;
+        }
+
+        var actionToken = args[startIndex];
+        var mode = actionToken.ToLowerInvariant() switch
+        {
+            "install" => CommandMode.ModuleInstall,
+            "update" => CommandMode.ModuleUpdate,
+            "remove" => CommandMode.ModuleRemove,
+            "info" => CommandMode.ModuleInfo,
+            _ => (CommandMode?)null,
+        };
+
+        if (mode is null)
+        {
+            error = $"Unknown module action: {actionToken}. Use 'module install', 'module update', 'module remove', or 'module info'.";
+            return false;
+        }
+
+        var index = startIndex + 1;
+        string? moduleVersion = null;
+        var moduleScope = ModuleStorageScope.Local;
+        var moduleScopeSet = false;
+        var moduleForce = false;
+        var moduleForceSet = false;
+        var acceptsVersion = mode is CommandMode.ModuleInstall or CommandMode.ModuleUpdate;
+        while (index < args.Length)
+        {
+            var current = args[index];
+
+            if (current is ModuleScopeOption or "-s")
+            {
+                if (index + 1 >= args.Length)
+                {
+                    error = $"Missing value for {ModuleScopeOption}. Use '{ModuleScopeLocalValue}' or '{ModuleScopeGlobalValue}'.";
+                    return false;
+                }
+
+                if (moduleScopeSet)
+                {
+                    error = $"Module scope was provided multiple times. Use {ModuleScopeOption} once.";
+                    return false;
+                }
+
+                if (!TryParseModuleScope(args[index + 1], out moduleScope))
+                {
+                    error = $"Unknown module scope: {args[index + 1]}. Use '{ModuleScopeLocalValue}' or '{ModuleScopeGlobalValue}'.";
+                    return false;
+                }
+
+                moduleScopeSet = true;
+                index += 2;
+                continue;
+            }
+
+            if (current is ModuleVersionOption or "-v")
+            {
+                if (!acceptsVersion)
+                {
+                    error = $"Module {actionToken} does not accept {ModuleVersionOption}.";
+                    return false;
+                }
+
+                if (index + 1 >= args.Length)
+                {
+                    error = $"Missing value for {ModuleVersionOption}.";
+                    return false;
+                }
+
+                if (!string.IsNullOrWhiteSpace(moduleVersion))
+                {
+                    error = $"Module version was provided multiple times. Use {ModuleVersionOption} once.";
+                    return false;
+                }
+
+                moduleVersion = args[index + 1];
+                index += 2;
+                continue;
+            }
+
+            if (current is ModuleForceOption or "-f")
+            {
+                if (mode != CommandMode.ModuleUpdate)
+                {
+                    error = $"Module {actionToken} does not accept {ModuleForceOption}.";
+                    return false;
+                }
+
+                if (moduleForceSet)
+                {
+                    error = $"{ModuleForceOption} was provided multiple times. Use {ModuleForceOption} once.";
+                    return false;
+                }
+
+                moduleForce = true;
+                moduleForceSet = true;
+                index += 1;
+                continue;
+            }
+
+            if (current.StartsWith("--", StringComparison.Ordinal))
+            {
+                error = $"Unknown option: {current}";
+                return false;
+            }
+
+            error = $"Unexpected argument for module {actionToken}: {current}";
+            return false;
+        }
+
+        parsedCommand = new ParsedCommand(mode.Value, string.Empty, [], null, null, null, null, moduleVersion, moduleScope, moduleForce);
         return true;
     }
 
@@ -2202,7 +4415,7 @@ internal static class Program
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseServiceArguments(string[] args, int startIndex, string? kestrunFolder, string? kestrunManifestPath, out ParsedCommand parsedCommand, out string error)
     {
-        parsedCommand = new ParsedCommand(CommandMode.ServiceInstall, string.Empty, [], kestrunFolder, kestrunManifestPath, null, null);
+        parsedCommand = new ParsedCommand(CommandMode.ServiceInstall, string.Empty, [], kestrunFolder, kestrunManifestPath, null, null, null, ModuleStorageScope.Local, false);
         error = string.Empty;
 
         if (startIndex >= args.Length)
@@ -2356,7 +4569,7 @@ internal static class Program
             scriptPath = DefaultScriptFileName;
         }
 
-        parsedCommand = new ParsedCommand(mode.Value, scriptPath, scriptArguments, kestrunFolder, kestrunManifestPath, serviceName, serviceLogPath);
+        parsedCommand = new ParsedCommand(mode.Value, scriptPath, scriptArguments, kestrunFolder, kestrunManifestPath, serviceName, serviceLogPath, null, ModuleStorageScope.Local, false);
 
         return true;
     }
@@ -2435,7 +4648,7 @@ internal static class Program
     private static bool TryGetHelpTopic(string token, out string topic)
     {
         topic = token.ToLowerInvariant();
-        return topic is "run" or "service" or "info" or "version";
+        return topic is "run" or "service" or "module" or "info" or "version";
     }
 
     /// <summary>
@@ -2454,6 +4667,11 @@ internal static class Program
                 continue;
             }
 
+            if (IsNoCheckOption(args[index]))
+            {
+                continue;
+            }
+
             filtered.Add(args[index]);
         }
 
@@ -2468,14 +4686,19 @@ internal static class Program
         Console.WriteLine("Usage:");
         Console.WriteLine("  kestrun <command> [options]");
         Console.WriteLine();
+        Console.WriteLine("Global options:");
+        Console.WriteLine($"  {NoCheckOption}          Skip PowerShell Gallery update check warnings.");
+        Console.WriteLine();
         Console.WriteLine("Commands:");
         Console.WriteLine("  run       Run a PowerShell script (default script: ./server.ps1)");
+        Console.WriteLine("  module    Manage Kestrun module (install/update/remove/info)");
         Console.WriteLine("  service   Manage service lifecycle (install/remove/start/stop/query)");
         Console.WriteLine("  info      Show runtime/build diagnostics");
         Console.WriteLine("  version   Show tool version");
         Console.WriteLine();
         Console.WriteLine("Help topics:");
         Console.WriteLine("  kestrun run help");
+        Console.WriteLine("  kestrun module help");
         Console.WriteLine("  kestrun service help");
         Console.WriteLine("  kestrun info help");
         Console.WriteLine("  kestrun version help");
@@ -2491,7 +4714,7 @@ internal static class Program
         {
             case "run":
                 Console.WriteLine("Usage:");
-                Console.WriteLine("  kestrun [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] run [--script <main.ps1> | <main.ps1>] [--arguments <script arguments...>]");
+                Console.WriteLine("  kestrun [--nocheck] [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] run [--script <main.ps1> | <main.ps1>] [--arguments <script arguments...>]");
                 Console.WriteLine();
                 Console.WriteLine("Options:");
                 Console.WriteLine("  --script <path>             Optional named script path (alternative to positional <main.ps1>).");
@@ -2502,11 +4725,32 @@ internal static class Program
                 Console.WriteLine("  - If no script is provided, ./server.ps1 is used.");
                 Console.WriteLine("  - Script arguments must be passed after --arguments (or --).");
                 Console.WriteLine("  - Use --kestrun-manifest to pin a specific Kestrun.psd1 file.");
+                Console.WriteLine($"  - If {ModuleName} is missing, run '{ProductName} module install'.");
+                break;
+
+            case "module":
+                Console.WriteLine("Usage:");
+                Console.WriteLine($"  {ProductName} module install [{ModuleVersionOption} <version>] [{ModuleScopeOption} <{ModuleScopeLocalValue}|{ModuleScopeGlobalValue}>]");
+                Console.WriteLine($"  {ProductName} module update [{ModuleVersionOption} <version>] [{ModuleScopeOption} <{ModuleScopeLocalValue}|{ModuleScopeGlobalValue}>] [{ModuleForceOption}]");
+                Console.WriteLine($"  {ProductName} module remove [{ModuleScopeOption} <{ModuleScopeLocalValue}|{ModuleScopeGlobalValue}>]");
+                Console.WriteLine($"  {ProductName} module info [{ModuleScopeOption} <{ModuleScopeLocalValue}|{ModuleScopeGlobalValue}>]");
+                Console.WriteLine();
+                Console.WriteLine("Options:");
+                Console.WriteLine($"  {ModuleVersionOption} <version>      Optional specific version for install/update.");
+                Console.WriteLine($"  {ModuleScopeOption} <scope>         Module storage scope: '{ModuleScopeLocalValue}' (default) or '{ModuleScopeGlobalValue}'.");
+                Console.WriteLine($"  {ModuleForceOption}                 Overwrite existing target version folder for update operations.");
+                Console.WriteLine();
+                Console.WriteLine("Notes:");
+                Console.WriteLine($"  - install: fails when Kestrun is already installed; use '{ProductName} module update'.");
+                Console.WriteLine($"  - update: updates to latest when no --version is provided and fails if the target version folder exists unless {ModuleForceOption} is supplied.");
+                Console.WriteLine("  - remove: removes all installed versions from the selected scope and shows deletion progress in interactive terminals.");
+                Console.WriteLine("  - info: shows installed module versions and latest Gallery version for the selected scope.");
+                Console.WriteLine("  - Windows global scope for install/update/remove prompts for elevation (UAC) when needed.");
                 break;
 
             case "service":
                 Console.WriteLine("Usage:");
-                Console.WriteLine("  kestrun [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --name <service-name> [--service-log-path <path-to-log-file>] [--script <main.ps1> | <main.ps1>] [--arguments <script arguments...>]");
+                Console.WriteLine("  kestrun [--nocheck] [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --name <service-name> [--service-log-path <path-to-log-file>] [--script <main.ps1> | <main.ps1>] [--arguments <script arguments...>]");
                 Console.WriteLine("  kestrun service remove --name <service-name>");
                 Console.WriteLine("  kestrun service start --name <service-name>");
                 Console.WriteLine("  kestrun service stop --name <service-name>");
@@ -2520,7 +4764,11 @@ internal static class Program
                 Console.WriteLine();
                 Console.WriteLine("Notes:");
                 Console.WriteLine("  - install registers the service/daemon but does not auto-start it.");
+                Console.WriteLine("  - install snapshots runtime/module/script into a per-service bundle before registration.");
+                Console.WriteLine("  - install shows progress bars during bundle staging in interactive terminals.");
+                Console.WriteLine("  - bundle roots: Windows %ProgramData%\\Kestrun\\services; Linux /var/kestrun/services or /usr/local/kestrun/services (with user fallback); macOS /usr/local/kestrun/services (with user fallback).");
                 Console.WriteLine("  - remove/start/stop/query require --name and do not accept script paths.");
+                Console.WriteLine($"  - Use '{ProductName} module install' before service install when {ModuleName} is not available.");
                 break;
 
             case "info":

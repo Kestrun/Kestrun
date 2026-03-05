@@ -68,22 +68,9 @@ internal static class Program
             return 2;
         }
 
-        if (ShouldShowHelp(args))
+        if (TryHandleMetaCommands(args, out var metaExitCode))
         {
-            PrintUsage();
-            return 0;
-        }
-
-        if (ShouldShowVersion(args))
-        {
-            PrintVersion();
-            return 0;
-        }
-
-        if (ShouldShowInfo(args))
-        {
-            PrintInfo();
-            return 0;
+            return metaExitCode;
         }
 
         if (!TryParseArguments(args, out var parsedCommand, out var parseError))
@@ -2083,7 +2070,7 @@ internal static class Program
 
         if (args.Length == 0)
         {
-            error = $"No command provided. Use '{ProductName} run <script.ps1> [--arguments ...]' or '{ProductName} service install|remove|start|stop|query --name <service-name>'.";
+            error = $"No command provided. Use '{ProductName} help' to list commands.";
             return false;
         }
 
@@ -2123,7 +2110,7 @@ internal static class Program
 
         if (commandTokenIndex >= args.Length)
         {
-            error = $"No command provided. Use '{ProductName} run <script.ps1> [--arguments ...]' or '{ProductName} service install|remove|start|stop|query --name <service-name>'.";
+            error = $"No command provided. Use '{ProductName} help' to list commands.";
             return false;
         }
 
@@ -2137,7 +2124,7 @@ internal static class Program
             return TryParseServiceArguments(args, commandTokenIndex + 1, kestrunFolder, kestrunManifestPath, out parsedCommand, out error);
         }
 
-        error = $"Unknown command: {args[commandTokenIndex]}. Use '{ProductName} run <script.ps1> [--arguments ...]' or '{ProductName} service install|remove|start|stop|query --name <service-name>'.";
+        error = $"Unknown command: {args[commandTokenIndex]}. Use '{ProductName} help' to list commands.";
         return false;
     }
 
@@ -2368,20 +2355,57 @@ internal static class Program
     }
 
     /// <summary>
-    /// Determines whether the command-line input asks for usage help.
+    /// Handles help/info/version command routing before command parsing.
     /// </summary>
     /// <param name="args">Raw command-line arguments.</param>
-    /// <returns>True when help should be displayed.</returns>
-    private static bool ShouldShowHelp(string[] args)
+    /// <param name="exitCode">Exit code for the handled command.</param>
+    /// <returns>True when a meta command was handled.</returns>
+    private static bool TryHandleMetaCommands(string[] args, out int exitCode)
     {
+        exitCode = 0;
         var filtered = FilterGlobalOptions(args);
         if (filtered.Count == 0)
         {
+            PrintUsage();
             return true;
         }
 
-        if (filtered.Any(IsHelpToken))
+        if (IsHelpToken(filtered[0]) || string.Equals(filtered[0], "help", StringComparison.OrdinalIgnoreCase))
         {
+            if (filtered.Count == 1)
+            {
+                PrintUsage();
+                return true;
+            }
+
+            if (filtered.Count == 2 && TryGetHelpTopic(filtered[1], out var topic))
+            {
+                PrintHelpForTopic(topic);
+                return true;
+            }
+
+            Console.Error.WriteLine("Unknown help topic. Use 'kestrun help' to list available topics.");
+            exitCode = 2;
+            return true;
+        }
+
+        if (filtered.Count == 2
+            && TryGetHelpTopic(filtered[0], out var commandTopic)
+            && (IsHelpToken(filtered[1]) || string.Equals(filtered[1], "help", StringComparison.OrdinalIgnoreCase)))
+        {
+            PrintHelpForTopic(commandTopic);
+            return true;
+        }
+
+        if (filtered.Count == 1 && string.Equals(filtered[0], "version", StringComparison.OrdinalIgnoreCase))
+        {
+            PrintVersion();
+            return true;
+        }
+
+        if (filtered.Count == 1 && string.Equals(filtered[0], "info", StringComparison.OrdinalIgnoreCase))
+        {
+            PrintInfo();
             return true;
         }
 
@@ -2396,25 +2420,15 @@ internal static class Program
     private static bool IsHelpToken(string token) => token is "-h" or "--help" or "/?";
 
     /// <summary>
-    /// Determines whether the command-line input asks for version output.
+    /// Tries to map a help topic token to a known command topic.
     /// </summary>
-    /// <param name="args">Raw command-line arguments.</param>
-    /// <returns>True when version should be displayed.</returns>
-    private static bool ShouldShowVersion(string[] args)
+    /// <param name="token">Input help topic token.</param>
+    /// <param name="topic">Normalized topic when recognized.</param>
+    /// <returns>True when the topic is recognized.</returns>
+    private static bool TryGetHelpTopic(string token, out string topic)
     {
-        var filtered = FilterGlobalOptions(args);
-        return filtered.Count == 1 && filtered[0] is "--version" or "-v";
-    }
-
-    /// <summary>
-    /// Determines whether the command-line input asks for info output.
-    /// </summary>
-    /// <param name="args">Raw command-line arguments.</param>
-    /// <returns>True when info should be displayed.</returns>
-    private static bool ShouldShowInfo(string[] args)
-    {
-        var filtered = FilterGlobalOptions(args);
-        return filtered.Count == 1 && filtered[0] == "--info";
+        topic = token.ToLowerInvariant();
+        return topic is "run" or "service" or "info" or "version";
     }
 
     /// <summary>
@@ -2445,19 +2459,75 @@ internal static class Program
     private static void PrintUsage()
     {
         Console.WriteLine("Usage:");
-        Console.WriteLine("  kestrun [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] run [<main.ps1>] [--arguments <script arguments...>]");
-        Console.WriteLine("  kestrun [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --name <service-name> [--service-log-path <path-to-log-file>] [<main.ps1>] [--arguments <script arguments...>]");
-        Console.WriteLine("  kestrun service remove --name <service-name>");
-        Console.WriteLine("  kestrun service start --name <service-name>");
-        Console.WriteLine("  kestrun service stop --name <service-name>");
-        Console.WriteLine("  kestrun service query --name <service-name>");
-        Console.WriteLine("Runs a PowerShell script after importing Kestrun.psd1 into the runspace.");
-        Console.WriteLine("The run subcommand is required for direct script execution.");
-        Console.WriteLine("If no script is provided, ./server.ps1 is used.");
-        Console.WriteLine("Script arguments must be passed after --arguments (or --).");
-        Console.WriteLine("Service install/remove/start/stop/query manages OS service/daemon entries for the script.");
-        Console.WriteLine("Use --version to show kestrun version, and --info for runtime/build info.");
-        Console.WriteLine("Use --kestrun-manifest to pin a specific Kestrun.psd1 file. If omitted, Kestrun.psd1 is searched under --kestrun-folder, executable folder, then PSModulePath.");
+        Console.WriteLine("  kestrun <command> [options]");
+        Console.WriteLine();
+        Console.WriteLine("Commands:");
+        Console.WriteLine("  run       Run a PowerShell script (default script: ./server.ps1)");
+        Console.WriteLine("  service   Manage service lifecycle (install/remove/start/stop/query)");
+        Console.WriteLine("  info      Show runtime/build diagnostics");
+        Console.WriteLine("  version   Show tool version");
+        Console.WriteLine();
+        Console.WriteLine("Help topics:");
+        Console.WriteLine("  kestrun run help");
+        Console.WriteLine("  kestrun service help");
+        Console.WriteLine("  kestrun info help");
+        Console.WriteLine("  kestrun version help");
+    }
+
+    /// <summary>
+    /// Prints detailed help for a specific topic.
+    /// </summary>
+    /// <param name="topic">Help topic.</param>
+    private static void PrintHelpForTopic(string topic)
+    {
+        switch (topic)
+        {
+            case "run":
+                Console.WriteLine("Usage:");
+                Console.WriteLine("  kestrun [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] run [<main.ps1>] [--arguments <script arguments...>]");
+                Console.WriteLine();
+                Console.WriteLine("Options:");
+                Console.WriteLine("  --kestrun-manifest <path>   Use an explicit Kestrun.psd1 manifest file.");
+                Console.WriteLine("  --arguments <args...>       Pass remaining values to the script as script arguments.");
+                Console.WriteLine();
+                Console.WriteLine("Notes:");
+                Console.WriteLine("  - If no script is provided, ./server.ps1 is used.");
+                Console.WriteLine("  - Script arguments must be passed after --arguments (or --).");
+                Console.WriteLine("  - Use --kestrun-manifest to pin a specific Kestrun.psd1 file.");
+                break;
+
+            case "service":
+                Console.WriteLine("Usage:");
+                Console.WriteLine("  kestrun [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --name <service-name> [--service-log-path <path-to-log-file>] [<main.ps1>] [--arguments <script arguments...>]");
+                Console.WriteLine("  kestrun service remove --name <service-name>");
+                Console.WriteLine("  kestrun service start --name <service-name>");
+                Console.WriteLine("  kestrun service stop --name <service-name>");
+                Console.WriteLine("  kestrun service query --name <service-name>");
+                Console.WriteLine();
+                Console.WriteLine("Options (service install):");
+                Console.WriteLine("  --kestrun-manifest <path>   Use an explicit Kestrun.psd1 manifest for the service runtime.");
+                Console.WriteLine("  --service-log-path <path>   Set service bootstrap/operation log file path.");
+                Console.WriteLine("  --arguments <args...>       Pass remaining values to the installed script.");
+                Console.WriteLine();
+                Console.WriteLine("Notes:");
+                Console.WriteLine("  - install registers the service/daemon but does not auto-start it.");
+                Console.WriteLine("  - remove/start/stop/query require --name and do not accept script paths.");
+                break;
+
+            case "info":
+                Console.WriteLine("Usage:");
+                Console.WriteLine("  kestrun info");
+                Console.WriteLine();
+                Console.WriteLine("Shows runtime and build diagnostics (framework, OS, architecture, and binary paths).");
+                break;
+
+            case "version":
+                Console.WriteLine("Usage:");
+                Console.WriteLine("  kestrun version");
+                Console.WriteLine();
+                Console.WriteLine("Shows the kestrun tool version.");
+                break;
+        }
     }
 
     /// <summary>

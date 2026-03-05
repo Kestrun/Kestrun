@@ -8,6 +8,7 @@ internal static class Program
 {
     private const string ModuleManifestFileName = "Kestrun.psd1";
     private const string ModuleName = "Kestrun";
+    private const string DefaultScriptFileName = "server.ps1";
 
     private static int Main(string[] args)
     {
@@ -167,12 +168,7 @@ internal static class Program
         kestrunFolder = null;
         error = string.Empty;
 
-        if (args.Length == 0)
-        {
-            error = "Missing script file path.";
-            return false;
-        }
-
+        var scriptPathSet = false;
         var index = 0;
         while (index < args.Length)
         {
@@ -190,23 +186,37 @@ internal static class Program
                 continue;
             }
 
+            if (current is "--arguments" or "--")
+            {
+                scriptArguments = [.. args.Skip(index + 1)];
+                index = args.Length;
+                break;
+            }
+
             if (current.StartsWith("--", StringComparison.Ordinal))
             {
                 error = $"Unknown option: {current}";
                 return false;
             }
 
-            break;
+            if (scriptPathSet)
+            {
+                error = "Script arguments must be preceded by --arguments (or --).";
+                return false;
+            }
+
+            scriptPath = current;
+            scriptPathSet = true;
+            index += 1;
+            continue;
         }
 
-        if (index >= args.Length)
+        if (!scriptPathSet)
         {
-            error = "Missing script file path.";
-            return false;
+            // Default to ./server.ps1 when a script path is not explicitly provided.
+            scriptPath = DefaultScriptFileName;
         }
 
-        scriptPath = args[index];
-        scriptArguments = [.. args.Skip(index + 1)];
         return true;
     }
 
@@ -215,15 +225,44 @@ internal static class Program
     /// </summary>
     /// <param name="args">Raw command-line arguments.</param>
     /// <returns>True when help should be displayed.</returns>
-    private static bool ShouldShowHelp(string[] args) => args.Length == 1 && (args[0] is "-h" or "--help" or "/?");
+    private static bool ShouldShowHelp(string[] args)
+    {
+        if (!args.Any(IsHelpToken))
+        {
+            return false;
+        }
+
+        var filtered = new List<string>(args.Length);
+        for (var index = 0; index < args.Length; index++)
+        {
+            if (args[index] is "--kestrun-folder" or "-k")
+            {
+                index += 1;
+                continue;
+            }
+
+            filtered.Add(args[index]);
+        }
+
+        return filtered.Count == 1 && IsHelpToken(filtered[0]);
+    }
+
+    /// <summary>
+    /// Checks whether an argument token requests usage help.
+    /// </summary>
+    /// <param name="token">Command-line token to inspect.</param>
+    /// <returns>True when the token is a help switch.</returns>
+    private static bool IsHelpToken(string token) => token is "-h" or "--help" or "/?";
 
     /// <summary>
     /// Prints command usage and discovery hints.
     /// </summary>
     private static void PrintUsage()
     {
-        Console.WriteLine("Usage: krun [--kestrun-folder <folder>] <main.ps1> [script arguments]");
+        Console.WriteLine("Usage: krun [--kestrun-folder <folder>] [<main.ps1>] [--arguments <script arguments...>]");
         Console.WriteLine("Runs a PowerShell script after importing Kestrun.psd1 into the runspace.");
+        Console.WriteLine("If no script is provided, ./server.ps1 is used.");
+        Console.WriteLine("Script arguments must be passed after --arguments (or --).");
         Console.WriteLine("If --kestrun-folder is omitted, Kestrun.psd1 is searched under the executable folder and then PSModulePath.");
     }
 

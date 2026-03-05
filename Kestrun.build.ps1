@@ -150,7 +150,7 @@ if ($isDebug) {
 $SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath 'Kestrun.sln'
 $KestrunProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun/Kestrun.csproj'
 $KestrunAnnotationsProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Annotations/Kestrun.Annotations.csproj'
-$KestrunScriptRunnerProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.ScriptRunner/Kestrun.ScriptRunner.csproj'
+$KestrunScriptRunnerProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.ServiceWorkflowManager/Kestrun.ServiceWorkflowManager.csproj'
 $ScriptRunnerRuntimeIdentifiers = @('win-x64', 'win-arm64', 'linux-x64', 'linux-arm64', 'osx-x64', 'osx-arm64')
 $ExamplesSolutionFilter = Join-Path -Path $PSScriptRoot -ChildPath 'Examples.slnf'
 
@@ -398,7 +398,8 @@ Add-BuildTask 'Build-ScriptRunner' {
     $legacyRootBinaries = @(
         (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'kestrun'),
         (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'kestrun.exe'),
-        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'Kestrun.ScriptRunner.exe')
+        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'Kestrun.ScriptRunner.exe'),
+        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'Kestrun.ServiceWorkflowManager.exe')
     )
 
     foreach ($legacyRootBinary in $legacyRootBinaries) {
@@ -421,10 +422,23 @@ Add-BuildTask 'Build-ScriptRunner' {
             throw "dotnet publish failed for ScriptRunner runtime '$runtimeIdentifier'."
         }
 
-        $scriptRunnerPublishedBinaryName = if ($runtimeIdentifier -like 'win-*') { 'Kestrun.ScriptRunner.exe' } else { 'Kestrun.ScriptRunner' }
-        $scriptRunnerPublishedBinary = Join-Path -Path $scriptRunnerPublishPath -ChildPath $scriptRunnerPublishedBinaryName
-        if (-not (Test-Path -Path $scriptRunnerPublishedBinary)) {
-            throw "ScriptRunner publish output not found: $scriptRunnerPublishedBinary"
+        $scriptRunnerPublishedBinaryCandidates = if ($runtimeIdentifier -like 'win-*') {
+            @('Kestrun.ServiceWorkflowManager.exe', 'Kestrun.ScriptRunner.exe')
+        } else {
+            @('Kestrun.ServiceWorkflowManager', 'Kestrun.ScriptRunner')
+        }
+
+        $scriptRunnerPublishedBinary = $null
+        foreach ($candidateName in $scriptRunnerPublishedBinaryCandidates) {
+            $candidatePath = Join-Path -Path $scriptRunnerPublishPath -ChildPath $candidateName
+            if (Test-Path -Path $candidatePath) {
+                $scriptRunnerPublishedBinary = $candidatePath
+                break
+            }
+        }
+
+        if (-not $scriptRunnerPublishedBinary) {
+            throw "ScriptRunner publish output not found. Checked: $($scriptRunnerPublishedBinaryCandidates -join ', ') in $scriptRunnerPublishPath"
         }
 
         $runtimeDestinationDirectory = Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'runtimes' -AdditionalChildPath $runtimeIdentifier

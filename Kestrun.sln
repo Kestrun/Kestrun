@@ -33,7 +33,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "CSharp", "CSharp", "{EE222B
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kestrun.Annotations", "src\CSharp\Kestrun.Annotations\Kestrun.Annotations.csproj", "{D1C42847-04B0-4627-BA87-B0EBA64575B5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kestrun.ScriptRunner", "src\CSharp\Kestrun.ScriptRunner\Kestrun.ScriptRunner.csproj", "{A5FD11D7-3CA2-4C0E-BCBA-D17AB5F2E895}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kestrun.ServiceWorkflowManager", "src\CSharp\Kestrun.ServiceWorkflowManager\Kestrun.ServiceWorkflowManager.csproj", "{A5FD11D7-3CA2-4C0E-BCBA-D17AB5F2E895}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

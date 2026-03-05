@@ -1158,7 +1158,7 @@ internal static class Program
     {
         var fullPath = Path.GetFullPath(inputPath);
         if (Directory.Exists(fullPath)
-            || inputPath.EndsWith("\\", StringComparison.Ordinal)
+            || inputPath.EndsWith('\\')
             || inputPath.EndsWith("/", StringComparison.Ordinal))
         {
             return Path.Combine(fullPath, defaultFileName);

@@ -2527,7 +2527,7 @@ internal static class Program
                 Console.WriteLine("  kestrun [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] run [--script <main.ps1> | <main.ps1>] [--arguments <script arguments...>]");
                 Console.WriteLine();
                 Console.WriteLine("Options:");
-                Console.WriteLine("  --script <path>             Optional named script path (alternative to positional <main.ps1>)." );
+                Console.WriteLine("  --script <path>             Optional named script path (alternative to positional <main.ps1>).");
                 Console.WriteLine("  --kestrun-manifest <path>   Use an explicit Kestrun.psd1 manifest file.");
                 Console.WriteLine("  --arguments <args...>       Pass remaining values to the script as script arguments.");
                 Console.WriteLine();
@@ -2546,7 +2546,7 @@ internal static class Program
                 Console.WriteLine("  kestrun service query --name <service-name>");
                 Console.WriteLine();
                 Console.WriteLine("Options (service install):");
-                Console.WriteLine("  --script <path>             Optional named script path (alternative to positional <main.ps1>)." );
+                Console.WriteLine("  --script <path>             Optional named script path (alternative to positional <main.ps1>).");
                 Console.WriteLine("  --kestrun-manifest <path>   Use an explicit Kestrun.psd1 manifest for the service runtime.");
                 Console.WriteLine("  --service-log-path <path>   Set service bootstrap/operation log file path.");
                 Console.WriteLine("  --arguments <args...>       Pass remaining values to the installed script.");

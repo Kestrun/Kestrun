@@ -1,5 +1,6 @@
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using System.Reflection;
 using Microsoft.PowerShell;
 
 namespace Kestrun.ScriptRunner;
@@ -9,12 +10,25 @@ internal static class Program
     private const string ModuleManifestFileName = "Kestrun.psd1";
     private const string ModuleName = "Kestrun";
     private const string DefaultScriptFileName = "server.ps1";
+    private const string ProductName = "kestrun";
 
     private static int Main(string[] args)
     {
         if (ShouldShowHelp(args))
         {
             PrintUsage();
+            return 0;
+        }
+
+        if (ShouldShowVersion(args))
+        {
+            PrintVersion();
+            return 0;
+        }
+
+        if (ShouldShowInfo(args))
+        {
+            PrintInfo();
             return 0;
         }
 
@@ -72,6 +86,8 @@ internal static class Program
     /// <returns>Process exit code.</returns>
     private static int ExecuteScript(string scriptPath, IReadOnlyList<string> scriptArguments, string moduleManifestPath)
     {
+        EnsureNet10Runtime();
+
         var sessionState = InitialSessionState.CreateDefault2();
         if (OperatingSystem.IsWindows())
         {
@@ -83,21 +99,111 @@ internal static class Program
         using var runspace = RunspaceFactory.CreateRunspace(sessionState);
         runspace.Open();
 
+        if (!HasKestrunHostManagerType())
+        {
+            throw new RuntimeException("Failed to import Kestrun module: type Kestrun.KestrunHostManager was not loaded.");
+        }
+
         runspace.SessionStateProxy.SetVariable("__krRunnerScriptPath", scriptPath);
         runspace.SessionStateProxy.SetVariable("__krRunnerScriptArgs", scriptArguments.ToArray());
         runspace.SessionStateProxy.SetVariable("__krRunnerQuiet", true);
+        runspace.SessionStateProxy.SetVariable("__krRunnerManagedConsole", true);
 
         using var powershell = PowerShell.Create();
         powershell.Runspace = runspace;
         // Dot-source the script into the current scope so function metadata used by OpenAPI discovery remains visible.
         _ = powershell.AddScript(". $__krRunnerScriptPath @__krRunnerScriptArgs", useLocalScope: false);
 
-        var output = powershell.Invoke();
+        var stopRequested = false;
+        ConsoleCancelEventHandler cancelHandler = (_, e) =>
+        {
+            e.Cancel = true;
+            if (stopRequested)
+            {
+                return;
+            }
+
+            stopRequested = true;
+            Console.Error.WriteLine("Ctrl+C detected. Stopping Kestrun server...");
+            _ = Task.Run(RequestManagedStopAsync);
+        };
+
+        Console.CancelKeyPress += cancelHandler;
+        IEnumerable<PSObject> output;
+        try
+        {
+            var asyncResult = powershell.BeginInvoke();
+            while (!asyncResult.IsCompleted)
+            {
+                _ = asyncResult.AsyncWaitHandle.WaitOne(200);
+            }
+
+            output = powershell.EndInvoke(asyncResult);
+        }
+        finally
+        {
+            Console.CancelKeyPress -= cancelHandler;
+        }
 
         WriteOutput(output);
         WriteStreams(powershell.Streams);
 
         return powershell.HadErrors ? 1 : 0;
+    }
+
+    /// <summary>
+    /// Ensures the runner is executing on .NET 10.
+    /// </summary>
+    private static void EnsureNet10Runtime()
+    {
+        var framework = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription;
+        if (!framework.Contains(".NET 10", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new RuntimeException($"{ProductName} requires .NET 10 runtime. Current runtime: {framework}");
+        }
+    }
+
+    /// <summary>
+    /// Verifies that the loaded Kestrun assembly contains the expected host manager type.
+    /// </summary>
+    /// <returns>True when the expected Kestrun host manager type is available.</returns>
+    private static bool HasKestrunHostManagerType()
+    {
+        var kestrunAssembly = AppDomain.CurrentDomain
+            .GetAssemblies()
+            .FirstOrDefault(a => string.Equals(a.GetName().Name, "Kestrun", StringComparison.Ordinal));
+
+        return kestrunAssembly?.GetType("Kestrun.KestrunHostManager", throwOnError: false, ignoreCase: false) is not null;
+    }
+
+    /// <summary>
+    /// Requests a graceful stop for all running Kestrun hosts managed in the current process.
+    /// </summary>
+    /// <returns>A task representing the stop attempt.</returns>
+    private static async Task RequestManagedStopAsync()
+    {
+        var hostManagerType = Type.GetType("Kestrun.KestrunHostManager, Kestrun", throwOnError: false, ignoreCase: false);
+        if (hostManagerType is null)
+        {
+            return;
+        }
+
+        var stopAllAsyncMethod = hostManagerType.GetMethod(
+            "StopAllAsync",
+            BindingFlags.Public | BindingFlags.Static,
+            binder: null,
+            types: [typeof(CancellationToken)],
+            modifiers: null);
+        if (stopAllAsyncMethod is not null)
+        {
+            if (stopAllAsyncMethod.Invoke(null, [CancellationToken.None]) is Task stopTask)
+            {
+                await stopTask.ConfigureAwait(false);
+            }
+        }
+
+        var destroyAllMethod = hostManagerType.GetMethod("DestroyAll", BindingFlags.Public | BindingFlags.Static);
+        _ = destroyAllMethod?.Invoke(null, null);
     }
 
     /// <summary>
@@ -170,6 +276,7 @@ internal static class Program
         error = string.Empty;
 
         var scriptPathSet = false;
+        var runCommandSeen = false;
         var index = 0;
         while (index < args.Length)
         {
@@ -187,10 +294,22 @@ internal static class Program
                 continue;
             }
 
+            if (!runCommandSeen)
+            {
+                if (string.Equals(current, "run", StringComparison.OrdinalIgnoreCase))
+                {
+                    runCommandSeen = true;
+                    index += 1;
+                    continue;
+                }
+
+                error = $"Unknown command: {current}. Use '{ProductName} run <script.ps1> [--arguments ...]'.";
+                return false;
+            }
+
             if (current is "--arguments" or "--")
             {
                 scriptArguments = [.. args.Skip(index + 1)];
-                index = args.Length;
                 break;
             }
 
@@ -212,6 +331,12 @@ internal static class Program
             continue;
         }
 
+        if (!runCommandSeen)
+        {
+            error = $"No command provided. Use '{ProductName} run <script.ps1> [--arguments ...]'.";
+            return false;
+        }
+
         if (!scriptPathSet)
         {
             // Default to ./server.ps1 when a script path is not explicitly provided.
@@ -228,11 +353,52 @@ internal static class Program
     /// <returns>True when help should be displayed.</returns>
     private static bool ShouldShowHelp(string[] args)
     {
-        if (!args.Any(IsHelpToken))
+        var filtered = FilterGlobalOptions(args);
+        if (filtered.Count == 0)
         {
-            return false;
+            return true;
         }
 
+        return (filtered.Count == 1 && IsHelpToken(filtered[0]))
+            || (filtered.Count == 2 && string.Equals(filtered[0], "run", StringComparison.OrdinalIgnoreCase) && IsHelpToken(filtered[1]));
+    }
+
+    /// <summary>
+    /// Checks whether an argument token requests usage help.
+    /// </summary>
+    /// <param name="token">Command-line token to inspect.</param>
+    /// <returns>True when the token is a help switch.</returns>
+    private static bool IsHelpToken(string token) => token is "-h" or "--help" or "/?";
+
+    /// <summary>
+    /// Determines whether the command-line input asks for version output.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <returns>True when version should be displayed.</returns>
+    private static bool ShouldShowVersion(string[] args)
+    {
+        var filtered = FilterGlobalOptions(args);
+        return filtered.Count == 1 && filtered[0] is "--version" or "-v";
+    }
+
+    /// <summary>
+    /// Determines whether the command-line input asks for info output.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <returns>True when info should be displayed.</returns>
+    private static bool ShouldShowInfo(string[] args)
+    {
+        var filtered = FilterGlobalOptions(args);
+        return filtered.Count == 1 && filtered[0] == "--info";
+    }
+
+    /// <summary>
+    /// Filters known global options injected by launchers from command-line args.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <returns>Arguments without known global options and their values.</returns>
+    private static List<string> FilterGlobalOptions(string[] args)
+    {
         var filtered = new List<string>(args.Length);
         for (var index = 0; index < args.Length; index++)
         {
@@ -245,26 +411,66 @@ internal static class Program
             filtered.Add(args[index]);
         }
 
-        return filtered.Count == 1 && IsHelpToken(filtered[0]);
+        return filtered;
     }
-
-    /// <summary>
-    /// Checks whether an argument token requests usage help.
-    /// </summary>
-    /// <param name="token">Command-line token to inspect.</param>
-    /// <returns>True when the token is a help switch.</returns>
-    private static bool IsHelpToken(string token) => token is "-h" or "--help" or "/?";
 
     /// <summary>
     /// Prints command usage and discovery hints.
     /// </summary>
     private static void PrintUsage()
     {
-        Console.WriteLine("Usage: krun [--kestrun-folder <folder>] [<main.ps1>] [--arguments <script arguments...>]");
+        Console.WriteLine("Usage: kestrun [--kestrun-folder <folder>] [run] [<main.ps1>] [--arguments <script arguments...>]");
         Console.WriteLine("Runs a PowerShell script after importing Kestrun.psd1 into the runspace.");
+        Console.WriteLine("The run subcommand is preferred for script execution and future command expansion.");
         Console.WriteLine("If no script is provided, ./server.ps1 is used.");
         Console.WriteLine("Script arguments must be passed after --arguments (or --).");
+        Console.WriteLine("Use --version to show kestrun version, and --info for runtime/build info.");
         Console.WriteLine("If --kestrun-folder is omitted, Kestrun.psd1 is searched under the executable folder and then PSModulePath.");
+    }
+
+    /// <summary>
+    /// Prints the ScriptRunner version.
+    /// </summary>
+    private static void PrintVersion()
+    {
+        var version = GetProductVersion();
+        Console.WriteLine($"{ProductName} {version}");
+    }
+
+    /// <summary>
+    /// Prints diagnostic information about the ScriptRunner build and runtime.
+    /// </summary>
+    private static void PrintInfo()
+    {
+        var version = GetProductVersion();
+        var assembly = typeof(Program).Assembly;
+        var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
+
+        Console.WriteLine($"Product: {ProductName}");
+        Console.WriteLine($"Version: {version}");
+        Console.WriteLine($"InformationalVersion: {informationalVersion}");
+        Console.WriteLine($"Framework: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}");
+        Console.WriteLine($"OS: {System.Runtime.InteropServices.RuntimeInformation.OSDescription}");
+        Console.WriteLine($"OSArchitecture: {System.Runtime.InteropServices.RuntimeInformation.OSArchitecture}");
+        Console.WriteLine($"ProcessArchitecture: {System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}");
+        Console.WriteLine($"ExecutableDirectory: {GetExecutableDirectory()}");
+        Console.WriteLine($"BaseDirectory: {Path.GetFullPath(AppContext.BaseDirectory)}");
+    }
+
+    /// <summary>
+    /// Gets the product version from assembly metadata.
+    /// </summary>
+    /// <returns>Product version string.</returns>
+    private static string GetProductVersion()
+    {
+        var assembly = typeof(Program).Assembly;
+        var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+        if (!string.IsNullOrWhiteSpace(informationalVersion))
+        {
+            return informationalVersion;
+        }
+
+        return assembly.GetName().Version?.ToString() ?? "0.0.0";
     }
 
     /// <summary>

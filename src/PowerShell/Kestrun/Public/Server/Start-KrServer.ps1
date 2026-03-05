@@ -42,14 +42,17 @@ function Start-KrServer {
         if (-not $PSBoundParameters.ContainsKey('Quiet')) {
             $effectiveQuiet = [bool]$ExecutionContext.SessionState.PSVariable.GetValue('__krRunnerQuiet', $false)
         }
+        $managedConsole = [bool]$ExecutionContext.SessionState.PSVariable.GetValue('__krRunnerManagedConsole', $false)
 
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
         $hasConsole = $false
         $writeConsole = $false
         try {
-            $null = [Console]::KeyAvailable
-            $hasConsole = $true
+            if (-not $managedConsole) {
+                $null = [Console]::KeyAvailable
+                $hasConsole = $true
+            }
             $writeConsole = -not $effectiveQuiet
         } catch {
             Write-KrLog -Level Information -Message 'No console available; running in non-interactive mode.'

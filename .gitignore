@@ -96,4 +96,6 @@ docs/pwsh/tutorial/examples.zip
 
 /.package
 /src/PowerShell/Kestrun/runtimes
-src/PowerShell/Kestrun/krun.*
+src/PowerShell/Kestrun/kestrun.cmd
+src/PowerShell/Kestrun/kestrun.ps1
+src/PowerShell/Kestrun/kestrun.sh

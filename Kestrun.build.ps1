@@ -201,7 +201,7 @@ Add-BuildTask Help {
     Write-Host '- Clean: Cleans the solution.'
     Write-Host '- Restore: Restores NuGet packages.'
     Write-Host '- Build: Builds the solution.'
-    Write-Host '- Build-ScriptRunner: Publishes krun runtimes and creates krun.cmd / krun.ps1 / krun.sh launchers in src/PowerShell/Kestrun.'
+    Write-Host '- Build-ScriptRunner: Publishes ScriptRunner runtimes and creates kestrun.cmd / kestrun.ps1 / kestrun.sh launchers in src/PowerShell/Kestrun.'
     Write-Host '- Clean-ScriptRunner: Removes ScriptRunner publish artifacts, runtimes, and launcher scripts.'
     Write-Host '- Test: Runs tests and Pester tests.'
     Write-Host '- Package: Packages the solution.'
@@ -260,8 +260,8 @@ Add-BuildTask 'Clean-ScriptRunner' {
     }
 
     $scriptRunnerExecutables = @(
-        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'krun'),
-        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'krun.exe'),
+        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun'),
+        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun.exe'),
         (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'Kestrun.ScriptRunner.exe'),
         (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell' -AdditionalChildPath 'Kestrun.ScriptRunner.exe')
     )
@@ -273,9 +273,9 @@ Add-BuildTask 'Clean-ScriptRunner' {
     }
 
     $scriptRunnerLaunchers = @(
-        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'krun.cmd'),
-        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'krun.ps1'),
-        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'krun.sh')
+        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun.cmd'),
+        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun.ps1'),
+        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun.sh')
     )
 
     foreach ($scriptRunnerLauncher in $scriptRunnerLaunchers) {
@@ -386,7 +386,7 @@ Add-BuildTask 'BuildExamples' {
 }
 
 Add-BuildTask 'Build-ScriptRunner' {
-    Write-Host '🔨 Publishing ScriptRunner (krun) for PowerShell-supported platforms...'
+    Write-Host '🔨 Publishing ScriptRunner (kestrun) for PowerShell-supported platforms...'
 
     $scriptRunnerPublishRoot = Join-Path -Path $PSScriptRoot -ChildPath 'publish' -AdditionalChildPath 'Kestrun.ScriptRunner'
     $scriptRunnerDestinationDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun'
@@ -396,8 +396,8 @@ Add-BuildTask 'Build-ScriptRunner' {
     }
 
     $legacyRootBinaries = @(
-        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'krun'),
-        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'krun.exe'),
+        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'kestrun'),
+        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'kestrun.exe'),
         (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'Kestrun.ScriptRunner.exe')
     )
 
@@ -421,8 +421,8 @@ Add-BuildTask 'Build-ScriptRunner' {
             throw "dotnet publish failed for ScriptRunner runtime '$runtimeIdentifier'."
         }
 
-        $scriptRunnerBinaryName = if ($runtimeIdentifier -like 'win-*') { 'krun.exe' } else { 'krun' }
-        $scriptRunnerPublishedBinary = Join-Path -Path $scriptRunnerPublishPath -ChildPath $scriptRunnerBinaryName
+        $scriptRunnerPublishedBinaryName = if ($runtimeIdentifier -like 'win-*') { 'Kestrun.ScriptRunner.exe' } else { 'Kestrun.ScriptRunner' }
+        $scriptRunnerPublishedBinary = Join-Path -Path $scriptRunnerPublishPath -ChildPath $scriptRunnerPublishedBinaryName
         if (-not (Test-Path -Path $scriptRunnerPublishedBinary)) {
             throw "ScriptRunner publish output not found: $scriptRunnerPublishedBinary"
         }
@@ -432,40 +432,47 @@ Add-BuildTask 'Build-ScriptRunner' {
             New-Item -Path $runtimeDestinationDirectory -ItemType Directory -Force | Out-Null
         }
 
-        $runtimeDestinationBinary = Join-Path -Path $runtimeDestinationDirectory -ChildPath $scriptRunnerBinaryName
+        $runtimeDestinationBinaryName = if ($runtimeIdentifier -like 'win-*') { 'kestrun.exe' } else { 'kestrun' }
+        $runtimeDestinationBinary = Join-Path -Path $runtimeDestinationDirectory -ChildPath $runtimeDestinationBinaryName
         Copy-Item -Path $scriptRunnerPublishedBinary -Destination $runtimeDestinationBinary -Force
         Write-Host "    ✅ Copied to: $runtimeDestinationBinary"
     }
 
-    $cmdLauncherPath = Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'krun.cmd'
-    $ps1LauncherPath = Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'krun.ps1'
-    $shLauncherPath = Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'krun.sh'
+    $cmdLauncherPaths = @(
+        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'kestrun.cmd')
+    )
+    $ps1LauncherPaths = @(
+        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'kestrun.ps1')
+    )
+    $shLauncherPaths = @(
+        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'kestrun.sh')
+    )
 
     $cmdLauncherContent = @'
 @echo off
 setlocal
-set "KRUN_DIR=%~dp0"
-set "KRUN_ARCH=%PROCESSOR_ARCHITECTURE%"
-if /I "%PROCESSOR_ARCHITEW6432%"=="AMD64" set "KRUN_ARCH=AMD64"
-if /I "%PROCESSOR_ARCHITEW6432%"=="ARM64" set "KRUN_ARCH=ARM64"
+set "KESTRUN_DIR=%~dp0"
+set "KESTRUN_ARCH=%PROCESSOR_ARCHITECTURE%"
+if /I "%PROCESSOR_ARCHITEW6432%"=="AMD64" set "KESTRUN_ARCH=AMD64"
+if /I "%PROCESSOR_ARCHITEW6432%"=="ARM64" set "KESTRUN_ARCH=ARM64"
 
-set "KRUN_RID="
-if /I "%KRUN_ARCH%"=="ARM64" set "KRUN_RID=win-arm64"
-if /I "%KRUN_RID%"=="" set "KRUN_RID=win-x64"
+set "KESTRUN_RID="
+if /I "%KESTRUN_ARCH%"=="ARM64" set "KESTRUN_RID=win-arm64"
+if /I "%KESTRUN_RID%"=="" set "KESTRUN_RID=win-x64"
 
-set "KRUN_PATH=%KRUN_DIR%runtimes\%KRUN_RID%\krun.exe"
-if not exist "%KRUN_PATH%" (
-    echo Unable to find ScriptRunner binary: "%KRUN_PATH%" 1>&2
+set "KESTRUN_PATH=%KESTRUN_DIR%runtimes\%KESTRUN_RID%\kestrun.exe"
+if not exist "%KESTRUN_PATH%" (
+    echo Unable to find ScriptRunner binary: "%KESTRUN_PATH%" 1>&2
     exit /b 1
 )
 
-if not "%~1"=="" if not "%~2"=="" if /I not "%~2"=="--arguments" if /I not "%~2"=="--" if /I not "%~2"=="--kestrun-folder" if /I not "%~2"=="-k" if not "%~1:~0,1%"=="-" (
+if /I not "%~1"=="run" if not "%~1"=="" if not "%~2"=="" if /I not "%~2"=="--arguments" if /I not "%~2"=="--" if /I not "%~2"=="--kestrun-folder" if /I not "%~2"=="-k" if not "%~1:~0,1%"=="-" (
     echo Script arguments must be preceded by --arguments ^(or --^). 1>&2
-    echo Example: krun server.ps1 --arguments arg1 arg2 1>&2
+    echo Example: kestrun run server.ps1 --arguments arg1 arg2 1>&2
     exit /b 2
 )
 
-"%KRUN_PATH%" --kestrun-folder "%KRUN_DIR%" %*
+"%KESTRUN_PATH%" --kestrun-folder "%KESTRUN_DIR%" %*
 exit /b %ERRORLEVEL%
 '@
 
@@ -480,35 +487,35 @@ $scriptRoot = Split-Path -Parent $PSCommandPath
 
 if ([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)) {
     $os = 'win'
-    $binaryName = 'krun.exe'
+    $binaryName = 'kestrun.exe'
 } elseif ([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Linux)) {
     $os = 'linux'
-    $binaryName = 'krun'
+    $binaryName = 'kestrun'
 } elseif ([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::OSX)) {
     $os = 'osx'
-    $binaryName = 'krun'
+    $binaryName = 'kestrun'
 } else {
-    throw 'Unsupported operating system for krun launcher.'
+    throw 'Unsupported operating system for kestrun launcher.'
 }
 
 $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
 $rid = "${os}-${arch}"
 $runtimeDirectory = Join-Path -Path $scriptRoot -ChildPath 'runtimes' -AdditionalChildPath $rid
-$krunPath = Join-Path -Path $runtimeDirectory -ChildPath $binaryName
+$kestrunPath = Join-Path -Path $runtimeDirectory -ChildPath $binaryName
 
-if (-not (Test-Path -Path $krunPath)) {
-    throw "Unable to find ScriptRunner binary: $krunPath"
+if (-not (Test-Path -Path $kestrunPath)) {
+    throw "Unable to find ScriptRunner binary: $kestrunPath"
 }
 
 if ($Arguments.Count -ge 2) {
     $first = $Arguments[0]
     $second = $Arguments[1]
-    if (-not $first.StartsWith('-') -and $second -notin @('--arguments', '--', '--kestrun-folder', '-k')) {
-        throw 'Script arguments must be preceded by --arguments (or --). Example: krun server.ps1 --arguments arg1 arg2'
+    if ($first -ne 'run' -and -not $first.StartsWith('-') -and $second -notin @('--arguments', '--', '--kestrun-folder', '-k')) {
+        throw 'Script arguments must be preceded by --arguments (or --). Example: kestrun run server.ps1 --arguments arg1 arg2'
     }
 }
 
-& $krunPath --kestrun-folder $scriptRoot @Arguments
+& $kestrunPath --kestrun-folder $scriptRoot @Arguments
 exit $LASTEXITCODE
 '@
 
@@ -521,31 +528,31 @@ UNAME_S="$(uname -s)"
 UNAME_M="$(uname -m)"
 
 case "$UNAME_S" in
-  Linux) KRUN_OS="linux" ;;
-  Darwin) KRUN_OS="osx" ;;
+    Linux) KESTRUN_OS="linux" ;;
+    Darwin) KESTRUN_OS="osx" ;;
   *)
-    echo "Unsupported OS for krun launcher: $UNAME_S" >&2
+    echo "Unsupported OS for kestrun launcher: $UNAME_S" >&2
     exit 1
     ;;
 esac
 
 case "$UNAME_M" in
-  x86_64|amd64) KRUN_ARCH="x64" ;;
-  aarch64|arm64) KRUN_ARCH="arm64" ;;
+    x86_64|amd64) KESTRUN_ARCH="x64" ;;
+    aarch64|arm64) KESTRUN_ARCH="arm64" ;;
   *)
-    echo "Unsupported architecture for krun launcher: $UNAME_M" >&2
+    echo "Unsupported architecture for kestrun launcher: $UNAME_M" >&2
     exit 1
     ;;
 esac
 
-KRUN_PATH="$SCRIPT_DIR/runtimes/${KRUN_OS}-${KRUN_ARCH}/krun"
-if [ ! -f "$KRUN_PATH" ]; then
-  echo "Unable to find ScriptRunner binary: $KRUN_PATH" >&2
+KESTRUN_PATH="$SCRIPT_DIR/runtimes/${KESTRUN_OS}-${KESTRUN_ARCH}/kestrun"
+if [ ! -f "$KESTRUN_PATH" ]; then
+    echo "Unable to find ScriptRunner binary: $KESTRUN_PATH" >&2
   exit 1
 fi
 
-if [ ! -x "$KRUN_PATH" ]; then
-  chmod +x "$KRUN_PATH" 2>/dev/null || true
+if [ ! -x "$KESTRUN_PATH" ]; then
+    chmod +x "$KESTRUN_PATH" 2>/dev/null || true
 fi
 
 if [ "$#" -ge 2 ]; then
@@ -556,9 +563,10 @@ if [ "$#" -ge 2 ]; then
         *)
             case "$second_arg" in
                 --arguments|--|--kestrun-folder|-k) ;;
+                run) ;;
                 *)
                     echo "Script arguments must be preceded by --arguments (or --)." >&2
-                    echo "Example: krun server.ps1 --arguments arg1 arg2" >&2
+                    echo "Example: kestrun run server.ps1 --arguments arg1 arg2" >&2
                     exit 2
                     ;;
             esac
@@ -566,19 +574,32 @@ if [ "$#" -ge 2 ]; then
     esac
 fi
 
-exec "$KRUN_PATH" --kestrun-folder "$SCRIPT_DIR" "$@"
+exec "$KESTRUN_PATH" --kestrun-folder "$SCRIPT_DIR" "$@"
 '@
 
-    Set-Content -Path $cmdLauncherPath -Value $cmdLauncherContent -Encoding utf8NoBOM
-    Set-Content -Path $ps1LauncherPath -Value $ps1LauncherContent -Encoding utf8NoBOM
+    foreach ($cmdLauncherPath in $cmdLauncherPaths) {
+        Set-Content -Path $cmdLauncherPath -Value $cmdLauncherContent -Encoding utf8NoBOM
+    }
+
+    foreach ($ps1LauncherPath in $ps1LauncherPaths) {
+        Set-Content -Path $ps1LauncherPath -Value $ps1LauncherContent -Encoding utf8NoBOM
+    }
 
     # Keep Unix launcher as LF so shebang and shell parsing work reliably cross-platform.
     $shLauncherContentLf = $shLauncherContent -replace "`r`n", "`n"
-    [System.IO.File]::WriteAllText($shLauncherPath, $shLauncherContentLf, (New-Object System.Text.UTF8Encoding($false)))
+    foreach ($shLauncherPath in $shLauncherPaths) {
+        [System.IO.File]::WriteAllText($shLauncherPath, $shLauncherContentLf, (New-Object System.Text.UTF8Encoding($false)))
+    }
 
-    Write-Host "    ✅ Created launcher: $cmdLauncherPath"
-    Write-Host "    ✅ Created launcher: $ps1LauncherPath"
-    Write-Host "    ✅ Created launcher: $shLauncherPath"
+    foreach ($cmdLauncherPath in $cmdLauncherPaths) {
+        Write-Host "    ✅ Created launcher: $cmdLauncherPath"
+    }
+    foreach ($ps1LauncherPath in $ps1LauncherPaths) {
+        Write-Host "    ✅ Created launcher: $ps1LauncherPath"
+    }
+    foreach ($shLauncherPath in $shLauncherPaths) {
+        Write-Host "    ✅ Created launcher: $shLauncherPath"
+    }
 
     Write-Host '✅ ScriptRunner publish completed for all configured runtimes.'
 }

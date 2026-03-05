@@ -85,6 +85,7 @@ internal static class Program
 
         runspace.SessionStateProxy.SetVariable("__krRunnerScriptPath", scriptPath);
         runspace.SessionStateProxy.SetVariable("__krRunnerScriptArgs", scriptArguments.ToArray());
+        runspace.SessionStateProxy.SetVariable("__krRunnerQuiet", true);
 
         using var powershell = PowerShell.Create();
         powershell.Runspace = runspace;

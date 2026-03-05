@@ -1587,7 +1587,7 @@ internal static class Program
 
             if (c == '"')
             {
-                _ = result.Append('\\', backslashes * 2 + 1);
+                _ = result.Append('\\', (backslashes * 2) + 1);
                 _ = result.Append('"');
                 backslashes = 0;
                 continue;

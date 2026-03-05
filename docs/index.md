@@ -41,6 +41,7 @@ It combines the performance of C# with the flexibility of PowerShell, making it 
 - 👉 **C# API**: [cs/api/](/cs/api/)
 - 📚 **Tutorials**: [pwsh/tutorial/](/pwsh/tutorial/)
 - 📘 **Guides**: [Logging](/guides/)
+- 🛠️ **Dotnet Tool**: [Kestrun CLI (`Kestrun.Tool`)](/guides/tooling)
 
 ## Getting started
 

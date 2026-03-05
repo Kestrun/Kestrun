@@ -2149,6 +2149,20 @@ internal static class Program
         while (index < args.Length)
         {
             var current = args[index];
+            if (current is "--script" && index + 1 < args.Length)
+            {
+                if (scriptPathSet)
+                {
+                    error = "Script path was provided multiple times. Use either positional script path or --script once.";
+                    return false;
+                }
+
+                scriptPath = args[index + 1];
+                scriptPathSet = true;
+                index += 2;
+                continue;
+            }
+
             if (current is "--kestrun-folder" or "-k")
             {
                 if (index + 1 >= args.Length)
@@ -2257,6 +2271,32 @@ internal static class Program
         while (index < args.Length)
         {
             var current = args[index];
+            if (current is "--script")
+            {
+                if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+                {
+                    error = "Service remove/start/stop/query does not accept --script.";
+                    return false;
+                }
+
+                if (index + 1 >= args.Length)
+                {
+                    error = "Missing value for --script.";
+                    return false;
+                }
+
+                if (scriptPathSet)
+                {
+                    error = "Script path was provided multiple times. Use either positional script path or --script once.";
+                    return false;
+                }
+
+                scriptPath = args[index + 1];
+                scriptPathSet = true;
+                index += 2;
+                continue;
+            }
+
             if (current is "--name" or "-n")
             {
                 if (index + 1 >= args.Length)
@@ -2484,9 +2524,10 @@ internal static class Program
         {
             case "run":
                 Console.WriteLine("Usage:");
-                Console.WriteLine("  kestrun [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] run [<main.ps1>] [--arguments <script arguments...>]");
+                Console.WriteLine("  kestrun [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] run [--script <main.ps1> | <main.ps1>] [--arguments <script arguments...>]");
                 Console.WriteLine();
                 Console.WriteLine("Options:");
+                Console.WriteLine("  --script <path>             Optional named script path (alternative to positional <main.ps1>)." );
                 Console.WriteLine("  --kestrun-manifest <path>   Use an explicit Kestrun.psd1 manifest file.");
                 Console.WriteLine("  --arguments <args...>       Pass remaining values to the script as script arguments.");
                 Console.WriteLine();
@@ -2498,13 +2539,14 @@ internal static class Program
 
             case "service":
                 Console.WriteLine("Usage:");
-                Console.WriteLine("  kestrun [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --name <service-name> [--service-log-path <path-to-log-file>] [<main.ps1>] [--arguments <script arguments...>]");
+                Console.WriteLine("  kestrun [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --name <service-name> [--service-log-path <path-to-log-file>] [--script <main.ps1> | <main.ps1>] [--arguments <script arguments...>]");
                 Console.WriteLine("  kestrun service remove --name <service-name>");
                 Console.WriteLine("  kestrun service start --name <service-name>");
                 Console.WriteLine("  kestrun service stop --name <service-name>");
                 Console.WriteLine("  kestrun service query --name <service-name>");
                 Console.WriteLine();
                 Console.WriteLine("Options (service install):");
+                Console.WriteLine("  --script <path>             Optional named script path (alternative to positional <main.ps1>)." );
                 Console.WriteLine("  --kestrun-manifest <path>   Use an explicit Kestrun.psd1 manifest for the service runtime.");
                 Console.WriteLine("  --service-log-path <path>   Set service bootstrap/operation log file path.");
                 Console.WriteLine("  --arguments <args...>       Pass remaining values to the installed script.");

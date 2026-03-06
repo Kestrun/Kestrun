@@ -150,7 +150,8 @@ if ($isDebug) {
 $SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath 'Kestrun.sln'
 $KestrunProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun/Kestrun.csproj'
 $KestrunAnnotationsProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Annotations/Kestrun.Annotations.csproj'
-$KestrunScriptRunnerProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.ServiceWorkflowManager/Kestrun.ServiceWorkflowManager.csproj'
+$KestrunScriptRunnerProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
+$KestrunServiceHostProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.ServiceHost/Kestrun.ServiceHost.csproj'
 $ScriptRunnerRuntimeIdentifiers = @('win-x64', 'win-arm64', 'linux-x64', 'linux-arm64', 'osx-x64', 'osx-arm64')
 $ExamplesSolutionFilter = Join-Path -Path $PSScriptRoot -ChildPath 'Examples.slnf'
 
@@ -201,7 +202,7 @@ Add-BuildTask Help {
     Write-Host '- Clean: Cleans the solution.'
     Write-Host '- Restore: Restores NuGet packages.'
     Write-Host '- Build: Builds the solution.'
-    Write-Host '- Build-ScriptRunner: Publishes ScriptRunner runtimes and creates kestrun.cmd / kestrun.ps1 / kestrun.sh launchers in src/PowerShell/Kestrun.'
+    Write-Host '- Build-ScriptRunner: Publishes ScriptRunner and service-host runtimes and creates kestrun.cmd / kestrun.ps1 / kestrun.sh launchers in src/PowerShell/Kestrun.'
     Write-Host '- Pack-KestrunTool: Packs Kestrun.Tool as a dotnet tool package (kestrun) into artifacts/tool-packages.'
     Write-Host '- Clean-ScriptRunner: Removes ScriptRunner publish artifacts, runtimes, and launcher scripts.'
     Write-Host '- Test: Runs tests and Pester tests.'
@@ -400,7 +401,7 @@ Add-BuildTask 'Build-ScriptRunner' {
         (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'kestrun'),
         (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'kestrun.exe'),
         (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'Kestrun.ScriptRunner.exe'),
-        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'Kestrun.ServiceWorkflowManager.exe')
+        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'Kestrun.Tool.exe')
     )
 
     foreach ($legacyRootBinary in $legacyRootBinaries) {
@@ -414,8 +415,12 @@ Add-BuildTask 'Build-ScriptRunner' {
         Write-Host "  - Publishing for runtime: $runtimeIdentifier" -ForegroundColor DarkCyan
 
         $scriptRunnerPublishPath = Join-Path -Path $scriptRunnerPublishRoot -ChildPath $runtimeIdentifier
+        $serviceHostPublishPath = Join-Path -Path $scriptRunnerPublishRoot -ChildPath "$runtimeIdentifier-service-host"
         if (Test-Path -Path $scriptRunnerPublishPath) {
             Remove-Item -Path $scriptRunnerPublishPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        if (Test-Path -Path $serviceHostPublishPath) {
+            Remove-Item -Path $serviceHostPublishPath -Recurse -Force -ErrorAction SilentlyContinue
         }
 
         dotnet publish "$KestrunScriptRunnerProjectPath" -c $Configuration -r $runtimeIdentifier --self-contained true /p:PackAsTool=false /p:DebugSymbols=false /p:DebugType=None -o "$scriptRunnerPublishPath" -v:$DotNetVerbosity
@@ -423,10 +428,15 @@ Add-BuildTask 'Build-ScriptRunner' {
             throw "dotnet publish failed for ScriptRunner runtime '$runtimeIdentifier'."
         }
 
+        dotnet publish "$KestrunServiceHostProjectPath" -c $Configuration -r $runtimeIdentifier --self-contained true /p:DebugSymbols=false /p:DebugType=None -o "$serviceHostPublishPath" -v:$DotNetVerbosity
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet publish failed for ServiceHost runtime '$runtimeIdentifier'."
+        }
+
         $scriptRunnerPublishedBinaryCandidates = if ($runtimeIdentifier -like 'win-*') {
-            @('Kestrun.ServiceWorkflowManager.exe', 'Kestrun.ScriptRunner.exe')
+            @('Kestrun.Tool.exe', 'Kestrun.ScriptRunner.exe')
         } else {
-            @('Kestrun.ServiceWorkflowManager', 'Kestrun.ScriptRunner')
+            @('Kestrun.Tool', 'Kestrun.ScriptRunner')
         }
 
         $scriptRunnerPublishedBinary = $null
@@ -438,8 +448,27 @@ Add-BuildTask 'Build-ScriptRunner' {
             }
         }
 
+        $serviceHostPublishedBinaryCandidates = if ($runtimeIdentifier -like 'win-*') {
+            @('Kestrun.ServiceHost.exe')
+        } else {
+            @('Kestrun.ServiceHost')
+        }
+
+        $serviceHostPublishedBinary = $null
+        foreach ($candidateName in $serviceHostPublishedBinaryCandidates) {
+            $candidatePath = Join-Path -Path $serviceHostPublishPath -ChildPath $candidateName
+            if (Test-Path -Path $candidatePath) {
+                $serviceHostPublishedBinary = $candidatePath
+                break
+            }
+        }
+
         if (-not $scriptRunnerPublishedBinary) {
             throw "ScriptRunner publish output not found. Checked: $($scriptRunnerPublishedBinaryCandidates -join ', ') in $scriptRunnerPublishPath"
+        }
+
+        if (-not $serviceHostPublishedBinary) {
+            throw "ServiceHost publish output not found. Checked: $($serviceHostPublishedBinaryCandidates -join ', ') in $serviceHostPublishPath"
         }
 
         $runtimeDestinationDirectory = Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'runtimes' -AdditionalChildPath $runtimeIdentifier
@@ -451,6 +480,11 @@ Add-BuildTask 'Build-ScriptRunner' {
         $runtimeDestinationBinary = Join-Path -Path $runtimeDestinationDirectory -ChildPath $runtimeDestinationBinaryName
         Copy-Item -Path $scriptRunnerPublishedBinary -Destination $runtimeDestinationBinary -Force
         Write-Host "    ✅ Copied to: $runtimeDestinationBinary"
+
+        $serviceHostDestinationBinaryName = if ($runtimeIdentifier -like 'win-*') { 'kestrun-service-host.exe' } else { 'kestrun-service-host' }
+        $serviceHostDestinationBinary = Join-Path -Path $runtimeDestinationDirectory -ChildPath $serviceHostDestinationBinaryName
+        Copy-Item -Path $serviceHostPublishedBinary -Destination $serviceHostDestinationBinary -Force
+        Write-Host "    ✅ Copied to: $serviceHostDestinationBinary"
     }
 
     $cmdLauncherPaths = @(
@@ -867,3 +901,4 @@ Add-BuildTask 'Normalize-LineEndings' {
             Write-Host "Normalized line endings in $($_.FullName)"
         }
 }
+

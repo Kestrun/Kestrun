@@ -1,4 +1,4 @@
-namespace Kestrun.ServiceWorkflowManager;
+namespace Kestrun.Tool;
 
 /// <summary>
 /// Writes in-place progress updates for module operations.
@@ -117,3 +117,4 @@ internal sealed class ConsoleProgressBar(string label, long? total, Func<long, l
         return $"[{new string('#', filled)}{new string('-', ProgressBarWidth - filled)}]";
     }
 }
+

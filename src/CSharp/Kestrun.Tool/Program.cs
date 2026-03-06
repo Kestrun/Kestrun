@@ -16,7 +16,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
-namespace Kestrun.ServiceWorkflowManager;
+namespace Kestrun.Tool;
 
 internal static partial class Program
 {
@@ -88,7 +88,8 @@ internal static partial class Program
 
     private sealed record ServiceRegisterOptions(
         string ServiceName,
-        string ExecutablePath,
+        string ServiceHostExecutablePath,
+        string RunnerExecutablePath,
         string ScriptPath,
         string ModuleManifestPath,
         string[] ScriptArguments,
@@ -105,6 +106,7 @@ internal static partial class Program
     private sealed record ServiceBundleLayout(
         string RootPath,
         string RuntimeExecutablePath,
+        string ServiceHostExecutablePath,
         string ScriptPath,
         string ModuleManifestPath);
 
@@ -378,7 +380,8 @@ internal static partial class Program
 
         var index = 1;
         var serviceName = string.Empty;
-        var executablePath = string.Empty;
+        var serviceHostExecutablePath = string.Empty;
+        var runnerExecutablePath = string.Empty;
         var scriptPath = string.Empty;
         var moduleManifestPath = string.Empty;
         var scriptArgs = Array.Empty<string>();
@@ -394,9 +397,24 @@ internal static partial class Program
                 continue;
             }
 
+            if (current is "--service-host-exe" && index + 1 < args.Length)
+            {
+                serviceHostExecutablePath = args[index + 1];
+                index += 2;
+                continue;
+            }
+
+            if (current is "--runner-exe" && index + 1 < args.Length)
+            {
+                runnerExecutablePath = args[index + 1];
+                index += 2;
+                continue;
+            }
+
+            // Backward compatibility for older elevated registration invocations.
             if (current is "--exe" && index + 1 < args.Length)
             {
-                executablePath = args[index + 1];
+                serviceHostExecutablePath = args[index + 1];
                 index += 2;
                 continue;
             }
@@ -438,10 +456,15 @@ internal static partial class Program
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(executablePath))
+        if (string.IsNullOrWhiteSpace(serviceHostExecutablePath))
         {
-            error = "Missing --exe for internal service registration mode.";
+            error = "Missing --service-host-exe for internal service registration mode.";
             return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(runnerExecutablePath))
+        {
+            runnerExecutablePath = serviceHostExecutablePath;
         }
 
         if (string.IsNullOrWhiteSpace(scriptPath))
@@ -456,7 +479,7 @@ internal static partial class Program
             return false;
         }
 
-        options = new ServiceRegisterOptions(serviceName, executablePath, scriptPath, moduleManifestPath, scriptArgs, serviceLogPath);
+        options = new ServiceRegisterOptions(serviceName, serviceHostExecutablePath, runnerExecutablePath, scriptPath, moduleManifestPath, scriptArgs, serviceLogPath);
         return true;
     }
 
@@ -892,22 +915,40 @@ internal static partial class Program
             return 1;
         }
 
-        var runnerArgs = BuildRunnerArgumentsForService(serviceBundle!.ScriptPath, command.ScriptArguments, null, serviceBundle.ModuleManifestPath);
+        if (serviceBundle is null)
+        {
+            Console.Error.WriteLine("Service bundle preparation failed.");
+            return 1;
+        }
+
+        var daemonArgs = BuildDaemonHostArgumentsForService(
+            serviceName,
+            serviceBundle.ServiceHostExecutablePath,
+            serviceBundle.RuntimeExecutablePath,
+            serviceBundle.ScriptPath,
+            serviceBundle.ModuleManifestPath,
+            command.ScriptArguments,
+            command.ServiceLogPath);
         var workingDirectory = Path.GetDirectoryName(serviceBundle.ScriptPath) ?? Environment.CurrentDirectory;
 
         if (OperatingSystem.IsWindows())
         {
-            return InstallWindowsService(command, serviceBundle.RuntimeExecutablePath, serviceBundle.ScriptPath, serviceBundle.ModuleManifestPath);
+            return InstallWindowsService(
+                command,
+                serviceBundle.ServiceHostExecutablePath,
+                serviceBundle.RuntimeExecutablePath,
+                serviceBundle.ScriptPath,
+                serviceBundle.ModuleManifestPath);
         }
 
         if (OperatingSystem.IsLinux())
         {
-            return InstallLinuxUserDaemon(serviceName, serviceBundle.RuntimeExecutablePath, runnerArgs, workingDirectory);
+            return InstallLinuxUserDaemon(serviceName, serviceBundle.ServiceHostExecutablePath, daemonArgs, workingDirectory);
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            return InstallMacLaunchAgent(serviceName, serviceBundle.RuntimeExecutablePath, runnerArgs, workingDirectory);
+            return InstallMacLaunchAgent(serviceName, serviceBundle.ServiceHostExecutablePath, daemonArgs, workingDirectory);
         }
 
         Console.Error.WriteLine("Service installation is not supported on this OS.");
@@ -1105,26 +1146,61 @@ internal static partial class Program
     }
 
     /// <summary>
+    /// Builds command-line arguments for daemon host registration.
+    /// </summary>
+    /// <param name="serviceName">Service name.</param>
+    /// <param name="serviceHostExecutablePath">Service-host executable path.</param>
+    /// <param name="runnerExecutablePath">Runner executable path.</param>
+    /// <param name="scriptPath">Absolute script path.</param>
+    /// <param name="moduleManifestPath">Absolute module manifest path.</param>
+    /// <param name="scriptArguments">Script arguments for run mode.</param>
+    /// <param name="serviceLogPath">Optional service log path.</param>
+    /// <returns>Ordered daemon-host argument tokens.</returns>
+    private static IReadOnlyList<string> BuildDaemonHostArgumentsForService(
+        string serviceName,
+        string serviceHostExecutablePath,
+        string runnerExecutablePath,
+        string scriptPath,
+        string moduleManifestPath,
+        IReadOnlyList<string> scriptArguments,
+        string? serviceLogPath)
+    {
+        if (UsesDedicatedServiceHostExecutable(serviceHostExecutablePath))
+        {
+            return BuildDedicatedServiceHostArguments(serviceName, runnerExecutablePath, scriptPath, moduleManifestPath, scriptArguments, serviceLogPath);
+        }
+
+        return BuildRunnerArgumentsForService(scriptPath, scriptArguments, null, moduleManifestPath);
+    }
+
+    /// <summary>
     /// Installs a Windows service using sc.exe.
     /// </summary>
     /// <param name="command">Parsed service command.</param>
-    /// <param name="exePath">Executable path.</param>
+    /// <param name="serviceHostExecutablePath">Service host executable path.</param>
+    /// <param name="runnerExecutablePath">Runner executable path.</param>
     /// <param name="scriptPath">Bundled script path.</param>
     /// <param name="moduleManifestPath">Bundled module manifest path.</param>
     /// <returns>Process exit code.</returns>
     [SupportedOSPlatform("windows")]
-    private static int InstallWindowsService(ParsedCommand command, string exePath, string scriptPath, string moduleManifestPath)
+    private static int InstallWindowsService(
+        ParsedCommand command,
+        string serviceHostExecutablePath,
+        string runnerExecutablePath,
+        string scriptPath,
+        string moduleManifestPath)
     {
         var serviceName = command.ServiceName!;
         if (!IsWindowsAdministrator())
         {
-            var relaunchArgs = BuildWindowsServiceRegisterArguments(command, exePath, scriptPath, moduleManifestPath);
-            return RelaunchElevatedOnWindows(relaunchArgs, exePath);
+            var relaunchArgs = BuildWindowsServiceRegisterArguments(command, serviceHostExecutablePath, runnerExecutablePath, scriptPath, moduleManifestPath);
+            return RelaunchElevatedOnWindows(relaunchArgs, runnerExecutablePath);
         }
 
         var createResult = CreateWindowsServiceRegistration(
             serviceName,
-            Path.GetFullPath(exePath),
+            Path.GetFullPath(serviceHostExecutablePath),
+            Path.GetFullPath(runnerExecutablePath),
             Path.GetFullPath(scriptPath),
             Path.GetFullPath(moduleManifestPath),
             command.ScriptArguments,
@@ -1153,7 +1229,8 @@ internal static partial class Program
         var serviceName = options.ServiceName;
         var createResult = CreateWindowsServiceRegistration(
             serviceName,
-            Path.GetFullPath(options.ExecutablePath),
+            Path.GetFullPath(options.ServiceHostExecutablePath),
+            Path.GetFullPath(options.RunnerExecutablePath),
             Path.GetFullPath(options.ScriptPath),
             Path.GetFullPath(options.ModuleManifestPath),
             options.ScriptArguments,
@@ -1175,7 +1252,8 @@ internal static partial class Program
     /// Creates a Windows service registration using sc.exe.
     /// </summary>
     /// <param name="serviceName">Service name.</param>
-    /// <param name="executablePath">Executable path.</param>
+    /// <param name="serviceHostExecutablePath">Service-host executable path.</param>
+    /// <param name="runnerExecutablePath">Runner executable path.</param>
     /// <param name="scriptPath">Absolute script path.</param>
     /// <param name="moduleManifestPath">Absolute module manifest path.</param>
     /// <param name="scriptArguments">Script arguments for service-host mode.</param>
@@ -1183,17 +1261,33 @@ internal static partial class Program
     /// <returns>Process result from sc.exe create.</returns>
     private static ProcessResult CreateWindowsServiceRegistration(
         string serviceName,
-        string executablePath,
+        string serviceHostExecutablePath,
+        string runnerExecutablePath,
         string scriptPath,
         string moduleManifestPath,
         IReadOnlyList<string> scriptArguments,
         string? serviceLogPath)
     {
-        var hostArgs = BuildWindowsServiceHostArguments(serviceName, scriptPath, moduleManifestPath, scriptArguments, serviceLogPath);
-        var imagePath = BuildWindowsCommandLine(executablePath, hostArgs);
+        var hostArgs = UsesDedicatedServiceHostExecutable(serviceHostExecutablePath)
+            ? BuildDedicatedServiceHostArguments(serviceName, runnerExecutablePath, scriptPath, moduleManifestPath, scriptArguments, serviceLogPath)
+            : BuildWindowsServiceHostArguments(serviceName, scriptPath, moduleManifestPath, scriptArguments, serviceLogPath);
+
+        var imagePath = BuildWindowsCommandLine(serviceHostExecutablePath, hostArgs);
         return RunProcess(
             "sc.exe",
             ["create", serviceName, "start=", "auto", "binPath=", imagePath, "DisplayName=", serviceName]);
+    }
+
+    /// <summary>
+    /// Determines whether a path refers to the dedicated service-host executable.
+    /// </summary>
+    /// <param name="executablePath">Executable path.</param>
+    /// <returns>True when the executable is the dedicated service host.</returns>
+    private static bool UsesDedicatedServiceHostExecutable(string executablePath)
+    {
+        var fileName = Path.GetFileNameWithoutExtension(executablePath);
+        return string.Equals(fileName, "kestrun-service-host", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileName, "Kestrun.ServiceHost", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -1206,17 +1300,20 @@ internal static partial class Program
     /// <returns>Ordered argument tokens.</returns>
     private static IReadOnlyList<string> BuildWindowsServiceRegisterArguments(
         ParsedCommand command,
-        string executablePath,
+        string serviceHostExecutablePath,
+        string runnerExecutablePath,
         string scriptPath,
         string moduleManifestPath)
     {
-        var arguments = new List<string>(14 + command.ScriptArguments.Length)
+        var arguments = new List<string>(16 + command.ScriptArguments.Length)
         {
             "--service-register",
             "--name",
             command.ServiceName!,
-            "--exe",
-            Path.GetFullPath(executablePath),
+            "--service-host-exe",
+            Path.GetFullPath(serviceHostExecutablePath),
+            "--runner-exe",
+            Path.GetFullPath(runnerExecutablePath),
             "--script",
             Path.GetFullPath(scriptPath),
             "--kestrun-manifest",
@@ -1233,6 +1330,51 @@ internal static partial class Program
         {
             arguments.Add("--arguments");
             arguments.AddRange(command.ScriptArguments);
+        }
+
+        return arguments;
+    }
+
+    /// <summary>
+    /// Builds arguments for the dedicated service-host executable.
+    /// </summary>
+    /// <param name="serviceName">Service name.</param>
+    /// <param name="runnerExecutablePath">Runner executable path.</param>
+    /// <param name="scriptPath">Absolute script path.</param>
+    /// <param name="moduleManifestPath">Manifest path staged for service runtime.</param>
+    /// <param name="scriptArguments">Script arguments forwarded to run mode.</param>
+    /// <param name="serviceLogPath">Optional service log path.</param>
+    /// <returns>Ordered argument tokens.</returns>
+    private static IReadOnlyList<string> BuildDedicatedServiceHostArguments(
+        string serviceName,
+        string runnerExecutablePath,
+        string scriptPath,
+        string moduleManifestPath,
+        IReadOnlyList<string> scriptArguments,
+        string? serviceLogPath)
+    {
+        var arguments = new List<string>(14 + scriptArguments.Count)
+        {
+            "--name",
+            serviceName,
+            "--runner-exe",
+            Path.GetFullPath(runnerExecutablePath),
+            "--script",
+            scriptPath,
+            "--kestrun-manifest",
+            Path.GetFullPath(moduleManifestPath),
+        };
+
+        if (!string.IsNullOrWhiteSpace(serviceLogPath))
+        {
+            arguments.Add("--service-log-path");
+            arguments.Add(Path.GetFullPath(serviceLogPath));
+        }
+
+        if (scriptArguments.Count > 0)
+        {
+            arguments.Add("--arguments");
+            arguments.AddRange(scriptArguments);
         }
 
         return arguments;
@@ -1467,6 +1609,42 @@ internal static partial class Program
     }
 
     /// <summary>
+    /// Tries to resolve a dedicated service-host executable path for the current RID.
+    /// </summary>
+    /// <param name="moduleManifestPath">Path to Kestrun.psd1.</param>
+    /// <param name="serviceHostExecutablePath">Resolved service-host executable path when available.</param>
+    /// <returns>True when a dedicated service-host executable is available.</returns>
+    private static bool TryResolveDedicatedServiceHostExecutableFromModule(string moduleManifestPath, out string serviceHostExecutablePath)
+    {
+        serviceHostExecutablePath = string.Empty;
+        var fullManifestPath = Path.GetFullPath(moduleManifestPath);
+        var moduleRoot = Path.GetDirectoryName(fullManifestPath);
+        if (string.IsNullOrWhiteSpace(moduleRoot) || !Directory.Exists(moduleRoot))
+        {
+            return false;
+        }
+
+        if (!TryGetServiceRuntimeRid(out var runtimeRid, out _))
+        {
+            return false;
+        }
+
+        var hostBinaryName = OperatingSystem.IsWindows() ? "kestrun-service-host.exe" : "kestrun-service-host";
+        foreach (var candidate in EnumerateServiceRuntimeExecutableCandidates(moduleRoot, runtimeRid, hostBinaryName))
+        {
+            if (!File.Exists(candidate))
+            {
+                continue;
+            }
+
+            serviceHostExecutablePath = Path.GetFullPath(candidate);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Enumerates a directory and all parents up to the filesystem root.
     /// </summary>
     /// <param name="startDirectory">Starting directory path.</param>
@@ -1567,9 +1745,20 @@ internal static partial class Program
             completedBundleSteps++;
             bundleProgress?.Report(completedBundleSteps);
 
+            var bundledServiceHostPath = bundledRuntimePath;
+            if (TryResolveDedicatedServiceHostExecutableFromModule(fullManifestPath, out var serviceHostExecutablePath))
+            {
+                bundledServiceHostPath = Path.Combine(runtimeDirectory, Path.GetFileName(serviceHostExecutablePath));
+                File.Copy(serviceHostExecutablePath, bundledServiceHostPath, overwrite: true);
+            }
+
             if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
             {
                 TryEnsureServiceRuntimeExecutablePermissions(bundledRuntimePath);
+                if (!string.Equals(bundledRuntimePath, bundledServiceHostPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    TryEnsureServiceRuntimeExecutablePermissions(bundledServiceHostPath);
+                }
             }
 
             CopyDirectoryContents(moduleRoot, moduleDirectory, showProgress, "Bundling module files");
@@ -1592,6 +1781,7 @@ internal static partial class Program
             serviceBundle = new ServiceBundleLayout(
                 Path.GetFullPath(serviceRoot),
                 Path.GetFullPath(bundledRuntimePath),
+                Path.GetFullPath(bundledServiceHostPath),
                 Path.GetFullPath(bundledScriptPath),
                 Path.GetFullPath(bundledManifestPath));
             return true;
@@ -4908,3 +5098,4 @@ internal static partial class Program
     [GeneratedRegex("^\\s*Prerelease\\s*=\\s*['\\\"](?<value>[^'\\\"]+)['\\\"]", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex MyRegex2();
 }
+

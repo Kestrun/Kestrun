@@ -204,11 +204,11 @@
             "cwd": "${cwd}"
         },
         {
-            "name": "C#: Kestrun.ServiceWorkflowManager",
+            "name": "C#: Kestrun.Tool",
             "type": "dotnet",
             "request": "launch",
-            "projectPath": "${workspaceFolder}\\src\\CSharp\\Kestrun.ServiceWorkflowManager\\Kestrun.ServiceWorkflowManager.csproj",
-            "launchConfigurationId": "TargetFramework=;Kestrun.ServiceWorkflowManager"
+            "projectPath": "${workspaceFolder}\\src\\CSharp\\Kestrun.Tool\\Kestrun.Tool.csproj",
+            "launchConfigurationId": "TargetFramework=;Kestrun.Tool.Service"
         }
     ]
 }

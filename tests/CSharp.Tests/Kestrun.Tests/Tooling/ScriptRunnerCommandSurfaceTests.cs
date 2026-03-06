@@ -602,7 +602,7 @@ public class ScriptRunnerCommandSurfaceTests
             ["service", "install", "--name", "demo"]);
 
         Assert.NotEmpty(result);
-        Assert.EndsWith("Kestrun.ServiceWorkflowManager.dll", result[0], StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith("Kestrun.Tool.dll", result[0], StringComparison.OrdinalIgnoreCase);
         Assert.Equal(["service", "install", "--name", "demo"], result.Skip(1));
     }
 
@@ -821,10 +821,11 @@ public class ScriptRunnerCommandSurfaceTests
     private static Type ResolveProgramType()
     {
         var assembly = AppDomain.CurrentDomain.GetAssemblies()
-            .FirstOrDefault(a => string.Equals(a.GetName().Name, "Kestrun.ServiceWorkflowManager", StringComparison.Ordinal))
-            ?? Assembly.Load("Kestrun.ServiceWorkflowManager");
+            .FirstOrDefault(a => string.Equals(a.GetName().Name, "Kestrun.Tool", StringComparison.Ordinal))
+            ?? Assembly.Load("Kestrun.Tool");
 
-        return assembly.GetType("Kestrun.ServiceWorkflowManager.Program", throwOnError: true, ignoreCase: false)!;
+        return assembly.GetType("Kestrun.Tool.Program", throwOnError: true, ignoreCase: false)!;
     }
 }
 #endif
+

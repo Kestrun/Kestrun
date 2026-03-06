@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
@@ -33,7 +33,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "CSharp", "CSharp", "{EE222B
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kestrun.Annotations", "src\CSharp\Kestrun.Annotations\Kestrun.Annotations.csproj", "{D1C42847-04B0-4627-BA87-B0EBA64575B5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kestrun.ServiceWorkflowManager", "src\CSharp\Kestrun.ServiceWorkflowManager\Kestrun.ServiceWorkflowManager.csproj", "{A5FD11D7-3CA2-4C0E-BCBA-D17AB5F2E895}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kestrun.Tool", "src\CSharp\Kestrun.Tool\Kestrun.Tool.csproj", "{A5FD11D7-3CA2-4C0E-BCBA-D17AB5F2E895}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kestrun.ServiceHost", "src\CSharp\Kestrun.ServiceHost\Kestrun.ServiceHost.csproj", "{23CEA747-DA6B-40AC-879D-3749033D4BDD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -189,6 +191,18 @@ Global
 		{A5FD11D7-3CA2-4C0E-BCBA-D17AB5F2E895}.Release|x64.Build.0 = Release|Any CPU
 		{A5FD11D7-3CA2-4C0E-BCBA-D17AB5F2E895}.Release|x86.ActiveCfg = Release|Any CPU
 		{A5FD11D7-3CA2-4C0E-BCBA-D17AB5F2E895}.Release|x86.Build.0 = Release|Any CPU
+		{23CEA747-DA6B-40AC-879D-3749033D4BDD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{23CEA747-DA6B-40AC-879D-3749033D4BDD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{23CEA747-DA6B-40AC-879D-3749033D4BDD}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{23CEA747-DA6B-40AC-879D-3749033D4BDD}.Debug|x64.Build.0 = Debug|Any CPU
+		{23CEA747-DA6B-40AC-879D-3749033D4BDD}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{23CEA747-DA6B-40AC-879D-3749033D4BDD}.Debug|x86.Build.0 = Debug|Any CPU
+		{23CEA747-DA6B-40AC-879D-3749033D4BDD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{23CEA747-DA6B-40AC-879D-3749033D4BDD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{23CEA747-DA6B-40AC-879D-3749033D4BDD}.Release|x64.ActiveCfg = Release|Any CPU
+		{23CEA747-DA6B-40AC-879D-3749033D4BDD}.Release|x64.Build.0 = Release|Any CPU
+		{23CEA747-DA6B-40AC-879D-3749033D4BDD}.Release|x86.ActiveCfg = Release|Any CPU
+		{23CEA747-DA6B-40AC-879D-3749033D4BDD}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -206,8 +220,10 @@ Global
 		{EE222B14-4095-D8D2-8B9B-4218DD5B4CA2} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{D1C42847-04B0-4627-BA87-B0EBA64575B5} = {EE222B14-4095-D8D2-8B9B-4218DD5B4CA2}
 		{A5FD11D7-3CA2-4C0E-BCBA-D17AB5F2E895} = {EE222B14-4095-D8D2-8B9B-4218DD5B4CA2}
+		{23CEA747-DA6B-40AC-879D-3749033D4BDD} = {EE222B14-4095-D8D2-8B9B-4218DD5B4CA2}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {A5A8405A-3496-4792-BBE8-72C4C659DF34}
 	EndGlobalSection
 EndGlobal
+

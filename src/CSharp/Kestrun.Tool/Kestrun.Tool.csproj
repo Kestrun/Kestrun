@@ -3,11 +3,11 @@
         <OutputType>Exe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
         <RollForward>Major</RollForward>
-        <AssemblyName>Kestrun.ServiceWorkflowManager</AssemblyName>
-        <RootNamespace>Kestrun.ServiceWorkflowManager</RootNamespace>
-        <AssemblyTitle>Kestrun.ServiceWorkflowManager</AssemblyTitle>
-        <Product>Kestrun.ServiceWorkflowManager</Product>
-        <Description>Kestrun service workflow manager for script-hosted service lifecycle operations.</Description>
+        <AssemblyName>Kestrun.Tool</AssemblyName>
+        <RootNamespace>Kestrun.Tool</RootNamespace>
+        <AssemblyTitle>Kestrun.Tool</AssemblyTitle>
+        <Product>Kestrun.Tool</Product>
+        <Description>Kestrun CLI tool for script-hosted service lifecycle operations.</Description>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>true</IsPackable>
@@ -42,3 +42,4 @@
         <None Include="../../../LICENSE.txt" Pack="true" PackagePath="\" />
     </ItemGroup>
 </Project>
+

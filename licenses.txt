@@ -32,151 +32,151 @@ license Type:MS-PL OR Apache-2.0
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.Certificate
-Version:8.0.23
+Version:8.0.24
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to support certificate authentication.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/568fff703254def7dcd35fda9892bf702d4c81d3
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/159901324421e89ca7612465fc8c138609837f3d
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.Certificate
-Version:9.0.12
+Version:9.0.13
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to support certificate authentication.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/f736effe82a61eb6f5eba46e4173eae3b7d3dffd
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/087328de5f1e0067be48d87295ae8d92064a1535
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.Certificate
-Version:10.0.1
+Version:10.0.2
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to support certificate authentication.
 
-This package was built from the source code at https://github.com/dotnet/dotnet/tree/fad253f51b461736dfd3cd9c15977bb7493becef
+This package was built from the source code at https://github.com/dotnet/dotnet/tree/44525024595742ebe09023abe709df51de65009b
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.JwtBearer
-Version:8.0.23
+Version:8.0.24
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to receive an OpenID Connect bearer token.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/568fff703254def7dcd35fda9892bf702d4c81d3
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/159901324421e89ca7612465fc8c138609837f3d
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.JwtBearer
-Version:9.0.12
+Version:9.0.13
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to receive an OpenID Connect bearer token.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/f736effe82a61eb6f5eba46e4173eae3b7d3dffd
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/087328de5f1e0067be48d87295ae8d92064a1535
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.JwtBearer
-Version:10.0.1
+Version:10.0.2
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to receive an OpenID Connect bearer token.
 
-This package was built from the source code at https://github.com/dotnet/dotnet/tree/fad253f51b461736dfd3cd9c15977bb7493becef
+This package was built from the source code at https://github.com/dotnet/dotnet/tree/44525024595742ebe09023abe709df51de65009b
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.Negotiate
-Version:8.0.23
+Version:8.0.24
 project URL:https://asp.net/
 Description:ASP.NET Core authentication handler used to authenticate requests using Negotiate, Kerberos, or NTLM.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/568fff703254def7dcd35fda9892bf702d4c81d3
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/159901324421e89ca7612465fc8c138609837f3d
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.Negotiate
-Version:9.0.12
+Version:9.0.13
 project URL:https://asp.net/
 Description:ASP.NET Core authentication handler used to authenticate requests using Negotiate, Kerberos, or NTLM.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/f736effe82a61eb6f5eba46e4173eae3b7d3dffd
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/087328de5f1e0067be48d87295ae8d92064a1535
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.Negotiate
-Version:10.0.0
+Version:10.0.2
 project URL:https://asp.net/
 Description:ASP.NET Core authentication handler used to authenticate requests using Negotiate, Kerberos, or NTLM.
 
-This package was built from the source code at https://github.com/dotnet/dotnet/tree/b0f34d51fccc69fd334253924abd8d6853fad7aa
+This package was built from the source code at https://github.com/dotnet/dotnet/tree/44525024595742ebe09023abe709df51de65009b
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.OpenIdConnect
-Version:8.0.23
+Version:8.0.24
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to support the OpenID Connect authentication workflow.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/568fff703254def7dcd35fda9892bf702d4c81d3
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/159901324421e89ca7612465fc8c138609837f3d
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.OpenIdConnect
-Version:9.0.12
+Version:9.0.13
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to support the OpenID Connect authentication workflow.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/f736effe82a61eb6f5eba46e4173eae3b7d3dffd
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/087328de5f1e0067be48d87295ae8d92064a1535
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.OpenIdConnect
-Version:10.0.1
+Version:10.0.2
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to support the OpenID Connect authentication workflow.
 
-This package was built from the source code at https://github.com/dotnet/dotnet/tree/fad253f51b461736dfd3cd9c15977bb7493becef
+This package was built from the source code at https://github.com/dotnet/dotnet/tree/44525024595742ebe09023abe709df51de65009b
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation
-Version:8.0.23
+Version:8.0.24
 project URL:https://asp.net/
 Description:Runtime compilation support for Razor views and Razor Pages in ASP.NET Core MVC.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/568fff703254def7dcd35fda9892bf702d4c81d3
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/159901324421e89ca7612465fc8c138609837f3d
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation
-Version:9.0.12
+Version:9.0.13
 project URL:https://asp.net/
 Description:Runtime compilation support for Razor views and Razor Pages in ASP.NET Core MVC.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/f736effe82a61eb6f5eba46e4173eae3b7d3dffd
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/087328de5f1e0067be48d87295ae8d92064a1535
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation
-Version:10.0.1
+Version:10.0.2
 project URL:https://asp.net/
 Description:Runtime compilation support for Razor views and Razor Pages in ASP.NET Core MVC.
 
-This package was built from the source code at https://github.com/dotnet/dotnet/tree/fad253f51b461736dfd3cd9c15977bb7493becef
+This package was built from the source code at https://github.com/dotnet/dotnet/tree/44525024595742ebe09023abe709df51de65009b
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -226,7 +226,7 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.CodeAnalysis
-Version:4.14.0
+Version:5.0.0
 project URL:https://github.com/dotnet/roslyn
 Description:.NET Compiler Platform ("Roslyn").
 
@@ -238,7 +238,7 @@ Description:.NET Compiler Platform ("Roslyn").
       - "Microsoft.CodeAnalysis.VisualBasic (only the VB compiler)
     
       More details at https://aka.ms/roslyn-packages
-      This package was built from the source at https://github.com/dotnet/roslyn/commit/8edf7bcd4f1594c3d68a6a567469f41dbd33dd1b.
+      This package was built from the source at https://github.com/dotnet/roslyn/commit/6c4a46a31302167b425d5e0a31ea83c9a9aa1d09.
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -274,12 +274,12 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.CodeAnalysis.CSharp
-Version:4.14.0
+Version:5.0.0
 project URL:https://github.com/dotnet/roslyn
 Description:.NET Compiler Platform ("Roslyn") support for C#, Microsoft.CodeAnalysis.CSharp.dll.
     
       More details at https://aka.ms/roslyn-packages
-      This package was built from the source at https://github.com/dotnet/roslyn/commit/8edf7bcd4f1594c3d68a6a567469f41dbd33dd1b.
+      This package was built from the source at https://github.com/dotnet/roslyn/commit/6c4a46a31302167b425d5e0a31ea83c9a9aa1d09.
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -307,12 +307,12 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.CodeAnalysis.CSharp.Scripting
-Version:4.14.0
+Version:5.0.0
 project URL:https://github.com/dotnet/roslyn
 Description:Microsoft .NET Compiler Platform ("Roslyn") CSharp scripting package.
     
       More details at https://aka.ms/roslyn-packages
-      This package was built from the source at https://github.com/dotnet/roslyn/commit/8edf7bcd4f1594c3d68a6a567469f41dbd33dd1b.
+      This package was built from the source at https://github.com/dotnet/roslyn/commit/6c4a46a31302167b425d5e0a31ea83c9a9aa1d09.
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -340,12 +340,12 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.CodeAnalysis.CSharp.Workspaces
-Version:4.14.0
+Version:5.0.0
 project URL:https://github.com/dotnet/roslyn
 Description:.NET Compiler Platform ("Roslyn") support for analyzing C# projects and solutions.
     
       More details at https://aka.ms/roslyn-packages
-      This package was built from the source at https://github.com/dotnet/roslyn/commit/8edf7bcd4f1594c3d68a6a567469f41dbd33dd1b.
+      This package was built from the source at https://github.com/dotnet/roslyn/commit/6c4a46a31302167b425d5e0a31ea83c9a9aa1d09.
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -385,13 +385,13 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.CodeAnalysis.Scripting.Common
-Version:4.14.0
+Version:5.0.0
 project URL:https://github.com/dotnet/roslyn
 Description:Microsoft .NET Compiler Platform ("Roslyn") shared scripting package.
       Do not install this package manually, it will be added as a prerequisite by other packages that require it.
     
       More details at https://aka.ms/roslyn-packages
-      This package was built from the source at https://github.com/dotnet/roslyn/commit/8edf7bcd4f1594c3d68a6a567469f41dbd33dd1b.
+      This package was built from the source at https://github.com/dotnet/roslyn/commit/6c4a46a31302167b425d5e0a31ea83c9a9aa1d09.
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -419,12 +419,12 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.CodeAnalysis.VisualBasic
-Version:4.14.0
+Version:5.0.0
 project URL:https://github.com/dotnet/roslyn
 Description:.NET Compiler Platform ("Roslyn") support for Visual Basic, Microsoft.CodeAnalysis.VisualBasic.dll.
     
       More details at https://aka.ms/roslyn-packages
-      This package was built from the source at https://github.com/dotnet/roslyn/commit/8edf7bcd4f1594c3d68a6a567469f41dbd33dd1b.
+      This package was built from the source at https://github.com/dotnet/roslyn/commit/6c4a46a31302167b425d5e0a31ea83c9a9aa1d09.
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -452,78 +452,78 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.CodeAnalysis.VisualBasic.Workspaces
-Version:4.14.0
+Version:5.0.0
 project URL:https://github.com/dotnet/roslyn
 Description:.NET Compiler Platform ("Roslyn") support for analyzing Visual Basic projects and solutions.
     
       More details at https://aka.ms/roslyn-packages
-      This package was built from the source at https://github.com/dotnet/roslyn/commit/8edf7bcd4f1594c3d68a6a567469f41dbd33dd1b.
+      This package was built from the source at https://github.com/dotnet/roslyn/commit/6c4a46a31302167b425d5e0a31ea83c9a9aa1d09.
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.Extensions.Caching.SqlServer
-Version:8.0.23
+Version:8.0.24
 project URL:https://asp.net/
 Description:Distributed cache implementation of Microsoft.Extensions.Caching.Distributed.IDistributedCache using Microsoft SQL Server.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/568fff703254def7dcd35fda9892bf702d4c81d3
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/159901324421e89ca7612465fc8c138609837f3d
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.Extensions.Caching.SqlServer
-Version:9.0.12
+Version:9.0.13
 project URL:https://asp.net/
 Description:Distributed cache implementation of Microsoft.Extensions.Caching.Distributed.IDistributedCache using Microsoft SQL Server.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/f736effe82a61eb6f5eba46e4173eae3b7d3dffd
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/087328de5f1e0067be48d87295ae8d92064a1535
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.Extensions.Caching.SqlServer
-Version:10.0.1
+Version:10.0.2
 project URL:https://asp.net/
 Description:Distributed cache implementation of Microsoft.Extensions.Caching.Distributed.IDistributedCache using Microsoft SQL Server.
 
-This package was built from the source code at https://github.com/dotnet/dotnet/tree/fad253f51b461736dfd3cd9c15977bb7493becef
+This package was built from the source code at https://github.com/dotnet/dotnet/tree/44525024595742ebe09023abe709df51de65009b
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.Extensions.Caching.StackExchangeRedis
-Version:8.0.23
+Version:8.0.24
 project URL:https://asp.net/
 Description:Distributed cache implementation of Microsoft.Extensions.Caching.Distributed.IDistributedCache using Redis.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/568fff703254def7dcd35fda9892bf702d4c81d3
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/159901324421e89ca7612465fc8c138609837f3d
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.Extensions.Caching.StackExchangeRedis
-Version:9.0.12
+Version:9.0.13
 project URL:https://asp.net/
 Description:Distributed cache implementation of Microsoft.Extensions.Caching.Distributed.IDistributedCache using Redis.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/f736effe82a61eb6f5eba46e4173eae3b7d3dffd
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/087328de5f1e0067be48d87295ae8d92064a1535
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.Extensions.Caching.StackExchangeRedis
-Version:10.0.1
+Version:10.0.2
 project URL:https://asp.net/
 Description:Distributed cache implementation of Microsoft.Extensions.Caching.Distributed.IDistributedCache using Redis.
 
-This package was built from the source code at https://github.com/dotnet/dotnet/tree/fad253f51b461736dfd3cd9c15977bb7493becef
+This package was built from the source code at https://github.com/dotnet/dotnet/tree/44525024595742ebe09023abe709df51de65009b
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.IdentityModel.JsonWebTokens
-Version:8.15.0
+Version:8.16.0
 project URL:https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet
 Description:Includes types that provide support for creating, serializing and validating JSON Web Tokens. This is a newer, faster version of System.IdentityModel.Tokens.Jwt that has additional functionality.
 licenseUrl:https://licenses.nuget.org/MIT
@@ -531,7 +531,7 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.IdentityModel.Tokens
-Version:8.15.0
+Version:8.16.0
 project URL:https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet
 Description:Includes types that provide support for SecurityTokens, Cryptographic operations: Signing, Verifying Signatures, Encryption.
 licenseUrl:https://licenses.nuget.org/MIT
@@ -562,8 +562,16 @@ licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
+Package:Microsoft.PowerShell.SDK
+Version:7.6.0-rc.1
+project URL:https://github.com/PowerShell/PowerShell
+Description:Runtime for hosting PowerShell
+licenseUrl:https://licenses.nuget.org/MIT
+license Type:MIT
+
+####################################################################################################
 Package:MongoDB.Bson
-Version:3.6.0
+Version:3.7.0
 project URL:https://www.mongodb.com/docs/drivers/csharp/
 Description:MongoDB's Official Bson Library.
 licenseUrl:https://licenses.nuget.org/Apache-2.0
@@ -587,7 +595,7 @@ license Type:LICENSE
 
 ####################################################################################################
 Package:Serilog
-Version:4.3.0
+Version:4.3.1
 project URL:https://serilog.net/
 Description:Simple .NET logging with fully-structured events
 licenseUrl:https://licenses.nuget.org/Apache-2.0
@@ -604,6 +612,14 @@ license Type:Apache-2.0
 ####################################################################################################
 Package:Serilog.AspNetCore
 Version:9.0.0
+project URL:https://github.com/serilog/serilog-aspnetcore
+Description:Serilog support for ASP.NET Core logging
+licenseUrl:https://licenses.nuget.org/Apache-2.0
+license Type:Apache-2.0
+
+####################################################################################################
+Package:Serilog.AspNetCore
+Version:10.0.0
 project URL:https://github.com/serilog/serilog-aspnetcore
 Description:Serilog support for ASP.NET Core logging
 licenseUrl:https://licenses.nuget.org/Apache-2.0
@@ -675,7 +691,7 @@ license Type:Apache-2.0
 
 ####################################################################################################
 Package:System.IdentityModel.Tokens.Jwt
-Version:8.15.0
+Version:8.16.0
 project URL:https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet
 Description:Includes types that provide support for creating, serializing and validating JSON Web Tokens. As of IdentityModel 7x, this is a legacy tool that should be replaced with Microsoft.IdentityModel.JsonWebTokens.
 licenseUrl:https://licenses.nuget.org/MIT

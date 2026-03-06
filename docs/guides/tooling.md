@@ -59,18 +59,18 @@ If you run from a folder outside this repo tree (for example `C:\Users\<you>`), 
 ### Install from local package output
 
 If you built the package locally (for example via
-`Invoke-Build Pack-KestrunTool`), install from `artifacts/tool-packages`
+`Invoke-Build Pack-KestrunTool`), install from `artifacts/nuget`
 to use a development build instead of the published NuGet build:
 
 ```powershell
-dotnet tool install -g Kestrun.Tool --add-source .\artifacts\tool-packages --ignore-failed-sources
+dotnet tool install -g Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources
 ```
 
 Typical use:
 
 - `dotnet tool install -g Kestrun.Tool`: installs published NuGet version (works from any folder).
-- `dotnet tool install -g Kestrun.Tool --add-source .\artifacts\tool-packages --ignore-failed-sources`: installs local dev package globally.
-- `dotnet tool install --local Kestrun.Tool --add-source .\artifacts\tool-packages --ignore-failed-sources`: installs local dev package for repo-scoped usage.
+- `dotnet tool install -g Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources`: installs local dev package globally.
+- `dotnet tool install --local Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources`: installs local dev package for repo-scoped usage.
 
 If you want `dotnet kestrun` from any folder, install globally.
 
@@ -180,11 +180,11 @@ If `dotnet kestrun service install ...` prints `Elevated operation failed` but
 ```powershell
 # global refresh
 dotnet tool uninstall -g Kestrun.Tool
-dotnet tool install -g Kestrun.Tool --add-source .\artifacts\tool-packages --ignore-failed-sources
+dotnet tool install -g Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources
 
 # local refresh
 dotnet tool uninstall --local Kestrun.Tool
-dotnet tool install --local Kestrun.Tool --add-source .\artifacts\tool-packages --ignore-failed-sources
+dotnet tool install --local Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources
 dotnet tool restore
 ```
 
@@ -196,7 +196,7 @@ Invoke-Build Pack-KestrunTool
 
 This writes the tool package to:
 
-- `artifacts/tool-packages/Kestrun.Tool.<version>.nupkg`
+- `artifacts/nuget/Kestrun.Tool.<version>.nupkg`
 
 ---
 

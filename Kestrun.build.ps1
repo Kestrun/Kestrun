@@ -203,10 +203,10 @@ Add-BuildTask Help {
     Write-Host '- Restore: Restores NuGet packages.'
     Write-Host '- Build: Builds the solution.'
     Write-Host '- Build-ScriptRunner: Publishes ScriptRunner and service-host runtimes and creates kestrun.cmd / kestrun.ps1 / kestrun.sh launchers in src/PowerShell/Kestrun.'
-    Write-Host '- Pack-KestrunTool: Packs Kestrun.Tool as a dotnet tool package (dotnet-kestrun) into artifacts/tool-packages.'
+    Write-Host '- Pack-KestrunTool: Packs Kestrun.Tool as a dotnet tool package (dotnet-kestrun) into artifacts/nuget.'
     Write-Host '- Clean-ScriptRunner: Removes ScriptRunner publish artifacts, runtimes, and launcher scripts.'
     Write-Host '- Test: Runs tests and Pester tests.'
-    Write-Host '- Package: Packages the solution.'
+    Write-Host '- Package: Packages the solution and includes the Kestrun dotnet tool package.'
     Write-Host '- All: Runs Clean, Build, and Test tasks in sequence.'
     Write-Host '-----------------------------------------------------'
     Write-Host '🧩 Additional Tasks:' -ForegroundColor Green
@@ -624,21 +624,23 @@ exec "$KESTRUN_PATH" --kestrun-folder "$SCRIPT_DIR" "$@"
 Add-BuildTask 'Pack-KestrunTool' {
     Write-Host '📦 Packing Kestrun dotnet tool package (dotnet-kestrun)...'
 
-    $toolOutputDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'tool-packages'
+    $toolOutputDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'nuget'
     if (-not (Test-Path -Path $toolOutputDirectory)) {
         New-Item -Path $toolOutputDirectory -ItemType Directory -Force | Out-Null
     }
 
-    Remove-Item -Path (Join-Path -Path $toolOutputDirectory -ChildPath '*.nupkg') -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path (Join-Path -Path $toolOutputDirectory -ChildPath '*.snupkg') -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path (Join-Path -Path $toolOutputDirectory -ChildPath 'Kestrun.Tool*.nupkg') -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path (Join-Path -Path $toolOutputDirectory -ChildPath 'Kestrun.Tool*.snupkg') -Force -ErrorAction SilentlyContinue
 
     # Build first to avoid intermittent pack-time publish artifact resolution issues.
-    dotnet build "$KestrunScriptRunnerProjectPath" -c $Configuration -v:$DotNetVerbosity
+    dotnet build "$KestrunScriptRunnerProjectPath" -c $Configuration -v:$DotNetVerbosity `
+        -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
     if ($LASTEXITCODE -ne 0) {
         throw 'dotnet build failed for Kestrun tool packaging.'
     }
 
-    dotnet pack "$KestrunScriptRunnerProjectPath" -c $Configuration -o "$toolOutputDirectory" -v:$DotNetVerbosity
+    dotnet pack "$KestrunScriptRunnerProjectPath" -c $Configuration -o "$toolOutputDirectory" -v:$DotNetVerbosity `
+        -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
     if ($LASTEXITCODE -ne 0) {
         throw 'dotnet pack failed for Kestrun tool packaging.'
     }
@@ -729,9 +731,13 @@ Add-BuildTask 'Export-OpenApiSamples' {
     }
 }
 
-Add-BuildTask 'Package' 'Clean-Package', 'Build', {
-    Write-Host '🚀 Starting release build...'
+Add-BuildTask 'Set-PackageConfiguration' {
+    Write-Host '🔧 Using Release configuration for package tasks...'
     $script:Configuration = 'Release'
+}
+
+Add-BuildTask 'Package' 'Clean-Package', 'Set-PackageConfiguration', 'Build', 'Pack-KestrunTool', {
+    Write-Host '🚀 Starting release build...'
 
     # Retrieve the short commit SHA from Git
     #$commit = (git rev-parse --short HEAD).Trim()
@@ -739,10 +745,6 @@ Add-BuildTask 'Package' 'Clean-Package', 'Build', {
 
     $out = Join-Path -Path $PWD -ChildPath 'artifacts'
 
-    if ( (Test-Path -Path $out)) {
-        Write-Host "🗑️ Cleaning existing artifacts at $out ..."
-        Remove-Item -Path $out -Recurse -Force
-    }
     New-Item -Path $out -ItemType Directory -Force | Out-Null
     $kestrunReleasePath = Join-Path -Path $out -ChildPath 'modules' -AdditionalChildPath 'Kestrun'
 

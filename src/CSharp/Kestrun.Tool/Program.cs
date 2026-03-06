@@ -641,7 +641,7 @@ internal static partial class Program
             var fullPath = Path.GetFullPath(configuredPath);
             return Directory.Exists(fullPath)
                 || configuredPath.EndsWith("\\", StringComparison.Ordinal)
-                || configuredPath.EndsWith("/", StringComparison.Ordinal)
+                || configuredPath.EndsWith('/')
                 ? Path.Combine(fullPath, "script-runner-service.log")
                 : fullPath;
         }

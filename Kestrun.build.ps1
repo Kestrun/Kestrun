@@ -150,9 +150,9 @@ if ($isDebug) {
 $SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath 'Kestrun.sln'
 $KestrunProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun/Kestrun.csproj'
 $KestrunAnnotationsProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Annotations/Kestrun.Annotations.csproj'
-$KestrunScriptRunnerProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
+$KestrunToolProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
 $KestrunServiceHostProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.ServiceHost/Kestrun.ServiceHost.csproj'
-$ScriptRunnerRuntimeIdentifiers = @('win-x64', 'win-arm64', 'linux-x64', 'linux-arm64', 'osx-x64', 'osx-arm64')
+$KestrunToolRuntimeIdentifiers = @('win-x64', 'win-arm64', 'linux-x64', 'linux-arm64', 'osx-x64', 'osx-arm64')
 $ExamplesSolutionFilter = Join-Path -Path $PSScriptRoot -ChildPath 'Examples.slnf'
 
 Write-Host '---------------------------------------------------' -ForegroundColor DarkCyan
@@ -202,9 +202,9 @@ Add-BuildTask Help {
     Write-Host '- Clean: Cleans the solution.'
     Write-Host '- Restore: Restores NuGet packages.'
     Write-Host '- Build: Builds the solution.'
-    Write-Host '- Build-ScriptRunner: Publishes ScriptRunner and service-host runtimes and creates kestrun.cmd / kestrun.ps1 / kestrun.sh launchers in src/PowerShell/Kestrun.'
+    Write-Host '- Build-KestrunTool: Publishes Kestrun.Tool and service-host runtimes and creates kestrun.cmd / kestrun.ps1 / kestrun.sh launchers in src/PowerShell/Kestrun.'
     Write-Host '- Pack-KestrunTool: Packs Kestrun.Tool as a dotnet tool package (dotnet-kestrun) into artifacts/nuget.'
-    Write-Host '- Clean-ScriptRunner: Removes ScriptRunner publish artifacts, runtimes, and launcher scripts.'
+    Write-Host '- Clean-KestrunTool: Removes Kestrun.Tool artifacts, runtimes, and launcher scripts.'
     Write-Host '- Test: Runs tests and Pester tests.'
     Write-Host '- Package: Packages the solution and includes the Kestrun dotnet tool package.'
     Write-Host '- All: Runs Clean, Build, and Test tasks in sequence.'
@@ -236,7 +236,7 @@ Add-BuildTask Help {
     Write-Host '-----------------------------------------------------'
 }
 
-Add-BuildTask 'Clean' 'Clean-CodeAnalysis', 'Clean-Help', 'Clean-Dotnet', 'Clean-PowerShellLib', 'Clean-ScriptRunner', {
+Add-BuildTask 'Clean' 'Clean-CodeAnalysis', 'Clean-Help', 'Clean-Dotnet', 'Clean-PowerShellLib', 'Clean-KestrunTool', {
     Write-Host '✅ Clean completed.'
 }
 
@@ -248,45 +248,54 @@ Add-BuildTask 'Clean-PowerShellLib' {
     Write-Host '✅ PowerShell library Clean completed.'
 }
 
-Add-BuildTask 'Clean-ScriptRunner' {
-    Write-Host '🧹 Cleaning ScriptRunner artifacts...'
+Add-BuildTask 'Clean-KestrunTool' {
+    Write-Host '🧹 Cleaning Kestrun.Tool artifacts...'
 
-    $scriptRunnerPublishRoot = Join-Path -Path $PSScriptRoot -ChildPath 'publish' -AdditionalChildPath 'Kestrun.ScriptRunner'
-    if (Test-Path -Path $scriptRunnerPublishRoot) {
-        Remove-Item -Path $scriptRunnerPublishRoot -Recurse -Force -ErrorAction SilentlyContinue
+    $kestrunToolOutputRoots = @(
+        (Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'Kestrun.Tool'),
+        # Legacy output paths kept for one-way cleanup during the rename transition.
+        (Join-Path -Path $PSScriptRoot -ChildPath 'publish' -AdditionalChildPath 'Kestrun.Tool'),
+        (Join-Path -Path $PSScriptRoot -ChildPath 'publish' -AdditionalChildPath 'Kestrun.ScriptRunner')
+    )
+
+    foreach ($kestrunToolOutputRoot in $kestrunToolOutputRoots) {
+        if (Test-Path -Path $kestrunToolOutputRoot) {
+            Remove-Item -Path $kestrunToolOutputRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 
-    $scriptRunnerRuntimesDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun/lib/runtimes'
-    if (Test-Path -Path $scriptRunnerRuntimesDirectory) {
-        Remove-Item -Path $scriptRunnerRuntimesDirectory -Recurse -Force -ErrorAction SilentlyContinue
+    $kestrunToolRuntimesDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun/lib/runtimes'
+    if (Test-Path -Path $kestrunToolRuntimesDirectory) {
+        Remove-Item -Path $kestrunToolRuntimesDirectory -Recurse -Force -ErrorAction SilentlyContinue
     }
 
-    $scriptRunnerExecutables = @(
+    $kestrunToolExecutables = @(
         (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun'),
         (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun.exe'),
+        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'Kestrun.Tool.exe'),
         (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'Kestrun.ScriptRunner.exe'),
         (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell' -AdditionalChildPath 'Kestrun.ScriptRunner.exe')
     )
 
-    foreach ($scriptRunnerExecutable in $scriptRunnerExecutables) {
-        if (Test-Path -Path $scriptRunnerExecutable) {
-            Remove-Item -Path $scriptRunnerExecutable -Force -ErrorAction SilentlyContinue
+    foreach ($kestrunToolExecutable in $kestrunToolExecutables) {
+        if (Test-Path -Path $kestrunToolExecutable) {
+            Remove-Item -Path $kestrunToolExecutable -Force -ErrorAction SilentlyContinue
         }
     }
 
-    $scriptRunnerLaunchers = @(
+    $kestrunToolLaunchers = @(
         (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun.cmd'),
         (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun.ps1'),
         (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun.sh')
     )
 
-    foreach ($scriptRunnerLauncher in $scriptRunnerLaunchers) {
-        if (Test-Path -Path $scriptRunnerLauncher) {
-            Remove-Item -Path $scriptRunnerLauncher -Force -ErrorAction SilentlyContinue
+    foreach ($kestrunToolLauncher in $kestrunToolLaunchers) {
+        if (Test-Path -Path $kestrunToolLauncher) {
+            Remove-Item -Path $kestrunToolLauncher -Force -ErrorAction SilentlyContinue
         }
     }
 
-    Write-Host '✅ ScriptRunner clean completed.'
+    Write-Host '✅ Kestrun.Tool clean completed.'
 }
 
 Add-BuildTask 'Clean-Dotnet' {
@@ -387,22 +396,22 @@ Add-BuildTask 'BuildExamples' {
     }
 }
 
-Add-BuildTask 'Build-ScriptRunner' {
-    Write-Host '🔨 Publishing ScriptRunner (kestrun) for PowerShell-supported platforms...'
+Add-BuildTask 'Build-KestrunTool' {
+    Write-Host '🔨 Publishing Kestrun.Tool (kestrun) for PowerShell-supported platforms...'
 
-    $scriptRunnerPublishRoot = Join-Path -Path $PSScriptRoot -ChildPath 'publish' -AdditionalChildPath 'Kestrun.ScriptRunner'
+    $kestrunToolPublishRoot = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'Kestrun.Tool'
     $powershellSrcRoot = Join-Path -Path $PSScriptRoot -ChildPath "src/PowerShell/Kestrun"
-    $scriptRunnerDestinationDirectory = Join-Path -Path $powershellSrcRoot -ChildPath 'lib'
+    $kestrunToolDestinationDirectory = Join-Path -Path $powershellSrcRoot -ChildPath 'lib'
 
-    if (-not (Test-Path -Path $scriptRunnerDestinationDirectory)) {
-        New-Item -Path $scriptRunnerDestinationDirectory -ItemType Directory -Force | Out-Null
+    if (-not (Test-Path -Path $kestrunToolDestinationDirectory)) {
+        New-Item -Path $kestrunToolDestinationDirectory -ItemType Directory -Force | Out-Null
     }
 
     $legacyRootBinaries = @(
-        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'kestrun'),
-        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'kestrun.exe'),
-        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'Kestrun.ScriptRunner.exe'),
-        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'Kestrun.Tool.exe')
+        (Join-Path -Path $kestrunToolDestinationDirectory -ChildPath 'kestrun'),
+        (Join-Path -Path $kestrunToolDestinationDirectory -ChildPath 'kestrun.exe'),
+        (Join-Path -Path $kestrunToolDestinationDirectory -ChildPath 'Kestrun.ScriptRunner.exe'),
+        (Join-Path -Path $kestrunToolDestinationDirectory -ChildPath 'Kestrun.Tool.exe')
     )
 
     foreach ($legacyRootBinary in $legacyRootBinaries) {
@@ -412,21 +421,21 @@ Add-BuildTask 'Build-ScriptRunner' {
         }
     }
 
-    foreach ($runtimeIdentifier in $ScriptRunnerRuntimeIdentifiers) {
+    foreach ($runtimeIdentifier in $KestrunToolRuntimeIdentifiers) {
         Write-Host "  - Publishing for runtime: $runtimeIdentifier" -ForegroundColor DarkCyan
 
-        $scriptRunnerPublishPath = Join-Path -Path $scriptRunnerPublishRoot -ChildPath $runtimeIdentifier
-        $serviceHostPublishPath = Join-Path -Path $scriptRunnerPublishRoot -ChildPath "$runtimeIdentifier-service-host"
-        if (Test-Path -Path $scriptRunnerPublishPath) {
-            Remove-Item -Path $scriptRunnerPublishPath -Recurse -Force -ErrorAction SilentlyContinue
+        $kestrunToolPublishPath = Join-Path -Path $kestrunToolPublishRoot -ChildPath $runtimeIdentifier
+        $serviceHostPublishPath = Join-Path -Path $kestrunToolPublishRoot -ChildPath "$runtimeIdentifier-service-host"
+        if (Test-Path -Path $kestrunToolPublishPath) {
+            Remove-Item -Path $kestrunToolPublishPath -Recurse -Force -ErrorAction SilentlyContinue
         }
         if (Test-Path -Path $serviceHostPublishPath) {
             Remove-Item -Path $serviceHostPublishPath -Recurse -Force -ErrorAction SilentlyContinue
         }
 
-        dotnet publish "$KestrunScriptRunnerProjectPath" -c $Configuration -r $runtimeIdentifier --self-contained true /p:PackAsTool=false /p:DebugSymbols=false /p:DebugType=None /p:Version=$Version /p:InformationalVersion=$VersionDetails.InformationalVersion -o "$scriptRunnerPublishPath" -v:$DotNetVerbosity
+        dotnet publish "$KestrunToolProjectPath" -c $Configuration -r $runtimeIdentifier --self-contained true /p:PackAsTool=false /p:DebugSymbols=false /p:DebugType=None /p:Version=$Version /p:InformationalVersion=$VersionDetails.InformationalVersion -o "$kestrunToolPublishPath" -v:$DotNetVerbosity
         if ($LASTEXITCODE -ne 0) {
-            throw "dotnet publish failed for ScriptRunner runtime '$runtimeIdentifier'."
+            throw "dotnet publish failed for Kestrun.Tool runtime '$runtimeIdentifier'."
         }
 
         dotnet publish "$KestrunServiceHostProjectPath" -c $Configuration -r $runtimeIdentifier --self-contained true /p:DebugSymbols=false /p:DebugType=None /p:Version=$Version /p:InformationalVersion=$VersionDetails.InformationalVersion -o "$serviceHostPublishPath" -v:$DotNetVerbosity
@@ -434,17 +443,17 @@ Add-BuildTask 'Build-ScriptRunner' {
             throw "dotnet publish failed for ServiceHost runtime '$runtimeIdentifier'."
         }
 
-        $scriptRunnerPublishedBinaryCandidates = if ($runtimeIdentifier -like 'win-*') {
+        $kestrunToolPublishedBinaryCandidates = if ($runtimeIdentifier -like 'win-*') {
             @('Kestrun.Tool.exe', 'Kestrun.ScriptRunner.exe')
         } else {
             @('Kestrun.Tool', 'Kestrun.ScriptRunner')
         }
 
-        $scriptRunnerPublishedBinary = $null
-        foreach ($candidateName in $scriptRunnerPublishedBinaryCandidates) {
-            $candidatePath = Join-Path -Path $scriptRunnerPublishPath -ChildPath $candidateName
+        $kestrunToolPublishedBinary = $null
+        foreach ($candidateName in $kestrunToolPublishedBinaryCandidates) {
+            $candidatePath = Join-Path -Path $kestrunToolPublishPath -ChildPath $candidateName
             if (Test-Path -Path $candidatePath) {
-                $scriptRunnerPublishedBinary = $candidatePath
+                $kestrunToolPublishedBinary = $candidatePath
                 break
             }
         }
@@ -464,22 +473,22 @@ Add-BuildTask 'Build-ScriptRunner' {
             }
         }
 
-        if (-not $scriptRunnerPublishedBinary) {
-            throw "ScriptRunner publish output not found. Checked: $($scriptRunnerPublishedBinaryCandidates -join ', ') in $scriptRunnerPublishPath"
+        if (-not $kestrunToolPublishedBinary) {
+            throw "Kestrun.Tool publish output not found. Checked: $($kestrunToolPublishedBinaryCandidates -join ', ') in $kestrunToolPublishPath"
         }
 
         if (-not $serviceHostPublishedBinary) {
             throw "ServiceHost publish output not found. Checked: $($serviceHostPublishedBinaryCandidates -join ', ') in $serviceHostPublishPath"
         }
 
-        $runtimeDestinationDirectory = Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'runtimes' -AdditionalChildPath $runtimeIdentifier
+        $runtimeDestinationDirectory = Join-Path -Path $kestrunToolDestinationDirectory -ChildPath 'runtimes' -AdditionalChildPath $runtimeIdentifier
         if (-not (Test-Path -Path $runtimeDestinationDirectory)) {
             New-Item -Path $runtimeDestinationDirectory -ItemType Directory -Force | Out-Null
         }
 
         $runtimeDestinationBinaryName = if ($runtimeIdentifier -like 'win-*') { 'kestrun.exe' } else { 'kestrun' }
         $runtimeDestinationBinary = Join-Path -Path $runtimeDestinationDirectory -ChildPath $runtimeDestinationBinaryName
-        Copy-Item -Path $scriptRunnerPublishedBinary -Destination $runtimeDestinationBinary -Force
+        Copy-Item -Path $kestrunToolPublishedBinary -Destination $runtimeDestinationBinary -Force
         Write-Host "    ✅ Copied to: $runtimeDestinationBinary"
 
         $serviceHostDestinationBinaryName = if ($runtimeIdentifier -like 'win-*') { 'kestrun-service-host.exe' } else { 'kestrun-service-host' }
@@ -512,7 +521,7 @@ if /I "%KESTRUN_RID%"=="" set "KESTRUN_RID=win-x64"
 
 set "KESTRUN_PATH=%KESTRUN_DIR%lib\runtimes\%KESTRUN_RID%\kestrun.exe"
 if not exist "%KESTRUN_PATH%" (
-    echo Unable to find ScriptRunner binary: "%KESTRUN_PATH%" 1>&2
+    echo Unable to find Kestrun.Tool binary: "%KESTRUN_PATH%" 1>&2
     exit /b 1
 )
 
@@ -548,7 +557,7 @@ $runtimeDirectory = Join-Path -Path $scriptRoot -ChildPath 'lib' -AdditionalChil
 $kestrunPath = Join-Path -Path $runtimeDirectory -ChildPath $binaryName
 
 if (-not (Test-Path -Path $kestrunPath)) {
-    throw "Unable to find ScriptRunner binary: $kestrunPath"
+    throw "Unable to find Kestrun.Tool binary: $kestrunPath"
 }
 
 & $kestrunPath --kestrun-folder $scriptRoot @Arguments
@@ -583,7 +592,7 @@ esac
 
 KESTRUN_PATH="$SCRIPT_DIR/lib/runtimes/${KESTRUN_OS}-${KESTRUN_ARCH}/kestrun"
 if [ ! -f "$KESTRUN_PATH" ]; then
-    echo "Unable to find ScriptRunner binary: $KESTRUN_PATH" >&2
+    echo "Unable to find Kestrun.Tool binary: $KESTRUN_PATH" >&2
   exit 1
 fi
 
@@ -633,13 +642,13 @@ Add-BuildTask 'Pack-KestrunTool' {
     Remove-Item -Path (Join-Path -Path $toolOutputDirectory -ChildPath 'Kestrun.Tool*.snupkg') -Force -ErrorAction SilentlyContinue
 
     # Build first to avoid intermittent pack-time publish artifact resolution issues.
-    dotnet build "$KestrunScriptRunnerProjectPath" -c $Configuration -v:$DotNetVerbosity `
+    dotnet build "$KestrunToolProjectPath" -c $Configuration -v:$DotNetVerbosity `
         -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
     if ($LASTEXITCODE -ne 0) {
         throw 'dotnet build failed for Kestrun tool packaging.'
     }
 
-    dotnet pack "$KestrunScriptRunnerProjectPath" -c $Configuration -o "$toolOutputDirectory" -v:$DotNetVerbosity `
+    dotnet pack "$KestrunToolProjectPath" -c $Configuration -o "$toolOutputDirectory" -v:$DotNetVerbosity `
         -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
     if ($LASTEXITCODE -ne 0) {
         throw 'dotnet pack failed for Kestrun tool packaging.'
@@ -650,7 +659,7 @@ Add-BuildTask 'Pack-KestrunTool' {
     Write-Host '   Run with: dotnet kestrun help'
 }
 
-Add-BuildTask 'Build' 'BuildNoPwsh', 'SyncPowerShellDll', 'Build-ScriptRunner', { Write-Host '🚀 Build completed.' }
+Add-BuildTask 'Build' 'BuildNoPwsh', 'SyncPowerShellDll', 'Build-KestrunTool', { Write-Host '🚀 Build completed.' }
 
 Add-BuildTask 'SyncPowerShellDll' {
     Write-Host '🔄 Syncing PowerShell DLLs to src/PowerShell/Kestrun/lib...'

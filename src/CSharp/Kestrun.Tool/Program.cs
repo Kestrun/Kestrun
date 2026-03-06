@@ -3483,7 +3483,7 @@ internal static partial class Program
         }
 
         var normalizedPath = entryPath.Replace('\\', '/').TrimStart('/');
-        if (string.IsNullOrWhiteSpace(normalizedPath) || normalizedPath.EndsWith("/", StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(normalizedPath) || normalizedPath.EndsWith('/'))
         {
             return false;
         }

@@ -1,246 +1,219 @@
 name: Publish Release
 
 permissions:
-    contents: read # read release & assets
-    packages: write # publish to GitHub Packages (NuGet)
-    pull-requests: read # optional (kept from original, can remove if not needed)
+  contents: read      # read release & assets
+  packages: write     # publish to GitHub Packages (NuGet)
+  pull-requests: read # optional (kept from original, can remove if not needed)
 
 on:
-    workflow_dispatch:
-        inputs:
-            tag:
-                description: "Release tag to promote (e.g., v1.0.0 or v1.0.0-alpha1)"
-                required: true
-            publish_mode:
-                description: "Perform real publish or rehearsal"
-                type: choice
-                options: [rehearsal, real]
-                default: rehearsal
-            publish_targets:
-                description: "Targets to publish (comma-separated: psgallery, nuget, github)"
-                required: true
-                default: "psgallery,nuget,github"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to promote (e.g., v1.0.0 or v1.0.0-alpha1)"
+        required: true
+      publish_mode:
+        description: "Perform real publish or rehearsal"
+        type: choice
+        options: [rehearsal, real]
+        default: rehearsal
+      publish_targets:
+        description: "Targets to publish (comma-separated: psgallery, nuget, github)"
+        required: true
+        default: "psgallery,nuget,github"
 
 env:
-    TAG: ${{ inputs.tag }}
-    PUBLISH_MODE: ${{ inputs.publish_mode }}
-    TARGETS: ${{ inputs.publish_targets }}
+  TAG: ${{ inputs.tag }}
+  PUBLISH_MODE: ${{ inputs.publish_mode }}
+  TARGETS: ${{ inputs.publish_targets }}
 
 jobs:
-    gate:
-        name: Validate Release Assets
-        runs-on: ubuntu-latest
-        steps:
-            - name: 🧪 Normalize & Echo Inputs
-              id: norm
-              run: |
-                  set -e
-                  TAG="${TAG}"
-                  # Basic tag sanity (adjust/remove if you allow other formats)
-                  if ! echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'; then
-                    echo "Tag format check failed (expected vX.Y.Z...) -> $TAG"
-                    exit 1
-                  fi
-                  # Normalize targets: lowercase, strip spaces
-                  NORM_TARGETS=$(echo "${TARGETS}" | tr 'A-Z' 'a-z' | tr -d ' ' )
-                  echo "Normalized targets: $NORM_TARGETS"
-                  echo "norm_targets=$NORM_TARGETS" >> "$GITHUB_OUTPUT"
-                  echo "Mode: $PUBLISH_MODE"
-                  if [ "$PUBLISH_MODE" != "real" ] && [ "$PUBLISH_MODE" != "rehearsal" ]; then
-                    echo "Invalid publish_mode: $PUBLISH_MODE"
-                    exit 1
-                  fi
+  gate:
+    name: Validate Release Assets
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🧪 Normalize & Echo Inputs
+        id: norm
+        run: |
+          set -e
+          TAG="${TAG}"
+          # Basic tag sanity (adjust/remove if you allow other formats)
+          if ! echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "Tag format check failed (expected vX.Y.Z...) -> $TAG"
+            exit 1
+          fi
+          # Normalize targets: lowercase, strip spaces
+          NORM_TARGETS=$(echo "${TARGETS}" | tr 'A-Z' 'a-z' | tr -d ' ' )
+          echo "Normalized targets: $NORM_TARGETS"
+          echo "norm_targets=$NORM_TARGETS" >> "$GITHUB_OUTPUT"
+          echo "Mode: $PUBLISH_MODE"
+          if [ "$PUBLISH_MODE" != "real" ] && [ "$PUBLISH_MODE" != "rehearsal" ]; then
+            echo "Invalid publish_mode: $PUBLISH_MODE"
+            exit 1
+          fi
 
-            - name: 📥 Fetch Release Metadata (gh api)
-              id: relmeta
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: |
-                  set -e
-                  echo "Fetching release info for ${TAG}"
-                  DATA=$(gh api repos/${GITHUB_REPOSITORY}/releases/tags/${TAG} || true)
-                  if [ -z "$DATA" ]; then
-                    echo "Release with tag ${TAG} not found."
-                    exit 1
-                  fi
-                  echo "$DATA" > release.json
-                  echo "Downloaded release metadata:"
-                  jq '.tag_name, .name, .draft, .prerelease' release.json
-                  DRAFT=$(jq -r '.draft' release.json)
-                  # Example enforcement (uncomment if desired):
-                  # if [ "$DRAFT" = "true" ]; then
-                  #   echo "Release is still a draft. Refusing to promote."
-                  #   exit 1
-                  # fi
+      - name: 📥 Fetch Release Metadata (gh api)
+        id: relmeta
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          echo "Fetching release info for ${TAG}"
+          DATA=$(gh api repos/${GITHUB_REPOSITORY}/releases/tags/${TAG} || true)
+          if [ -z "$DATA" ]; then
+            echo "Release with tag ${TAG} not found."
+            exit 1
+          fi
+          echo "$DATA" > release.json
+          echo "Downloaded release metadata:"
+          jq '.tag_name, .name, .draft, .prerelease' release.json
+          DRAFT=$(jq -r '.draft' release.json)
+          # Example enforcement (uncomment if desired):
+          # if [ "$DRAFT" = "true" ]; then
+          #   echo "Release is still a draft. Refusing to promote."
+          #   exit 1
+          # fi
 
-            - name: 📥 Download Release Assets
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: |
-                  set -e
-                  mkdir -p release-assets
-                  gh release download "${TAG}" \
-                     --repo "${GITHUB_REPOSITORY}" \
-                     --dir release-assets \
-                     --pattern "*"
-                  echo "Downloaded assets:"
-                  ls -l release-assets || true
+      - name: 📥 Download Release Assets
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          mkdir -p release-assets
+          gh release download "${TAG}" \
+             --repo "${GITHUB_REPOSITORY}" \
+             --dir release-assets \
+             --pattern "*"
+          echo "Downloaded assets:"
+          ls -l release-assets || true
 
-            - name: ✅ Validate Required Assets (conditional by targets)
-              run: |
-                  set -e
-                  TARGETS="${{ steps.norm.outputs.norm_targets }}"
-                  fail=0
-                  if echo "$TARGETS" | grep -q 'psgallery'; then
-                    if ! ls release-assets/Kestrun-PSModule-*.zip >/dev/null 2>&1; then
-                      echo "ERROR: Expected Kestrun-PSModule-*.zip for PowerShell Gallery."
-                      fail=1
-                    fi
-                  fi
-                  if echo "$TARGETS" | grep -q 'nuget'; then
-                    if ! ls release-assets/*.nupkg >/dev/null 2>&1; then
-                      echo "ERROR: Expected at least one .nupkg for NuGet.org."
-                      fail=1
-                    fi
-                  fi
-                  if echo "$TARGETS" | grep -q 'github'; then
-                    tool_found=0
-                    for pkg in release-assets/*.nupkg; do
-                      [ -f "$pkg" ] || continue
-                      if unzip -p "$pkg" '*.nuspec' | grep -qi '<packageType name="DotnetTool"'; then
-                        tool_found=1
-                        if ! unzip -p "$pkg" '*.nuspec' | grep -qi '<id>Kestrun.Tool</id>'; then
-                          echo "ERROR: DotnetTool package id must be Kestrun.Tool. Found in: $pkg"
-                          fail=1
-                        fi
-                      fi
-                    done
-                    if [ $tool_found -eq 0 ]; then
-                      echo "ERROR: Expected a dotnet tool package (Kestrun.Tool) for GitHub target."
-                      fail=1
-                    fi
-                  fi
-                    # .snupkg are optional but recommended
-                  if [ $fail -ne 0 ]; then
-                    echo "Validation failed."
-                    exit 1
-                  fi
-                  echo "All required assets present."
+      - name: ✅ Validate Required Assets (conditional by targets)
+        run: |
+          set -e
+          TARGETS="${{ steps.norm.outputs.norm_targets }}"
+          fail=0
+          if echo "$TARGETS" | grep -q 'psgallery'; then
+            if ! ls release-assets/Kestrun-PSModule-*.zip >/dev/null 2>&1; then
+              echo "ERROR: Expected Kestrun-PSModule-*.zip for PowerShell Gallery."
+              fail=1
+            fi
+          fi
+          if echo "$TARGETS" | grep -q 'nuget'; then
+            if ! ls release-assets/*.nupkg >/dev/null 2>&1; then
+              echo "ERROR: Expected at least one .nupkg for NuGet.org."
+              fail=1
+            fi
+          fi
+            # .snupkg are optional but recommended
+          if [ $fail -ne 0 ]; then
+            echo "Validation failed."
+            exit 1
+          fi
+          echo "All required assets present."
 
-    promote:
-        name: Promote Release Artifacts
-        runs-on: ubuntu-latest
-        needs: gate
-        permissions:
-            contents: read
-            packages: write
-        steps:
-            - name: 🛎️ Checkout (lightweight)
-              uses: actions/checkout@v6.0.2
-              with:
-                  fetch-depth: 1
+  promote:
+    name: Promote Release Artifacts
+    runs-on: ubuntu-latest
+    needs: gate
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: 🛎️ Checkout (lightweight)
+        uses: actions/checkout@v6.0.2
+        with:
+          fetch-depth: 1
 
-            - name: 📥 Re-Download Release Assets (fresh workspace)
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              run: |
-                  set -e
-                  mkdir -p release-assets
-                  gh release download "${TAG}" \
-                     --repo "${GITHUB_REPOSITORY}" \
-                     --dir release-assets \
-                     --pattern "*"
-                  ls -l release-assets || true
+      - name: 📥 Re-Download Release Assets (fresh workspace)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          mkdir -p release-assets
+          gh release download "${TAG}" \
+             --repo "${GITHUB_REPOSITORY}" \
+             --dir release-assets \
+             --pattern "*"
+          ls -l release-assets || true
 
-            - name: 🧾 Show downloaded files
-              run: ls -l release-assets
+      - name: 🧾 Show downloaded files
+        run: ls -l release-assets
 
-            - name: 🧰 Setup .NET (required for dotnet nuget push)
-              uses: actions/setup-dotnet@v5
-              with:
-                  dotnet-version: "10.0.x"
+      - name: 🧰 Setup .NET (required for dotnet nuget push)
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
 
-            # ---------- PowerShell Gallery ----------
-            - name: ⚙️ Prepare module for PSGallery (unzip *.psmodule.zip)
-              if: contains(env.TARGETS, 'psgallery')
-              shell: pwsh
-              run: |
-                  $zip = Get-ChildItem -Path "release-assets" -Filter "Kestrun-PSModule-*.zip" | Select-Object -First 1
-                  if (-not $zip) { throw "No Kestrun-PSModule-*.zip found in release assets." }
-                  New-Item -ItemType Directory -Force -Path ./stage/module | Out-Null
-                  Expand-Archive -Path $zip.FullName -DestinationPath ./stage/module -Force
-                  Get-ChildItem -Recurse ./stage/module | Select-Object -First 10 | Format-Table -Auto
+      # ---------- PowerShell Gallery ----------
+      - name: ⚙️ Prepare module for PSGallery (unzip *.psmodule.zip)
+        if: contains(env.TARGETS, 'psgallery')
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem -Path "release-assets" -Filter "Kestrun-PSModule-*.zip" | Select-Object -First 1
+          if (-not $zip) { throw "No Kestrun-PSModule-*.zip found in release assets." }
+          New-Item -ItemType Directory -Force -Path ./stage/module | Out-Null
+          Expand-Archive -Path $zip.FullName -DestinationPath ./stage/module -Force
+          Get-ChildItem -Recurse ./stage/module | Select-Object -First 10 | Format-Table -Auto
 
-            - name: 🚀 Publish to PowerShell Gallery (PSResourceGet)
-              if: contains(env.TARGETS, 'psgallery')
-              shell: pwsh
-              env:
-                  PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
-              run: |
-                  Import-Module Microsoft.PowerShell.PSResourceGet -Force
-                  if (-not (Get-PSResourceRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
-                    Register-PSResourceRepository -PSGallery
-                  }
-                  if (-not $env:PSGALLERY_API_KEY) { throw "Missing PSGALLERY_API_KEY" }
-                  $path = Resolve-Path "./stage/module"
-                  if ($env:PUBLISH_MODE -eq 'real') {
-                    Publish-PSResource -Path $path -Repository PSGallery -ApiKey $env:PSGALLERY_API_KEY
-                  } else {
-                    Publish-PSResource -Path $path -Repository PSGallery -ApiKey $env:PSGALLERY_API_KEY -WhatIf
-                  }
+      - name: 🚀 Publish to PowerShell Gallery (PSResourceGet)
+        if: contains(env.TARGETS, 'psgallery')
+        shell: pwsh
+        env:
+          PSGALLERY_API_KEY: ${{ secrets.PSGALLERY_API_KEY }}
+        run: |
+          Import-Module Microsoft.PowerShell.PSResourceGet -Force
+          if (-not (Get-PSResourceRepository -Name PSGallery -ErrorAction SilentlyContinue)) {
+            Register-PSResourceRepository -PSGallery
+          }
+          if (-not $env:PSGALLERY_API_KEY) { throw "Missing PSGALLERY_API_KEY" }
+          $path = Resolve-Path "./stage/module"
+          if ($env:PUBLISH_MODE -eq 'real') {
+            Publish-PSResource -Path $path -Repository PSGallery -ApiKey $env:PSGALLERY_API_KEY
+          } else {
+            Publish-PSResource -Path $path -Repository PSGallery -ApiKey $env:PSGALLERY_API_KEY -WhatIf
+          }
 
-            # ---------- NuGet.org ----------
-            - name: 🚀 Publish to NuGet.org
-              if: contains(env.TARGETS, 'nuget')
-              env:
-                  NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-              run: |
-                  set -e
-                  if [ "${PUBLISH_MODE}" = "real" ]; then
-                    shopt -s nullglob
-                    for pkg in release-assets/*.nupkg; do
-                      echo "Pushing $pkg to NuGet.org"
-                      dotnet nuget push "$pkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
-                    done
-                    for sym in release-assets/*.snupkg; do
-                      echo "Pushing $sym (symbols) to NuGet.org"
-                      dotnet nuget push "$sym" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
-                    done
-                  else
-                    echo "Rehearsal: Would push .nupkg/.snupkg to NuGet.org"
-                  fi
+      # ---------- NuGet.org ----------
+      - name: 🚀 Publish to NuGet.org
+        if: contains(env.TARGETS, 'nuget')
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          set -e
+          if [ "${PUBLISH_MODE}" = "real" ]; then
+            shopt -s nullglob
+            for pkg in release-assets/*.nupkg; do
+              echo "Pushing $pkg to NuGet.org"
+              dotnet nuget push "$pkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+            done
+            for sym in release-assets/*.snupkg; do
+              echo "Pushing $sym (symbols) to NuGet.org"
+              dotnet nuget push "$sym" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+            done
+          else
+            echo "Rehearsal: Would push .nupkg/.snupkg to NuGet.org"
+          fi
 
-            # ---------- GitHub Packages (NuGet) ----------
-            - name: 🚀 Publish to GitHub Packages (NuGet)
-              if: contains(env.TARGETS, 'github')
-              run: |
-                  set -e
-                  if [ "${PUBLISH_MODE}" = "real" ]; then
-                    shopt -s nullglob
-                    for pkg in release-assets/*.nupkg; do
-                      if unzip -p "$pkg" '*.nuspec' | grep -qi '<packageType name="DotnetTool"'; then
-                        if ! unzip -p "$pkg" '*.nuspec' | grep -qi '<id>Kestrun.Tool</id>'; then
-                          echo "Skipping unexpected dotnet tool package id in $pkg"
-                          continue
-                        fi
-                        echo "Publishing dotnet tool package $pkg to GitHub Packages"
-                      else
-                        echo "Publishing NuGet package $pkg to GitHub Packages"
-                      fi
-
-                      echo "Pushing $pkg to GitHub Packages"
-                      dotnet nuget push "$pkg" \
-                        --source "https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json" \
-                        --api-key "${{ secrets.GITHUB_TOKEN }}" \
-                        --skip-duplicate
-                    done
-                    for sym in release-assets/*.snupkg; do
-                      echo "Pushing $sym (symbols) to GitHub Packages"
-                      dotnet nuget push "$sym" \
-                        --source "https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json" \
-                        --api-key "${{ secrets.GITHUB_TOKEN }}" \
-                        --skip-duplicate
-                    done
-                  else
-                    echo "Rehearsal: Would push .nupkg/.snupkg (including dotnet tool package Kestrun.Tool) to GitHub Packages"
-                  fi
+      # ---------- GitHub Packages (NuGet) ----------
+      - name: 🚀 Publish to GitHub Packages (NuGet)
+        if: contains(env.TARGETS, 'github')
+        run: |
+          set -e
+          if [ "${PUBLISH_MODE}" = "real" ]; then
+            shopt -s nullglob
+            for pkg in release-assets/*.nupkg; do
+              echo "Pushing $pkg to GitHub Packages"
+              dotnet nuget push "$pkg" \
+                --source "https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json" \
+                --api-key "${{ secrets.GITHUB_TOKEN }}" \
+                --skip-duplicate
+            done
+            for sym in release-assets/*.snupkg; do
+              echo "Pushing $sym (symbols) to GitHub Packages"
+              dotnet nuget push "$sym" \
+                --source "https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json" \
+                --api-key "${{ secrets.GITHUB_TOKEN }}" \
+                --skip-duplicate
+            done
+          else
+            echo "Rehearsal: Would push .nupkg/.snupkg to GitHub Packages"
+          fi

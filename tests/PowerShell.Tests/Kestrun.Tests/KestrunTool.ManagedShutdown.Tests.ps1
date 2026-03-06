@@ -80,7 +80,7 @@ AfterAll {
     Remove-Item -Path $script:stdErr -Force -ErrorAction SilentlyContinue
 }
 
-Describe 'ScriptRunner managed shutdown' {
+Describe 'KestrunTool managed shutdown' {
     It 'starts via kestrun and exits cleanly when shutdown route is called' {
         if (-not $script:isReady) {
             $stdout = if (Test-Path $script:stdOut) { Get-Content -Path $script:stdOut -Raw } else { '' }

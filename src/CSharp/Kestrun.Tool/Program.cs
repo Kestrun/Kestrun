@@ -490,7 +490,7 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Runs ScriptRunner under Windows Service Control Manager.
+    /// Runs KestrunTool under Windows Service Control Manager.
     /// </summary>
     /// <param name="options">Service host options.</param>
     /// <returns>Process exit code.</returns>
@@ -503,15 +503,15 @@ internal static partial class Program
             return 1;
         }
 
-        ServiceBase.Run(new ScriptRunnerWindowsService(options));
+        ServiceBase.Run(new KestrunToolWindowsService(options));
         return 0;
     }
 
     /// <summary>
-    /// Windows service adapter that runs a ScriptRunner script under SCM lifecycle callbacks.
+    /// Windows service adapter that runs a KestrunTool script under SCM lifecycle callbacks.
     /// </summary>
     [SupportedOSPlatform("windows")]
-    private sealed class ScriptRunnerWindowsService : ServiceBase
+    private sealed class KestrunToolWindowsService : ServiceBase
     {
         private readonly ServiceHostOptions _options;
         private readonly string _bootstrapLogDirectory;
@@ -522,7 +522,7 @@ internal static partial class Program
         /// Initializes the service host wrapper.
         /// </summary>
         /// <param name="options">Service host options.</param>
-        public ScriptRunnerWindowsService(ServiceHostOptions options)
+        public KestrunToolWindowsService(ServiceHostOptions options)
         {
             _options = options;
             ServiceName = options.ServiceName;
@@ -631,7 +631,7 @@ internal static partial class Program
                 Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
                 "Kestrun",
                 "logs");
-            var defaultPath = Path.Combine(defaultDirectory, "script-runner-service.log");
+            var defaultPath = Path.Combine(defaultDirectory, "kestrun-tool-service.log");
 
             if (string.IsNullOrWhiteSpace(configuredPath))
             {
@@ -642,7 +642,7 @@ internal static partial class Program
             return Directory.Exists(fullPath)
                 || configuredPath.EndsWith('\\')
                 || configuredPath.EndsWith('/')
-                ? Path.Combine(fullPath, "script-runner-service.log")
+                ? Path.Combine(fullPath, "kestrun-tool-service.log")
                 : fullPath;
         }
     }
@@ -782,7 +782,7 @@ internal static partial class Program
         exePath ??= Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
         {
-            Console.Error.WriteLine("Unable to resolve ScriptRunner executable path for elevation.");
+            Console.Error.WriteLine("Unable to resolve KestrunTool executable path for elevation.");
             return 1;
         }
 
@@ -877,7 +877,7 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Installs a service/daemon entry that runs the target script through the ScriptRunner executable.
+    /// Installs a service/daemon entry that runs the target script through the KestrunTool executable.
     /// </summary>
     /// <param name="command">Parsed command information.</param>
     /// <returns>Process exit code.</returns>
@@ -1117,7 +1117,7 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Builds ScriptRunner command-line arguments used by installed services/daemons.
+    /// Builds KestrunTool command-line arguments used by installed services/daemons.
     /// </summary>
     /// <param name="scriptPath">Absolute script path to execute.</param>
     /// <param name="scriptArguments">Script arguments for the run command.</param>
@@ -1276,7 +1276,7 @@ internal static partial class Program
     {
         var hostArgs = UsesDedicatedServiceHostExecutable(serviceHostExecutablePath)
             ? BuildDedicatedServiceHostArguments(serviceName, runnerExecutablePath, scriptPath, moduleManifestPath, scriptArguments, serviceLogPath)
-            : BuildWindowsServiceHostArguments(serviceName, scriptPath, moduleManifestPath, scriptArguments, serviceLogPath);
+            : BuildWindowsServiceHostArgumentsCore(serviceName, scriptPath, moduleManifestPath, scriptArguments, serviceLogPath);
 
         var imagePath = BuildWindowsCommandLine(serviceHostExecutablePath, hostArgs);
         return RunProcess(
@@ -1387,6 +1387,26 @@ internal static partial class Program
     }
 
     /// <summary>
+    /// Builds internal service-host arguments used for Windows SCM registration from a parsed command.
+    /// </summary>
+    /// <param name="command">Parsed command containing service host metadata.</param>
+    /// <param name="scriptPath">Absolute script path.</param>
+    /// <param name="moduleManifestPath">Manifest path staged for service runtime.</param>
+    /// <returns>Ordered argument tokens.</returns>
+    private static IReadOnlyList<string> BuildWindowsServiceHostArguments(
+        ParsedCommand command,
+        string scriptPath,
+        string moduleManifestPath)
+    {
+        return BuildWindowsServiceHostArgumentsCore(
+            command.ServiceName ?? string.Empty,
+            scriptPath,
+            moduleManifestPath,
+            command.ScriptArguments,
+            command.ServiceLogPath);
+    }
+
+    /// <summary>
     /// Builds internal service-host arguments used for Windows SCM registration.
     /// </summary>
     /// <param name="serviceName">Service name.</param>
@@ -1395,7 +1415,7 @@ internal static partial class Program
     /// <param name="scriptArguments">Script arguments forwarded to run mode.</param>
     /// <param name="serviceLogPath">Optional service log path.</param>
     /// <returns>Ordered argument tokens.</returns>
-    private static IReadOnlyList<string> BuildWindowsServiceHostArguments(
+    private static IReadOnlyList<string> BuildWindowsServiceHostArgumentsCore(
         string serviceName,
         string scriptPath,
         string moduleManifestPath,
@@ -1489,11 +1509,11 @@ internal static partial class Program
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
             "Kestrun",
             "logs",
-            "script-runner-service.log");
+            "kestrun-tool-service.log");
 
         if (!string.IsNullOrWhiteSpace(configuredPath))
         {
-            return NormalizeServiceLogPath(configuredPath, defaultFileName: "script-runner-service.log");
+            return NormalizeServiceLogPath(configuredPath, defaultFileName: "kestrun-tool-service.log");
         }
         // When no explicit path is configured, attempt to discover a --service-log-path from the service config for better log correlation with the service instance.
         return OperatingSystem.IsWindows() && !string.IsNullOrWhiteSpace(serviceName)
@@ -1535,7 +1555,7 @@ internal static partial class Program
             return false;
         }
 
-        logPath = NormalizeServiceLogPath(rawPath, defaultFileName: "script-runner-service.log");
+        logPath = NormalizeServiceLogPath(rawPath, defaultFileName: "kestrun-tool-service.log");
         return true;
     }
 
@@ -1592,19 +1612,23 @@ internal static partial class Program
     {
         var candidates = new List<string>
         {
-            Path.Combine(moduleRoot, "lib","runtimes", runtimeRid, runtimeBinaryName),
-            Path.Combine(GetExecutableDirectory(),"lib", "runtimes", runtimeRid, runtimeBinaryName),
+            Path.Combine(moduleRoot, "runtimes", runtimeRid, runtimeBinaryName),
+            Path.Combine(moduleRoot, "lib", "runtimes", runtimeRid, runtimeBinaryName),
+            Path.Combine(GetExecutableDirectory(), "runtimes", runtimeRid, runtimeBinaryName),
+            Path.Combine(GetExecutableDirectory(), "lib", "runtimes", runtimeRid, runtimeBinaryName),
         };
 
         var baseDirectory = Path.GetFullPath(AppContext.BaseDirectory);
         var executableDirectory = GetExecutableDirectory();
         if (!string.Equals(baseDirectory, executableDirectory, StringComparison.OrdinalIgnoreCase))
         {
+            candidates.Add(Path.Combine(baseDirectory, "runtimes", runtimeRid, runtimeBinaryName));
             candidates.Add(Path.Combine(baseDirectory, "lib", "runtimes", runtimeRid, runtimeBinaryName));
         }
 
         foreach (var parent in EnumerateDirectoryAndParents(Environment.CurrentDirectory))
         {
+            candidates.Add(Path.Combine(parent, "src", "PowerShell", "Kestrun", "runtimes", runtimeRid, runtimeBinaryName));
             candidates.Add(Path.Combine(parent, "src", "PowerShell", "Kestrun", "lib", "runtimes", runtimeRid, runtimeBinaryName));
         }
 
@@ -3855,7 +3879,7 @@ internal static partial class Program
             case false:
                 try
                 {
-                    var resolvedPath = NormalizeServiceLogPath(logPath, defaultFileName: "script-runner-service.log");
+                    var resolvedPath = NormalizeServiceLogPath(logPath, defaultFileName: "kestrun-tool-service.log");
                     var directory = Path.GetDirectoryName(resolvedPath);
                     if (!string.IsNullOrWhiteSpace(directory))
                     {
@@ -5018,7 +5042,7 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Prints the ScriptRunner version.
+    /// Prints the KestrunTool version.
     /// </summary>
     private static void PrintVersion()
     {
@@ -5027,7 +5051,7 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Prints diagnostic information about the ScriptRunner build and runtime.
+    /// Prints diagnostic information about the KestrunTool build and runtime.
     /// </summary>
     private static void PrintInfo()
     {

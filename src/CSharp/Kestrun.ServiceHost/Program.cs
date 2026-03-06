@@ -363,7 +363,7 @@ internal static class Program
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
             "Kestrun",
             "logs");
-        var defaultPath = Path.Combine(defaultDirectory, "script-runner-service.log");
+        var defaultPath = Path.Combine(defaultDirectory, "kestrun-tool-service.log");
 
         if (string.IsNullOrWhiteSpace(configuredPath))
         {
@@ -374,7 +374,7 @@ internal static class Program
         return Directory.Exists(fullPath)
             || configuredPath.EndsWith('\\')
             || configuredPath.EndsWith('/')
-            ? Path.Combine(fullPath, "script-runner-service.log")
+            ? Path.Combine(fullPath, "kestrun-tool-service.log")
             : fullPath;
     }
 }

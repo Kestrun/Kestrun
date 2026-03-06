@@ -24,7 +24,7 @@ BeforeAll {
     }
 }
 
-Describe 'ScriptRunner module command surface' {
+Describe 'KestrunTool module command surface' {
     It 'shows module command in top-level help' {
         $result = & $script:InvokeKestrunCommand -Arguments @('--help')
 

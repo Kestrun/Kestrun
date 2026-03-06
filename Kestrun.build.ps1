@@ -254,8 +254,7 @@ Add-BuildTask 'Clean-KestrunTool' {
     $kestrunToolOutputRoots = @(
         (Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'Kestrun.Tool'),
         # Legacy output paths kept for one-way cleanup during the rename transition.
-        (Join-Path -Path $PSScriptRoot -ChildPath 'publish' -AdditionalChildPath 'Kestrun.Tool'),
-        (Join-Path -Path $PSScriptRoot -ChildPath 'publish' -AdditionalChildPath 'Kestrun.ScriptRunner')
+        (Join-Path -Path $PSScriptRoot -ChildPath 'publish' -AdditionalChildPath 'Kestrun.Tool')
     )
 
     foreach ($kestrunToolOutputRoot in $kestrunToolOutputRoots) {
@@ -272,9 +271,7 @@ Add-BuildTask 'Clean-KestrunTool' {
     $kestrunToolExecutables = @(
         (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun'),
         (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun.exe'),
-        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'Kestrun.Tool.exe'),
-        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'Kestrun.ScriptRunner.exe'),
-        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell' -AdditionalChildPath 'Kestrun.ScriptRunner.exe')
+        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'Kestrun.Tool.exe')
     )
 
     foreach ($kestrunToolExecutable in $kestrunToolExecutables) {
@@ -410,7 +407,6 @@ Add-BuildTask 'Build-KestrunTool' {
     $legacyRootBinaries = @(
         (Join-Path -Path $kestrunToolDestinationDirectory -ChildPath 'kestrun'),
         (Join-Path -Path $kestrunToolDestinationDirectory -ChildPath 'kestrun.exe'),
-        (Join-Path -Path $kestrunToolDestinationDirectory -ChildPath 'Kestrun.ScriptRunner.exe'),
         (Join-Path -Path $kestrunToolDestinationDirectory -ChildPath 'Kestrun.Tool.exe')
     )
 
@@ -444,9 +440,9 @@ Add-BuildTask 'Build-KestrunTool' {
         }
 
         $kestrunToolPublishedBinaryCandidates = if ($runtimeIdentifier -like 'win-*') {
-            @('Kestrun.Tool.exe', 'Kestrun.ScriptRunner.exe')
+            @('Kestrun.Tool.exe')
         } else {
-            @('Kestrun.Tool', 'Kestrun.ScriptRunner')
+            @('Kestrun.Tool')
         }
 
         $kestrunToolPublishedBinary = $null

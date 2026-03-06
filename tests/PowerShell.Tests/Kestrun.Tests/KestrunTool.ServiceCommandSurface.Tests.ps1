@@ -54,7 +54,7 @@ AfterAll {
     & sc.exe delete $script:serviceNameToCleanup | Out-Null
 }
 
-Describe 'ScriptRunner service command surface' {
+Describe 'KestrunTool service command surface' {
     It 'shows service install/remove/start/stop/query usage in help' {
         $result = & $script:InvokeKestrunCommand -Arguments @('service', 'help')
 

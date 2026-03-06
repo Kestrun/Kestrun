@@ -7,7 +7,7 @@ using Xunit;
 
 namespace KestrunTests.Tooling;
 
-public class ScriptRunnerCommandSurfaceTests
+public class KestrunToolCommandSurfaceTests
 {
     private static readonly Type ProgramType = ResolveProgramType();
 

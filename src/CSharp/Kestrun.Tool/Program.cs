@@ -2027,7 +2027,7 @@ internal static partial class Program
         var fullPath = Path.GetFullPath(inputPath);
         return Directory.Exists(fullPath)
             || inputPath.EndsWith("\\", StringComparison.Ordinal)
-            || inputPath.EndsWith("/", StringComparison.Ordinal)
+            || inputPath.EndsWith('/')
             ? Path.Combine(fullPath, defaultFileName)
             : fullPath;
     }

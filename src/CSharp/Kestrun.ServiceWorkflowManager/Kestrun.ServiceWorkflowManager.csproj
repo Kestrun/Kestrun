@@ -21,7 +21,7 @@
         <RepositoryUrl>https://github.com/kestrun/Kestrun</RepositoryUrl>
         <PackageProjectUrl>https://github.com/kestrun/Kestrun</PackageProjectUrl>
         <PackageReadmeFile>README.md</PackageReadmeFile>
-        <PackageVersion Condition="'$(Version)' == ''">0.0.1</PackageVersion>
+        <PackageVersion Condition="'$(Version)' == ''">0.0.2</PackageVersion>
         <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Release'">true</GeneratePackageOnBuild>
         <GeneratePackageOnBuild Condition="'$(Configuration)' != 'Release'">false</GeneratePackageOnBuild>
 

@@ -424,12 +424,12 @@ Add-BuildTask 'Build-ScriptRunner' {
             Remove-Item -Path $serviceHostPublishPath -Recurse -Force -ErrorAction SilentlyContinue
         }
 
-        dotnet publish "$KestrunScriptRunnerProjectPath" -c $Configuration -r $runtimeIdentifier --self-contained true /p:PackAsTool=false /p:DebugSymbols=false /p:DebugType=None -o "$scriptRunnerPublishPath" -v:$DotNetVerbosity
+        dotnet publish "$KestrunScriptRunnerProjectPath" -c $Configuration -r $runtimeIdentifier --self-contained true /p:PackAsTool=false /p:DebugSymbols=false /p:DebugType=None /p:Version=$Version /p:InformationalVersion=$VersionDetails.InformationalVersion -o "$scriptRunnerPublishPath" -v:$DotNetVerbosity
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet publish failed for ScriptRunner runtime '$runtimeIdentifier'."
         }
 
-        dotnet publish "$KestrunServiceHostProjectPath" -c $Configuration -r $runtimeIdentifier --self-contained true /p:DebugSymbols=false /p:DebugType=None -o "$serviceHostPublishPath" -v:$DotNetVerbosity
+        dotnet publish "$KestrunServiceHostProjectPath" -c $Configuration -r $runtimeIdentifier --self-contained true /p:DebugSymbols=false /p:DebugType=None /p:Version=$Version /p:InformationalVersion=$VersionDetails.InformationalVersion -o "$serviceHostPublishPath" -v:$DotNetVerbosity
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet publish failed for ServiceHost runtime '$runtimeIdentifier'."
         }

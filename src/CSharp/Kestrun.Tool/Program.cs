@@ -36,6 +36,12 @@ internal static partial class Program
     private static readonly Regex ModulePrereleaseRegex = MyRegex2();
     private static readonly Lock AssemblyLoadSync = new();
     private static readonly HttpClient GalleryHttpClient = CreateGalleryHttpClient();
+    private static readonly string[] ServiceBundleModuleExclusionPatterns =
+    [
+        "lib/runtimes/*",
+        "lib/net8.0/*",
+        "lib/Microsoft.CodeAnalysis/4*/*",
+    ];
     private static string? s_kestrunModuleLibPath;
     private static bool s_dependencyResolverRegistered;
 
@@ -1169,7 +1175,7 @@ internal static partial class Program
         {
             return BuildDedicatedServiceHostArguments(serviceName, runnerExecutablePath, scriptPath, moduleManifestPath, scriptArguments, serviceLogPath);
         }
-
+        // Fallback to generic runner invocation when the service host is not the dedicated one.
         return BuildRunnerArgumentsForService(scriptPath, scriptArguments, null, moduleManifestPath);
     }
 
@@ -1761,7 +1767,12 @@ internal static partial class Program
                 }
             }
 
-            CopyDirectoryContents(moduleRoot, moduleDirectory, showProgress, "Bundling module files");
+            CopyDirectoryContents(
+                moduleRoot,
+                moduleDirectory,
+                showProgress,
+                "Bundling module files",
+                ServiceBundleModuleExclusionPatterns);
             completedBundleSteps++;
             bundleProgress?.Report(completedBundleSteps);
 
@@ -3509,7 +3520,7 @@ internal static partial class Program
     /// <param name="destinationDirectory">Destination directory.</param>
     /// <param name="showProgress">When true, writes interactive progress bars.</param>
     private static void CopyDirectoryContents(string sourceDirectory, string destinationDirectory, bool showProgress)
-        => CopyDirectoryContents(sourceDirectory, destinationDirectory, showProgress, "Installing files");
+        => CopyDirectoryContents(sourceDirectory, destinationDirectory, showProgress, "Installing files", exclusionPatterns: null);
 
     /// <summary>
     /// Copies all files recursively from one directory to another.
@@ -3518,11 +3529,20 @@ internal static partial class Program
     /// <param name="destinationDirectory">Destination directory.</param>
     /// <param name="showProgress">When true, writes interactive progress bars.</param>
     /// <param name="progressLabel">Progress bar label for file copy operations.</param>
-    private static void CopyDirectoryContents(string sourceDirectory, string destinationDirectory, bool showProgress, string progressLabel)
+    /// <param name="exclusionPatterns">Optional wildcard patterns (relative to <paramref name="sourceDirectory"/>) for files to skip.</param>
+    private static void CopyDirectoryContents(
+        string sourceDirectory,
+        string destinationDirectory,
+        bool showProgress,
+        string progressLabel,
+        IReadOnlyList<string>? exclusionPatterns)
     {
         _ = Directory.CreateDirectory(destinationDirectory);
 
-        var sourceFilePaths = Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories).ToList();
+        var exclusionRegexes = BuildCopyExclusionRegexes(exclusionPatterns);
+        var sourceFilePaths = Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories)
+            .Where(sourceFilePath => !ShouldExcludeCopyFile(sourceDirectory, sourceFilePath, exclusionRegexes))
+            .ToList();
         using var copyProgress = showProgress
             ? new ConsoleProgressBar(progressLabel, sourceFilePaths.Count, FormatFileProgressDetail)
             : null;
@@ -3545,6 +3565,79 @@ internal static partial class Program
         }
 
         copyProgress?.Complete(copiedFiles);
+    }
+
+    /// <summary>
+    /// Determines whether a source file should be excluded from a directory copy operation.
+    /// </summary>
+    /// <param name="sourceDirectory">Source directory root.</param>
+    /// <param name="sourceFilePath">Absolute source file path.</param>
+    /// <param name="exclusionRegexes">Compiled exclusion regexes.</param>
+    /// <returns>True when the file should be excluded.</returns>
+    private static bool ShouldExcludeCopyFile(string sourceDirectory, string sourceFilePath, IReadOnlyList<Regex> exclusionRegexes)
+    {
+        if (exclusionRegexes.Count == 0)
+        {
+            return false;
+        }
+
+        var relativePath = NormalizeCopyPath(Path.GetRelativePath(sourceDirectory, sourceFilePath));
+        return exclusionRegexes.Any(regex => regex.IsMatch(relativePath));
+    }
+
+    /// <summary>
+    /// Compiles wildcard exclusion patterns used by directory copy operations.
+    /// </summary>
+    /// <param name="exclusionPatterns">Wildcard exclusion patterns.</param>
+    /// <returns>Compiled regex list for path matching.</returns>
+    private static List<Regex> BuildCopyExclusionRegexes(IReadOnlyList<string>? exclusionPatterns)
+    {
+        if (exclusionPatterns is null || exclusionPatterns.Count == 0)
+        {
+            return [];
+        }
+
+        var regexOptions = RegexOptions.Compiled | RegexOptions.CultureInvariant;
+        if (OperatingSystem.IsWindows())
+        {
+            regexOptions |= RegexOptions.IgnoreCase;
+        }
+
+        var regexes = new List<Regex>(exclusionPatterns.Count);
+        foreach (var exclusionPattern in exclusionPatterns)
+        {
+            var normalizedPattern = NormalizeCopyPath(exclusionPattern);
+            if (string.IsNullOrWhiteSpace(normalizedPattern))
+            {
+                continue;
+            }
+
+            var regexPattern = $"^{Regex.Escape(normalizedPattern).Replace(@"\*", ".*").Replace(@"\?", ".")}$";
+            regexes.Add(new Regex(regexPattern, regexOptions, TimeSpan.FromMilliseconds(250)));
+        }
+
+        return regexes;
+    }
+
+    /// <summary>
+    /// Normalizes a relative path for wildcard matching.
+    /// </summary>
+    /// <param name="relativePath">Relative path or wildcard pattern.</param>
+    /// <returns>Normalized slash-separated path without leading dot prefixes.</returns>
+    private static string NormalizeCopyPath(string relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            return string.Empty;
+        }
+
+        var normalizedPath = relativePath.Trim().Replace('\\', '/');
+        while (normalizedPath.StartsWith("./", StringComparison.Ordinal))
+        {
+            normalizedPath = normalizedPath[2..];
+        }
+
+        return normalizedPath.TrimStart('/');
     }
 
     /// <summary>

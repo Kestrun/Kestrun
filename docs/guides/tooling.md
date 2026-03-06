@@ -7,14 +7,15 @@ nav_order: 35
 
 # Kestrun Dotnet Tool
 
-Kestrun ships a dotnet tool package named `Kestrun.Tool` that installs the `kestrun` command.
+Kestrun ships a dotnet tool package named `Kestrun.Tool`.
+It installs the `dotnet-kestrun` tool command, which is typically invoked as `dotnet kestrun`.
 Use it to run scripts and manage service lifecycle from the CLI.
 
 ## Requirements
 
 - .NET SDK/runtime 10.0 or newer
 - Package id: `Kestrun.Tool`
-- Command name: `kestrun`
+- Command name: `dotnet-kestrun` (invoked as `dotnet kestrun`)
 
 ## Install
 
@@ -29,9 +30,9 @@ This installs the published NuGet version of `Kestrun.Tool`.
 Run from any shell:
 
 ```powershell
-kestrun help
-# or
 dotnet kestrun help
+# optional direct shim form
+dotnet-kestrun help
 ```
 
 ### Local install (repo scoped)
@@ -39,6 +40,7 @@ dotnet kestrun help
 ```powershell
 dotnet new tool-manifest --force
 dotnet tool install Kestrun.Tool
+dotnet tool restore
 ```
 
 This also resolves from configured NuGet feeds by default (stable/published version).
@@ -46,32 +48,33 @@ This also resolves from configured NuGet feeds by default (stable/published vers
 Run from the repo folder:
 
 ```powershell
-dotnet tool run kestrun help
+dotnet kestrun help
+# or
+dotnet tool run dotnet-kestrun help
 ```
 
 `dotnet tool run` resolves the tool manifest from the current directory and its parent chain.
-If you run it from a folder outside this repo tree (for example `C:\Users\<you>`), it will not find this repo's manifest.
+If you run from a folder outside this repo tree (for example `C:\Users\<you>`), it will not find this repo's local manifest.
 
 ### Install from local package output
 
 If you built the package locally (for example via
-`Invoke-Build Pack-ScriptRunnerTool`), install from `artifacts/tool-packages`
+`Invoke-Build Pack-KestrunTool`), install from `artifacts/tool-packages`
 to use a development build instead of the published NuGet build:
 
 ```powershell
-dotnet tool install Kestrun.Tool --add-source .\artifacts\tool-packages
+dotnet tool install -g Kestrun.Tool --add-source .\artifacts\tool-packages --ignore-failed-sources
 ```
 
 Typical use:
 
-- `dotnet tool install Kestrun.Tool`: installs published NuGet version.
-- `dotnet tool install Kestrun.Tool --add-source .\artifacts\tool-packages`: installs local dev package.
+- `dotnet tool install -g Kestrun.Tool`: installs published NuGet version (works from any folder).
+- `dotnet tool install -g Kestrun.Tool --add-source .\artifacts\tool-packages --ignore-failed-sources`: installs local dev package globally.
+- `dotnet tool install --local Kestrun.Tool --add-source .\artifacts\tool-packages --ignore-failed-sources`: installs local dev package for repo-scoped usage.
 
-If you want to run `kestrun` from any folder, install globally instead:
+If you want `dotnet kestrun` from any folder, install globally.
 
-```powershell
-dotnet tool install -g Kestrun.Tool --add-source <repo-path>\artifacts\tool-packages
-```
+If you want repo-pinned behavior, install locally and run from inside the manifest tree.
 
 ## Update and uninstall
 
@@ -95,17 +98,17 @@ Top-level commands:
 Top-level help:
 
 ```powershell
-kestrun help
+dotnet kestrun help
 ```
 
 Detailed help uses command-first style:
 
 ```powershell
-kestrun run help
-kestrun module help
-kestrun service help
-kestrun info help
-kestrun version help
+dotnet kestrun run help
+dotnet kestrun module help
+dotnet kestrun service help
+dotnet kestrun info help
+dotnet kestrun version help
 ```
 
 ## Script path options
@@ -113,11 +116,11 @@ kestrun version help
 `run` and `service install` accept either a positional script path or a named script path:
 
 ```powershell
-kestrun run .\server.ps1
-kestrun run --script .\server.ps1
+dotnet kestrun run .\server.ps1
+dotnet kestrun run --script .\server.ps1
 
-kestrun service install --name MyService .\server.ps1
-kestrun service install --name MyService --script .\server.ps1
+dotnet kestrun service install --name MyService .\server.ps1
+dotnet kestrun service install --name MyService --script .\server.ps1
 ```
 
 ## Important options
@@ -159,11 +162,11 @@ For `service install`:
 ## Service examples
 
 ```powershell
-kestrun service install --name demo --script .\server.ps1 --service-log-path C:\ProgramData\Kestrun\logs\demo.log
-kestrun service start --name demo
-kestrun service query --name demo
-kestrun service stop --name demo
-kestrun service remove --name demo
+dotnet kestrun service install --name demo --script .\server.ps1 --service-log-path C:\ProgramData\Kestrun\logs\demo.log
+dotnet kestrun service start --name demo
+dotnet kestrun service query --name demo
+dotnet kestrun service stop --name demo
+dotnet kestrun service remove --name demo
 ```
 
 ## Troubleshooting (Windows UAC)
@@ -172,18 +175,23 @@ If `dotnet kestrun service install ...` prints `Elevated operation failed` but
 `./src/PowerShell/Kestrun/kestrun service install ...` works:
 
 - Run from an elevated shell to bypass UAC relaunch.
-- Ensure the local tool package is refreshed when version is unchanged.
+- Ensure your selected tool scope is refreshed.
 
 ```powershell
-dotnet tool uninstall Kestrun.Tool --local
-Remove-Item "$env:USERPROFILE\.nuget\packages\kestrun.tool\0.0.1" -Recurse -Force
-dotnet tool install Kestrun.Tool --local --version 0.0.1 --add-source .\artifacts\tool-packages --no-cache
+# global refresh
+dotnet tool uninstall -g Kestrun.Tool
+dotnet tool install -g Kestrun.Tool --add-source .\artifacts\tool-packages --ignore-failed-sources
+
+# local refresh
+dotnet tool uninstall --local Kestrun.Tool
+dotnet tool install --local Kestrun.Tool --add-source .\artifacts\tool-packages --ignore-failed-sources
+dotnet tool restore
 ```
 
 ## Build and pack in this repo
 
 ```powershell
-Invoke-Build Pack-ScriptRunnerTool
+Invoke-Build Pack-KestrunTool
 ```
 
 This writes the tool package to:

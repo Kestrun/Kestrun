@@ -12,7 +12,7 @@
         <Nullable>enable</Nullable>
         <IsPackable>true</IsPackable>
         <PackAsTool>true</PackAsTool>
-        <ToolCommandName>kestrun</ToolCommandName>
+        <ToolCommandName>dotnet-kestrun</ToolCommandName>
 
         <PackageId>Kestrun.Tool</PackageId>
         <Authors>Kestrun Team</Authors>
@@ -21,7 +21,7 @@
         <RepositoryUrl>https://github.com/kestrun/Kestrun</RepositoryUrl>
         <PackageProjectUrl>https://github.com/kestrun/Kestrun</PackageProjectUrl>
         <PackageReadmeFile>README.md</PackageReadmeFile>
-        <PackageVersion Condition="'$(Version)' == ''">0.0.3</PackageVersion>
+        <PackageVersion Condition="'$(Version)' == ''">0.0.4</PackageVersion>
         <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Release'">true</GeneratePackageOnBuild>
         <GeneratePackageOnBuild Condition="'$(Configuration)' != 'Release'">false</GeneratePackageOnBuild>
 
@@ -42,4 +42,3 @@
         <None Include="../../../LICENSE.txt" Pack="true" PackagePath="\" />
     </ItemGroup>
 </Project>
-

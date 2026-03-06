@@ -24,12 +24,12 @@ internal static class Program
             PrintUsage();
             return 2;
         }
-
+        // If running on Windows and not in an interactive session, run as a Windows Service.
         if (OperatingSystem.IsWindows() && !Environment.UserInteractive)
         {
             return RunWindowsService(options!);
         }
-
+        // For non-Windows or interactive sessions, run as a foreground daemon.
         return RunForegroundDaemon(options!);
     }
 

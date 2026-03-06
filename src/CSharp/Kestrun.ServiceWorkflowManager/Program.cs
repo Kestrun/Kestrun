@@ -90,6 +90,14 @@ internal static class Program
         string? KestrunManifestPath,
         string? ServiceLogPath);
 
+    private sealed record ServiceRegisterOptions(
+        string ServiceName,
+        string ExecutablePath,
+        string ScriptPath,
+        string ModuleManifestPath,
+        string[] ScriptArguments,
+        string? ServiceLogPath);
+
     private sealed record GlobalOptions(
         string[] CommandArgs,
         bool SkipGalleryCheck);
@@ -244,6 +252,23 @@ internal static class Program
             return 2;
         }
 
+        if (TryParseServiceRegisterArguments(args, out var serviceRegisterOptions, out var serviceRegisterError))
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                Console.Error.WriteLine("Internal service registration mode is only supported on Windows.");
+                return 1;
+            }
+
+            return RegisterWindowsService(serviceRegisterOptions!);
+        }
+
+        if (!string.IsNullOrWhiteSpace(serviceRegisterError))
+        {
+            Console.Error.WriteLine(serviceRegisterError);
+            return 2;
+        }
+
         var globalOptions = ParseGlobalOptions(args);
         var commandArgs = globalOptions.CommandArgs;
 
@@ -261,11 +286,7 @@ internal static class Program
 
         if (parsedCommand.Mode == CommandMode.ServiceInstall)
         {
-            return OperatingSystem.IsWindows() && !IsWindowsAdministrator()
-                ? !TryPreflightWindowsServiceInstall(parsedCommand, out var preflightExitCode)
-                    ? preflightExitCode
-                    : RelaunchElevatedOnWindows(args)
-                : InstallService(parsedCommand, globalOptions.SkipGalleryCheck);
+            return InstallService(parsedCommand, globalOptions.SkipGalleryCheck);
         }
 
         if (parsedCommand.Mode is CommandMode.ModuleInstall or CommandMode.ModuleUpdate or CommandMode.ModuleRemove or CommandMode.ModuleInfo)
@@ -460,6 +481,107 @@ internal static class Program
         }
 
         options = new ServiceHostOptions(serviceName, scriptPath, scriptArgs, kestrunFolder, kestrunManifestPath, serviceLogPath);
+        return true;
+    }
+
+    /// <summary>
+    /// Parses internal Windows service registration arguments when present.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="options">Parsed registration options when successful.</param>
+    /// <param name="error">Parse error when registration mode is requested but invalid.</param>
+    /// <returns>True when service registration mode is recognized and parsed.</returns>
+    private static bool TryParseServiceRegisterArguments(string[] args, out ServiceRegisterOptions? options, out string? error)
+    {
+        options = null;
+        error = null;
+
+        if (args.Length == 0 || !string.Equals(args[0], "--service-register", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var index = 1;
+        var serviceName = string.Empty;
+        var executablePath = string.Empty;
+        var scriptPath = string.Empty;
+        var moduleManifestPath = string.Empty;
+        var scriptArgs = Array.Empty<string>();
+        string? serviceLogPath = null;
+
+        while (index < args.Length)
+        {
+            var current = args[index];
+            if (current is "--name" && index + 1 < args.Length)
+            {
+                serviceName = args[index + 1];
+                index += 2;
+                continue;
+            }
+
+            if (current is "--exe" && index + 1 < args.Length)
+            {
+                executablePath = args[index + 1];
+                index += 2;
+                continue;
+            }
+
+            if (current is "--script" && index + 1 < args.Length)
+            {
+                scriptPath = args[index + 1];
+                index += 2;
+                continue;
+            }
+
+            if (current is "--kestrun-manifest" or "-m" && index + 1 < args.Length)
+            {
+                moduleManifestPath = args[index + 1];
+                index += 2;
+                continue;
+            }
+
+            if (current is "--service-log-path" && index + 1 < args.Length)
+            {
+                serviceLogPath = args[index + 1];
+                index += 2;
+                continue;
+            }
+
+            if (current is "--arguments" or "--")
+            {
+                scriptArgs = [.. args.Skip(index + 1)];
+                break;
+            }
+
+            error = $"Unknown service register option: {current}";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(serviceName))
+        {
+            error = "Missing --name for internal service registration mode.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(executablePath))
+        {
+            error = "Missing --exe for internal service registration mode.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(scriptPath))
+        {
+            error = "Missing --script for internal service registration mode.";
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(moduleManifestPath))
+        {
+            error = "Missing --kestrun-manifest for internal service registration mode.";
+            return false;
+        }
+
+        options = new ServiceRegisterOptions(serviceName, executablePath, scriptPath, moduleManifestPath, scriptArgs, serviceLogPath);
         return true;
     }
 
@@ -826,11 +948,12 @@ internal static class Program
     /// Relaunches the current executable with UAC elevation on Windows.
     /// </summary>
     /// <param name="args">Original command-line arguments.</param>
+    /// <param name="exePath">Optional executable path to launch. When null, the current process executable will be used.</param>
     /// <returns>Exit code from the elevated child process or an error code.</returns>
     [SupportedOSPlatform("windows")]
-    private static int RelaunchElevatedOnWindows(IReadOnlyList<string> args)
+    private static int RelaunchElevatedOnWindows(IReadOnlyList<string> args, string? exePath = null)
     {
-        var exePath = Environment.ProcessPath;
+        exePath ??= Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
         {
             Console.Error.WriteLine("Unable to resolve ScriptRunner executable path for elevation.");
@@ -1054,6 +1177,11 @@ internal static class Program
         {
             WriteModuleNotFoundMessage(command.KestrunManifestPath, command.KestrunFolder, Console.Error.WriteLine);
             return 3;
+        }
+
+        if (OperatingSystem.IsWindows() && !TryPreflightWindowsServiceInstall(command, out var preflightExitCode))
+        {
+            return preflightExitCode;
         }
 
         if (!skipGalleryCheck)
@@ -1287,13 +1415,23 @@ internal static class Program
     /// <param name="scriptPath">Bundled script path.</param>
     /// <param name="moduleManifestPath">Bundled module manifest path.</param>
     /// <returns>Process exit code.</returns>
+    [SupportedOSPlatform("windows")]
     private static int InstallWindowsService(ParsedCommand command, string exePath, string scriptPath, string moduleManifestPath)
     {
-        var hostArgs = BuildWindowsServiceHostArguments(command, scriptPath, moduleManifestPath);
-        var imagePath = BuildWindowsCommandLine(exePath, hostArgs);
-        var createResult = RunProcess(
-            "sc.exe",
-            ["create", command.ServiceName!, "start=", "auto", "binPath=", imagePath, "DisplayName=", command.ServiceName!]);
+        var serviceName = command.ServiceName!;
+        if (!IsWindowsAdministrator())
+        {
+            var relaunchArgs = BuildWindowsServiceRegisterArguments(command, exePath, scriptPath, moduleManifestPath);
+            return RelaunchElevatedOnWindows(relaunchArgs, exePath);
+        }
+
+        var createResult = CreateWindowsServiceRegistration(
+            serviceName,
+            Path.GetFullPath(exePath),
+            Path.GetFullPath(scriptPath),
+            Path.GetFullPath(moduleManifestPath),
+            command.ScriptArguments,
+            command.ServiceLogPath);
 
         if (createResult.ExitCode != 0)
         {
@@ -1301,28 +1439,89 @@ internal static class Program
             return createResult.ExitCode;
         }
 
-        WriteServiceOperationLog($"Service '{command.ServiceName}' install operation completed.", command.ServiceLogPath, command.ServiceName);
+        WriteServiceOperationLog($"Service '{serviceName}' install operation completed.", command.ServiceLogPath, serviceName);
 
-        Console.WriteLine($"Installed Windows service '{command.ServiceName}' (not started).");
+        Console.WriteLine($"Installed Windows service '{serviceName}' (not started).");
         return 0;
     }
 
     /// <summary>
-    /// Builds internal service-host arguments used for Windows SCM registration.
+    /// Registers a Windows service using pre-staged runtime/module/script paths.
+    /// </summary>
+    /// <param name="options">Parsed service registration options.</param>
+    /// <returns>Process exit code.</returns>
+    [SupportedOSPlatform("windows")]
+    private static int RegisterWindowsService(ServiceRegisterOptions options)
+    {
+        var serviceName = options.ServiceName;
+        var createResult = CreateWindowsServiceRegistration(
+            serviceName,
+            Path.GetFullPath(options.ExecutablePath),
+            Path.GetFullPath(options.ScriptPath),
+            Path.GetFullPath(options.ModuleManifestPath),
+            options.ScriptArguments,
+            options.ServiceLogPath);
+
+        if (createResult.ExitCode != 0)
+        {
+            Console.Error.WriteLine(createResult.Error);
+            return createResult.ExitCode;
+        }
+
+        WriteServiceOperationLog($"Service '{serviceName}' install operation completed.", options.ServiceLogPath, serviceName);
+
+        Console.WriteLine($"Installed Windows service '{serviceName}' (not started).");
+        return 0;
+    }
+
+    /// <summary>
+    /// Creates a Windows service registration using sc.exe.
+    /// </summary>
+    /// <param name="serviceName">Service name.</param>
+    /// <param name="executablePath">Executable path.</param>
+    /// <param name="scriptPath">Absolute script path.</param>
+    /// <param name="moduleManifestPath">Absolute module manifest path.</param>
+    /// <param name="scriptArguments">Script arguments for service-host mode.</param>
+    /// <param name="serviceLogPath">Optional service log path.</param>
+    /// <returns>Process result from sc.exe create.</returns>
+    private static ProcessResult CreateWindowsServiceRegistration(
+        string serviceName,
+        string executablePath,
+        string scriptPath,
+        string moduleManifestPath,
+        IReadOnlyList<string> scriptArguments,
+        string? serviceLogPath)
+    {
+        var hostArgs = BuildWindowsServiceHostArguments(serviceName, scriptPath, moduleManifestPath, scriptArguments, serviceLogPath);
+        var imagePath = BuildWindowsCommandLine(executablePath, hostArgs);
+        return RunProcess(
+            "sc.exe",
+            ["create", serviceName, "start=", "auto", "binPath=", imagePath, "DisplayName=", serviceName]);
+    }
+
+    /// <summary>
+    /// Builds elevated relaunch arguments for internal Windows service registration.
     /// </summary>
     /// <param name="command">Parsed service command.</param>
+    /// <param name="executablePath">Executable path.</param>
     /// <param name="scriptPath">Absolute script path.</param>
     /// <param name="moduleManifestPath">Manifest path staged for service runtime.</param>
     /// <returns>Ordered argument tokens.</returns>
-    private static IReadOnlyList<string> BuildWindowsServiceHostArguments(ParsedCommand command, string scriptPath, string moduleManifestPath)
+    private static IReadOnlyList<string> BuildWindowsServiceRegisterArguments(
+        ParsedCommand command,
+        string executablePath,
+        string scriptPath,
+        string moduleManifestPath)
     {
-        var arguments = new List<string>(12 + command.ScriptArguments.Length)
+        var arguments = new List<string>(14 + command.ScriptArguments.Length)
         {
-            "--service-host",
+            "--service-register",
             "--name",
             command.ServiceName!,
+            "--exe",
+            Path.GetFullPath(executablePath),
             "--script",
-            scriptPath,
+            Path.GetFullPath(scriptPath),
             "--kestrun-manifest",
             Path.GetFullPath(moduleManifestPath),
         };
@@ -1337,6 +1536,65 @@ internal static class Program
         {
             arguments.Add("--arguments");
             arguments.AddRange(command.ScriptArguments);
+        }
+
+        return arguments;
+    }
+
+    /// <summary>
+    /// Builds internal service-host arguments used for Windows SCM registration.
+    /// </summary>
+    /// <param name="command">Parsed service command.</param>
+    /// <param name="scriptPath">Absolute script path.</param>
+    /// <param name="moduleManifestPath">Manifest path staged for service runtime.</param>
+    /// <returns>Ordered argument tokens.</returns>
+    private static IReadOnlyList<string> BuildWindowsServiceHostArguments(ParsedCommand command, string scriptPath, string moduleManifestPath)
+    {
+        return BuildWindowsServiceHostArguments(
+            command.ServiceName!,
+            scriptPath,
+            moduleManifestPath,
+            command.ScriptArguments,
+            command.ServiceLogPath);
+    }
+
+    /// <summary>
+    /// Builds internal service-host arguments used for Windows SCM registration.
+    /// </summary>
+    /// <param name="serviceName">Service name.</param>
+    /// <param name="scriptPath">Absolute script path.</param>
+    /// <param name="moduleManifestPath">Manifest path staged for service runtime.</param>
+    /// <param name="scriptArguments">Script arguments forwarded to run mode.</param>
+    /// <param name="serviceLogPath">Optional service log path.</param>
+    /// <returns>Ordered argument tokens.</returns>
+    private static IReadOnlyList<string> BuildWindowsServiceHostArguments(
+        string serviceName,
+        string scriptPath,
+        string moduleManifestPath,
+        IReadOnlyList<string> scriptArguments,
+        string? serviceLogPath)
+    {
+        var arguments = new List<string>(12 + scriptArguments.Count)
+        {
+            "--service-host",
+            "--name",
+            serviceName,
+            "--script",
+            scriptPath,
+            "--kestrun-manifest",
+            Path.GetFullPath(moduleManifestPath),
+        };
+
+        if (!string.IsNullOrWhiteSpace(serviceLogPath))
+        {
+            arguments.Add("--service-log-path");
+            arguments.Add(Path.GetFullPath(serviceLogPath));
+        }
+
+        if (scriptArguments.Count > 0)
+        {
+            arguments.Add("--arguments");
+            arguments.AddRange(scriptArguments);
         }
 
         return arguments;

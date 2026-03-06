@@ -1586,20 +1586,20 @@ internal static partial class Program
     {
         var candidates = new List<string>
         {
-            Path.Combine(moduleRoot, "runtimes", runtimeRid, runtimeBinaryName),
-            Path.Combine(GetExecutableDirectory(), "runtimes", runtimeRid, runtimeBinaryName),
+            Path.Combine(moduleRoot, "lib","runtimes", runtimeRid, runtimeBinaryName),
+            Path.Combine(GetExecutableDirectory(),"lib", "runtimes", runtimeRid, runtimeBinaryName),
         };
 
         var baseDirectory = Path.GetFullPath(AppContext.BaseDirectory);
         var executableDirectory = GetExecutableDirectory();
         if (!string.Equals(baseDirectory, executableDirectory, StringComparison.OrdinalIgnoreCase))
         {
-            candidates.Add(Path.Combine(baseDirectory, "runtimes", runtimeRid, runtimeBinaryName));
+            candidates.Add(Path.Combine(baseDirectory, "lib", "runtimes", runtimeRid, runtimeBinaryName));
         }
 
         foreach (var parent in EnumerateDirectoryAndParents(Environment.CurrentDirectory))
         {
-            candidates.Add(Path.Combine(parent, "src", "PowerShell", "Kestrun", "runtimes", runtimeRid, runtimeBinaryName));
+            candidates.Add(Path.Combine(parent, "src", "PowerShell", "Kestrun", "lib", "runtimes", runtimeRid, runtimeBinaryName));
         }
 
         foreach (var candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
@@ -5098,4 +5098,3 @@ internal static partial class Program
     [GeneratedRegex("^\\s*Prerelease\\s*=\\s*['\\\"](?<value>[^'\\\"]+)['\\\"]", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Compiled | RegexOptions.CultureInvariant)]
     private static partial Regex MyRegex2();
 }
-

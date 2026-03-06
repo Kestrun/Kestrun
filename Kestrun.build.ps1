@@ -256,7 +256,7 @@ Add-BuildTask 'Clean-ScriptRunner' {
         Remove-Item -Path $scriptRunnerPublishRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
 
-    $scriptRunnerRuntimesDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun/runtimes'
+    $scriptRunnerRuntimesDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun/lib/runtimes'
     if (Test-Path -Path $scriptRunnerRuntimesDirectory) {
         Remove-Item -Path $scriptRunnerRuntimesDirectory -Recurse -Force -ErrorAction SilentlyContinue
     }
@@ -391,7 +391,8 @@ Add-BuildTask 'Build-ScriptRunner' {
     Write-Host '🔨 Publishing ScriptRunner (kestrun) for PowerShell-supported platforms...'
 
     $scriptRunnerPublishRoot = Join-Path -Path $PSScriptRoot -ChildPath 'publish' -AdditionalChildPath 'Kestrun.ScriptRunner'
-    $scriptRunnerDestinationDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun'
+    $powershellSrcRoot = Join-Path -Path $PSScriptRoot -ChildPath "src/PowerShell/Kestrun"
+    $scriptRunnerDestinationDirectory = Join-Path -Path $powershellSrcRoot -ChildPath 'lib'
 
     if (-not (Test-Path -Path $scriptRunnerDestinationDirectory)) {
         New-Item -Path $scriptRunnerDestinationDirectory -ItemType Directory -Force | Out-Null
@@ -488,13 +489,13 @@ Add-BuildTask 'Build-ScriptRunner' {
     }
 
     $cmdLauncherPaths = @(
-        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'kestrun.cmd')
+        (Join-Path -Path $powershellSrcRoot -ChildPath 'kestrun.cmd')
     )
     $ps1LauncherPaths = @(
-        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'kestrun.ps1')
+        (Join-Path -Path $powershellSrcRoot -ChildPath 'kestrun.ps1')
     )
     $shLauncherPaths = @(
-        (Join-Path -Path $scriptRunnerDestinationDirectory -ChildPath 'kestrun.sh')
+        (Join-Path -Path $powershellSrcRoot -ChildPath 'kestrun.sh')
     )
 
     $cmdLauncherContent = @'
@@ -509,7 +510,7 @@ set "KESTRUN_RID="
 if /I "%KESTRUN_ARCH%"=="ARM64" set "KESTRUN_RID=win-arm64"
 if /I "%KESTRUN_RID%"=="" set "KESTRUN_RID=win-x64"
 
-set "KESTRUN_PATH=%KESTRUN_DIR%runtimes\%KESTRUN_RID%\kestrun.exe"
+set "KESTRUN_PATH=%KESTRUN_DIR%lib\runtimes\%KESTRUN_RID%\kestrun.exe"
 if not exist "%KESTRUN_PATH%" (
     echo Unable to find ScriptRunner binary: "%KESTRUN_PATH%" 1>&2
     exit /b 1
@@ -543,7 +544,7 @@ if ([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Ru
 
 $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant()
 $rid = "${os}-${arch}"
-$runtimeDirectory = Join-Path -Path $scriptRoot -ChildPath 'runtimes' -AdditionalChildPath $rid
+$runtimeDirectory = Join-Path -Path $scriptRoot -ChildPath 'lib' -AdditionalChildPath 'runtimes', $rid
 $kestrunPath = Join-Path -Path $runtimeDirectory -ChildPath $binaryName
 
 if (-not (Test-Path -Path $kestrunPath)) {
@@ -580,7 +581,7 @@ case "$UNAME_M" in
     ;;
 esac
 
-KESTRUN_PATH="$SCRIPT_DIR/runtimes/${KESTRUN_OS}-${KESTRUN_ARCH}/kestrun"
+KESTRUN_PATH="$SCRIPT_DIR/lib/runtimes/${KESTRUN_OS}-${KESTRUN_ARCH}/kestrun"
 if [ ! -f "$KESTRUN_PATH" ]; then
     echo "Unable to find ScriptRunner binary: $KESTRUN_PATH" >&2
   exit 1
@@ -617,11 +618,11 @@ exec "$KESTRUN_PATH" --kestrun-folder "$SCRIPT_DIR" "$@"
         Write-Host "    ✅ Created launcher: $shLauncherPath"
     }
 
-    Write-Host '✅ ScriptRunner publish completed for all configured runtimes.'
+    Write-Host '✅ Tools publish completed for all configured runtimes.'
 }
 
 Add-BuildTask 'Pack-KestrunTool' {
-    Write-Host '📦 Packing ScriptRunner dotnet tool package (kestrun)...'
+    Write-Host '📦 Packing Kestrun dotnet tool package (kestrun)...'
 
     $toolOutputDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'tool-packages'
     if (-not (Test-Path -Path $toolOutputDirectory)) {
@@ -634,15 +635,15 @@ Add-BuildTask 'Pack-KestrunTool' {
     # Build first to avoid intermittent pack-time publish artifact resolution issues.
     dotnet build "$KestrunScriptRunnerProjectPath" -c $Configuration -v:$DotNetVerbosity
     if ($LASTEXITCODE -ne 0) {
-        throw 'dotnet build failed for ScriptRunner tool packaging.'
+        throw 'dotnet build failed for Kestrun tool packaging.'
     }
 
     dotnet pack "$KestrunScriptRunnerProjectPath" -c $Configuration -o "$toolOutputDirectory" -v:$DotNetVerbosity
     if ($LASTEXITCODE -ne 0) {
-        throw 'dotnet pack failed for ScriptRunner tool packaging.'
+        throw 'dotnet pack failed for Kestrun tool packaging.'
     }
 
-    Write-Host "✅ ScriptRunner dotnet tool package created in: $toolOutputDirectory"
+    Write-Host "✅ Kestrun dotnet tool package created in: $toolOutputDirectory"
     Write-Host "   Install with: dotnet tool install Kestrun.Tool --add-source $toolOutputDirectory"
     Write-Host '   Run with: dotnet kestrun -- --help'
 }
@@ -901,4 +902,3 @@ Add-BuildTask 'Normalize-LineEndings' {
             Write-Host "Normalized line endings in $($_.FullName)"
         }
 }
-

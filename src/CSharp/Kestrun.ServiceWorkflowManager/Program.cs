@@ -18,7 +18,7 @@ using System.Xml.Linq;
 
 namespace Kestrun.ServiceWorkflowManager;
 
-internal static class Program
+internal static partial class Program
 {
     private const string ModuleManifestFileName = "Kestrun.psd1";
     private const string ModuleName = "Kestrun";
@@ -32,12 +32,8 @@ internal static class Program
     private const string NoCheckOption = "--nocheck";
     private const string NoCheckAliasOption = "--no-check";
     private const string PowerShellGalleryApiBaseUri = "https://www.powershellgallery.com/api/v2";
-    private static readonly Regex ModuleVersionRegex = new(
-        "^\\s*ModuleVersion\\s*=\\s*['\\\"](?<value>[^'\\\"]+)['\\\"]",
-        RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
-    private static readonly Regex ModulePrereleaseRegex = new(
-        "^\\s*Prerelease\\s*=\\s*['\\\"](?<value>[^'\\\"]+)['\\\"]",
-        RegexOptions.Multiline | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
+    private static readonly Regex ModuleVersionRegex = MyRegex1();
+    private static readonly Regex ModulePrereleaseRegex = MyRegex2();
     private static readonly Lock AssemblyLoadSync = new();
     private static readonly HttpClient GalleryHttpClient = CreateGalleryHttpClient();
     private static string? s_kestrunModuleLibPath;
@@ -112,127 +108,6 @@ internal static class Program
         string ScriptPath,
         string ModuleManifestPath);
 
-    /// <summary>
-    /// Writes in-place progress updates for module operations.
-    /// </summary>
-    private sealed class ConsoleProgressBar : IDisposable
-    {
-        private const int ProgressBarWidth = 28;
-        private static readonly TimeSpan RenderThrottle = TimeSpan.FromMilliseconds(80);
-
-        private readonly string _label;
-        private readonly long? _total;
-        private readonly Func<long, long?, string>? _detailFormatter;
-        private readonly bool _enabled;
-        private int _lastRenderedLength;
-        private int _lastPercent = -1;
-        private long _lastValue = -1;
-        private DateTime _lastRenderUtc = DateTime.MinValue;
-        private bool _hasRendered;
-        private bool _isComplete;
-
-        public ConsoleProgressBar(string label, long? total, Func<long, long?, string>? detailFormatter)
-        {
-            _label = label;
-            _total = total.HasValue && total.Value > 0 ? total : null;
-            _detailFormatter = detailFormatter;
-            _enabled = !Console.IsOutputRedirected;
-        }
-
-        public void Report(long value, bool force = false)
-        {
-            if (!_enabled || _isComplete)
-            {
-                return;
-            }
-
-            var sanitizedValue = Math.Max(0, value);
-            var percent = GetPercent(sanitizedValue);
-            var now = DateTime.UtcNow;
-
-            if (!force
-                && sanitizedValue == _lastValue
-                && percent == _lastPercent)
-            {
-                return;
-            }
-
-            if (!force
-                && percent == _lastPercent
-                && now - _lastRenderUtc < RenderThrottle)
-            {
-                return;
-            }
-
-            _lastValue = sanitizedValue;
-            _lastPercent = percent;
-            _lastRenderUtc = now;
-            Render(sanitizedValue, percent);
-        }
-
-        public void Complete(long value)
-        {
-            if (!_enabled || _isComplete)
-            {
-                return;
-            }
-
-            var completionValue = _total ?? Math.Max(0, value);
-            Report(completionValue, force: true);
-            Console.WriteLine();
-            _isComplete = true;
-        }
-
-        public void Dispose()
-        {
-            if (_enabled && _hasRendered && !_isComplete)
-            {
-                Console.WriteLine();
-            }
-        }
-
-        private int GetPercent(long value)
-        {
-            if (!_total.HasValue || _total.Value <= 0)
-            {
-                return -1;
-            }
-
-            return (int)Math.Clamp((value * 100L) / _total.Value, 0, 100);
-        }
-
-        private void Render(long value, int percent)
-        {
-            var detail = _detailFormatter is null
-                ? _total.HasValue
-                    ? $"{value}/{_total.Value}"
-                    : value.ToString()
-                : _detailFormatter(value, _total);
-
-            var line = percent >= 0
-                ? $"{_label} {BuildBar(percent)} {percent,3}% {detail}"
-                : $"{_label} {detail}";
-
-            if (line.Length < _lastRenderedLength)
-            {
-                line = line.PadRight(_lastRenderedLength);
-            }
-
-            _lastRenderedLength = line.Length;
-            _hasRendered = true;
-
-            Console.Write('\r');
-            Console.Write(line);
-        }
-
-        private static string BuildBar(int percent)
-        {
-            var filled = (int)Math.Round(percent / 100d * ProgressBarWidth, MidpointRounding.AwayFromZero);
-            filled = Math.Clamp(filled, 0, ProgressBarWidth);
-            return $"[{new string('#', filled)}{new string('-', ProgressBarWidth - filled)}]";
-        }
-    }
-
     private static int Main(string[] args)
     {
         if (TryParseServiceHostArguments(args, out var serviceHostOptions, out var serviceHostError))
@@ -298,7 +173,7 @@ internal static class Program
             {
                 return RelaunchElevatedOnWindows(args);
             }
-
+            // For non-Windows OSes, attempt module management without elevation and rely on error handling for permission issues.
             return ManageModuleCommand(parsedCommand);
         }
 
@@ -699,85 +574,7 @@ internal static class Program
                 return 3;
             }
 
-            moduleManifestPath = PrepareServiceModuleManifest(moduleManifestPath);
-
             return ExecuteScript(scriptPath, _options.ScriptArguments, moduleManifestPath);
-        }
-
-        /// <summary>
-        /// Copies the resolved Kestrun module into a service-safe ProgramData cache and returns cached manifest path.
-        /// </summary>
-        /// <param name="sourceManifestPath">Resolved source manifest path.</param>
-        /// <returns>Manifest path from ProgramData cache when copy succeeds; otherwise source path.</returns>
-        private string PrepareServiceModuleManifest(string sourceManifestPath)
-        {
-            try
-            {
-                var sourceManifestFullPath = Path.GetFullPath(sourceManifestPath);
-                var sourceModuleRoot = Path.GetDirectoryName(sourceManifestFullPath);
-                if (string.IsNullOrWhiteSpace(sourceModuleRoot) || !Directory.Exists(sourceModuleRoot))
-                {
-                    WriteBootstrapLog($"Module cache skipped: invalid module root for '{sourceManifestFullPath}'.");
-                    return sourceManifestPath;
-                }
-
-                var cacheRoot = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                    "Kestrun",
-                    "module-cache");
-                _ = Directory.CreateDirectory(cacheRoot);
-
-                // Stable cache key from full source module path.
-                var normalized = sourceModuleRoot.ToLowerInvariant();
-                var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(normalized))).ToLowerInvariant();
-                var cachedModuleRoot = Path.Combine(cacheRoot, hash);
-
-                // Keep cache fresh on each service start to avoid stale binaries after local builds.
-                if (Directory.Exists(cachedModuleRoot))
-                {
-                    Directory.Delete(cachedModuleRoot, recursive: true);
-                }
-
-                CopyDirectoryRecursive(sourceModuleRoot, cachedModuleRoot);
-
-                var cachedManifestPath = Path.Combine(cachedModuleRoot, ModuleManifestFileName);
-                if (!File.Exists(cachedManifestPath))
-                {
-                    WriteBootstrapLog($"Module cache copy completed but manifest missing at '{cachedManifestPath}'. Falling back to source manifest.");
-                    return sourceManifestPath;
-                }
-
-                WriteBootstrapLog($"Service module cache prepared at '{cachedModuleRoot}'.");
-                return cachedManifestPath;
-            }
-            catch (Exception ex)
-            {
-                WriteBootstrapLog($"Module cache preparation failed: {ex.Message}. Falling back to source manifest.");
-                return sourceManifestPath;
-            }
-        }
-
-        /// <summary>
-        /// Recursively copies a directory preserving relative paths.
-        /// </summary>
-        /// <param name="sourceDirectory">Source directory path.</param>
-        /// <param name="destinationDirectory">Destination directory path.</param>
-        private static void CopyDirectoryRecursive(string sourceDirectory, string destinationDirectory)
-        {
-            _ = Directory.CreateDirectory(destinationDirectory);
-
-            foreach (var sourceFile in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
-            {
-                var relativePath = Path.GetRelativePath(sourceDirectory, sourceFile);
-                var targetPath = Path.Combine(destinationDirectory, relativePath);
-                var targetFolder = Path.GetDirectoryName(targetPath);
-                if (!string.IsNullOrWhiteSpace(targetFolder))
-                {
-                    _ = Directory.CreateDirectory(targetFolder);
-                }
-
-                File.Copy(sourceFile, targetPath, overwrite: true);
-            }
         }
 
         private void WriteBootstrapLog(string message)
@@ -1018,19 +815,6 @@ internal static class Program
         }
 
         var assemblyPath = typeof(Program).Assembly.Location;
-        if (!string.IsNullOrWhiteSpace(assemblyPath)
-            && File.Exists(assemblyPath)
-            && TryStageDotnetToolForElevation(assemblyPath, out var stagedAssemblyPath))
-        {
-            var elevatedArgs = new List<string>(args.Count + 1)
-            {
-                stagedAssemblyPath,
-            };
-
-            elevatedArgs.AddRange(args);
-            return elevatedArgs;
-        }
-
         if (!string.IsNullOrWhiteSpace(assemblyPath) && File.Exists(assemblyPath))
         {
             var elevatedArgs = new List<string>(args.Count + 1)
@@ -1061,93 +845,6 @@ internal static class Program
     {
         var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(executablePath);
         return string.Equals(fileNameWithoutExtension, "dotnet", StringComparison.OrdinalIgnoreCase);
-    }
-
-    /// <summary>
-    /// Stages the current dotnet tool payload to a location suitable for elevated relaunch.
-    /// </summary>
-    /// <param name="assemblyPath">Current tool assembly path.</param>
-    /// <param name="stagedAssemblyPath">Staged assembly path when successful.</param>
-    /// <returns>True when staging succeeds.</returns>
-    private static bool TryStageDotnetToolForElevation(string assemblyPath, out string stagedAssemblyPath)
-    {
-        stagedAssemblyPath = string.Empty;
-
-        var sourceDirectory = Path.GetDirectoryName(Path.GetFullPath(assemblyPath));
-        if (string.IsNullOrWhiteSpace(sourceDirectory) || !Directory.Exists(sourceDirectory))
-        {
-            return false;
-        }
-
-        var directoryKey = Convert.ToHexString(
-            System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(sourceDirectory.ToLowerInvariant())))
-            .ToLowerInvariant();
-
-        foreach (var candidateRoot in EnumerateElevationStagingRootCandidates())
-        {
-            if (string.IsNullOrWhiteSpace(candidateRoot))
-            {
-                continue;
-            }
-
-            try
-            {
-                var stagingDirectory = Path.Combine(candidateRoot, "Kestrun", "elevation", directoryKey);
-                if (Directory.Exists(stagingDirectory))
-                {
-                    Directory.Delete(stagingDirectory, recursive: true);
-                }
-
-                CopyDirectoryContents(sourceDirectory, stagingDirectory);
-                var candidateAssemblyPath = Path.Combine(stagingDirectory, Path.GetFileName(assemblyPath));
-                if (!File.Exists(candidateAssemblyPath))
-                {
-                    continue;
-                }
-
-                stagedAssemblyPath = Path.GetFullPath(candidateAssemblyPath);
-                return true;
-            }
-            catch
-            {
-                // Try the next staging root candidate.
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Enumerates candidate roots for elevation-safe staging.
-    /// </summary>
-    /// <returns>Candidate staging root directories.</returns>
-    private static IEnumerable<string> EnumerateElevationStagingRootCandidates()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            var commonApplicationData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-            if (!string.IsNullOrWhiteSpace(commonApplicationData))
-            {
-                yield return commonApplicationData;
-            }
-
-            var commonDocuments = Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments);
-            if (!string.IsNullOrWhiteSpace(commonDocuments))
-            {
-                yield return commonDocuments;
-            }
-
-            if (!string.IsNullOrWhiteSpace(Environment.CurrentDirectory))
-            {
-                yield return Environment.CurrentDirectory;
-            }
-        }
-
-        var tempPath = Path.GetTempPath();
-        if (!string.IsNullOrWhiteSpace(tempPath))
-        {
-            yield return tempPath;
-        }
     }
 
     /// <summary>
@@ -1186,7 +883,7 @@ internal static class Program
 
         if (!skipGalleryCheck)
         {
-            WarnIfNewerGalleryVersionExists(moduleManifestPath);
+            WarnIfNewerGalleryVersionExists(moduleManifestPath, command.ServiceLogPath);
         }
 
         if (!TryPrepareServiceBundle(serviceName, scriptPath, moduleManifestPath, out var serviceBundle, out var bundleError))
@@ -1544,23 +1241,6 @@ internal static class Program
     /// <summary>
     /// Builds internal service-host arguments used for Windows SCM registration.
     /// </summary>
-    /// <param name="command">Parsed service command.</param>
-    /// <param name="scriptPath">Absolute script path.</param>
-    /// <param name="moduleManifestPath">Manifest path staged for service runtime.</param>
-    /// <returns>Ordered argument tokens.</returns>
-    private static IReadOnlyList<string> BuildWindowsServiceHostArguments(ParsedCommand command, string scriptPath, string moduleManifestPath)
-    {
-        return BuildWindowsServiceHostArguments(
-            command.ServiceName!,
-            scriptPath,
-            moduleManifestPath,
-            command.ScriptArguments,
-            command.ServiceLogPath);
-    }
-
-    /// <summary>
-    /// Builds internal service-host arguments used for Windows SCM registration.
-    /// </summary>
     /// <param name="serviceName">Service name.</param>
     /// <param name="scriptPath">Absolute script path.</param>
     /// <param name="moduleManifestPath">Manifest path staged for service runtime.</param>
@@ -1691,10 +1371,7 @@ internal static class Program
         }
 
         var text = string.Concat(queryResult.Output, Environment.NewLine, queryResult.Error);
-        var match = System.Text.RegularExpressions.Regex.Match(
-            text,
-            "--service-log-path\\s+(\\\"(?<quoted>[^\\\"]+)\\\"|(?<plain>\\S+))",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        var match = MyRegex().Match(text);
 
         if (!match.Success)
         {
@@ -2116,29 +1793,6 @@ internal static class Program
 
         runtimeRid = $"{osPrefix}-{architecture}";
         return true;
-    }
-
-    /// <summary>
-    /// Copies all files from one directory tree to another preserving relative paths.
-    /// </summary>
-    /// <param name="sourceDirectory">Source directory path.</param>
-    /// <param name="destinationDirectory">Destination directory path.</param>
-    private static void CopyDirectoryContents(string sourceDirectory, string destinationDirectory)
-    {
-        _ = Directory.CreateDirectory(destinationDirectory);
-
-        foreach (var sourceFile in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
-        {
-            var relativePath = Path.GetRelativePath(sourceDirectory, sourceFile);
-            var destinationPath = Path.Combine(destinationDirectory, relativePath);
-            var destinationFolder = Path.GetDirectoryName(destinationPath);
-            if (!string.IsNullOrWhiteSpace(destinationFolder))
-            {
-                _ = Directory.CreateDirectory(destinationFolder);
-            }
-
-            File.Copy(sourceFile, destinationPath, overwrite: true);
-        }
     }
 
     /// <summary>
@@ -2764,7 +2418,7 @@ internal static class Program
     /// </summary>
     private static void EnsureNet10Runtime()
     {
-        var framework = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription;
+        var framework = RuntimeInformation.FrameworkDescription;
         if (!framework.Contains(".NET 10", StringComparison.OrdinalIgnoreCase))
         {
             throw new RuntimeException($"{ProductName} requires .NET 10 runtime. Current runtime: {framework}");
@@ -3257,8 +2911,6 @@ internal static class Program
     {
         installedVersion = string.Empty;
         installedManifestPath = string.Empty;
-        errorText = string.Empty;
-
         if (!TryDownloadModulePackage(requestedVersion, showProgress, out var packageBytes, out var packageVersion, out errorText))
         {
             return false;
@@ -3530,9 +3182,9 @@ internal static class Program
                 ? fullStagingPath
                 : fullStagingPath + Path.DirectorySeparatorChar;
 
-            foreach (var payloadEntry in payloadEntries)
+            foreach (var (Entry, RelativePath) in payloadEntries)
             {
-                var relativePath = payloadEntry.RelativePath;
+                var relativePath = RelativePath;
                 if (shouldStripModulePrefix)
                 {
                     var separatorIndex = relativePath.IndexOf('/');
@@ -3549,7 +3201,7 @@ internal static class Program
                 var destinationPath = Path.GetFullPath(Path.Combine(stagingPath, relativePath));
                 if (!destinationPath.StartsWith(fullStagingPathWithSeparator, comparisonType))
                 {
-                    errorText = $"Package entry '{payloadEntry.Entry.FullName}' resolves outside staging directory.";
+                    errorText = $"Package entry '{Entry.FullName}' resolves outside staging directory.";
                     return false;
                 }
 
@@ -3559,7 +3211,7 @@ internal static class Program
                     _ = Directory.CreateDirectory(destinationDirectory);
                 }
 
-                payloadEntry.Entry.ExtractToFile(destinationPath, overwrite: true);
+                Entry.ExtractToFile(destinationPath, overwrite: true);
                 extractedEntryCount++;
                 extractProgress?.Report(extractedEntryCount);
             }
@@ -3877,7 +3529,8 @@ internal static class Program
     /// Prints an update warning when a newer PowerShell Gallery version exists.
     /// </summary>
     /// <param name="moduleManifestPath">Resolved local module manifest path.</param>
-    private static void WarnIfNewerGalleryVersionExists(string moduleManifestPath)
+    /// <param name="logPath">Optional log path for warning output; when omitted, warning is written to stderr.</param>
+    private static void WarnIfNewerGalleryVersionExists(string moduleManifestPath, string? logPath = null)
     {
         if (!TryGetLatestInstalledModuleVersionText(ModuleStorageScope.Local, out var installedVersion)
             && !TryGetLatestInstalledModuleVersionText(ModuleStorageScope.Global, out installedVersion)
@@ -3896,9 +3549,45 @@ internal static class Program
             return;
         }
 
-        Console.Error.WriteLine(
+        var warningMessage =
             $"WARNING: A newer {ModuleName} module is available on PowerShell Gallery ({galleryVersion}). "
-            + $"Current version: {installedVersion}. Use '{ProductName} module update' or {NoCheckOption} to suppress this check.");
+            + $"Current version: {installedVersion}. Use '{ProductName} module update' or {NoCheckOption} to suppress this check.";
+
+        WriteWarningToLogOrConsole(warningMessage, logPath);
+    }
+
+    /// <summary>
+    /// Writes a warning to a configured log file when available; otherwise stderr.
+    /// </summary>
+    /// <param name="message">Warning message.</param>
+    /// <param name="logPath">Optional log path.</param>
+    private static void WriteWarningToLogOrConsole(string message, string? logPath)
+    {
+        switch (string.IsNullOrWhiteSpace(logPath))
+        {
+            case true:
+                Console.Error.WriteLine(message);
+                return;
+
+            case false:
+                try
+                {
+                    var resolvedPath = NormalizeServiceLogPath(logPath, defaultFileName: "script-runner-service.log");
+                    var directory = Path.GetDirectoryName(resolvedPath);
+                    if (!string.IsNullOrWhiteSpace(directory))
+                    {
+                        _ = Directory.CreateDirectory(directory);
+                    }
+
+                    File.AppendAllText(resolvedPath, $"{DateTime.UtcNow:O} {message}{Environment.NewLine}", Encoding.UTF8);
+                    return;
+                }
+                catch
+                {
+                    Console.Error.WriteLine(message);
+                    return;
+                }
+        }
     }
 
     /// <summary>
@@ -5066,10 +4755,10 @@ internal static class Program
         Console.WriteLine($"Product: {ProductName}");
         Console.WriteLine($"Version: {version}");
         Console.WriteLine($"InformationalVersion: {informationalVersion}");
-        Console.WriteLine($"Framework: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}");
-        Console.WriteLine($"OS: {System.Runtime.InteropServices.RuntimeInformation.OSDescription}");
-        Console.WriteLine($"OSArchitecture: {System.Runtime.InteropServices.RuntimeInformation.OSArchitecture}");
-        Console.WriteLine($"ProcessArchitecture: {System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}");
+        Console.WriteLine($"Framework: {RuntimeInformation.FrameworkDescription}");
+        Console.WriteLine($"OS: {RuntimeInformation.OSDescription}");
+        Console.WriteLine($"OSArchitecture: {RuntimeInformation.OSArchitecture}");
+        Console.WriteLine($"ProcessArchitecture: {RuntimeInformation.ProcessArchitecture}");
         Console.WriteLine($"ExecutableDirectory: {GetExecutableDirectory()}");
         Console.WriteLine($"BaseDirectory: {Path.GetFullPath(AppContext.BaseDirectory)}");
     }
@@ -5173,15 +4862,24 @@ internal static class Program
     /// <returns>Potential manifest file paths from PSModulePath.</returns>
     private static IEnumerable<string> EnumerateModulePathManifestCandidates()
     {
+        var moduleRoots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         var modulePathRaw = Environment.GetEnvironmentVariable("PSModulePath");
-        if (string.IsNullOrWhiteSpace(modulePathRaw))
+        if (!string.IsNullOrWhiteSpace(modulePathRaw))
         {
-            yield break;
+            foreach (var root in modulePathRaw.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (!string.IsNullOrWhiteSpace(root))
+                {
+                    _ = moduleRoots.Add(root);
+                }
+            }
         }
 
-        var moduleRoots = modulePathRaw
-            .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Distinct(StringComparer.OrdinalIgnoreCase);
+        // Service and elevated contexts can have an incomplete PSModulePath.
+        // Always include the conventional user/global module roots as discovery fallbacks.
+        _ = moduleRoots.Add(GetDefaultPowerShellModulePath());
+        _ = moduleRoots.Add(GetGlobalPowerShellModulePath());
 
         foreach (var root in moduleRoots)
         {
@@ -5203,4 +4901,10 @@ internal static class Program
         }
     }
 
+    [GeneratedRegex("--service-log-path\\s+(\\\"(?<quoted>[^\\\"]+)\\\"|(?<plain>\\S+))", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex MyRegex();
+    [GeneratedRegex("^\\s*ModuleVersion\\s*=\\s*['\\\"](?<value>[^'\\\"]+)['\\\"]", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Compiled | RegexOptions.CultureInvariant)]
+    private static partial Regex MyRegex1();
+    [GeneratedRegex("^\\s*Prerelease\\s*=\\s*['\\\"](?<value>[^'\\\"]+)['\\\"]", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Compiled | RegexOptions.CultureInvariant)]
+    private static partial Regex MyRegex2();
 }

@@ -237,7 +237,7 @@ internal static class Program
         private readonly ParsedOptions _options;
         private readonly string _bootstrapLogDirectory;
         private readonly string _bootstrapLogPath;
-        private readonly object _sync = new();
+        private readonly Lock _sync = new();
         private readonly CancellationTokenSource _shutdown = new();
         private Action<int>? _onExit;
         private Task<int>? _executionTask;
@@ -357,10 +357,7 @@ internal static class Program
             }
         }
 
-        public void Dispose()
-        {
-            _shutdown.Dispose();
-        }
+        public void Dispose() => _shutdown.Dispose();
     }
 
     /// <summary>

@@ -347,14 +347,48 @@ internal static class Program
             return "\"\"";
         }
 
-        var needsQuotes = value.Any(char.IsWhiteSpace) || value.Contains('"');
-        if (!needsQuotes)
+        var requiresQuotes = value.Any(c => char.IsWhiteSpace(c) || c == '"');
+        if (!requiresQuotes)
         {
             return value;
         }
 
-        var escaped = value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
-        return $"\"{escaped}\"";
+        var builder = new StringBuilder(value.Length + 2);
+        _ = builder.Append('"');
+        var backslashes = 0;
+
+        foreach (var c in value)
+        {
+            if (c == '\\')
+            {
+                backslashes += 1;
+                continue;
+            }
+
+            if (c == '"')
+            {
+                _ = builder.Append('\\', (backslashes * 2) + 1);
+                _ = builder.Append('"');
+                backslashes = 0;
+                continue;
+            }
+
+            if (backslashes > 0)
+            {
+                _ = builder.Append('\\', backslashes);
+                backslashes = 0;
+            }
+
+            _ = builder.Append(c);
+        }
+
+        if (backslashes > 0)
+        {
+            _ = builder.Append('\\', backslashes * 2);
+        }
+
+        _ = builder.Append('"');
+        return builder.ToString();
     }
 
     private static string ResolveBootstrapLogPath(string? configuredPath)

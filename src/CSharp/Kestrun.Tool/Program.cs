@@ -576,7 +576,12 @@ internal static partial class Program
             WriteBootstrapLog($"Service '{ServiceName}' stopping.");
             try
             {
-                RequestManagedStopAsync().GetAwaiter().GetResult();
+                // Run the managed stop on a background thread and wait with a timeout
+                var stopTask = Task.Run(async () => await RequestManagedStopAsync().ConfigureAwait(false));
+                if (!stopTask.Wait(TimeSpan.FromSeconds(30)))
+                {
+                    WriteBootstrapLog($"Service '{ServiceName}' managed stop did not complete within the timeout.");
+                }
             }
             catch (Exception ex)
             {
@@ -766,8 +771,14 @@ internal static partial class Program
         }
 
         var combined = $"{result.Output}\n{result.Error}";
-        return (combined.Contains("1060", StringComparison.OrdinalIgnoreCase)
-            || combined.Contains("does not exist", StringComparison.OrdinalIgnoreCase)) && false;
+        if (combined.Contains("1060", StringComparison.OrdinalIgnoreCase)
+            || combined.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // A non-zero exit without a clear not-found signal is likely permission-related.
+        return true;
     }
 
     /// <summary>
@@ -1384,26 +1395,6 @@ internal static partial class Program
         }
 
         return arguments;
-    }
-
-    /// <summary>
-    /// Builds internal service-host arguments used for Windows SCM registration from a parsed command.
-    /// </summary>
-    /// <param name="command">Parsed command containing service host metadata.</param>
-    /// <param name="scriptPath">Absolute script path.</param>
-    /// <param name="moduleManifestPath">Manifest path staged for service runtime.</param>
-    /// <returns>Ordered argument tokens.</returns>
-    private static IReadOnlyList<string> BuildWindowsServiceHostArguments(
-        ParsedCommand command,
-        string scriptPath,
-        string moduleManifestPath)
-    {
-        return BuildWindowsServiceHostArgumentsCore(
-            command.ServiceName ?? string.Empty,
-            scriptPath,
-            moduleManifestPath,
-            command.ScriptArguments,
-            command.ServiceLogPath);
     }
 
     /// <summary>

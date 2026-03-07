@@ -110,7 +110,7 @@ Describe 'KestrunTool service command surface' {
         $result.Output | Should -Match 'Missing value for --service-log-path\.'
     }
 
-    It 'installs without auto-starting the service' -Skip:($IsWindows -and -not $script:isWindowsAdmin) {
+    It 'installs without auto-starting the service' -Skip:(-not ($IsWindows -and $script:isWindowsAdmin)) {
         if (-not $IsWindows) {
             Set-ItResult -Skipped -Because 'This assertion is currently validated on Windows only.'
             return
@@ -134,7 +134,7 @@ Describe 'KestrunTool service command surface' {
         $qcOutput | Should -Not -Match 'dotnet\.exe'
     }
 
-    It 'writes install and remove operations to the service log path' -Skip:($IsWindows -and -not $script:isWindowsAdmin) {
+    It 'writes install and remove operations to the service log path' -Skip:(-not ($IsWindows -and $script:isWindowsAdmin)) {
         if (-not $IsWindows) {
             Set-ItResult -Skipped -Because 'This assertion is currently validated on Windows only.'
             return

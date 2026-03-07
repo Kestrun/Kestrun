@@ -2735,7 +2735,8 @@ internal static partial class Program
             return;
         }
 
-        foreach (var candidate in EnumeratePowerShellHomeCandidates())
+        var candidates = EnumeratePowerShellHomeCandidates().ToArray();
+        foreach (var candidate in candidates)
         {
             if (!HasPowerShellManagementModule(candidate))
             {
@@ -2745,6 +2746,66 @@ internal static partial class Program
             Environment.SetEnvironmentVariable("PSHOME", candidate);
             EnsurePsModulePathContains(Path.Combine(candidate, "Modules"));
             return;
+        }
+
+        // Bootstrap fallback: create an OS-specific PSHOME folder and register it.
+        // This avoids hard failure in constrained/service environments where PATH/PSHOME are not set.
+        var fallbackPsHome = GetFallbackPowerShellHomePath();
+        TryEnsureDirectory(fallbackPsHome);
+
+        var modulesPath = Path.Combine(fallbackPsHome, "Modules");
+        TryEnsureDirectory(modulesPath);
+
+        Environment.SetEnvironmentVariable("PSHOME", fallbackPsHome);
+        EnsurePsModulePathContains(modulesPath);
+    }
+
+    /// <summary>
+    /// Returns a writable fallback PSHOME location based on operating system.
+    /// </summary>
+    /// <returns>Fallback PSHOME absolute path.</returns>
+    private static string GetFallbackPowerShellHomePath()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            return Path.Combine(localAppData, "PowerShell", "7");
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            return Path.Combine(userProfile, ".local", "share", "powershell", "7");
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            return Path.Combine(userProfile, "Library", "Application Support", "powershell", "7");
+        }
+
+        var localFallback = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return Path.Combine(localFallback, "powershell", "7");
+    }
+
+    /// <summary>
+    /// Ensures a directory exists without throwing.
+    /// </summary>
+    /// <param name="path">Directory path to create.</param>
+    private static void TryEnsureDirectory(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        try
+        {
+            _ = Directory.CreateDirectory(path);
+        }
+        catch
+        {
+            // Best-effort bootstrap path creation.
         }
     }
 
@@ -2815,22 +2876,53 @@ internal static partial class Program
     private static IEnumerable<string> EnumeratePowerShellHomeCandidates()
     {
         var candidates = new List<string>();
-        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-        if (!string.IsNullOrWhiteSpace(programFiles))
+
+        var envPsHome = Environment.GetEnvironmentVariable("PSHOME");
+        if (!string.IsNullOrWhiteSpace(envPsHome))
         {
-            candidates.Add(Path.Combine(programFiles, "PowerShell", "7"));
-            candidates.Add(Path.Combine(programFiles, "PowerShell", "7-preview"));
+            candidates.Add(Path.GetFullPath(envPsHome));
         }
 
-        var whereResult = RunProcess("where.exe", ["pwsh"], writeStandardOutput: false);
-        if (whereResult.ExitCode == 0)
+        if (OperatingSystem.IsWindows())
         {
-            var discovered = whereResult.Output
-                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(Path.GetDirectoryName)
-                .Where(static p => !string.IsNullOrWhiteSpace(p))
-                .Select(static p => Path.GetFullPath(p!));
-            candidates.AddRange(discovered);
+            var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            if (!string.IsNullOrWhiteSpace(programFiles))
+            {
+                candidates.Add(Path.Combine(programFiles, "PowerShell", "7"));
+                candidates.Add(Path.Combine(programFiles, "PowerShell", "7-preview"));
+            }
+
+            var whereResult = RunProcess("where.exe", ["pwsh"], writeStandardOutput: false);
+            if (whereResult.ExitCode == 0)
+            {
+                var discovered = whereResult.Output
+                    .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(Path.GetDirectoryName)
+                    .Where(static p => !string.IsNullOrWhiteSpace(p))
+                    .Select(static p => Path.GetFullPath(p!));
+                candidates.AddRange(discovered);
+            }
+        }
+        else
+        {
+            candidates.Add("/usr/bin/pwsh");
+            candidates.Add("/usr/local/bin/pwsh");
+            candidates.Add("/opt/microsoft/powershell/7/pwsh");
+
+            var whichResult = RunProcess("which", ["pwsh"], writeStandardOutput: false);
+            if (whichResult.ExitCode == 0)
+            {
+                var discovered = whichResult.Output
+                    .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                candidates.AddRange(discovered);
+            }
+
+            candidates = [
+                .. candidates.Select(path =>
+                    path.EndsWith("pwsh", StringComparison.OrdinalIgnoreCase)
+                        ? Path.GetDirectoryName(path) ?? path
+                        : path)
+            ];
         }
 
         return candidates

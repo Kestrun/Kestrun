@@ -1,24 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
-    <AssemblyName>Kestrun.ServiceHost</AssemblyName>
-    <RootNamespace>Kestrun.ServiceHost</RootNamespace>
-    <AssemblyTitle>Kestrun.ServiceHost</AssemblyTitle>
-    <Product>Kestrun.ServiceHost</Product>
-    <Description>Generic daemon host for Kestrun script services (Windows service and foreground daemon modes).</Description>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <AssemblyName>Kestrun.ServiceHost</AssemblyName>
+        <RootNamespace>Kestrun.ServiceHost</RootNamespace>
+        <AssemblyTitle>Kestrun.ServiceHost</AssemblyTitle>
+        <Product>Kestrun.ServiceHost</Product>
+        <Description>Generic daemon host for Kestrun script services (Windows service and foreground daemon modes).</Description>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
 
-    <!-- ServiceHost is redistributed as a single runtime binary under module runtimes. -->
-    <PublishSingleFile>true</PublishSingleFile>
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
-    <PublishTrimmed>false</PublishTrimmed>
-  </PropertyGroup>
+        <!-- ServiceHost is redistributed as a single runtime binary under module runtimes. -->
+        <PublishSingleFile>true</PublishSingleFile>
+        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+        <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+        <PublishTrimmed>false</PublishTrimmed>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.6.0-rc.1" />
+        <PackageReference Include="System.ServiceProcess.ServiceController" Version="10.0.3" />
+    </ItemGroup>
 </Project>

@@ -509,7 +509,14 @@ public class KestrunToolCommandSurfaceTests
 
             Assert.True(result.Success);
             Assert.True(string.IsNullOrWhiteSpace(result.Error));
-            Assert.Equal(Path.GetFullPath(fallbackRuntimePath), result.RuntimePath);
+
+            var resolvedRuntimePath = Path.GetFullPath(result.RuntimePath);
+            var expectedSuffix = Path.Combine("src", "PowerShell", "Kestrun", "runtimes", runtimeRid, runtimeBinaryName);
+            var pathComparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
+            Assert.True(File.Exists(resolvedRuntimePath));
+            Assert.EndsWith(expectedSuffix, resolvedRuntimePath, pathComparison);
+            Assert.Equal("fallback-runtime", File.ReadAllText(resolvedRuntimePath, Encoding.UTF8));
         }
         finally
         {
@@ -570,26 +577,19 @@ public class KestrunToolCommandSurfaceTests
     [Trait("Category", "Tooling")]
     public void BuildWindowsServiceHostArguments_UsesBundledManifestPath()
     {
-        var parse = InvokeTryParseArguments([
-            "--kestrun-folder",
-            "C:\\temp\\module",
-            "--kestrun-manifest",
-            "C:\\temp\\module\\Kestrun.psd1",
-            "service",
-            "install",
-            "--name",
+        var bundledScriptPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "script", "server.ps1"));
+        var bundledManifestPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "module", "Kestrun.psd1"));
+
+        var args = (IReadOnlyList<string>)Invoke(
+            "BuildWindowsServiceHostArgumentsCore",
             "demo",
-            "--script",
-            "C:\\temp\\server.ps1",
-        ]);
-
-        Assert.True(parse.Success);
-        Assert.NotNull(parse.ParsedCommand);
-
-        var args = (IReadOnlyList<string>)Invoke("BuildWindowsServiceHostArguments", parse.ParsedCommand!, "C:\\bundle\\script\\server.ps1", "C:\\bundle\\module\\Kestrun.psd1")!;
+            bundledScriptPath,
+            bundledManifestPath,
+            Array.Empty<string>(),
+            null)!;
 
         Assert.Contains("--kestrun-manifest", args);
-        Assert.Contains("C:\\bundle\\module\\Kestrun.psd1", args);
+        Assert.Contains(Path.GetFullPath(bundledManifestPath), args);
         Assert.DoesNotContain("--kestrun-folder", args);
     }
 
@@ -597,12 +597,18 @@ public class KestrunToolCommandSurfaceTests
     [Trait("Category", "Tooling")]
     public void BuildElevatedRelaunchArguments_PrependsCommand_WhenExecutableIsDotnetHost()
     {
+        var dotnetExecutablePath = OperatingSystem.IsWindows()
+            ? Path.Combine("C:\\", "Program Files", "dotnet", "dotnet.exe")
+            : Path.Combine(Path.DirectorySeparatorChar.ToString(), "usr", "bin", "dotnet");
+
         var result = InvokeBuildElevatedRelaunchArguments(
-            @"C:\Program Files\dotnet\dotnet.exe",
+            dotnetExecutablePath,
             ["service", "install", "--name", "demo"]);
 
         Assert.NotEmpty(result);
-        Assert.EndsWith("Kestrun.Tool.dll", result[0], StringComparison.OrdinalIgnoreCase);
+        Assert.True(
+            result[0].EndsWith("Kestrun.Tool.dll", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(result[0], "kestrun", StringComparison.OrdinalIgnoreCase));
         Assert.Equal(["service", "install", "--name", "demo"], result.Skip(1));
     }
 

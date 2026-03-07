@@ -39,6 +39,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\Kestrun.Runner\Kestrun.Runner.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
         <None Include="../../../README.md" Pack="true" PackagePath="\" />
         <None Include="../../../LICENSE.txt" Pack="true" PackagePath="\" />
     </ItemGroup>

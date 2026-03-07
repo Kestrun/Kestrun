@@ -1,10 +1,7 @@
-using System.Diagnostics;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
-using System.Reflection;
+using Kestrun.Runner;
 using Microsoft.PowerShell;
-using System.Runtime.InteropServices;
-using System.Runtime.Loader;
 using System.Runtime.Versioning;
 using System.ServiceProcess;
 using System.Text;
@@ -13,10 +10,6 @@ namespace Kestrun.ServiceHost;
 
 internal static class Program
 {
-    private static readonly Lock AssemblyLoadSync = new();
-    private static string? s_kestrunModuleLibPath;
-    private static bool s_dependencyResolverRegistered;
-
     private sealed record ParsedOptions(
         string ServiceName,
         string RunnerExecutablePath,
@@ -435,332 +428,34 @@ internal static class Program
     /// Ensures the runner is executing on .NET 10.
     /// </summary>
     private static void EnsureNet10Runtime()
-    {
-        var framework = RuntimeInformation.FrameworkDescription;
-        if (!framework.Contains(".NET 10", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new RuntimeException($"kestrun-service-host requires .NET 10 runtime. Current runtime: {framework}");
-        }
-    }
+        => RunnerRuntime.EnsureNet10Runtime("kestrun-service-host");
 
     /// <summary>
     /// Ensures Kestrun.dll from the selected module root is loaded into the default context.
     /// </summary>
     /// <param name="moduleManifestPath">Absolute path to Kestrun.psd1.</param>
     private static void EnsureKestrunAssemblyPreloaded(string moduleManifestPath)
-    {
-        var manifestDirectory = Path.GetDirectoryName(moduleManifestPath);
-        if (string.IsNullOrWhiteSpace(manifestDirectory))
-        {
-            throw new RuntimeException($"Unable to resolve manifest directory from: {moduleManifestPath}");
-        }
-
-        var moduleLibPath = Path.Combine(manifestDirectory, "lib", "net10.0");
-        var expectedAssemblyPath = Path.Combine(moduleLibPath, "Kestrun.dll");
-        if (!File.Exists(expectedAssemblyPath))
-        {
-            throw new RuntimeException($"Kestrun assembly not found at expected path: {expectedAssemblyPath}");
-        }
-
-        var expectedFullPath = Path.GetFullPath(expectedAssemblyPath);
-        lock (AssemblyLoadSync)
-        {
-            s_kestrunModuleLibPath = moduleLibPath;
-            if (!s_dependencyResolverRegistered)
-            {
-                AssemblyLoadContext.Default.Resolving += ResolveKestrunModuleDependency;
-                s_dependencyResolverRegistered = true;
-            }
-
-            var alreadyLoaded = AppDomain.CurrentDomain.GetAssemblies()
-                .FirstOrDefault(a => string.Equals(a.GetName().Name, "Kestrun", StringComparison.Ordinal));
-
-            if (alreadyLoaded is not null)
-            {
-                var loadedPath = string.IsNullOrWhiteSpace(alreadyLoaded.Location) ? string.Empty : Path.GetFullPath(alreadyLoaded.Location);
-                if (string.Equals(loadedPath, expectedFullPath, StringComparison.OrdinalIgnoreCase))
-                {
-                    return;
-                }
-
-                throw new RuntimeException($"Kestrun assembly already loaded from unexpected path: {loadedPath}");
-            }
-
-            _ = AssemblyLoadContext.Default.LoadFromAssemblyPath(expectedFullPath);
-        }
-    }
-
-    /// <summary>
-    /// Resolves Kestrun module dependencies from the selected module lib folder.
-    /// </summary>
-    /// <param name="context">Assembly load context that requested the assembly.</param>
-    /// <param name="assemblyName">Requested assembly identity.</param>
-    /// <returns>Loaded assembly when available; otherwise null.</returns>
-    private static Assembly? ResolveKestrunModuleDependency(AssemblyLoadContext context, AssemblyName assemblyName)
-    {
-        if (string.IsNullOrWhiteSpace(assemblyName.Name))
-        {
-            return null;
-        }
-
-        var moduleLibPath = s_kestrunModuleLibPath;
-        if (string.IsNullOrWhiteSpace(moduleLibPath))
-        {
-            return null;
-        }
-
-        var candidatePath = Path.Combine(moduleLibPath, $"{assemblyName.Name}.dll");
-        if (!File.Exists(candidatePath))
-        {
-            return null;
-        }
-
-        try
-        {
-            return context.LoadFromAssemblyPath(Path.GetFullPath(candidatePath));
-        }
-        catch
-        {
-            return null;
-        }
-    }
+        => RunnerRuntime.EnsureKestrunAssemblyPreloaded(moduleManifestPath);
 
     /// <summary>
     /// Ensures PowerShell built-in modules are discoverable for embedded runspace execution.
     /// </summary>
     private static void EnsurePowerShellRuntimeHome()
-    {
-        var currentPsHome = Environment.GetEnvironmentVariable("PSHOME");
-        if (HasPowerShellManagementModule(currentPsHome))
-        {
-            EnsurePsModulePathContains(Path.Combine(currentPsHome!, "Modules"));
-            return;
-        }
-
-        foreach (var candidate in EnumeratePowerShellHomeCandidates())
-        {
-            if (!HasPowerShellManagementModule(candidate))
-            {
-                continue;
-            }
-
-            Environment.SetEnvironmentVariable("PSHOME", candidate);
-            EnsurePsModulePathContains(Path.Combine(candidate, "Modules"));
-            return;
-        }
-    }
-
-    /// <summary>
-    /// Ensures a module path exists in PSModulePath.
-    /// </summary>
-    /// <param name="path">Path to include.</param>
-    private static void EnsurePsModulePathContains(string path)
-    {
-        if (!Directory.Exists(path))
-        {
-            return;
-        }
-
-        var modulePath = Environment.GetEnvironmentVariable("PSModulePath") ?? string.Empty;
-        var entries = modulePath.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (entries.Contains(path, StringComparer.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        var updated = string.IsNullOrWhiteSpace(modulePath)
-            ? path
-            : string.Join(Path.PathSeparator, new[] { path }.Concat(entries));
-        Environment.SetEnvironmentVariable("PSModulePath", updated);
-    }
-
-    /// <summary>
-    /// Determines whether a path contains the built-in Microsoft.PowerShell.Management module.
-    /// </summary>
-    /// <param name="psHome">PowerShell home candidate.</param>
-    /// <returns>True when the module path exists.</returns>
-    private static bool HasPowerShellManagementModule(string? psHome)
-    {
-        if (string.IsNullOrWhiteSpace(psHome))
-        {
-            return false;
-        }
-
-        var moduleDirectory = Path.Combine(psHome, "Modules", "Microsoft.PowerShell.Management");
-        if (!Directory.Exists(moduleDirectory))
-        {
-            return false;
-        }
-
-        var manifestPath = Path.Combine(moduleDirectory, "Microsoft.PowerShell.Management.psd1");
-        if (!File.Exists(manifestPath))
-        {
-            return false;
-        }
-
-        try
-        {
-            var versionDirectories = Directory.EnumerateDirectories(moduleDirectory).ToArray();
-            if (versionDirectories.Length == 0)
-            {
-                return true;
-            }
-
-            // If versioned subdirectories exist, check for the module manifest in any of them to confirm a valid module layout.
-            return versionDirectories.Any(static d => File.Exists(Path.Combine(d, "Microsoft.PowerShell.Management.psd1")));
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Enumerates likely PowerShell installation roots.
-    /// </summary>
-    /// <returns>Distinct absolute PowerShell home candidates.</returns>
-    private static IEnumerable<string> EnumeratePowerShellHomeCandidates()
-    {
-        var candidates = new List<string>();
-        var envPsHome = Environment.GetEnvironmentVariable("PSHOME");
-        if (!string.IsNullOrWhiteSpace(envPsHome))
-        {
-            candidates.Add(Path.GetFullPath(envPsHome));
-        }
-
-        var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
-        if (!string.IsNullOrWhiteSpace(programFiles))
-        {
-            candidates.Add(Path.Combine(programFiles, "PowerShell", "7"));
-            candidates.Add(Path.Combine(programFiles, "PowerShell", "7-preview"));
-        }
-
-        if (OperatingSystem.IsWindows())
-        {
-            var whereResult = RunProcess("where.exe", ["pwsh"]);
-            if (whereResult.ExitCode == 0)
-            {
-                var discovered = whereResult.Output
-                    .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                    .Select(Path.GetDirectoryName)
-                    .Where(static p => !string.IsNullOrWhiteSpace(p))
-                    .Select(static p => Path.GetFullPath(p!));
-                candidates.AddRange(discovered);
-            }
-        }
-        else
-        {
-            candidates.Add("/usr/bin/pwsh");
-            candidates.Add("/usr/local/bin/pwsh");
-            candidates.Add("/opt/microsoft/powershell/7/pwsh");
-
-            var whichResult = RunProcess("which", ["pwsh"]);
-            if (whichResult.ExitCode == 0)
-            {
-                var discovered = whichResult.Output
-                    .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                candidates.AddRange(discovered);
-            }
-
-            candidates = [.. candidates.Select(path => path.EndsWith("pwsh", StringComparison.OrdinalIgnoreCase) ? Path.GetDirectoryName(path) ?? path : path)];
-        }
-
-        return candidates
-            .Where(Directory.Exists)
-            .Distinct(StringComparer.OrdinalIgnoreCase);
-    }
-
-    /// <summary>
-    /// Runs a process and captures output for diagnostics.
-    /// </summary>
-    /// <param name="fileName">Executable to run.</param>
-    /// <param name="arguments">Argument tokens.</param>
-    /// <returns>Process result data.</returns>
-    private static ProcessResult RunProcess(string fileName, IReadOnlyList<string> arguments)
-    {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = fileName,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-        };
-
-        foreach (var argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        using var process = Process.Start(startInfo);
-        if (process is null)
-        {
-            return new ProcessResult(1, string.Empty, $"Failed to start process: {fileName}");
-        }
-
-        var output = process.StandardOutput.ReadToEnd();
-        var error = process.StandardError.ReadToEnd();
-        process.WaitForExit();
-        return new ProcessResult(process.ExitCode, output, error);
-    }
-
-    /// <summary>
-    /// Captures child process execution results.
-    /// </summary>
-    /// <param name="ExitCode">Process exit code.</param>
-    /// <param name="Output">Captured standard output.</param>
-    /// <param name="Error">Captured standard error.</param>
-    private sealed record ProcessResult(int ExitCode, string Output, string Error);
+        => RunnerRuntime.EnsurePowerShellRuntimeHome(createFallbackDirectories: false);
 
     /// <summary>
     /// Verifies that the loaded Kestrun assembly contains the expected host manager type.
     /// </summary>
     /// <returns>True when the expected Kestrun host manager type is available.</returns>
     private static bool HasKestrunHostManagerType()
-    {
-        var kestrunAssembly = AppDomain.CurrentDomain
-            .GetAssemblies()
-            .FirstOrDefault(a => string.Equals(a.GetName().Name, "Kestrun", StringComparison.Ordinal));
-
-        return kestrunAssembly?.GetType("Kestrun.KestrunHostManager", throwOnError: false, ignoreCase: false) is not null;
-    }
+        => RunnerRuntime.HasKestrunHostManagerType();
 
     /// <summary>
     /// Requests a graceful stop for all running Kestrun hosts managed in the current process.
     /// </summary>
     /// <returns>A task representing the stop attempt.</returns>
-    private static async Task RequestManagedStopAsync()
-    {
-        var hostManagerType = Type.GetType("Kestrun.KestrunHostManager, Kestrun", throwOnError: false, ignoreCase: false);
-        if (hostManagerType is null)
-        {
-            return;
-        }
-
-        try
-        {
-            var stopAllAsyncMethod = hostManagerType.GetMethod(
-                "StopAllAsync",
-                BindingFlags.Public | BindingFlags.Static,
-                binder: null,
-                types: [typeof(CancellationToken)],
-                modifiers: null);
-            if (stopAllAsyncMethod is not null)
-            {
-                if (stopAllAsyncMethod.Invoke(null, [CancellationToken.None]) is Task stopTask)
-                {
-                    await stopTask.ConfigureAwait(false);
-                }
-            }
-
-            var destroyAllMethod = hostManagerType.GetMethod("DestroyAll", BindingFlags.Public | BindingFlags.Static);
-            _ = destroyAllMethod?.Invoke(null, null);
-        }
-        catch
-        {
-            // Best-effort shutdown: ignore reflection/host state errors.
-        }
-    }
+    private static Task RequestManagedStopAsync()
+        => RunnerRuntime.RequestManagedStopAsync();
 
     /// <summary>
     /// Writes PowerShell pipeline output to stdout and service log.
@@ -768,24 +463,14 @@ internal static class Program
     /// <param name="output">Pipeline output collection.</param>
     /// <param name="log">Best-effort service-host logger.</param>
     private static void WriteOutput(IEnumerable<PSObject> output, Action<string> log)
-    {
-        foreach (var item in output)
-        {
-            if (item == null)
+        => RunnerRuntime.DispatchPowerShellOutput(
+            output,
+            value =>
             {
-                continue;
-            }
-
-            var value = item.BaseObject?.ToString() ?? item.ToString();
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                continue;
-            }
-
-            Console.WriteLine(value);
-            log($"output: {value}");
-        }
-    }
+                Console.WriteLine(value);
+                log($"output: {value}");
+            },
+            skipWhitespace: true);
 
     /// <summary>
     /// Writes non-output streams in a console-friendly format.
@@ -794,75 +479,36 @@ internal static class Program
     /// <param name="log">Best-effort service-host logger.</param>
     private static void WriteStreams(PSDataStreams streams, Action<string> log)
     {
-        foreach (var record in streams.Warning)
-        {
-            var message = record.Message;
-            if (!string.IsNullOrWhiteSpace(message))
+        RunnerRuntime.DispatchPowerShellStreams(
+            streams,
+            onWarning: message =>
             {
                 Console.Error.WriteLine(message);
                 log($"warning: {message}");
-            }
-        }
-
-        foreach (var record in streams.Verbose)
-        {
-            var message = record.Message;
-            if (!string.IsNullOrWhiteSpace(message))
+            },
+            onVerbose: message =>
             {
                 Console.WriteLine(message);
                 log($"verbose: {message}");
-            }
-        }
-
-        foreach (var record in streams.Debug)
-        {
-            var message = record.Message;
-            if (!string.IsNullOrWhiteSpace(message))
+            },
+            onDebug: message =>
             {
                 Console.WriteLine(message);
                 log($"debug: {message}");
-            }
-        }
-
-        foreach (var record in streams.Information)
-        {
-            var message = record.MessageData?.ToString() ?? record.ToString();
-            if (!string.IsNullOrWhiteSpace(message))
+            },
+            onInformation: message =>
             {
                 Console.WriteLine(message);
                 log($"info: {message}");
-            }
-        }
-
-        foreach (var record in streams.Error)
-        {
-            var message = record.ToString();
-            if (!string.IsNullOrWhiteSpace(message))
+            },
+            onError: message =>
             {
                 Console.Error.WriteLine(message);
                 log($"error: {message}");
-            }
-        }
+            },
+            skipWhitespace: true);
     }
 
     private static string ResolveBootstrapLogPath(string? configuredPath)
-    {
-        var defaultDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-            "Kestrun",
-            "logs");
-        var defaultPath = Path.Combine(defaultDirectory, "kestrun-tool-service.log");
-
-        if (string.IsNullOrWhiteSpace(configuredPath))
-        {
-            return defaultPath;
-        }
-
-        var fullPath = Path.GetFullPath(configuredPath);
-        return Directory.Exists(fullPath)
-            || configuredPath.EndsWith('\\')
-            || configuredPath.EndsWith('/')
-            ? Path.Combine(fullPath, "kestrun-tool-service.log")
-            : fullPath;
-    }
+        => RunnerRuntime.ResolveBootstrapLogPath(configuredPath, "kestrun-tool-service.log");
 }

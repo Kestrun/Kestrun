@@ -16,7 +16,8 @@ internal static class Program
         string ScriptPath,
         string ModuleManifestPath,
         string[] ScriptArguments,
-        string? ServiceLogPath);
+        string? ServiceLogPath,
+        bool DirectRunMode);
 
     private static int Main(string[] args)
     {
@@ -53,6 +54,7 @@ internal static class Program
         var moduleManifestPath = string.Empty;
         var scriptArguments = Array.Empty<string>();
         string? serviceLogPath = null;
+        var directRunMode = false;
 
         var index = 0;
         while (index < args.Length)
@@ -75,6 +77,14 @@ internal static class Program
             if (current is "--script" && index + 1 < args.Length)
             {
                 scriptPath = args[index + 1];
+                index += 2;
+                continue;
+            }
+
+            if (current is "--run" && index + 1 < args.Length)
+            {
+                scriptPath = args[index + 1];
+                directRunMode = true;
                 index += 2;
                 continue;
             }
@@ -103,6 +113,11 @@ internal static class Program
             return false;
         }
 
+        if (string.IsNullOrWhiteSpace(serviceName) && !string.IsNullOrWhiteSpace(scriptPath))
+        {
+            serviceName = BuildDefaultServiceNameFromScriptPath(scriptPath, directRunMode);
+        }
+
         if (string.IsNullOrWhiteSpace(serviceName))
         {
             error = "Missing --name.";
@@ -111,13 +126,12 @@ internal static class Program
 
         if (string.IsNullOrWhiteSpace(runnerExecutablePath))
         {
-            error = "Missing --runner-exe.";
-            return false;
+            runnerExecutablePath = ResolveCurrentExecutablePath();
         }
 
         if (string.IsNullOrWhiteSpace(scriptPath))
         {
-            error = "Missing --script.";
+            error = "Missing --script or --run.";
             return false;
         }
 
@@ -133,15 +147,51 @@ internal static class Program
             Path.GetFullPath(scriptPath),
             Path.GetFullPath(moduleManifestPath),
             scriptArguments,
-            serviceLogPath);
+            serviceLogPath,
+            directRunMode);
         return true;
     }
 
-    private static void PrintUsage() => Console.WriteLine("Usage: kestrun-service-host --name <service> --runner-exe <path> --script <path> --kestrun-manifest <path> [--service-log-path <path>] [--arguments ...]");
+    private static void PrintUsage() => Console.WriteLine("Usage: kestrun-service-host [--name <service>] [--runner-exe <path>] (--script <path> | --run <path>) --kestrun-manifest <path> [--service-log-path <path>] [--arguments ...]");
+
+    /// <summary>
+    /// Resolves the path of the current executable for diagnostic and compatibility metadata.
+    /// </summary>
+    /// <returns>Absolute executable path when available; otherwise a fallback token.</returns>
+    private static string ResolveCurrentExecutablePath()
+    {
+        if (!string.IsNullOrWhiteSpace(Environment.ProcessPath))
+        {
+            return Path.GetFullPath(Environment.ProcessPath);
+        }
+        // Fall back to a best-guess based on the current executable name and platform conventions.
+        return OperatingSystem.IsWindows()
+            ? Path.Combine(AppContext.BaseDirectory, "kestrun-service-host.exe")
+            : Path.Combine(AppContext.BaseDirectory, "kestrun-service-host");
+    }
+
+    /// <summary>
+    /// Builds the default service name when callers omit <c>--name</c>.
+    /// </summary>
+    /// <param name="scriptPath">Script path provided by the caller.</param>
+    /// <param name="directRunMode">True when running in direct script mode.</param>
+    /// <returns>Service name default derived from script path.</returns>
+    private static string BuildDefaultServiceNameFromScriptPath(string scriptPath, bool directRunMode)
+    {
+        var stem = Path.GetFileNameWithoutExtension(scriptPath);
+        if (string.IsNullOrWhiteSpace(stem))
+        {
+            return directRunMode ? "kestrun-direct" : "kestrun-service";
+        }
+        // Sanitize the stem to ensure it's a valid filename segment, since it will be used in the default log file name.
+        return directRunMode
+            ? $"kestrun-direct-{stem}"
+            : stem;
+    }
 
     private static int RunForegroundDaemon(ParsedOptions options)
     {
-        var logPath = ResolveBootstrapLogPath(options.ServiceLogPath);
+        var logPath = ResolveBootstrapLogPath(options.ServiceLogPath, options.ServiceName);
         var host = new ScriptExecutionHost(options, logPath);
 
         using var shutdown = new CancellationTokenSource();
@@ -195,7 +245,7 @@ internal static class Program
             ServiceName = options.ServiceName;
             CanStop = true;
             AutoLog = true;
-            _host = new ScriptExecutionHost(options, ResolveBootstrapLogPath(options.ServiceLogPath));
+            _host = new ScriptExecutionHost(options, ResolveBootstrapLogPath(options.ServiceLogPath, options.ServiceName));
         }
 
         protected override void OnStart(string[] args)
@@ -241,6 +291,7 @@ internal static class Program
             _options = options;
             _bootstrapLogPath = bootstrapLogPath;
             _bootstrapLogDirectory = Path.GetDirectoryName(_bootstrapLogPath) ?? Path.GetTempPath();
+            WriteBootstrapLog($"Initialized script host for service '{_options.ServiceName}' (directRun={_options.DirectRunMode}, log='{_bootstrapLogPath}').");
         }
 
         public bool HasExited => _executionTask?.IsCompleted == true;
@@ -251,8 +302,12 @@ internal static class Program
         {
             if (_executionTask is not null)
             {
+                WriteBootstrapLog("Start requested while execution task is already running.");
                 return 0;
             }
+
+            WriteBootstrapLog(
+                $"Validating startup inputs. script='{_options.ScriptPath}', manifest='{_options.ModuleManifestPath}', runner='{_options.RunnerExecutablePath}', args=[{FormatScriptArguments(_options.ScriptArguments)}]");
 
             if (!File.Exists(_options.ScriptPath))
             {
@@ -268,6 +323,7 @@ internal static class Program
 
             try
             {
+                WriteBootstrapLog("Starting script execution task.");
                 _executionTask = Task.Run(() => ExecuteScript(
                     _options.ScriptPath,
                     _options.ScriptArguments,
@@ -281,6 +337,10 @@ internal static class Program
                     if (task.IsFaulted)
                     {
                         WriteBootstrapLog($"Script execution failed: {task.Exception?.GetBaseException()}");
+                    }
+                    else
+                    {
+                        WriteBootstrapLog($"Script execution task completed with exit code {code}.");
                     }
 
                     Action<int>? callback;
@@ -318,12 +378,28 @@ internal static class Program
         {
             try
             {
+                WriteBootstrapLog("Stop requested: cancelling execution task and attempting managed host shutdown.");
                 _shutdown.Cancel();
-                _ = RequestManagedStopAsync().Wait(5000);
+
+                if (!RequestManagedStopAsync().Wait(5000))
+                {
+                    WriteBootstrapLog("Managed host stop timed out after 5000ms.");
+                }
+                else
+                {
+                    WriteBootstrapLog("Managed host stop completed.");
+                }
 
                 if (_executionTask is not null)
                 {
-                    _ = _executionTask.Wait(15000);
+                    if (!_executionTask.Wait(15000))
+                    {
+                        WriteBootstrapLog("Execution task did not complete within 15000ms after stop request.");
+                    }
+                    else
+                    {
+                        WriteBootstrapLog("Execution task completed after stop request.");
+                    }
                 }
             }
             catch (InvalidOperationException ex)
@@ -369,9 +445,19 @@ internal static class Program
         Action<string> log,
         CancellationToken stopToken)
     {
+        log($"Preparing script execution. script='{scriptPath}', manifest='{moduleManifestPath}', args=[{FormatScriptArguments(scriptArguments)}]");
         EnsureNet10Runtime();
+        log("Verified .NET 10 runtime.");
+        //   Environment.SetEnvironmentVariable("PSHOME", "C:\\Program Files\\PowerShell\\7-preview");
+        Environment.SetEnvironmentVariable("PSHOME", "C:\\Users\\m_dan\\Documents\\GitHub\\kestrun\\kestrun\\pws");
         EnsurePowerShellRuntimeHome();
+        // Environment.SetEnvironmentVariable("PSHOME", "C:\\Users\\m_dan\\Documents\\GitHub\\kestrun\\kestrun\\pws");
+        // Environment.SetEnvironmentVariable("PSHOME", "C:\\Program Files\\PowerShell\\7-preview");
+        var psHome = Environment.GetEnvironmentVariable("PSHOME");
+        var psModulePath = Environment.GetEnvironmentVariable("PSModulePath");
+        log($"PowerShell runtime home prepared. PSHOME='{(string.IsNullOrWhiteSpace(psHome) ? "<null>" : psHome)}', PSModulePath='{(string.IsNullOrWhiteSpace(psModulePath) ? "<null>" : psModulePath)}'.");
         EnsureKestrunAssemblyPreloaded(moduleManifestPath);
+        log("Kestrun assembly preload completed.");
 
         var sessionState = InitialSessionState.CreateDefault2();
         if (OperatingSystem.IsWindows())
@@ -380,9 +466,11 @@ internal static class Program
         }
 
         sessionState.ImportPSModule([moduleManifestPath]);
+        log($"Imported module manifest '{moduleManifestPath}'.");
 
         using var runspace = RunspaceFactory.CreateRunspace(sessionState);
         runspace.Open();
+        log("Runspace opened.");
 
         if (!HasKestrunHostManagerType())
         {
@@ -398,6 +486,7 @@ internal static class Program
         powershell.Runspace = runspace;
         // Dot-source the script into the current scope so function metadata used by OpenAPI discovery remains visible.
         _ = powershell.AddScript(". $__krRunnerScriptPath @__krRunnerScriptArgs", useLocalScope: false);
+        log("PowerShell invocation configured. Starting asynchronous execution.");
 
         IEnumerable<PSObject> output;
         var asyncResult = powershell.BeginInvoke();
@@ -417,6 +506,7 @@ internal static class Program
         }
 
         output = powershell.EndInvoke(asyncResult);
+        log($"Script invocation completed. HadErrors={powershell.HadErrors}.");
 
         WriteOutput(output, log);
         WriteStreams(powershell.Streams, log);
@@ -509,6 +599,48 @@ internal static class Program
             skipWhitespace: true);
     }
 
-    private static string ResolveBootstrapLogPath(string? configuredPath)
-        => RunnerRuntime.ResolveBootstrapLogPath(configuredPath, "kestrun-tool-service.log");
+    private static string ResolveBootstrapLogPath(string? configuredPath, string serviceName)
+        => RunnerRuntime.ResolveBootstrapLogPath(configuredPath, BuildDefaultServiceLogFileName(serviceName));
+
+    /// <summary>
+    /// Builds a default service log file name using the configured service name.
+    /// </summary>
+    /// <param name="serviceName">Configured service name.</param>
+    /// <returns>Service-specific log file name.</returns>
+    private static string BuildDefaultServiceLogFileName(string serviceName)
+        => $"kestrun-tool-service-{SanitizeFileNameSegment(serviceName)}.log";
+
+    /// <summary>
+    /// Converts arbitrary service names to a filesystem-safe filename segment.
+    /// </summary>
+    /// <param name="value">Raw value to sanitize.</param>
+    /// <returns>Safe filename segment.</returns>
+    private static string SanitizeFileNameSegment(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "default";
+        }
+
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var sanitized = new string(value
+            .Select(c => invalidChars.Contains(c) ? '-' : c)
+            .ToArray())
+            .Trim();
+        return string.IsNullOrWhiteSpace(sanitized) ? "default" : sanitized;
+    }
+
+    /// <summary>
+    /// Formats script arguments for diagnostic logging.
+    /// </summary>
+    /// <param name="scriptArguments">Script argument values.</param>
+    /// <returns>Comma-separated argument list with shell-safe quoting.</returns>
+    private static string FormatScriptArguments(IReadOnlyList<string> scriptArguments)
+        => scriptArguments.Count == 0
+            ? ""
+            : string.Join(", ",
+                scriptArguments.Select(static arg =>
+                    string.IsNullOrEmpty(arg)
+                        ? "\"\""
+                        : arg.Contains(' ') ? $"\"{arg}\"" : arg));
 }

@@ -209,6 +209,13 @@
             "request": "launch",
             "projectPath": "${workspaceFolder}\\src\\CSharp\\Kestrun.Tool\\Kestrun.Tool.csproj",
             "launchConfigurationId": "TargetFramework=;Kestrun.Tool.Service"
+        },
+        {
+            "name": "C#: Kestrun.ServiceHost",
+            "type": "dotnet",
+            "request": "launch",
+            "projectPath": "${workspaceFolder}\\src\\CSharp\\Kestrun.ServiceHost\\Kestrun.ServiceHost.csproj",
+            "launchConfigurationId": "TargetFramework=;Kestrun.ServiceHost"
         }
     ]
 }

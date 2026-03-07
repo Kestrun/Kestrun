@@ -159,6 +159,27 @@ For `service install`:
 - bundle roots: Windows `%ProgramData%\Kestrun\services`; Linux `/var/kestrun/services`
   or `/usr/local/kestrun/services` (with user fallback when those are not writable).
 
+## Dedicated service-host direct run
+
+`kestrun-service-host` supports direct script execution with `--run`.
+
+```powershell
+kestrun-service-host --run .\server.ps1 --kestrun-manifest .\src\PowerShell\Kestrun\Kestrun.psd1
+```
+
+You can still use `--script`, but `--run` is convenient when launching a script directly.
+
+```powershell
+kestrun-service-host --script .\server.ps1 --kestrun-manifest .\src\PowerShell\Kestrun\Kestrun.psd1
+```
+
+Direct-run defaults:
+
+- `--name` is optional; default is derived from script file name (`kestrun-direct-<scriptName>`).
+- `--runner-exe` is optional; default resolves to the current `kestrun-service-host` executable path.
+- `--arguments ...` forwards remaining values to the script.
+- `--kestrun-manifest` remains required.
+
 ## Service examples
 
 ```powershell

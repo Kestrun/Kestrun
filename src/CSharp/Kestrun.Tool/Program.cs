@@ -1020,7 +1020,7 @@ internal static partial class Program
 
         if (OperatingSystem.IsWindows())
         {
-            return StartWindowsService(serviceName);
+            return StartWindowsService(serviceName, command.ServiceLogPath);
         }
 
         if (OperatingSystem.IsLinux())
@@ -1054,7 +1054,7 @@ internal static partial class Program
 
         if (OperatingSystem.IsWindows())
         {
-            return StopWindowsService(serviceName);
+            return StopWindowsService(serviceName, command.ServiceLogPath);
         }
 
         if (OperatingSystem.IsLinux())
@@ -1088,7 +1088,7 @@ internal static partial class Program
 
         if (OperatingSystem.IsWindows())
         {
-            return QueryWindowsService(serviceName);
+            return QueryWindowsService(serviceName, command.ServiceLogPath);
         }
 
         if (OperatingSystem.IsLinux())
@@ -1474,15 +1474,16 @@ internal static partial class Program
     /// <returns>Absolute log file path.</returns>
     private static string ResolveServiceOperationLogPath(string? configuredPath, string? serviceName)
     {
+        var defaultFileName = "kestrun-tool-service.log";
         var defaultPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
             "Kestrun",
             "logs",
-            "kestrun-tool-service.log");
+            defaultFileName);
 
         if (!string.IsNullOrWhiteSpace(configuredPath))
         {
-            return NormalizeServiceLogPath(configuredPath, defaultFileName: "kestrun-tool-service.log");
+            return NormalizeServiceLogPath(configuredPath, defaultFileName);
         }
         // When no explicit path is configured, attempt to discover a --service-log-path from the service config for better log correlation with the service instance.
         return OperatingSystem.IsWindows() && !string.IsNullOrWhiteSpace(serviceName)
@@ -2030,15 +2031,23 @@ internal static partial class Program
     /// </summary>
     /// <param name="serviceName">Service name.</param>
     /// <returns>Process exit code.</returns>
-    private static int StartWindowsService(string serviceName)
+    private static int StartWindowsService(string serviceName, string? configuredLogPath)
     {
         var result = RunProcess("sc.exe", ["start", serviceName]);
         if (result.ExitCode != 0)
         {
             Console.Error.WriteLine(result.Error);
+            WriteServiceOperationLog(
+                $"operation='start' service='{serviceName}' platform='windows' result='failed' exitCode={result.ExitCode} error='{result.Error.Trim()}'",
+                configuredLogPath,
+                serviceName);
             return result.ExitCode;
         }
 
+        WriteServiceOperationLog(
+            $"operation='start' service='{serviceName}' platform='windows' result='success' exitCode=0",
+            configuredLogPath,
+            serviceName);
         Console.WriteLine($"Started Windows service '{serviceName}'.");
         return 0;
     }
@@ -2048,15 +2057,23 @@ internal static partial class Program
     /// </summary>
     /// <param name="serviceName">Service name.</param>
     /// <returns>Process exit code.</returns>
-    private static int StopWindowsService(string serviceName)
+    private static int StopWindowsService(string serviceName, string? configuredLogPath)
     {
         var result = RunProcess("sc.exe", ["stop", serviceName]);
         if (result.ExitCode != 0)
         {
             Console.Error.WriteLine(result.Error);
+            WriteServiceOperationLog(
+                $"operation='stop' service='{serviceName}' platform='windows' result='failed' exitCode={result.ExitCode} error='{result.Error.Trim()}'",
+                configuredLogPath,
+                serviceName);
             return result.ExitCode;
         }
 
+        WriteServiceOperationLog(
+            $"operation='stop' service='{serviceName}' platform='windows' result='success' exitCode=0",
+            configuredLogPath,
+            serviceName);
         Console.WriteLine($"Stopped Windows service '{serviceName}'.");
         return 0;
     }
@@ -2066,14 +2083,27 @@ internal static partial class Program
     /// </summary>
     /// <param name="serviceName">Service name.</param>
     /// <returns>Process exit code.</returns>
-    private static int QueryWindowsService(string serviceName)
+    private static int QueryWindowsService(string serviceName, string? configuredLogPath)
     {
         var result = RunProcess("sc.exe", ["query", serviceName]);
         if (result.ExitCode != 0)
         {
             Console.Error.WriteLine(result.Error);
+            WriteServiceOperationLog(
+                $"operation='query' service='{serviceName}' platform='windows' result='failed' exitCode={result.ExitCode} error='{result.Error.Trim()}'",
+                configuredLogPath,
+                serviceName);
             return result.ExitCode;
         }
+
+        var stateLine = result.Output
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault(static line => line.Contains("STATE", StringComparison.OrdinalIgnoreCase)) ?? "STATE: unknown";
+
+        WriteServiceOperationLog(
+            $"operation='query' service='{serviceName}' platform='windows' result='success' exitCode=0 state='{stateLine}'",
+            configuredLogPath,
+            serviceName);
 
         return 0;
     }

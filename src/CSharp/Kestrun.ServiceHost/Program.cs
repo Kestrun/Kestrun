@@ -13,7 +13,7 @@ namespace Kestrun.ServiceHost;
 
 internal static class Program
 {
-    private static readonly object AssemblyLoadSync = new();
+    private static readonly Lock AssemblyLoadSync = new();
     private static string? s_kestrunModuleLibPath;
     private static bool s_dependencyResolverRegistered;
 
@@ -606,6 +606,7 @@ internal static class Program
                 return true;
             }
 
+            // If versioned subdirectories exist, check for the module manifest in any of them to confirm a valid module layout.
             return versionDirectories.Any(static d => File.Exists(Path.Combine(d, "Microsoft.PowerShell.Management.psd1")));
         }
         catch
@@ -661,9 +662,7 @@ internal static class Program
                 candidates.AddRange(discovered);
             }
 
-            candidates = candidates
-                .Select(path => path.EndsWith("pwsh", StringComparison.OrdinalIgnoreCase) ? Path.GetDirectoryName(path) ?? path : path)
-                .ToList();
+            candidates = [.. candidates.Select(path => path.EndsWith("pwsh", StringComparison.OrdinalIgnoreCase) ? Path.GetDirectoryName(path) ?? path : path)];
         }
 
         return candidates

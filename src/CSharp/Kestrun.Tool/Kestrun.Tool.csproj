@@ -1,0 +1,52 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <RollForward>Major</RollForward>
+        <AssemblyName>Kestrun.Tool</AssemblyName>
+        <RootNamespace>Kestrun.Tool</RootNamespace>
+        <AssemblyTitle>Kestrun.Tool</AssemblyTitle>
+        <Product>Kestrun.Tool</Product>
+        <Description>Kestrun CLI tool for script-hosted service lifecycle operations.</Description>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>true</IsPackable>
+        <PackAsTool>true</PackAsTool>
+        <ToolCommandName>dotnet-kestrun</ToolCommandName>
+
+        <PackageId>Kestrun.Tool</PackageId>
+        <Authors>Kestrun Team</Authors>
+        <Company>Kestrun</Company>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/kestrun/Kestrun</RepositoryUrl>
+        <PackageProjectUrl>https://github.com/kestrun/Kestrun</PackageProjectUrl>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <Version Condition="'$(Version)' == ''">0.0.1</Version>
+        <PackageVersion Condition="'$(Version)' == ''">0.0.1</PackageVersion>
+        <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Release'">true</GeneratePackageOnBuild>
+        <GeneratePackageOnBuild Condition="'$(Configuration)' != 'Release'">false</GeneratePackageOnBuild>
+        <NoWarn>$(NoWarn);NU5111</NoWarn>
+
+        <!-- Single-file publish defaults for runtime publish flow (disabled for dotnet tool packing). -->
+        <PublishSingleFile Condition="'$(PackAsTool)' != 'true'">true</PublishSingleFile>
+        <EnableCompressionInSingleFile Condition="'$(PackAsTool)' != 'true'">true</EnableCompressionInSingleFile>
+        <IncludeNativeLibrariesForSelfExtract Condition="'$(PackAsTool)' != 'true'">true</IncludeNativeLibrariesForSelfExtract>
+        <IncludeAllContentForSelfExtract Condition="'$(PackAsTool)' != 'true'">true</IncludeAllContentForSelfExtract>
+        <PublishTrimmed>false</PublishTrimmed>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.6.0-rc.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Kestrun.Runner\Kestrun.Runner.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Remove="kestrun-service\**\*" />
+        <Content Include="kestrun-service\**\*" Pack="true" PackagePath="tools/net10.0/any/kestrun-service/" Link="%(RecursiveDir)%(Filename)%(Extension)" />
+        <None Include="../../../README.md" Pack="true" PackagePath="\" />
+        <None Include="../../../LICENSE.txt" Pack="true" PackagePath="\" />
+    </ItemGroup>
+</Project>

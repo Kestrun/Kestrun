@@ -1,7 +1,6 @@
 {
     "version": "0.2.0",
     "configurations": [
-
         {
             "name": "PowerShell: Launch MultiRoutes.ps1",
             "type": "PowerShell",
@@ -180,8 +179,7 @@
             "justMyCode": true,
             "console": "integratedTerminal"
         },
-
-              {
+        {
             "name": "Launch pwsh (7.6 RC) with script (bootstrap)",
             "type": "coreclr",
             "request": "launch",
@@ -204,6 +202,20 @@
             "request": "launch",
             "script": "${file}",
             "cwd": "${cwd}"
+        },
+        {
+            "name": "C#: Kestrun.Tool",
+            "type": "dotnet",
+            "request": "launch",
+            "projectPath": "${workspaceFolder}\\src\\CSharp\\Kestrun.Tool\\Kestrun.Tool.csproj",
+            "launchConfigurationId": "TargetFramework=;Kestrun.Tool.Service"
+        },
+        {
+            "name": "C#: Kestrun.ServiceHost",
+            "type": "dotnet",
+            "request": "launch",
+            "projectPath": "${workspaceFolder}\\src\\CSharp\\Kestrun.ServiceHost\\Kestrun.ServiceHost.csproj",
+            "launchConfigurationId": "TargetFramework=;Kestrun.ServiceHost"
         }
     ]
 }

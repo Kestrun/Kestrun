@@ -150,7 +150,264 @@ if ($isDebug) {
 $SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath 'Kestrun.sln'
 $KestrunProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun/Kestrun.csproj'
 $KestrunAnnotationsProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Annotations/Kestrun.Annotations.csproj'
+$KestrunToolProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
+$KestrunServiceHostProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.ServiceHost/Kestrun.ServiceHost.csproj'
+$KestrunToolRuntimeIdentifiers = @('win-x64', 'win-arm64', 'linux-x64', 'linux-arm64', 'osx-x64', 'osx-arm64')
 $ExamplesSolutionFilter = Join-Path -Path $PSScriptRoot -ChildPath 'Examples.slnf'
+
+$script:PowerShellReleaseAssetCache = @{}
+
+function Get-KestrunToolPowerShellCacheRoot {
+    return (Join-Path -Path $PSScriptRoot -ChildPath '.package' -AdditionalChildPath 'powershell-cache')
+}
+
+function Get-PowerShellSdkVersionForServiceHost {
+    $project = [xml](Get-Content -Path $KestrunServiceHostProjectPath -Raw)
+    $sdkReference = $project.Project.ItemGroup.PackageReference |
+        Where-Object { $_.Include -eq 'Microsoft.PowerShell.SDK' } |
+        Select-Object -First 1
+
+    if (-not $sdkReference -or [string]::IsNullOrWhiteSpace($sdkReference.Version)) {
+        throw "Unable to determine Microsoft.PowerShell.SDK version from $KestrunServiceHostProjectPath"
+    }
+
+    return [string]$sdkReference.Version
+}
+
+function Get-PowerShellReleaseAsset {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Version,
+        [Parameter(Mandatory = $true)]
+        [string]$RuntimeIdentifier
+    )
+
+    if (-not $script:PowerShellReleaseAssetCache.ContainsKey($Version)) {
+        $releaseApiUrl = "https://api.github.com/repos/PowerShell/PowerShell/releases/tags/v$Version"
+        $release = Invoke-RestMethod -Uri $releaseApiUrl -Headers @{ 'User-Agent' = 'kestrun-build' } -ErrorAction Stop
+        $script:PowerShellReleaseAssetCache[$Version] = @($release.assets)
+    }
+
+    $assets = $script:PowerShellReleaseAssetCache[$Version]
+    $archiveExtension = if ($RuntimeIdentifier -like 'win-*') { '.zip' } else { '.tar.gz' }
+    $expectedName = "PowerShell-$Version-$RuntimeIdentifier$archiveExtension"
+
+    $asset = $assets | Where-Object { $_.name -ieq $expectedName } | Select-Object -First 1
+    if (-not $asset) {
+        $asset = $assets |
+            Where-Object { $_.name -ilike "*-$RuntimeIdentifier$archiveExtension" } |
+            Select-Object -First 1
+    }
+
+    if (-not $asset) {
+        throw "Unable to find PowerShell release asset for runtime '$RuntimeIdentifier' and version '$Version'."
+    }
+
+    return $asset
+}
+
+function Ensure-PowerShellModulesPayloadForRuntime {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Version,
+        [Parameter(Mandatory = $true)]
+        [string]$RuntimeIdentifier,
+        [Parameter(Mandatory = $true)]
+        [string]$DestinationRoot,
+        [Parameter(Mandatory = $true)]
+        [string]$CacheRoot
+    )
+
+    $asset = Get-PowerShellReleaseAsset -Version $Version -RuntimeIdentifier $RuntimeIdentifier
+    $archiveName = [string]$asset.name
+
+    if (-not (Test-Path -Path $CacheRoot)) {
+        New-Item -Path $CacheRoot -ItemType Directory -Force | Out-Null
+    }
+
+    $archivePath = Ensure-PowerShellReleaseArchiveInCache -Version $Version -RuntimeIdentifier $RuntimeIdentifier -CacheRoot $CacheRoot -Asset $asset
+
+    $runtimeDestinationRoot = Join-Path -Path $DestinationRoot -ChildPath $RuntimeIdentifier
+    $modulesDestination = Join-Path -Path $runtimeDestinationRoot -ChildPath 'Modules'
+    if (Test-Path -Path $modulesDestination) {
+        Remove-Item -Path $modulesDestination -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    New-Item -Path $modulesDestination -ItemType Directory -Force | Out-Null
+
+    Expand-PowerShellModulesOnlyFromArchive -ArchivePath $archivePath -DestinationModulesPath $modulesDestination -ArchiveName $archiveName
+
+    if (-not (Test-Path -Path (Join-Path -Path $modulesDestination -ChildPath 'Microsoft.PowerShell.Management'))) {
+        throw "Unable to locate a valid Modules directory in archive '$archiveName'."
+    }
+
+    Write-Host "    ✅ Staged PowerShell modules to: $modulesDestination"
+}
+
+function Get-ModulesRelativePathFromArchiveEntry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$EntryPath
+    )
+
+    $normalized = $EntryPath.Replace('\\', '/')
+    $modulesPrefixMatch = [regex]::Match($normalized, '(?i)(^|.*/)Modules/(?<relative>.*)$')
+    if (-not $modulesPrefixMatch.Success) {
+        return $null
+    }
+
+    return $modulesPrefixMatch.Groups['relative'].Value
+}
+
+function Expand-PowerShellModulesOnlyFromArchive {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ArchivePath,
+        [Parameter(Mandatory = $true)]
+        [string]$DestinationModulesPath,
+        [Parameter(Mandatory = $true)]
+        [string]$ArchiveName
+    )
+
+    $foundModulesContent = $false
+
+    if ($ArchivePath.EndsWith('.zip', [StringComparison]::OrdinalIgnoreCase)) {
+        Add-Type -AssemblyName 'System.IO.Compression'
+        Add-Type -AssemblyName 'System.IO.Compression.FileSystem'
+
+        $zipArchive = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
+        try {
+            foreach ($entry in $zipArchive.Entries) {
+                $relativePath = Get-ModulesRelativePathFromArchiveEntry -EntryPath $entry.FullName
+                if ($null -eq $relativePath) {
+                    continue
+                }
+
+                $foundModulesContent = $true
+                if ([string]::IsNullOrEmpty($relativePath)) {
+                    continue
+                }
+
+                $destinationPath = Join-Path -Path $DestinationModulesPath -ChildPath ($relativePath -replace '/', [IO.Path]::DirectorySeparatorChar)
+                if ($entry.FullName.EndsWith('/')) {
+                    New-Item -Path $destinationPath -ItemType Directory -Force | Out-Null
+                    continue
+                }
+
+                $destinationDirectory = Split-Path -Path $destinationPath -Parent
+                if (-not [string]::IsNullOrEmpty($destinationDirectory)) {
+                    New-Item -Path $destinationDirectory -ItemType Directory -Force | Out-Null
+                }
+
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $destinationPath, $true)
+            }
+        } finally {
+            $zipArchive.Dispose()
+        }
+    } else {
+        Add-Type -AssemblyName 'System.Formats.Tar'
+        Add-Type -AssemblyName 'System.IO.Compression'
+
+        $fileStream = [System.IO.File]::OpenRead($ArchivePath)
+        $gzipStream = [System.IO.Compression.GZipStream]::new($fileStream, [System.IO.Compression.CompressionMode]::Decompress)
+        $tarReader = [System.Formats.Tar.TarReader]::new($gzipStream)
+
+        try {
+            while ($null -ne ($entry = $tarReader.GetNextEntry())) {
+                $relativePath = Get-ModulesRelativePathFromArchiveEntry -EntryPath $entry.Name
+                if ($null -eq $relativePath) {
+                    continue
+                }
+
+                $foundModulesContent = $true
+                if ([string]::IsNullOrEmpty($relativePath)) {
+                    continue
+                }
+
+                $destinationPath = Join-Path -Path $DestinationModulesPath -ChildPath ($relativePath -replace '/', [IO.Path]::DirectorySeparatorChar)
+                if ($entry.EntryType -eq [System.Formats.Tar.TarEntryType]::Directory) {
+                    New-Item -Path $destinationPath -ItemType Directory -Force | Out-Null
+                    continue
+                }
+
+                if ($null -eq $entry.DataStream) {
+                    continue
+                }
+
+                $destinationDirectory = Split-Path -Path $destinationPath -Parent
+                if (-not [string]::IsNullOrEmpty($destinationDirectory)) {
+                    New-Item -Path $destinationDirectory -ItemType Directory -Force | Out-Null
+                }
+
+                $targetFile = [System.IO.File]::Create($destinationPath)
+                try {
+                    $entry.DataStream.CopyTo($targetFile)
+                } finally {
+                    $targetFile.Dispose()
+                }
+            }
+        } finally {
+            $tarReader.Dispose()
+            $gzipStream.Dispose()
+            $fileStream.Dispose()
+        }
+    }
+
+    if (-not $foundModulesContent) {
+        throw "Unable to locate 'Modules' content in PowerShell archive '$ArchiveName'."
+    }
+}
+
+function Ensure-PowerShellReleaseArchiveInCache {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Version,
+        [Parameter(Mandatory = $true)]
+        [string]$RuntimeIdentifier,
+        [Parameter(Mandatory = $true)]
+        [string]$CacheRoot,
+        [Parameter(Mandatory = $true)]
+        [object]$Asset,
+        [Parameter(Mandatory = $false)]
+        [switch]$Quiet
+    )
+
+    if (-not (Test-Path -Path $CacheRoot)) {
+        New-Item -Path $CacheRoot -ItemType Directory -Force | Out-Null
+    }
+
+    $archiveName = [string]$Asset.name
+    $downloadUrl = [string]$Asset.browser_download_url
+    $archivePath = Join-Path -Path $CacheRoot -ChildPath $archiveName
+
+    if (-not (Test-Path -Path $archivePath)) {
+        if (-not $Quiet) {
+            Write-Host "  ⬇️ Downloading PowerShell SDK archive for $RuntimeIdentifier ($Version)..." -ForegroundColor DarkCyan
+        }
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $archivePath -UseBasicParsing -ErrorAction Stop
+    } elseif (-not $Quiet) {
+        Write-Host "  ♻️ Reusing cached PowerShell SDK archive for $RuntimeIdentifier ($Version)." -ForegroundColor DarkCyan
+    }
+
+    return $archivePath
+}
+
+function Restore-KestrunToolPowerShellCache {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Version,
+        [Parameter(Mandatory = $true)]
+        [string[]]$RuntimeIdentifiers,
+        [Parameter(Mandatory = $true)]
+        [string]$CacheRoot
+    )
+
+    Write-Host '📥 Prefetching PowerShell SDK runtime archives for Kestrun.Tool...' -ForegroundColor DarkCyan
+    foreach ($runtimeIdentifier in $RuntimeIdentifiers) {
+        $asset = Get-PowerShellReleaseAsset -Version $Version -RuntimeIdentifier $runtimeIdentifier
+        [void](Ensure-PowerShellReleaseArchiveInCache -Version $Version -RuntimeIdentifier $runtimeIdentifier -CacheRoot $CacheRoot -Asset $asset)
+    }
+    Write-Host '✅ PowerShell SDK archives are cached for all configured runtimes.' -ForegroundColor DarkCyan
+}
 
 Write-Host '---------------------------------------------------' -ForegroundColor DarkCyan
 if (-not $Version) {
@@ -199,8 +456,11 @@ Add-BuildTask Help {
     Write-Host '- Clean: Cleans the solution.'
     Write-Host '- Restore: Restores NuGet packages.'
     Write-Host '- Build: Builds the solution.'
+    Write-Host '- Build-KestrunTool: Publishes dedicated ServiceHost runtimes and stages PowerShell Modules payloads in src/CSharp/Kestrun.Tool/kestrun-service.'
+    Write-Host '- Pack-KestrunTool: Packs Kestrun.Tool as a dotnet tool package (dotnet-kestrun) into artifacts/nuget.'
+    Write-Host '- Clean-KestrunTool: Removes Kestrun.Tool artifacts, runtimes, and launcher scripts.'
     Write-Host '- Test: Runs tests and Pester tests.'
-    Write-Host '- Package: Packages the solution.'
+    Write-Host '- Package: Packages the solution and includes the Kestrun dotnet tool package.'
     Write-Host '- All: Runs Clean, Build, and Test tasks in sequence.'
     Write-Host '-----------------------------------------------------'
     Write-Host '🧩 Additional Tasks:' -ForegroundColor Green
@@ -230,7 +490,7 @@ Add-BuildTask Help {
     Write-Host '-----------------------------------------------------'
 }
 
-Add-BuildTask 'Clean' 'Clean-CodeAnalysis', 'Clean-Help', 'Clean-Dotnet', 'Clean-PowerShellLib', {
+Add-BuildTask 'Clean' 'Clean-CodeAnalysis', 'Clean-Help', 'Clean-Dotnet', 'Clean-PowerShellLib', 'Clean-KestrunTool', {
     Write-Host '✅ Clean completed.'
 }
 
@@ -240,6 +500,66 @@ Add-BuildTask 'Clean-PowerShellLib' {
         Remove-Item -Recurse -Force './src/PowerShell/Kestrun/lib' -ErrorAction SilentlyContinue
     }
     Write-Host '✅ PowerShell library Clean completed.'
+}
+
+Add-BuildTask 'Clean-KestrunTool' {
+    Write-Host '🧹 Cleaning Kestrun.Tool artifacts...'
+
+    $kestrunToolOutputRoots = @(
+        (Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'Kestrun.Tool'),
+        # Legacy output paths kept for one-way cleanup during the rename transition.
+        (Join-Path -Path $PSScriptRoot -ChildPath 'publish' -AdditionalChildPath 'Kestrun.Tool')
+    )
+
+    foreach ($kestrunToolOutputRoot in $kestrunToolOutputRoots) {
+        if (Test-Path -Path $kestrunToolOutputRoot) {
+            Remove-Item -Path $kestrunToolOutputRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Best-effort fallback: if the root cannot be removed (for example due to a transient file lock),
+    # explicitly clear PowerShell cache contents to keep Clean behavior predictable.
+    $kestrunToolPowerShellCacheRoot = Get-KestrunToolPowerShellCacheRoot
+    if (Test-Path -Path $kestrunToolPowerShellCacheRoot) {
+        Get-ChildItem -Path $kestrunToolPowerShellCacheRoot -Force -ErrorAction SilentlyContinue |
+            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    $kestrunToolRuntimesDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun/lib/runtimes'
+    if (Test-Path -Path $kestrunToolRuntimesDirectory) {
+        Remove-Item -Path $kestrunToolRuntimesDirectory -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    $kestrunToolServiceHostRuntimesDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/kestrun-service'
+    if (Test-Path -Path $kestrunToolServiceHostRuntimesDirectory) {
+        Remove-Item -Path $kestrunToolServiceHostRuntimesDirectory -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    $kestrunToolExecutables = @(
+        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun'),
+        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun.exe'),
+        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'Kestrun.Tool.exe')
+    )
+
+    foreach ($kestrunToolExecutable in $kestrunToolExecutables) {
+        if (Test-Path -Path $kestrunToolExecutable) {
+            Remove-Item -Path $kestrunToolExecutable -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    $kestrunToolLaunchers = @(
+        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun.cmd'),
+        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun.ps1'),
+        (Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun' -AdditionalChildPath 'kestrun.sh')
+    )
+
+    foreach ($kestrunToolLauncher in $kestrunToolLaunchers) {
+        if (Test-Path -Path $kestrunToolLauncher) {
+            Remove-Item -Path $kestrunToolLauncher -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    Write-Host '✅ Kestrun.Tool clean completed.'
 }
 
 Add-BuildTask 'Clean-Dotnet' {
@@ -270,12 +590,21 @@ Add-BuildTask 'CleanBin' {
 }
 
 Add-BuildTask 'Clean-Package' {
-    Write-Host '🧼 Clearing previous package artifacts...'
-    $out = Join-Path -Path $PWD -ChildPath 'artifacts'
+    Write-Host '🧼 Clearing previous package ...'
+    $out = Join-Path -Path $PWD -ChildPath '.\.package'
     if (Test-Path -Path $out) {
         Remove-Item -Path $out -Recurse -Force -ErrorAction Stop
     }
     Write-Host '✅ Package clean completed.'
+}
+
+Add-BuildTask 'Clean-Artifacts' {
+    Write-Host '🧼 Clearing previous artifacts...'
+    $out = Join-Path -Path $PWD -ChildPath 'artifacts'
+    if (Test-Path -Path $out) {
+        Remove-Item -Path $out -Recurse -Force -ErrorAction Stop
+    }
+    Write-Host '✅ Artifacts clean completed.'
 }
 
 Add-BuildTask 'Clean-CodeAnalysis' {
@@ -286,13 +615,17 @@ Add-BuildTask 'Clean-CodeAnalysis' {
     Write-Host '✅ CodeAnalysis clean completed.'
 }
 
-Add-BuildTask 'Deep-Clean' 'Clean', 'CleanObj', 'CleanBin' , 'Clean-Package', {
+Add-BuildTask 'Deep-Clean' 'Clean', 'CleanObj', 'CleanBin' , 'Clean-Artifacts', 'Clean-Package', {
     Write-Host '🧼 Deep cleaning completed.'
 }
 
 Add-BuildTask 'Restore' {
     Write-Host '📦 Restoring packages...'
     dotnet restore "$SolutionPath" -v:$DotNetVerbosity
+
+    $kestrunToolCacheRoot = Get-KestrunToolPowerShellCacheRoot
+    $powerShellSdkVersion = Get-PowerShellSdkVersionForServiceHost
+    Restore-KestrunToolPowerShellCache -Version $powerShellSdkVersion -RuntimeIdentifiers $KestrunToolRuntimeIdentifiers -CacheRoot $kestrunToolCacheRoot
 }, 'Nuget-CodeAnalysis'
 
 Add-BuildTask 'BuildNoPwsh' {
@@ -338,6 +671,114 @@ Add-BuildTask 'BuildExamples' {
             throw "dotnet build failed for Kestrun.Annotations project for framework $framework"
         }
     }
+}
+
+Add-BuildTask 'Build-KestrunTool' {
+    Write-Host '🔨 Publishing ServiceHost payloads for PowerShell-supported platforms...'
+
+    $kestrunToolPublishRoot = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'Kestrun.Tool'
+    $kestrunToolCacheRoot = Get-KestrunToolPowerShellCacheRoot
+    $powerShellSdkVersion = Get-PowerShellSdkVersionForServiceHost
+    $kestrunToolServiceHostRuntimesDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/kestrun-service'
+
+    if (Test-Path -Path $kestrunToolServiceHostRuntimesDirectory) {
+        Remove-Item -Path $kestrunToolServiceHostRuntimesDirectory -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    New-Item -Path $kestrunToolServiceHostRuntimesDirectory -ItemType Directory -Force | Out-Null
+
+    foreach ($runtimeIdentifier in $KestrunToolRuntimeIdentifiers) {
+        Write-Host "  - Publishing for runtime: $runtimeIdentifier" -ForegroundColor DarkCyan
+
+        $serviceHostPublishPath = Join-Path -Path $kestrunToolPublishRoot -ChildPath "$runtimeIdentifier-service-host"
+        if (Test-Path -Path $serviceHostPublishPath) {
+            Remove-Item -Path $serviceHostPublishPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        dotnet publish "$KestrunServiceHostProjectPath" -c $Configuration -r $runtimeIdentifier --self-contained true /p:DebugSymbols=false /p:DebugType=None /p:Version=$Version /p:InformationalVersion=$VersionDetails.InformationalVersion -o "$serviceHostPublishPath" -v:$DotNetVerbosity
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet publish failed for ServiceHost runtime '$runtimeIdentifier'."
+        }
+
+        $serviceHostPublishedBinaryCandidates = if ($runtimeIdentifier -like 'win-*') {
+            @('Kestrun.ServiceHost.exe')
+        } else {
+            @('Kestrun.ServiceHost')
+        }
+
+        $serviceHostPublishedBinary = $null
+        foreach ($candidateName in $serviceHostPublishedBinaryCandidates) {
+            $candidatePath = Join-Path -Path $serviceHostPublishPath -ChildPath $candidateName
+            if (Test-Path -Path $candidatePath) {
+                $serviceHostPublishedBinary = $candidatePath
+                break
+            }
+        }
+
+        if (-not $serviceHostPublishedBinary) {
+            throw "ServiceHost publish output not found. Checked: $($serviceHostPublishedBinaryCandidates -join ', ') in $serviceHostPublishPath"
+        }
+
+        $serviceHostDestinationBinaryName = if ($runtimeIdentifier -like 'win-*') { 'kestrun-service-host.exe' } else { 'kestrun-service-host' }
+        $serviceHostDestinationRuntimeDirectory = Join-Path -Path $kestrunToolServiceHostRuntimesDirectory -ChildPath $runtimeIdentifier
+        if (-not (Test-Path -Path $serviceHostDestinationRuntimeDirectory)) {
+            New-Item -Path $serviceHostDestinationRuntimeDirectory -ItemType Directory -Force | Out-Null
+        }
+
+        $serviceHostDestinationBinary = Join-Path -Path $serviceHostDestinationRuntimeDirectory -ChildPath $serviceHostDestinationBinaryName
+        Copy-Item -Path $serviceHostPublishedBinary -Destination $serviceHostDestinationBinary -Force
+        Write-Host "    ✅ Copied to: $serviceHostDestinationBinary"
+
+        Ensure-PowerShellModulesPayloadForRuntime -Version $powerShellSdkVersion -RuntimeIdentifier $runtimeIdentifier -DestinationRoot $kestrunToolServiceHostRuntimesDirectory -CacheRoot $kestrunToolCacheRoot
+    }
+
+    Write-Host '✅ ServiceHost payload staging completed for all configured runtimes.'
+}
+
+Add-BuildTask 'Pack-KestrunTool' 'Build-KestrunTool', {
+    Write-Host '📦 Packing Kestrun dotnet tool package (dotnet-kestrun)...'
+
+    $toolOutputDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'nuget'
+    if (-not (Test-Path -Path $toolOutputDirectory)) {
+        New-Item -Path $toolOutputDirectory -ItemType Directory -Force | Out-Null
+    }
+
+    Remove-Item -Path (Join-Path -Path $toolOutputDirectory -ChildPath 'Kestrun.Tool*.nupkg') -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path (Join-Path -Path $toolOutputDirectory -ChildPath 'Kestrun.Tool*.snupkg') -Force -ErrorAction SilentlyContinue
+
+    # Build first to avoid intermittent pack-time publish artifact resolution issues.
+    dotnet build "$KestrunToolProjectPath" -c $Configuration -v:$DotNetVerbosity `
+        -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+    if ($LASTEXITCODE -ne 0) {
+        throw 'dotnet build failed for Kestrun tool packaging.'
+    }
+
+    $serviceHostRuntimesRoot = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/kestrun-service'
+    if (-not (Test-Path -Path $serviceHostRuntimesRoot)) {
+        throw "Missing staged service-host runtimes directory: $serviceHostRuntimesRoot"
+    }
+
+    foreach ($runtimeIdentifier in $KestrunToolRuntimeIdentifiers) {
+        $serviceHostFileName = if ($runtimeIdentifier -like 'win-*') { 'kestrun-service-host.exe' } else { 'kestrun-service-host' }
+        $serviceHostPath = Join-Path -Path $serviceHostRuntimesRoot -ChildPath $runtimeIdentifier -AdditionalChildPath $serviceHostFileName
+        if (-not (Test-Path -Path $serviceHostPath)) {
+            throw "Missing staged service-host runtime binary for '$runtimeIdentifier': $serviceHostPath"
+        }
+
+        $serviceModulesPath = Join-Path -Path $serviceHostRuntimesRoot -ChildPath $runtimeIdentifier -AdditionalChildPath 'Modules'
+        if (-not (Test-Path -Path $serviceModulesPath)) {
+            throw "Missing staged PowerShell runtime modules for '$runtimeIdentifier': $serviceModulesPath"
+        }
+    }
+
+    dotnet pack "$KestrunToolProjectPath" -c $Configuration -o "$toolOutputDirectory" -v:$DotNetVerbosity `
+        -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+    if ($LASTEXITCODE -ne 0) {
+        throw 'dotnet pack failed for Kestrun tool packaging.'
+    }
+
+    Write-Host "✅ Kestrun dotnet tool package created in: $toolOutputDirectory"
+    Write-Host "   Install with: dotnet tool install --global Kestrun.Tool --add-source $toolOutputDirectory"
+    Write-Host '   Run with: dotnet kestrun help'
 }
 
 Add-BuildTask 'Build' 'BuildNoPwsh', 'SyncPowerShellDll', { Write-Host '🚀 Build completed.' }
@@ -421,9 +862,13 @@ Add-BuildTask 'Export-OpenApiSamples' {
     }
 }
 
-Add-BuildTask 'Package' 'Clean-Package', 'Build', {
-    Write-Host '🚀 Starting release build...'
+Add-BuildTask 'Set-PackageConfiguration' {
+    Write-Host '🔧 Using Release configuration for package tasks...'
     $script:Configuration = 'Release'
+}
+
+Add-BuildTask 'Package' 'Clean-Package', 'Set-PackageConfiguration', 'Build', 'Pack-KestrunTool', {
+    Write-Host '🚀 Starting release build...'
 
     # Retrieve the short commit SHA from Git
     #$commit = (git rev-parse --short HEAD).Trim()
@@ -431,10 +876,6 @@ Add-BuildTask 'Package' 'Clean-Package', 'Build', {
 
     $out = Join-Path -Path $PWD -ChildPath 'artifacts'
 
-    if ( (Test-Path -Path $out)) {
-        Write-Host "🗑️ Cleaning existing artifacts at $out ..."
-        Remove-Item -Path $out -Recurse -Force
-    }
     New-Item -Path $out -ItemType Directory -Force | Out-Null
     $kestrunReleasePath = Join-Path -Path $out -ChildPath 'modules' -AdditionalChildPath 'Kestrun'
 

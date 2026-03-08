@@ -20,6 +20,7 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 | [CORS](./cors) | Cross-origin policies and browser preflight behavior |
 | [Authentication](./authentication) | JWT, OAuth 2.0, OpenID Connect (OIDC), and client certificates (mTLS) |
 | [OpenAPI Generation](./openapi) | Generate and document APIs with OpenAPI 3.0+ specifications |
+| [Dotnet Tool](./tooling) | Install, update, and use the `kestrun` CLI via `Kestrun.Tool` |
 | [Real-time (SSE & SignalR)](./realtime) | Stream events via SSE or build interactive apps with SignalR |
 | [Scheduling](./scheduling) | Background jobs via intervals and CRON (PS & C#) |
 | [Sessions](./sessions) | Cookie-based per-client state across requests |

@@ -165,6 +165,8 @@ For `service install`:
 
 - `--kestrun-manifest <path>`: manifest used by the service runtime.
 - `--service-log-path <path>`: service bootstrap and operation log path.
+- `--service-user <name>`: install service/daemon to run under a specific OS account.
+- `--service-password <secret>`: password for `--service-user` on Windows service accounts.
 - `--deployment-root <folder>`: override where per-service bundles are created.
 - `--content-root <folder>`: copy the full folder (including subdirectories) into the service bundle.
 - `--arguments <args...>`: script arguments for installed service execution.
@@ -177,6 +179,10 @@ For `service install`:
 - `Modules` are bundled from the PowerShell release matching `Microsoft.PowerShell.SDK` used by ServiceHost and
  copied into the service `Modules` folder during install.
 - install shows progress bars for bundle staging and module file copy in interactive terminals.
+- when `--service-user` is provided:
+  - Windows: service is registered with that account (password may be required by SCM depending on account type).
+  - Linux: installs a systemd system unit (`/etc/systemd/system`) with `User=<name>`; requires root.
+  - macOS: installs a LaunchDaemon (`/Library/LaunchDaemons`) with `UserName`; requires root.
 - bundle roots: Windows `%ProgramData%\Kestrun\services`; Linux `/var/kestrun/services`
   or `/usr/local/kestrun/services` (with user fallback when those are not writable).
 - on Linux, root candidates are used only when writable; otherwise install falls back to `$HOME/.local/share/kestrun/services`.

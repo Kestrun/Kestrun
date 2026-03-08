@@ -76,6 +76,8 @@ internal static partial class Program
         string? KestrunManifestPath,
         string? ServiceName,
         string? ServiceLogPath,
+        string? ServiceUser,
+        string? ServicePassword,
         string? ModuleVersion,
         ModuleStorageScope ModuleScope,
         bool ModuleForce,
@@ -97,7 +99,9 @@ internal static partial class Program
         string ScriptPath,
         string ModuleManifestPath,
         string[] ScriptArguments,
-        string? ServiceLogPath);
+        string? ServiceLogPath,
+        string? ServiceUser,
+        string? ServicePassword);
 
     private sealed record GlobalOptions(
         string[] CommandArgs,
@@ -395,6 +399,8 @@ internal static partial class Program
         var moduleManifestPath = string.Empty;
         var scriptArgs = Array.Empty<string>();
         string? serviceLogPath = null;
+        string? serviceUser = null;
+        string? servicePassword = null;
 
         while (index < args.Length)
         {
@@ -449,6 +455,20 @@ internal static partial class Program
                 continue;
             }
 
+            if (current is "--service-user" && index + 1 < args.Length)
+            {
+                serviceUser = args[index + 1];
+                index += 2;
+                continue;
+            }
+
+            if (current is "--service-password" && index + 1 < args.Length)
+            {
+                servicePassword = args[index + 1];
+                index += 2;
+                continue;
+            }
+
             if (current is "--arguments" or "--")
             {
                 scriptArgs = [.. args.Skip(index + 1)];
@@ -488,7 +508,7 @@ internal static partial class Program
             return false;
         }
 
-        options = new ServiceRegisterOptions(serviceName, serviceHostExecutablePath, runnerExecutablePath, scriptPath, moduleManifestPath, scriptArgs, serviceLogPath);
+        options = new ServiceRegisterOptions(serviceName, serviceHostExecutablePath, runnerExecutablePath, scriptPath, moduleManifestPath, scriptArgs, serviceLogPath, serviceUser, servicePassword);
         return true;
     }
 
@@ -963,6 +983,18 @@ internal static partial class Program
             WarnIfNewerGalleryVersionExists(moduleManifestPath, command.ServiceLogPath);
         }
 
+        if (OperatingSystem.IsLinux() && !string.IsNullOrWhiteSpace(command.ServiceUser) && !IsLikelyRunningAsRootOnLinux())
+        {
+            Console.Error.WriteLine("Linux system service install with --service-user requires root privileges.");
+            return 1;
+        }
+
+        if (OperatingSystem.IsMacOS() && !string.IsNullOrWhiteSpace(command.ServiceUser) && !IsLikelyRunningAsRootOnUnix())
+        {
+            Console.Error.WriteLine("macOS system daemon install with --service-user requires root privileges.");
+            return 1;
+        }
+
         if (!TryPrepareServiceBundle(serviceName, scriptPath, moduleManifestPath, scriptSource.FullContentRoot, scriptSource.RelativeScriptPath, out var serviceBundle, out var bundleError, command.ServiceDeploymentRoot))
         {
             Console.Error.WriteLine(bundleError);
@@ -997,14 +1029,14 @@ internal static partial class Program
 
         if (OperatingSystem.IsLinux())
         {
-            var result = InstallLinuxUserDaemon(serviceName, serviceBundle.ServiceHostExecutablePath, daemonArgs, workingDirectory);
+            var result = InstallLinuxUserDaemon(serviceName, serviceBundle.ServiceHostExecutablePath, daemonArgs, workingDirectory, command.ServiceUser);
             WriteServiceOperationResult("install", "linux", serviceName, result, command.ServiceLogPath);
             return result;
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            var result = InstallMacLaunchAgent(serviceName, serviceBundle.ServiceHostExecutablePath, daemonArgs, workingDirectory);
+            var result = InstallMacLaunchAgent(serviceName, serviceBundle.ServiceHostExecutablePath, daemonArgs, workingDirectory, command.ServiceUser);
             WriteServiceOperationResult("install", "macos", serviceName, result, command.ServiceLogPath);
             return result;
         }
@@ -1278,7 +1310,9 @@ internal static partial class Program
             Path.GetFullPath(scriptPath),
             Path.GetFullPath(moduleManifestPath),
             command.ScriptArguments,
-            command.ServiceLogPath);
+            command.ServiceLogPath,
+            command.ServiceUser,
+            command.ServicePassword);
 
         if (createResult.ExitCode != 0)
         {
@@ -1308,7 +1342,9 @@ internal static partial class Program
             Path.GetFullPath(options.ScriptPath),
             Path.GetFullPath(options.ModuleManifestPath),
             options.ScriptArguments,
-            options.ServiceLogPath);
+            options.ServiceLogPath,
+            options.ServiceUser,
+            options.ServicePassword);
 
         if (createResult.ExitCode != 0)
         {
@@ -1340,16 +1376,39 @@ internal static partial class Program
         string scriptPath,
         string moduleManifestPath,
         IReadOnlyList<string> scriptArguments,
-        string? serviceLogPath)
+        string? serviceLogPath,
+        string? serviceUser,
+        string? servicePassword)
     {
         var hostArgs = UsesDedicatedServiceHostExecutable(serviceHostExecutablePath)
             ? BuildDedicatedServiceHostArguments(serviceName, runnerExecutablePath, scriptPath, moduleManifestPath, scriptArguments, serviceLogPath)
             : BuildWindowsServiceHostArgumentsCore(serviceName, scriptPath, moduleManifestPath, scriptArguments, serviceLogPath);
 
         var imagePath = BuildWindowsCommandLine(serviceHostExecutablePath, hostArgs);
-        return RunProcess(
-            "sc.exe",
-            ["create", serviceName, "start=", "auto", "binPath=", imagePath, "DisplayName=", serviceName]);
+        var scArgs = new List<string>
+        {
+            "create",
+            serviceName,
+            "start=",
+            "auto",
+            "binPath=",
+            imagePath,
+            "DisplayName=",
+            serviceName,
+        };
+
+        if (!string.IsNullOrWhiteSpace(serviceUser))
+        {
+            scArgs.Add("obj=");
+            scArgs.Add(serviceUser);
+            if (!string.IsNullOrWhiteSpace(servicePassword))
+            {
+                scArgs.Add("password=");
+                scArgs.Add(servicePassword);
+            }
+        }
+
+        return RunProcess("sc.exe", scArgs);
     }
 
     /// <summary>
@@ -1398,6 +1457,18 @@ internal static partial class Program
         {
             arguments.Add("--service-log-path");
             arguments.Add(Path.GetFullPath(command.ServiceLogPath));
+        }
+
+        if (!string.IsNullOrWhiteSpace(command.ServiceUser))
+        {
+            arguments.Add("--service-user");
+            arguments.Add(command.ServiceUser);
+        }
+
+        if (!string.IsNullOrWhiteSpace(command.ServicePassword))
+        {
+            arguments.Add("--service-password");
+            arguments.Add(command.ServicePassword);
         }
 
         if (command.ScriptArguments.Length > 0)
@@ -2564,23 +2635,33 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Installs a user-level systemd unit.
+    /// Installs a systemd unit (user scope by default; system scope when serviceUser is provided).
     /// </summary>
     /// <param name="serviceName">Unit base name.</param>
     /// <param name="exePath">Executable path.</param>
     /// <param name="runnerArgs">Runner arguments.</param>
     /// <param name="workingDirectory">Working directory for the unit.</param>
+    /// <param name="serviceUser">Optional service account for system scope.</param>
     /// <returns>Process exit code.</returns>
-    private static int InstallLinuxUserDaemon(string serviceName, string exePath, IReadOnlyList<string> runnerArgs, string workingDirectory)
+    private static int InstallLinuxUserDaemon(string serviceName, string exePath, IReadOnlyList<string> runnerArgs, string workingDirectory, string? serviceUser)
     {
-        if (IsLikelyRunningAsRootOnLinux())
+        var useSystemScope = !string.IsNullOrWhiteSpace(serviceUser);
+
+        if (useSystemScope && !IsLikelyRunningAsRootOnLinux())
+        {
+            Console.Error.WriteLine("Linux system service install with --service-user requires root privileges.");
+            return 1;
+        }
+
+        if (!useSystemScope && IsLikelyRunningAsRootOnLinux())
         {
             Console.Error.WriteLine("Warning: Running as root installs a root user-level unit via systemctl --user.");
             Console.Error.WriteLine("That unit is managed from root's user session and is separate from your regular user units.");
         }
 
-        var userHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var unitDirectory = Path.Combine(userHome, ".config", "systemd", "user");
+        var unitDirectory = useSystemScope
+            ? "/etc/systemd/system"
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "systemd", "user");
         _ = Directory.CreateDirectory(unitDirectory);
 
         var unitName = GetLinuxUnitName(serviceName);
@@ -2593,34 +2674,45 @@ internal static partial class Program
             "",
             "[Service]",
             "Type=simple",
+            useSystemScope ? $"User={serviceUser}" : string.Empty,
             $"WorkingDirectory={workingDirectory}",
             $"ExecStart={execStart}",
             "Restart=always",
             "RestartSec=2",
             "",
             "[Install]",
-            "WantedBy=default.target",
+            useSystemScope ? "WantedBy=multi-user.target" : "WantedBy=default.target",
             "");
 
         File.WriteAllText(unitPath, unitContent);
 
-        var reloadResult = RunProcess("systemctl", ["--user", "daemon-reload"]);
+        var reloadResult = RunLinuxSystemctl(useSystemScope, ["daemon-reload"]);
         if (reloadResult.ExitCode != 0)
         {
             Console.Error.WriteLine(reloadResult.Error);
-            WriteLinuxUserSystemdFailureHint(reloadResult);
+            if (!useSystemScope)
+            {
+                WriteLinuxUserSystemdFailureHint(reloadResult);
+            }
+
             return reloadResult.ExitCode;
         }
 
-        var enableResult = RunProcess("systemctl", ["--user", "enable", unitName]);
+        var enableResult = RunLinuxSystemctl(useSystemScope, ["enable", unitName]);
         if (enableResult.ExitCode != 0)
         {
             Console.Error.WriteLine(enableResult.Error);
-            WriteLinuxUserSystemdFailureHint(enableResult);
+            if (!useSystemScope)
+            {
+                WriteLinuxUserSystemdFailureHint(enableResult);
+            }
+
             return enableResult.ExitCode;
         }
 
-        Console.WriteLine($"Installed Linux user daemon '{unitName}' (not started).");
+        Console.WriteLine(useSystemScope
+            ? $"Installed Linux system daemon '{unitName}' for user '{serviceUser}' (not started)."
+            : $"Installed Linux user daemon '{unitName}' (not started).");
         return 0;
     }
 
@@ -2631,26 +2723,34 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int RemoveLinuxUserDaemon(string serviceName)
     {
-        var userHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var unitDirectory = Path.Combine(userHome, ".config", "systemd", "user");
+        var useSystemScope = IsLinuxSystemUnitInstalled(serviceName);
+        var unitDirectory = useSystemScope
+            ? "/etc/systemd/system"
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "systemd", "user");
         var unitName = GetLinuxUnitName(serviceName);
         var unitPath = Path.Combine(unitDirectory, unitName);
 
-        _ = RunProcess("systemctl", ["--user", "disable", "--now", unitName]);
+        _ = RunLinuxSystemctl(useSystemScope, ["disable", "--now", unitName]);
         if (File.Exists(unitPath))
         {
             File.Delete(unitPath);
         }
 
-        var reloadResult = RunProcess("systemctl", ["--user", "daemon-reload"]);
+        var reloadResult = RunLinuxSystemctl(useSystemScope, ["daemon-reload"]);
         if (reloadResult.ExitCode != 0)
         {
             Console.Error.WriteLine(reloadResult.Error);
-            WriteLinuxUserSystemdFailureHint(reloadResult);
+            if (!useSystemScope)
+            {
+                WriteLinuxUserSystemdFailureHint(reloadResult);
+            }
+
             return reloadResult.ExitCode;
         }
 
-        Console.WriteLine($"Removed Linux user daemon '{unitName}'.");
+        Console.WriteLine(useSystemScope
+            ? $"Removed Linux system daemon '{unitName}'."
+            : $"Removed Linux user daemon '{unitName}'.");
         return 0;
     }
 
@@ -2661,16 +2761,23 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int StartLinuxUserDaemon(string serviceName)
     {
+        var useSystemScope = IsLinuxSystemUnitInstalled(serviceName);
         var unitName = GetLinuxUnitName(serviceName);
-        var result = RunProcess("systemctl", ["--user", "start", unitName]);
+        var result = RunLinuxSystemctl(useSystemScope, ["start", unitName]);
         if (result.ExitCode != 0)
         {
             Console.Error.WriteLine(result.Error);
-            WriteLinuxUserSystemdFailureHint(result);
+            if (!useSystemScope)
+            {
+                WriteLinuxUserSystemdFailureHint(result);
+            }
+
             return result.ExitCode;
         }
 
-        Console.WriteLine($"Started Linux user daemon '{unitName}'.");
+        Console.WriteLine(useSystemScope
+            ? $"Started Linux system daemon '{unitName}'."
+            : $"Started Linux user daemon '{unitName}'.");
         return 0;
     }
 
@@ -2681,16 +2788,23 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int StopLinuxUserDaemon(string serviceName)
     {
+        var useSystemScope = IsLinuxSystemUnitInstalled(serviceName);
         var unitName = GetLinuxUnitName(serviceName);
-        var result = RunProcess("systemctl", ["--user", "stop", unitName]);
+        var result = RunLinuxSystemctl(useSystemScope, ["stop", unitName]);
         if (result.ExitCode != 0)
         {
             Console.Error.WriteLine(result.Error);
-            WriteLinuxUserSystemdFailureHint(result);
+            if (!useSystemScope)
+            {
+                WriteLinuxUserSystemdFailureHint(result);
+            }
+
             return result.ExitCode;
         }
 
-        Console.WriteLine($"Stopped Linux user daemon '{unitName}'.");
+        Console.WriteLine(useSystemScope
+            ? $"Stopped Linux system daemon '{unitName}'."
+            : $"Stopped Linux user daemon '{unitName}'.");
         return 0;
     }
 
@@ -2701,12 +2815,17 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int QueryLinuxUserDaemon(string serviceName)
     {
+        var useSystemScope = IsLinuxSystemUnitInstalled(serviceName);
         var unitName = GetLinuxUnitName(serviceName);
-        var result = RunProcess("systemctl", ["--user", "status", unitName]);
+        var result = RunLinuxSystemctl(useSystemScope, ["status", unitName]);
         if (result.ExitCode != 0)
         {
             Console.Error.WriteLine(result.Error);
-            WriteLinuxUserSystemdFailureHint(result);
+            if (!useSystemScope)
+            {
+                WriteLinuxUserSystemdFailureHint(result);
+            }
+
             return result.ExitCode;
         }
 
@@ -2714,26 +2833,62 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Installs a macOS launch agent plist.
+    /// Runs systemctl in user or system scope.
+    /// </summary>
+    /// <param name="useSystemScope">True for system scope; false for user scope.</param>
+    /// <param name="arguments">Arguments after optional scope switch.</param>
+    /// <returns>Process execution result.</returns>
+    private static ProcessResult RunLinuxSystemctl(bool useSystemScope, IReadOnlyList<string> arguments)
+    {
+        return useSystemScope
+            ? RunProcess("systemctl", arguments)
+            : RunProcess("systemctl", ["--user", .. arguments]);
+    }
+
+    /// <summary>
+    /// Returns true when a system-scoped unit file exists for the service.
+    /// </summary>
+    /// <param name="serviceName">Service name.</param>
+    /// <returns>True when a system unit exists under /etc/systemd/system.</returns>
+    private static bool IsLinuxSystemUnitInstalled(string serviceName)
+    {
+        var unitName = GetLinuxUnitName(serviceName);
+        var systemUnitPath = Path.Combine("/etc/systemd/system", unitName);
+        return File.Exists(systemUnitPath);
+    }
+
+    /// <summary>
+    /// Installs a macOS launch agent plist (or launch daemon when a service user is specified).
     /// </summary>
     /// <param name="serviceName">Agent label.</param>
     /// <param name="exePath">Executable path.</param>
     /// <param name="runnerArgs">Runner arguments.</param>
     /// <param name="workingDirectory">Working directory for launchd.</param>
+    /// <param name="serviceUser">Optional service account for system daemon scope.</param>
     /// <returns>Process exit code.</returns>
-    private static int InstallMacLaunchAgent(string serviceName, string exePath, IReadOnlyList<string> runnerArgs, string workingDirectory)
+    private static int InstallMacLaunchAgent(string serviceName, string exePath, IReadOnlyList<string> runnerArgs, string workingDirectory, string? serviceUser)
     {
-        var userHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var agentDirectory = Path.Combine(userHome, "Library", "LaunchAgents");
+        var useSystemScope = !string.IsNullOrWhiteSpace(serviceUser);
+        if (useSystemScope && !IsLikelyRunningAsRootOnUnix())
+        {
+            Console.Error.WriteLine("macOS system daemon install with --service-user requires root privileges.");
+            return 1;
+        }
+
+        var agentDirectory = useSystemScope
+            ? "/Library/LaunchDaemons"
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "LaunchAgents");
         _ = Directory.CreateDirectory(agentDirectory);
 
         var plistName = $"{serviceName}.plist";
         var plistPath = Path.Combine(agentDirectory, plistName);
         var programArgs = new[] { exePath }.Concat(runnerArgs).ToArray();
-        var plistContent = BuildLaunchdPlist(serviceName, workingDirectory, programArgs);
+        var plistContent = BuildLaunchdPlist(serviceName, workingDirectory, programArgs, serviceUser);
         File.WriteAllText(plistPath, plistContent);
 
-        Console.WriteLine($"Installed macOS launch agent '{serviceName}' (not started).");
+        Console.WriteLine(useSystemScope
+            ? $"Installed macOS launch daemon '{serviceName}' for user '{serviceUser}' (not started)."
+            : $"Installed macOS launch agent '{serviceName}' (not started).");
         return 0;
     }
 
@@ -2744,17 +2899,29 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int RemoveMacLaunchAgent(string serviceName)
     {
-        var userHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var agentDirectory = Path.Combine(userHome, "Library", "LaunchAgents");
+        var useSystemScope = IsMacSystemLaunchDaemonInstalled(serviceName);
+        var agentDirectory = useSystemScope
+            ? "/Library/LaunchDaemons"
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "LaunchAgents");
         var plistPath = Path.Combine(agentDirectory, $"{serviceName}.plist");
 
-        _ = RunProcess("launchctl", ["unload", plistPath]);
+        if (useSystemScope)
+        {
+            _ = RunProcess("launchctl", ["bootout", $"system/{serviceName}"]);
+        }
+        else
+        {
+            _ = RunProcess("launchctl", ["unload", plistPath]);
+        }
+
         if (File.Exists(plistPath))
         {
             File.Delete(plistPath);
         }
 
-        Console.WriteLine($"Removed macOS launch agent '{serviceName}'.");
+        Console.WriteLine(useSystemScope
+            ? $"Removed macOS launch daemon '{serviceName}'."
+            : $"Removed macOS launch agent '{serviceName}'.");
         return 0;
     }
 
@@ -2765,8 +2932,10 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int StartMacLaunchAgent(string serviceName)
     {
-        var userHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var agentDirectory = Path.Combine(userHome, "Library", "LaunchAgents");
+        var useSystemScope = IsMacSystemLaunchDaemonInstalled(serviceName);
+        var agentDirectory = useSystemScope
+            ? "/Library/LaunchDaemons"
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "LaunchAgents");
         var plistPath = Path.Combine(agentDirectory, $"{serviceName}.plist");
         if (!File.Exists(plistPath))
         {
@@ -2774,14 +2943,18 @@ internal static partial class Program
             return 2;
         }
 
-        var result = RunProcess("launchctl", ["load", "-w", plistPath]);
+        var result = useSystemScope
+            ? RunProcess("launchctl", ["bootstrap", "system", plistPath])
+            : RunProcess("launchctl", ["load", "-w", plistPath]);
         if (result.ExitCode != 0)
         {
             Console.Error.WriteLine(result.Error);
             return result.ExitCode;
         }
 
-        Console.WriteLine($"Started macOS launch agent '{serviceName}'.");
+        Console.WriteLine(useSystemScope
+            ? $"Started macOS launch daemon '{serviceName}'."
+            : $"Started macOS launch agent '{serviceName}'.");
         return 0;
     }
 
@@ -2792,8 +2965,10 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int StopMacLaunchAgent(string serviceName)
     {
-        var userHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var agentDirectory = Path.Combine(userHome, "Library", "LaunchAgents");
+        var useSystemScope = IsMacSystemLaunchDaemonInstalled(serviceName);
+        var agentDirectory = useSystemScope
+            ? "/Library/LaunchDaemons"
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "LaunchAgents");
         var plistPath = Path.Combine(agentDirectory, $"{serviceName}.plist");
         if (!File.Exists(plistPath))
         {
@@ -2801,14 +2976,18 @@ internal static partial class Program
             return 2;
         }
 
-        var result = RunProcess("launchctl", ["unload", plistPath]);
+        var result = useSystemScope
+            ? RunProcess("launchctl", ["bootout", $"system/{serviceName}"])
+            : RunProcess("launchctl", ["unload", plistPath]);
         if (result.ExitCode != 0)
         {
             Console.Error.WriteLine(result.Error);
             return result.ExitCode;
         }
 
-        Console.WriteLine($"Stopped macOS launch agent '{serviceName}'.");
+        Console.WriteLine(useSystemScope
+            ? $"Stopped macOS launch daemon '{serviceName}'."
+            : $"Stopped macOS launch agent '{serviceName}'.");
         return 0;
     }
 
@@ -2819,7 +2998,10 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int QueryMacLaunchAgent(string serviceName)
     {
-        var result = RunProcess("launchctl", ["list", serviceName]);
+        var useSystemScope = IsMacSystemLaunchDaemonInstalled(serviceName);
+        var result = useSystemScope
+            ? RunProcess("launchctl", ["print", $"system/{serviceName}"])
+            : RunProcess("launchctl", ["list", serviceName]);
         if (result.ExitCode != 0)
         {
             Console.Error.WriteLine(result.Error);
@@ -2830,15 +3012,30 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Builds a launchd plist document for a persistent user agent.
+    /// Returns true when a system-scoped launch daemon plist exists for the service.
+    /// </summary>
+    /// <param name="serviceName">Service label.</param>
+    /// <returns>True when plist exists under /Library/LaunchDaemons.</returns>
+    private static bool IsMacSystemLaunchDaemonInstalled(string serviceName)
+    {
+        var plistPath = Path.Combine("/Library/LaunchDaemons", $"{serviceName}.plist");
+        return File.Exists(plistPath);
+    }
+
+    /// <summary>
+    /// Builds a launchd plist document for a persistent launch agent/daemon.
     /// </summary>
     /// <param name="label">Launchd label.</param>
     /// <param name="workingDirectory">Working directory.</param>
     /// <param name="programArguments">Program argument list.</param>
+    /// <param name="serviceUser">Optional macOS account name for LaunchDaemon UserName.</param>
     /// <returns>XML plist content.</returns>
-    private static string BuildLaunchdPlist(string label, string workingDirectory, IReadOnlyList<string> programArguments)
+    private static string BuildLaunchdPlist(string label, string workingDirectory, IReadOnlyList<string> programArguments, string? serviceUser)
     {
         var argsXml = string.Join(string.Empty, programArguments.Select(arg => $"\n    <string>{EscapeXml(arg)}</string>"));
+        var userXml = string.IsNullOrWhiteSpace(serviceUser)
+            ? string.Empty
+            : $"\n  <key>UserName</key>\n  <string>{EscapeXml(serviceUser)}</string>";
         return $"""
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -2850,7 +3047,7 @@ internal static partial class Program
   <array>{argsXml}
   </array>
   <key>WorkingDirectory</key>
-  <string>{EscapeXml(workingDirectory)}</string>
+    <string>{EscapeXml(workingDirectory)}</string>{userXml}
   <key>RunAtLoad</key>
   <true/>
   <key>KeepAlive</key>
@@ -4629,7 +4826,7 @@ internal static partial class Program
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseArguments(string[] args, out ParsedCommand parsedCommand, out string error)
     {
-        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], null, null, null, null, null, ModuleStorageScope.Local, false, null, null);
+        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], null, null, null, null, null, null, null, ModuleStorageScope.Local, false, null, null);
         if (args.Length == 0)
         {
             error = $"No command provided. Use '{ProductName} help' to list commands.";
@@ -4706,7 +4903,7 @@ internal static partial class Program
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseRunArguments(string[] args, int startIndex, string? kestrunFolder, string? kestrunManifestPath, out ParsedCommand parsedCommand, out string error)
     {
-        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], kestrunFolder, kestrunManifestPath, null, null, null, ModuleStorageScope.Local, false, null, null);
+        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], kestrunFolder, kestrunManifestPath, null, null, null, null, null, ModuleStorageScope.Local, false, null, null);
         error = string.Empty;
 
         var scriptPathSet = false;
@@ -4786,7 +4983,7 @@ internal static partial class Program
             scriptPath = DefaultScriptFileName;
         }
 
-        parsedCommand = new ParsedCommand(CommandMode.Run, scriptPath, scriptArguments, kestrunFolder, kestrunManifestPath, null, null, null, ModuleStorageScope.Local, false, null, null);
+        parsedCommand = new ParsedCommand(CommandMode.Run, scriptPath, scriptArguments, kestrunFolder, kestrunManifestPath, null, null, null, null, null, ModuleStorageScope.Local, false, null, null);
 
         return true;
     }
@@ -4801,7 +4998,7 @@ internal static partial class Program
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseModuleArguments(string[] args, int startIndex, out ParsedCommand parsedCommand, out string error)
     {
-        parsedCommand = new ParsedCommand(CommandMode.ModuleInfo, string.Empty, [], null, null, null, null, null, ModuleStorageScope.Local, false, null, null);
+        parsedCommand = new ParsedCommand(CommandMode.ModuleInfo, string.Empty, [], null, null, null, null, null, null, null, ModuleStorageScope.Local, false, null, null);
         error = string.Empty;
 
         if (startIndex >= args.Length)
@@ -4917,7 +5114,7 @@ internal static partial class Program
             return false;
         }
 
-        parsedCommand = new ParsedCommand(mode.Value, string.Empty, [], null, null, null, null, moduleVersion, moduleScope, moduleForce, null, null);
+        parsedCommand = new ParsedCommand(mode.Value, string.Empty, [], null, null, null, null, null, null, moduleVersion, moduleScope, moduleForce, null, null);
         return true;
     }
 
@@ -4932,7 +5129,7 @@ internal static partial class Program
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseServiceArguments(string[] args, int startIndex, string? kestrunFolder, string? kestrunManifestPath, out ParsedCommand parsedCommand, out string error)
     {
-        parsedCommand = new ParsedCommand(CommandMode.ServiceInstall, string.Empty, [], kestrunFolder, kestrunManifestPath, null, null, null, ModuleStorageScope.Local, false, null, null);
+        parsedCommand = new ParsedCommand(CommandMode.ServiceInstall, string.Empty, [], kestrunFolder, kestrunManifestPath, null, null, null, null, null, ModuleStorageScope.Local, false, null, null);
         error = string.Empty;
 
         if (startIndex >= args.Length)
@@ -4964,6 +5161,8 @@ internal static partial class Program
         var scriptPathSet = false;
         var scriptArguments = Array.Empty<string>();
         string? serviceLogPath = null;
+        string? serviceUser = null;
+        string? servicePassword = null;
         string? serviceContentRoot = null;
         string? serviceDeploymentRoot = null;
 
@@ -5048,6 +5247,44 @@ internal static partial class Program
                 continue;
             }
 
+            if (current is "--service-user")
+            {
+                if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+                {
+                    error = "Service remove/start/stop/query does not accept --service-user.";
+                    return false;
+                }
+
+                if (index + 1 >= args.Length)
+                {
+                    error = "Missing value for --service-user.";
+                    return false;
+                }
+
+                serviceUser = args[index + 1];
+                index += 2;
+                continue;
+            }
+
+            if (current is "--service-password")
+            {
+                if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+                {
+                    error = "Service remove/start/stop/query does not accept --service-password.";
+                    return false;
+                }
+
+                if (index + 1 >= args.Length)
+                {
+                    error = "Missing value for --service-password.";
+                    return false;
+                }
+
+                servicePassword = args[index + 1];
+                index += 2;
+                continue;
+            }
+
             if (current is "--deployment-root")
             {
                 if (mode is CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
@@ -5126,7 +5363,19 @@ internal static partial class Program
             scriptPath = DefaultScriptFileName;
         }
 
-        parsedCommand = new ParsedCommand(mode.Value, scriptPath, scriptArguments, kestrunFolder, kestrunManifestPath, serviceName, serviceLogPath, null, ModuleStorageScope.Local, false, serviceContentRoot, serviceDeploymentRoot);
+        if (mode != CommandMode.ServiceInstall && (!string.IsNullOrWhiteSpace(serviceUser) || !string.IsNullOrWhiteSpace(servicePassword)))
+        {
+            error = "Service user credentials are only supported for service install.";
+            return false;
+        }
+
+        if (mode == CommandMode.ServiceInstall && string.IsNullOrWhiteSpace(serviceUser) && !string.IsNullOrWhiteSpace(servicePassword))
+        {
+            error = "--service-password requires --service-user.";
+            return false;
+        }
+
+        parsedCommand = new ParsedCommand(mode.Value, scriptPath, scriptArguments, kestrunFolder, kestrunManifestPath, serviceName, serviceLogPath, serviceUser, servicePassword, null, ModuleStorageScope.Local, false, serviceContentRoot, serviceDeploymentRoot);
 
         return true;
     }
@@ -5307,7 +5556,7 @@ internal static partial class Program
 
             case "service":
                 Console.WriteLine("Usage:");
-                Console.WriteLine("  kestrun [--nocheck] [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --name <service-name> [--service-log-path <path-to-log-file>] [--deployment-root <folder>] [--content-root <folder>] [--script <main.ps1> | <main.ps1>] [--arguments <script arguments...>]");
+                Console.WriteLine("  kestrun [--nocheck] [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --name <service-name> [--service-log-path <path-to-log-file>] [--service-user <account>] [--service-password <password>] [--deployment-root <folder>] [--content-root <folder>] [--script <main.ps1> | <main.ps1>] [--arguments <script arguments...>]");
                 Console.WriteLine("  kestrun service remove --name <service-name>");
                 Console.WriteLine("  kestrun service start --name <service-name>");
                 Console.WriteLine("  kestrun service stop --name <service-name>");
@@ -5319,6 +5568,8 @@ internal static partial class Program
                 Console.WriteLine("  --deployment-root <folder>  Override where per-service bundles are created (default is OS-specific).");
                 Console.WriteLine("  --kestrun-manifest <path>   Use an explicit Kestrun.psd1 manifest for the service runtime.");
                 Console.WriteLine("  --service-log-path <path>   Set service bootstrap/operation log file path.");
+                Console.WriteLine("  --service-user <account>    Run installed service/daemon under a specific OS account.");
+                Console.WriteLine("  --service-password <secret> Password for --service-user on Windows service accounts.");
                 Console.WriteLine("  --arguments <args...>       Pass remaining values to the installed script.");
                 Console.WriteLine();
                 Console.WriteLine("Notes:");
@@ -5326,6 +5577,7 @@ internal static partial class Program
                 Console.WriteLine("  - If no script is provided, ./server.ps1 is used.");
                 Console.WriteLine("  - When --content-root is provided, the script path must be relative to that folder and must exist inside it.");
                 Console.WriteLine("  - --deployment-root overrides the OS default bundle root used during install and remove cleanup.");
+                Console.WriteLine("  - --service-user enables platform account mapping: Windows service account, Linux systemd User=, macOS LaunchDaemon UserName.");
                 Console.WriteLine("  - install snapshots runtime/module/script plus dedicated service-host from Kestrun.Tool payload into a per-service bundle before registration.");
                 Console.WriteLine("  - install shows progress bars during bundle staging in interactive terminals.");
                 Console.WriteLine("  - bundle roots: Windows %ProgramData%\\Kestrun\\services; Linux /var/kestrun/services or /usr/local/kestrun/services (with user fallback); macOS /usr/local/kestrun/services (with user fallback).");

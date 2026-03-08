@@ -71,9 +71,18 @@ Describe 'KestrunTool service command surface' {
         $result.Output | Should -Match 'service stop --name <service-name>'
         $result.Output | Should -Match 'service query --name <service-name>'
         $result.Output | Should -Match 'service-log-path <path-to-log-file>'
+        $result.Output | Should -Match 'service-user <account>'
+        $result.Output | Should -Match 'service-password <secret>'
         $result.Output | Should -Match 'content-root <folder>'
         $result.Output | Should -Match 'deployment-root <folder>'
         $result.Output | Should -Match 'shows progress bars during bundle staging'
+    }
+
+    It 'fails service install when --service-password is provided without --service-user' {
+        $result = & $script:InvokeKestrunCommand -Arguments @('service', 'install', '--name', 'test', '--service-password', 'secret')
+
+        $result.ExitCode | Should -Be 2
+        $result.Output | Should -Match '--service-password requires --service-user\.'
     }
 
     It 'fails service install without --name' {
@@ -145,10 +154,6 @@ Describe 'KestrunTool service command surface' {
     }
 
     It 'writes install and remove operations to the service log path' -Skip:(-not ($IsWindows -and $script:isWindowsAdmin)) {
-        if (-not $IsWindows) {
-            Set-ItResult -Skipped -Because 'This assertion is currently validated on Windows only.'
-            return
-        }
 
         $serviceName = 'test-log-ops'
         $scriptPath = Join-Path $script:root 'docs/_includes/examples/pwsh/10.2-OpenAPI-Component-Schema.ps1'
@@ -174,4 +179,5 @@ Describe 'KestrunTool service command surface' {
         $content | Should -Match "Service '$serviceName' install operation completed\."
         $content | Should -Match "Service '$serviceName' remove operation completed\."
     }
+
 }

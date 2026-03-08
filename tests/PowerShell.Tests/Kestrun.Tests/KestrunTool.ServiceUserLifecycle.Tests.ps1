@@ -84,8 +84,7 @@ Describe 'KestrunTool service user lifecycle' {
 
             $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
             $removeResult.ExitCode | Should -Be 0
-        }
-        finally {
+        } finally {
             if ($script:isLinuxRoot) {
                 & systemctl stop "$serviceName.service" 2>$null | Out-Null
                 & systemctl disable "$serviceName.service" 2>$null | Out-Null
@@ -135,8 +134,7 @@ Describe 'KestrunTool service user lifecycle' {
 
             $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
             $removeResult.ExitCode | Should -Be 0
-        }
-        finally {
+        } finally {
             & systemctl stop "$serviceName.service" 2>$null | Out-Null
             & systemctl disable "$serviceName.service" 2>$null | Out-Null
             Remove-Item -Path "/etc/systemd/system/$serviceName.service" -Force -ErrorAction SilentlyContinue
@@ -185,8 +183,7 @@ Describe 'KestrunTool service user lifecycle' {
 
             $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
             $removeResult.ExitCode | Should -Be 0
-        }
-        finally {
+        } finally {
             & launchctl bootout "system/$serviceName" 2>$null | Out-Null
             Remove-Item -LiteralPath $plistPath -Force -ErrorAction SilentlyContinue
             & dscl . -delete "/Users/$serviceUser" 2>$null | Out-Null
@@ -221,8 +218,7 @@ Describe 'KestrunTool service user lifecycle' {
 
             $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
             $removeResult.ExitCode | Should -Be 0
-        }
-        finally {
+        } finally {
             & launchctl bootout "gui/$([System.Diagnostics.Process]::GetCurrentProcess().SessionId)/$serviceName" 2>$null | Out-Null
             & launchctl unload "$plistPath" 2>$null | Out-Null
             Remove-Item -LiteralPath $plistPath -Force -ErrorAction SilentlyContinue
@@ -264,8 +260,7 @@ Describe 'KestrunTool service user lifecycle' {
 
             $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
             $removeResult.ExitCode | Should -Be 0
-        }
-        finally {
+        } finally {
             & sc.exe stop $serviceName 2>$null | Out-Null
             & sc.exe delete $serviceName 2>$null | Out-Null
             & net.exe user $serviceUser /delete 2>$null | Out-Null
@@ -300,8 +295,7 @@ Describe 'KestrunTool service user lifecycle' {
 
             $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
             $removeResult.ExitCode | Should -Be 0
-        }
-        finally {
+        } finally {
             & sc.exe stop $serviceName 2>$null | Out-Null
             & sc.exe delete $serviceName 2>$null | Out-Null
             Remove-Item -LiteralPath $deploymentRoot -Recurse -Force -ErrorAction SilentlyContinue

@@ -533,8 +533,12 @@ public class KestrunToolCommandSurfaceTests
     public void TryPrepareServiceBundle_CopiesRuntimeModuleAndScript_UsingOverrideRoot()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        var originalDirectory = Environment.CurrentDirectory;
         try
         {
+            _ = Directory.CreateDirectory(tempRoot);
+            Environment.CurrentDirectory = tempRoot;
+
             var moduleRoot = Path.Combine(tempRoot, "module-src");
             _ = Directory.CreateDirectory(moduleRoot);
             var manifestPath = Path.Combine(moduleRoot, "Kestrun.psd1");
@@ -545,6 +549,7 @@ public class KestrunToolCommandSurfaceTests
             var runtimeSourcePath = Path.Combine(moduleRoot, "runtimes", runtimeRid, runtimeBinaryName);
             _ = Directory.CreateDirectory(Path.GetDirectoryName(runtimeSourcePath)!);
             File.WriteAllText(runtimeSourcePath, "runtime-binary", Encoding.UTF8);
+            StageDedicatedServicePayloadLayout(tempRoot, runtimeRid);
 
             var scriptPath = Path.Combine(tempRoot, "server.ps1");
             File.WriteAllText(scriptPath, "Write-Output 'hello'", Encoding.UTF8);
@@ -566,6 +571,7 @@ public class KestrunToolCommandSurfaceTests
         }
         finally
         {
+            Environment.CurrentDirectory = originalDirectory;
             if (Directory.Exists(tempRoot))
             {
                 Directory.Delete(tempRoot, recursive: true);
@@ -673,8 +679,12 @@ public class KestrunToolCommandSurfaceTests
     public void TryPrepareServiceBundle_WithContentRoot_CopiesEntireFolderAndPreservesRelativeScriptPath()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        var originalDirectory = Environment.CurrentDirectory;
         try
         {
+            _ = Directory.CreateDirectory(tempRoot);
+            Environment.CurrentDirectory = tempRoot;
+
             var moduleRoot = Path.Combine(tempRoot, "module-src");
             _ = Directory.CreateDirectory(moduleRoot);
             var manifestPath = Path.Combine(moduleRoot, "Kestrun.psd1");
@@ -685,6 +695,7 @@ public class KestrunToolCommandSurfaceTests
             var runtimeSourcePath = Path.Combine(moduleRoot, "runtimes", runtimeRid, runtimeBinaryName);
             _ = Directory.CreateDirectory(Path.GetDirectoryName(runtimeSourcePath)!);
             File.WriteAllText(runtimeSourcePath, "runtime-binary", Encoding.UTF8);
+            StageDedicatedServicePayloadLayout(tempRoot, runtimeRid);
 
             var contentRoot = Path.Combine(tempRoot, "service-content");
             var nestedScripts = Path.Combine(contentRoot, "scripts");
@@ -718,11 +729,25 @@ public class KestrunToolCommandSurfaceTests
         }
         finally
         {
+            Environment.CurrentDirectory = originalDirectory;
             if (Directory.Exists(tempRoot))
             {
                 Directory.Delete(tempRoot, recursive: true);
             }
         }
+    }
+
+    private static void StageDedicatedServicePayloadLayout(string repositoryRoot, string runtimeRid)
+    {
+        var payloadRoot = Path.Combine(repositoryRoot, "src", "CSharp", "Kestrun.Tool", "kestrun-service", runtimeRid);
+        var hostBinaryName = OperatingSystem.IsWindows() ? "kestrun-service-host.exe" : "kestrun-service-host";
+        var modulesDirectory = Path.Combine(payloadRoot, "Modules", "Kestrun");
+
+        _ = Directory.CreateDirectory(payloadRoot);
+        _ = Directory.CreateDirectory(modulesDirectory);
+
+        File.WriteAllText(Path.Combine(payloadRoot, hostBinaryName), "service-host", Encoding.UTF8);
+        File.WriteAllText(Path.Combine(modulesDirectory, "Kestrun.psd1"), "@{`n    ModuleVersion = '1.0.0'`n}", Encoding.UTF8);
     }
 
     [Fact]

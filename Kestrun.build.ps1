@@ -157,6 +157,10 @@ $ExamplesSolutionFilter = Join-Path -Path $PSScriptRoot -ChildPath 'Examples.sln
 
 $script:PowerShellReleaseAssetCache = @{}
 
+function Get-KestrunToolPowerShellCacheRoot {
+    return (Join-Path -Path $PSScriptRoot -ChildPath '.package' -AdditionalChildPath 'powershell-cache')
+}
+
 function Get-PowerShellSdkVersionForServiceHost {
     $project = [xml](Get-Content -Path $KestrunServiceHostProjectPath -Raw)
     $sdkReference = $project.Project.ItemGroup.PackageReference |
@@ -223,30 +227,6 @@ function Ensure-PowerShellModulesPayloadForRuntime {
 
     $archivePath = Ensure-PowerShellReleaseArchiveInCache -Version $Version -RuntimeIdentifier $RuntimeIdentifier -CacheRoot $CacheRoot -Asset $asset
 
-    $extractRoot = Join-Path -Path $CacheRoot -ChildPath "extract-$Version-$RuntimeIdentifier"
-    if (Test-Path -Path $extractRoot) {
-        Remove-Item -Path $extractRoot -Recurse -Force -ErrorAction SilentlyContinue
-    }
-    New-Item -Path $extractRoot -ItemType Directory -Force | Out-Null
-
-    if ($archivePath.EndsWith('.zip', [StringComparison]::OrdinalIgnoreCase)) {
-        Expand-Archive -Path $archivePath -DestinationPath $extractRoot -Force
-    } else {
-        & tar -xzf $archivePath -C $extractRoot
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to extract archive '$archivePath'"
-        }
-    }
-
-    $modulesSource = Get-ChildItem -Path $extractRoot -Directory -Recurse -Filter 'Modules' |
-        Where-Object { Test-Path (Join-Path -Path $_.FullName -ChildPath 'Microsoft.PowerShell.Management') } |
-        Sort-Object { $_.FullName.Length } |
-        Select-Object -First 1
-
-    if (-not $modulesSource) {
-        throw "Unable to locate a valid Modules directory in extracted PowerShell archive '$archiveName'."
-    }
-
     $runtimeDestinationRoot = Join-Path -Path $DestinationRoot -ChildPath $RuntimeIdentifier
     $modulesDestination = Join-Path -Path $runtimeDestinationRoot -ChildPath 'Modules'
     if (Test-Path -Path $modulesDestination) {
@@ -254,8 +234,127 @@ function Ensure-PowerShellModulesPayloadForRuntime {
     }
     New-Item -Path $modulesDestination -ItemType Directory -Force | Out-Null
 
-    Copy-Item -Path (Join-Path -Path $modulesSource.FullName -ChildPath '*') -Destination $modulesDestination -Recurse -Force
+    Expand-PowerShellModulesOnlyFromArchive -ArchivePath $archivePath -DestinationModulesPath $modulesDestination -ArchiveName $archiveName
+
+    if (-not (Test-Path -Path (Join-Path -Path $modulesDestination -ChildPath 'Microsoft.PowerShell.Management'))) {
+        throw "Unable to locate a valid Modules directory in archive '$archiveName'."
+    }
+
     Write-Host "    ✅ Staged PowerShell modules to: $modulesDestination"
+}
+
+function Get-ModulesRelativePathFromArchiveEntry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$EntryPath
+    )
+
+    $normalized = $EntryPath.Replace('\\', '/')
+    $modulesPrefixMatch = [regex]::Match($normalized, '(?i)(^|.*/)Modules/(?<relative>.*)$')
+    if (-not $modulesPrefixMatch.Success) {
+        return $null
+    }
+
+    return $modulesPrefixMatch.Groups['relative'].Value
+}
+
+function Expand-PowerShellModulesOnlyFromArchive {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ArchivePath,
+        [Parameter(Mandatory = $true)]
+        [string]$DestinationModulesPath,
+        [Parameter(Mandatory = $true)]
+        [string]$ArchiveName
+    )
+
+    $foundModulesContent = $false
+
+    if ($ArchivePath.EndsWith('.zip', [StringComparison]::OrdinalIgnoreCase)) {
+        Add-Type -AssemblyName 'System.IO.Compression'
+        Add-Type -AssemblyName 'System.IO.Compression.FileSystem'
+
+        $zipArchive = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
+        try {
+            foreach ($entry in $zipArchive.Entries) {
+                $relativePath = Get-ModulesRelativePathFromArchiveEntry -EntryPath $entry.FullName
+                if ($null -eq $relativePath) {
+                    continue
+                }
+
+                $foundModulesContent = $true
+                if ([string]::IsNullOrEmpty($relativePath)) {
+                    continue
+                }
+
+                $destinationPath = Join-Path -Path $DestinationModulesPath -ChildPath ($relativePath -replace '/', [IO.Path]::DirectorySeparatorChar)
+                if ($entry.FullName.EndsWith('/')) {
+                    New-Item -Path $destinationPath -ItemType Directory -Force | Out-Null
+                    continue
+                }
+
+                $destinationDirectory = Split-Path -Path $destinationPath -Parent
+                if (-not [string]::IsNullOrEmpty($destinationDirectory)) {
+                    New-Item -Path $destinationDirectory -ItemType Directory -Force | Out-Null
+                }
+
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $destinationPath, $true)
+            }
+        } finally {
+            $zipArchive.Dispose()
+        }
+    } else {
+        Add-Type -AssemblyName 'System.Formats.Tar'
+        Add-Type -AssemblyName 'System.IO.Compression'
+
+        $fileStream = [System.IO.File]::OpenRead($ArchivePath)
+        $gzipStream = [System.IO.Compression.GZipStream]::new($fileStream, [System.IO.Compression.CompressionMode]::Decompress)
+        $tarReader = [System.Formats.Tar.TarReader]::new($gzipStream)
+
+        try {
+            while ($null -ne ($entry = $tarReader.GetNextEntry())) {
+                $relativePath = Get-ModulesRelativePathFromArchiveEntry -EntryPath $entry.Name
+                if ($null -eq $relativePath) {
+                    continue
+                }
+
+                $foundModulesContent = $true
+                if ([string]::IsNullOrEmpty($relativePath)) {
+                    continue
+                }
+
+                $destinationPath = Join-Path -Path $DestinationModulesPath -ChildPath ($relativePath -replace '/', [IO.Path]::DirectorySeparatorChar)
+                if ($entry.EntryType -eq [System.Formats.Tar.TarEntryType]::Directory) {
+                    New-Item -Path $destinationPath -ItemType Directory -Force | Out-Null
+                    continue
+                }
+
+                if ($null -eq $entry.DataStream) {
+                    continue
+                }
+
+                $destinationDirectory = Split-Path -Path $destinationPath -Parent
+                if (-not [string]::IsNullOrEmpty($destinationDirectory)) {
+                    New-Item -Path $destinationDirectory -ItemType Directory -Force | Out-Null
+                }
+
+                $targetFile = [System.IO.File]::Create($destinationPath)
+                try {
+                    $entry.DataStream.CopyTo($targetFile)
+                } finally {
+                    $targetFile.Dispose()
+                }
+            }
+        } finally {
+            $tarReader.Dispose()
+            $gzipStream.Dispose()
+            $fileStream.Dispose()
+        }
+    }
+
+    if (-not $foundModulesContent) {
+        throw "Unable to locate 'Modules' content in PowerShell archive '$ArchiveName'."
+    }
 }
 
 function Ensure-PowerShellReleaseArchiveInCache {
@@ -420,7 +519,7 @@ Add-BuildTask 'Clean-KestrunTool' {
 
     # Best-effort fallback: if the root cannot be removed (for example due to a transient file lock),
     # explicitly clear PowerShell cache contents to keep Clean behavior predictable.
-    $kestrunToolPowerShellCacheRoot = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts/Kestrun.Tool/powershell-cache'
+    $kestrunToolPowerShellCacheRoot = Get-KestrunToolPowerShellCacheRoot
     if (Test-Path -Path $kestrunToolPowerShellCacheRoot) {
         Get-ChildItem -Path $kestrunToolPowerShellCacheRoot -Force -ErrorAction SilentlyContinue |
             Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
@@ -491,12 +590,21 @@ Add-BuildTask 'CleanBin' {
 }
 
 Add-BuildTask 'Clean-Package' {
-    Write-Host '🧼 Clearing previous package artifacts...'
-    $out = Join-Path -Path $PWD -ChildPath 'artifacts'
+    Write-Host '🧼 Clearing previous package ...'
+    $out = Join-Path -Path $PWD -ChildPath '.\.package'
     if (Test-Path -Path $out) {
         Remove-Item -Path $out -Recurse -Force -ErrorAction Stop
     }
     Write-Host '✅ Package clean completed.'
+}
+
+Add-BuildTask 'Clean-Artifacts' {
+    Write-Host '🧼 Clearing previous artifacts...'
+    $out = Join-Path -Path $PWD -ChildPath 'artifacts'
+    if (Test-Path -Path $out) {
+        Remove-Item -Path $out -Recurse -Force -ErrorAction Stop
+    }
+    Write-Host '✅ Artifacts clean completed.'
 }
 
 Add-BuildTask 'Clean-CodeAnalysis' {
@@ -507,7 +615,7 @@ Add-BuildTask 'Clean-CodeAnalysis' {
     Write-Host '✅ CodeAnalysis clean completed.'
 }
 
-Add-BuildTask 'Deep-Clean' 'Clean', 'CleanObj', 'CleanBin' , 'Clean-Package', {
+Add-BuildTask 'Deep-Clean' 'Clean', 'CleanObj', 'CleanBin' , 'Clean-Artifacts', 'Clean-Package', {
     Write-Host '🧼 Deep cleaning completed.'
 }
 
@@ -515,8 +623,7 @@ Add-BuildTask 'Restore' {
     Write-Host '📦 Restoring packages...'
     dotnet restore "$SolutionPath" -v:$DotNetVerbosity
 
-    $kestrunToolPublishRoot = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'Kestrun.Tool'
-    $kestrunToolCacheRoot = Join-Path -Path $kestrunToolPublishRoot -ChildPath 'powershell-cache'
+    $kestrunToolCacheRoot = Get-KestrunToolPowerShellCacheRoot
     $powerShellSdkVersion = Get-PowerShellSdkVersionForServiceHost
     Restore-KestrunToolPowerShellCache -Version $powerShellSdkVersion -RuntimeIdentifiers $KestrunToolRuntimeIdentifiers -CacheRoot $kestrunToolCacheRoot
 }, 'Nuget-CodeAnalysis'
@@ -570,7 +677,7 @@ Add-BuildTask 'Build-KestrunTool' {
     Write-Host '🔨 Publishing ServiceHost payloads for PowerShell-supported platforms...'
 
     $kestrunToolPublishRoot = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'Kestrun.Tool'
-    $kestrunToolCacheRoot = Join-Path -Path $kestrunToolPublishRoot -ChildPath 'powershell-cache'
+    $kestrunToolCacheRoot = Get-KestrunToolPowerShellCacheRoot
     $powerShellSdkVersion = Get-PowerShellSdkVersionForServiceHost
     $kestrunToolServiceHostRuntimesDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/kestrun-service'
 

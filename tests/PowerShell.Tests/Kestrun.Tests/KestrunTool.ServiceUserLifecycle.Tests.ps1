@@ -1,5 +1,32 @@
 ﻿param()
 
+# Compute environment capabilities at discovery time so -Skip conditions are accurate.
+$script:isWindowsAdmin = $false
+$script:isLinuxRoot = $false
+$script:isMacRoot = $false
+$script:hasLinuxUserMgmt = $false
+$script:hasLinuxSystemctl = $false
+$script:hasMacDscl = $false
+$script:hasMacLaunchctl = $false
+
+if ($IsWindows) {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+    $script:isWindowsAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+if ($IsLinux) {
+    $script:isLinuxRoot = $env:USER -eq 'root'
+    $script:hasLinuxUserMgmt = [bool](Get-Command useradd -ErrorAction SilentlyContinue) -and [bool](Get-Command userdel -ErrorAction SilentlyContinue)
+    $script:hasLinuxSystemctl = [bool](Get-Command systemctl -ErrorAction SilentlyContinue)
+}
+
+if ($IsMacOS) {
+    $script:isMacRoot = $env:USER -eq 'root'
+    $script:hasMacDscl = [bool](Get-Command dscl -ErrorAction SilentlyContinue)
+    $script:hasMacLaunchctl = [bool](Get-Command launchctl -ErrorAction SilentlyContinue)
+}
+
 BeforeAll {
     . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
 
@@ -9,32 +36,6 @@ BeforeAll {
 
     if ((-not (Test-Path -Path $script:kestrunLauncher -PathType Leaf)) -and (-not (Test-Path -Path $script:kestrunToolProject -PathType Leaf))) {
         throw "Neither kestrun launcher nor Kestrun.Tool project was found. Checked: $script:kestrunLauncher ; $script:kestrunToolProject"
-    }
-
-    $script:isWindowsAdmin = $false
-    $script:isLinuxRoot = $false
-    $script:isMacRoot = $false
-    $script:hasLinuxUserMgmt = $false
-    $script:hasLinuxSystemctl = $false
-    $script:hasMacDscl = $false
-    $script:hasMacLaunchctl = $false
-
-    if ($IsWindows) {
-        $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-        $principal = [Security.Principal.WindowsPrincipal]::new($identity)
-        $script:isWindowsAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    }
-
-    if ($IsLinux) {
-        $script:isLinuxRoot = $env:USER -eq 'root'
-        $script:hasLinuxUserMgmt = [bool](Get-Command useradd -ErrorAction SilentlyContinue) -and [bool](Get-Command userdel -ErrorAction SilentlyContinue)
-        $script:hasLinuxSystemctl = [bool](Get-Command systemctl -ErrorAction SilentlyContinue)
-    }
-
-    if ($IsMacOS) {
-        $script:isMacRoot = $env:USER -eq 'root'
-        $script:hasMacDscl = [bool](Get-Command dscl -ErrorAction SilentlyContinue)
-        $script:hasMacLaunchctl = [bool](Get-Command launchctl -ErrorAction SilentlyContinue)
     }
 
     $script:InvokeKestrunCommand = {
@@ -229,20 +230,82 @@ Describe 'KestrunTool service user lifecycle' {
     It 'handles full Windows lifecycle for a dedicated service user' -Skip:(-not ($IsWindows -and $script:isWindowsAdmin)) {
         $suffix = ([Guid]::NewGuid().ToString('N')).Substring(0, 8)
         $serviceUser = "krsvc_$suffix"
-        $servicePassword = "Tmp!$suffix`_Pass123"
+        $machineQualifiedServiceUser = "$env:COMPUTERNAME\$serviceUser"
+        # Keep password <=14 chars to avoid net.exe interactive legacy warning prompt.
+        $servicePassword = "T!a$($suffix.Substring(0, 6))9"
         $serviceName = "test-user-$suffix"
         $deploymentRoot = Join-Path $env:TEMP "kestrun-service-user-$suffix"
         $scriptPath = Join-Path $script:root 'docs/_includes/examples/pwsh/10.2-OpenAPI-Component-Schema.ps1'
+        $originalServiceLogonRightSids = @()
+        $servicePolicySid = $null
 
         try {
             & net.exe user $serviceUser $servicePassword /add | Out-Null
             $LASTEXITCODE | Should -Be 0
 
+            $originalServiceLogonRightSids = @(Get-WindowsServiceLogonRightSid -WorkingDirectory $script:root)
+            $servicePolicySid = Convert-AccountToPolicySid -AccountName $machineQualifiedServiceUser
+
+            $denyServiceLogonRightSids = @(Get-WindowsDenyServiceLogonRightSid -WorkingDirectory $script:root)
+            if ($denyServiceLogonRightSids -contains $servicePolicySid) {
+                Set-ItResult -Skipped -Because 'Service user is denied "Log on as a service" by local/domain policy.'
+                return
+            }
+
+            $updatedServiceLogonRightSids = @($originalServiceLogonRightSids + $servicePolicySid | Select-Object -Unique)
+            Set-WindowsServiceLogonRightSid -Sids $updatedServiceLogonRightSids -WorkingDirectory $script:root
+
+            $effectiveServiceLogonRightSids = @(Get-WindowsServiceLogonRightSid -WorkingDirectory $script:root)
+            if (-not ($effectiveServiceLogonRightSids -contains $servicePolicySid)) {
+                Set-ItResult -Skipped -Because 'Unable to grant "Log on as a service" due to host policy restrictions.'
+                return
+            }
+
             $installResult = & $script:InvokeKestrunCommand -Arguments @(
                 'service', 'install',
                 '--name', $serviceName,
-                '--service-user', ".\\$serviceUser",
+                '--service-user', $machineQualifiedServiceUser,
                 '--service-password', $servicePassword,
+                '--deployment-root', $deploymentRoot,
+                $scriptPath)
+            $installResult.ExitCode | Should -Be 0
+
+            & icacls.exe $deploymentRoot /grant "${machineQualifiedServiceUser}:(OI)(CI)M" /t /c | Out-Null
+
+            $startResult = & $script:InvokeKestrunCommand -Arguments @('service', 'start', '--name', $serviceName)
+            $startResult.ExitCode | Should -Be 0
+
+            Start-Sleep -Seconds 2
+            $queryResult = & $script:InvokeKestrunCommand -Arguments @('service', 'query', '--name', $serviceName)
+            $queryResult.ExitCode | Should -Be 0
+            $queryResult.Output | Should -Match 'RUNNING'
+
+            $stopResult = & $script:InvokeKestrunCommand -Arguments @('service', 'stop', '--name', $serviceName)
+            $stopResult.ExitCode | Should -Be 0
+
+            $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
+            $removeResult.ExitCode | Should -Be 0
+        } finally {
+            & sc.exe stop $serviceName 2>$null | Out-Null
+            & sc.exe delete $serviceName 2>$null | Out-Null
+            & net.exe user $serviceUser /delete 2>$null | Out-Null
+            if ($null -ne $originalServiceLogonRightSids) {
+                Set-WindowsServiceLogonRightSid -Sids $originalServiceLogonRightSids -WorkingDirectory $script:root
+            }
+            Remove-Item -LiteralPath $deploymentRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'handles full Windows lifecycle with default service account' -Skip:(-not ($IsWindows -and $script:isWindowsAdmin)) {
+        $suffix = ([Guid]::NewGuid().ToString('N')).Substring(0, 8)
+        $serviceName = "test-default-$suffix"
+        $deploymentRoot = Join-Path $env:TEMP "kestrun-service-default-$suffix"
+        $scriptPath = Join-Path $script:root 'docs/_includes/examples/pwsh/10.2-OpenAPI-Component-Schema.ps1'
+
+        try {
+            $installResult = & $script:InvokeKestrunCommand -Arguments @(
+                'service', 'install',
+                '--name', $serviceName,
                 '--deployment-root', $deploymentRoot,
                 $scriptPath)
             $installResult.ExitCode | Should -Be 0
@@ -263,26 +326,32 @@ Describe 'KestrunTool service user lifecycle' {
         } finally {
             & sc.exe stop $serviceName 2>$null | Out-Null
             & sc.exe delete $serviceName 2>$null | Out-Null
-            & net.exe user $serviceUser /delete 2>$null | Out-Null
             Remove-Item -LiteralPath $deploymentRoot -Recurse -Force -ErrorAction SilentlyContinue
         }
     }
 
-    It 'handles full Windows lifecycle with default service account' -Skip:(-not ($IsWindows -and $script:isWindowsAdmin)) {
+    It 'handles full Windows lifecycle with NetworkService account' -Skip:(-not ($IsWindows -and $script:isWindowsAdmin)) {
         $suffix = ([Guid]::NewGuid().ToString('N')).Substring(0, 8)
-        $serviceName = "test-default-$suffix"
-        $deploymentRoot = Join-Path $env:TEMP "kestrun-service-default-$suffix"
+        $serviceName = "test-networkservice-$suffix"
+        $deploymentRoot = Join-Path $env:TEMP "kestrun-service-networkservice-$suffix"
         $scriptPath = Join-Path $script:root 'docs/_includes/examples/pwsh/10.2-OpenAPI-Component-Schema.ps1'
 
         try {
             $installResult = & $script:InvokeKestrunCommand -Arguments @(
                 'service', 'install',
                 '--name', $serviceName,
+                '--service-user', 'NetworkService',
                 '--deployment-root', $deploymentRoot,
                 $scriptPath)
             $installResult.ExitCode | Should -Be 0
 
+            & icacls.exe $deploymentRoot /grant '*S-1-5-20:(OI)(CI)M' /t /c | Out-Null
+
             $startResult = & $script:InvokeKestrunCommand -Arguments @('service', 'start', '--name', $serviceName)
+            if ($startResult.ExitCode -eq 5) {
+                Set-ItResult -Skipped -Because 'NetworkService lacks required host permissions on this machine.'
+                return
+            }
             $startResult.ExitCode | Should -Be 0
 
             Start-Sleep -Seconds 2

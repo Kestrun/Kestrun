@@ -802,6 +802,27 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void NormalizeWindowsServiceAccountName_MapsFriendlyBuiltinAliases()
+    {
+        Assert.Equal(@"NT AUTHORITY\NetworkService", InvokeNormalizeWindowsServiceAccountName("NetworkService"));
+        Assert.Equal(@"NT AUTHORITY\NetworkService", InvokeNormalizeWindowsServiceAccountName("network service"));
+        Assert.Equal(@"NT AUTHORITY\LocalService", InvokeNormalizeWindowsServiceAccountName("LocalService"));
+        Assert.Equal("LocalSystem", InvokeNormalizeWindowsServiceAccountName("system"));
+        Assert.Equal("DOMAIN\\svc-kestrun", InvokeNormalizeWindowsServiceAccountName("DOMAIN\\svc-kestrun"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void IsWindowsBuiltinServiceAccount_RecognizesBuiltinAccounts()
+    {
+        Assert.True(InvokeIsWindowsBuiltinServiceAccount("LocalSystem"));
+        Assert.True(InvokeIsWindowsBuiltinServiceAccount(@"NT AUTHORITY\NetworkService"));
+        Assert.True(InvokeIsWindowsBuiltinServiceAccount(@"NT AUTHORITY\LocalService"));
+        Assert.False(InvokeIsWindowsBuiltinServiceAccount(@"DOMAIN\svc-kestrun"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void TryDeleteDirectoryWithRetry_Succeeds_WhenDirectoryDoesNotExist()
     {
         var tempPath = Path.Combine(Path.GetTempPath(), $"kestrun-missing-{Guid.NewGuid():N}");
@@ -1023,6 +1044,22 @@ public class KestrunToolCommandSurfaceTests
         Assert.NotNull(method);
 
         return (IReadOnlyList<string>)method!.Invoke(null, [executablePath, args])!;
+    }
+
+    private static string InvokeNormalizeWindowsServiceAccountName(string serviceUser)
+    {
+        var method = ProgramType.GetMethod("NormalizeWindowsServiceAccountName", BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        return (string)method!.Invoke(null, [serviceUser])!;
+    }
+
+    private static bool InvokeIsWindowsBuiltinServiceAccount(string accountName)
+    {
+        var method = ProgramType.GetMethod("IsWindowsBuiltinServiceAccount", BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        return (bool)method!.Invoke(null, [accountName])!;
     }
 
     private static string? InvokeTryDeleteDirectoryWithRetry(string directoryPath, int maxAttempts, int initialDelayMs)

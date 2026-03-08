@@ -1399,9 +1399,12 @@ internal static partial class Program
 
         if (!string.IsNullOrWhiteSpace(serviceUser))
         {
+            var normalizedServiceUser = NormalizeWindowsServiceAccountName(serviceUser);
             scArgs.Add("obj=");
-            scArgs.Add(serviceUser);
-            if (!string.IsNullOrWhiteSpace(servicePassword))
+            scArgs.Add(normalizedServiceUser);
+
+            // Windows built-in service accounts do not require a password.
+            if (!IsWindowsBuiltinServiceAccount(normalizedServiceUser) && !string.IsNullOrWhiteSpace(servicePassword))
             {
                 scArgs.Add("password=");
                 scArgs.Add(servicePassword);
@@ -1409,6 +1412,36 @@ internal static partial class Program
         }
 
         return RunProcess("sc.exe", scArgs);
+    }
+
+    /// <summary>
+    /// Normalizes friendly Windows built-in service account aliases to SCM-compatible names.
+    /// </summary>
+    /// <param name="serviceUser">Raw service user argument.</param>
+    /// <returns>Normalized account name for sc.exe registration.</returns>
+    private static string NormalizeWindowsServiceAccountName(string serviceUser)
+    {
+        var trimmed = serviceUser.Trim();
+
+        return trimmed.ToLowerInvariant() switch
+        {
+            "networkservice" or "network service" or @"nt authority\networkservice" => @"NT AUTHORITY\NetworkService",
+            "localservice" or "local service" or @"nt authority\localservice" => @"NT AUTHORITY\LocalService",
+            "localsystem" or "local system" or "system" or @"nt authority\system" => "LocalSystem",
+            _ => trimmed,
+        };
+    }
+
+    /// <summary>
+    /// Determines whether an account string refers to a Windows built-in service account.
+    /// </summary>
+    /// <param name="accountName">Account name to inspect.</param>
+    /// <returns>True when account is LocalSystem, NetworkService, or LocalService.</returns>
+    private static bool IsWindowsBuiltinServiceAccount(string accountName)
+    {
+        return accountName.Equals("LocalSystem", StringComparison.OrdinalIgnoreCase)
+            || accountName.Equals(@"NT AUTHORITY\NetworkService", StringComparison.OrdinalIgnoreCase)
+            || accountName.Equals(@"NT AUTHORITY\LocalService", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -2384,6 +2417,7 @@ internal static partial class Program
             return false;
         }
 
+        // Cleanup failures for protected system roots are expected when running as a non-root user on Unix, so downgrade to informational output in that scenario to avoid confusion.
         return IsProtectedUnixServiceRoot(candidateRoot);
     }
 
@@ -2905,6 +2939,7 @@ internal static partial class Program
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "LaunchAgents");
         var plistPath = Path.Combine(agentDirectory, $"{serviceName}.plist");
 
+        // Unload the agent before deleting the plist to ensure launchd doesn't keep a stale reference to the file.
         if (useSystemScope)
         {
             _ = RunProcess("launchctl", ["bootout", $"system/{serviceName}"]);
@@ -2914,6 +2949,7 @@ internal static partial class Program
             _ = RunProcess("launchctl", ["unload", plistPath]);
         }
 
+        // It's possible for the unload to fail if the agent isn't running, but we want to attempt it anyway to avoid leaving a stale loaded agent if the plist is present.
         if (File.Exists(plistPath))
         {
             File.Delete(plistPath);

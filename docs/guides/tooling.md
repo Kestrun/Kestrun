@@ -181,6 +181,8 @@ For `service install`:
 - install shows progress bars for bundle staging and module file copy in interactive terminals.
 - when `--service-user` is provided:
   - Windows: service is registered with that account (password may be required by SCM depending on account type).
+    Built-in aliases are supported for convenience: `NetworkService`, `LocalService`, and `LocalSystem`.
+    You can also use full names like `NT AUTHORITY\NetworkService`.
   - Linux: installs a systemd system unit (`/etc/systemd/system`) with `User=<name>`; requires root.
   - macOS: installs a LaunchDaemon (`/Library/LaunchDaemons`) with `UserName`; requires root.
 - bundle roots: Windows `%ProgramData%\Kestrun\services`; Linux `/var/kestrun/services`

@@ -113,7 +113,11 @@ public static class RunnerRuntime
             return false;
         }
 
-        static int NormalizeBuild(int value) => value < 0 ? 0 : value;
+        static int NormalizeBuild(int value)
+        {
+            return value < 0 ? 0 : value;
+        }
+
         var loadedBuild = NormalizeBuild(loadedVersion.Build);
         var expectedBuild = NormalizeBuild(expectedVersion.Build);
         return loadedBuild >= expectedBuild;

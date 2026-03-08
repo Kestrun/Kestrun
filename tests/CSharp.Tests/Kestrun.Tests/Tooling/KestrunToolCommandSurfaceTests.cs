@@ -775,6 +775,66 @@ public class KestrunToolCommandSurfaceTests
         Assert.Equal(["service", "install", "--name", "demo"], result);
     }
 
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryDeleteDirectoryWithRetry_Succeeds_WhenDirectoryDoesNotExist()
+    {
+        var tempPath = Path.Combine(Path.GetTempPath(), $"kestrun-missing-{Guid.NewGuid():N}");
+        Assert.False(Directory.Exists(tempPath));
+
+        var error = InvokeTryDeleteDirectoryWithRetry(tempPath, maxAttempts: 2, initialDelayMs: 10);
+        Assert.Null(error);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public async Task TryDeleteDirectoryWithRetry_RetriesUntilLockedFileIsReleased_OnWindows()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-delete-retry-{Guid.NewGuid():N}");
+        var lockedFilePath = Path.Combine(tempRoot, "runtime", "Kestrun.Annotations.dll");
+        FileStream? lockedFileHandle = null;
+        Task? releaseTask = null;
+
+        try
+        {
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(lockedFilePath)!);
+            File.WriteAllText(lockedFilePath, "locked", Encoding.UTF8);
+
+            lockedFileHandle = new FileStream(lockedFilePath, FileMode.Open, FileAccess.Read, FileShare.None);
+            releaseTask = Task.Run(async () =>
+            {
+                await Task.Delay(300);
+                lockedFileHandle.Dispose();
+            });
+
+            var error = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 10, initialDelayMs: 50);
+            Assert.Null(error);
+            Assert.False(Directory.Exists(tempRoot));
+        }
+        finally
+        {
+            if (releaseTask is not null)
+            {
+                await releaseTask;
+            }
+
+            if (lockedFileHandle is not null)
+            {
+                lockedFileHandle.Dispose();
+            }
+
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
     private static object Invoke(string methodName, params object?[] arguments)
         => InvokeRaw(methodName, arguments);
 
@@ -938,6 +998,22 @@ public class KestrunToolCommandSurfaceTests
         Assert.NotNull(method);
 
         return (IReadOnlyList<string>)method!.Invoke(null, [executablePath, args])!;
+    }
+
+    private static string? InvokeTryDeleteDirectoryWithRetry(string directoryPath, int maxAttempts, int initialDelayMs)
+    {
+        var method = ProgramType.GetMethod("TryDeleteDirectoryWithRetry", BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        try
+        {
+            _ = method!.Invoke(null, [directoryPath, maxAttempts, initialDelayMs]);
+            return null;
+        }
+        catch (TargetInvocationException ex)
+        {
+            return ex.InnerException?.Message ?? ex.Message;
+        }
     }
 
     private static string GetRuntimeRidForCurrentProcess()

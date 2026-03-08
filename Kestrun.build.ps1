@@ -285,11 +285,11 @@ function Test-PowerShellReleaseArchiveInCache {
 
     if (-not (Test-Path -Path $archivePath)) {
         if (-not $Quiet) {
-            Write-Host "  ⬇️ Downloading PowerShell SDK archive for $RuntimeIdentifier ($Version)..." -ForegroundColor DarkCyan
+            Write-Host "    ⬇️ Downloading PowerShell SDK archive for $RuntimeIdentifier ($Version)..." -ForegroundColor DarkCyan
         }
         Invoke-WebRequest -Uri $downloadUrl -OutFile $archivePath -UseBasicParsing -ErrorAction Stop
     } elseif (-not $Quiet) {
-        Write-Host "  ♻️ Reusing cached PowerShell SDK archive for $RuntimeIdentifier ($Version)." -ForegroundColor DarkCyan
+        Write-Host "    ♻️ Reusing cached PowerShell SDK archive for $RuntimeIdentifier ($Version)." -ForegroundColor DarkCyan
     }
 
     return $archivePath

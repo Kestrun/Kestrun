@@ -788,11 +788,20 @@ internal static partial class Program
         Console.Error.WriteLine("Administrator rights are required. Requesting elevation...");
 
         var relaunchArgs = BuildElevatedRelaunchArguments(exePath, args);
+        var tempDirectory = Path.Combine(Path.GetTempPath(), ProductName);
+        _ = Directory.CreateDirectory(tempDirectory);
+
+        var outputPath = Path.Combine(tempDirectory, $"elevated-{Guid.NewGuid():N}.log");
+        var wrapperPath = Path.Combine(tempDirectory, $"elevated-{Guid.NewGuid():N}.cmd");
+
+        var commandLine = BuildWindowsCommandLine(exePath, relaunchArgs);
+        var wrapperContents = $"@echo off{Environment.NewLine}{commandLine} > \"{outputPath}\" 2>&1{Environment.NewLine}exit /b %errorlevel%{Environment.NewLine}";
+        File.WriteAllText(wrapperPath, wrapperContents, Encoding.ASCII);
 
         var startInfo = new ProcessStartInfo
         {
-            FileName = exePath,
-            Arguments = string.Join(" ", relaunchArgs.Select(EscapeWindowsCommandLineArgument)),
+            FileName = "cmd.exe",
+            Arguments = $"/c \"{wrapperPath}\"",
             UseShellExecute = true,
             Verb = "runas",
             WorkingDirectory = Environment.CurrentDirectory,
@@ -808,6 +817,16 @@ internal static partial class Program
             }
 
             process.WaitForExit();
+
+            if (File.Exists(outputPath))
+            {
+                var elevatedOutput = File.ReadAllText(outputPath);
+                if (!string.IsNullOrWhiteSpace(elevatedOutput))
+                {
+                    Console.Write(elevatedOutput);
+                }
+            }
+
             if (process.ExitCode != 0)
             {
                 Console.Error.WriteLine("Elevated operation failed. If no UAC prompt was shown, run this command from an elevated terminal.");
@@ -826,6 +845,35 @@ internal static partial class Program
             Console.Error.WriteLine($"Failed to elevate process: {ex.Message}");
             Console.Error.WriteLine("Run this command from an elevated terminal if automatic elevation is unavailable.");
             return 1;
+        }
+        finally
+        {
+            TryDeleteFileQuietly(wrapperPath);
+            TryDeleteFileQuietly(outputPath);
+        }
+    }
+
+    /// <summary>
+    /// Best-effort delete for temporary files used by elevated relaunch flow.
+    /// </summary>
+    /// <param name="path">File path to remove.</param>
+    private static void TryDeleteFileQuietly(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return;
+        }
+
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // Best-effort cleanup only.
         }
     }
 
@@ -2154,15 +2202,56 @@ internal static partial class Program
             var serviceRoot = Path.Combine(candidateRoot, serviceDirectoryName);
             try
             {
-                if (Directory.Exists(serviceRoot))
-                {
-                    Directory.Delete(serviceRoot, recursive: true);
-                }
+                TryDeleteDirectoryWithRetry(serviceRoot);
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"Warning: Failed to remove service bundle '{serviceRoot}': {ex.Message}");
             }
+        }
+    }
+
+    /// <summary>
+    /// Deletes a directory recursively with retry/backoff for transient file-lock scenarios.
+    /// </summary>
+    /// <param name="directoryPath">Directory path to delete.</param>
+    /// <param name="maxAttempts">Maximum number of attempts.</param>
+    /// <param name="initialDelayMs">Initial delay between attempts in milliseconds.</param>
+    private static void TryDeleteDirectoryWithRetry(string directoryPath, int maxAttempts = 5, int initialDelayMs = 200)
+    {
+        if (!Directory.Exists(directoryPath))
+        {
+            return;
+        }
+
+        var attempt = 0;
+        var delayMs = initialDelayMs;
+        Exception? lastError = null;
+
+        while (attempt < maxAttempts)
+        {
+            try
+            {
+                Directory.Delete(directoryPath, recursive: true);
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                lastError = ex;
+                attempt += 1;
+                if (attempt >= maxAttempts)
+                {
+                    break;
+                }
+
+                Thread.Sleep(delayMs);
+                delayMs = Math.Min(delayMs * 2, 2000);
+            }
+        }
+
+        if (lastError is not null)
+        {
+            throw lastError;
         }
     }
 

@@ -124,6 +124,15 @@ dotnet kestrun run --script .\server.ps1
 
 dotnet kestrun service install --name MyService .\server.ps1
 dotnet kestrun service install --name MyService --script .\server.ps1
+
+# Install from a script folder (copies full folder recursively)
+dotnet kestrun service install --name MyService --content-root .\MyServiceApp
+
+# Script is resolved relative to --content-root
+dotnet kestrun service install --name MyService --content-root .\MyServiceApp --script .\scripts\start.ps1
+
+# Override default per-OS service bundle root
+dotnet kestrun service install --name MyService --deployment-root D:\KestrunServices --script .\server.ps1
 ```
 
 ## Important options
@@ -156,7 +165,13 @@ For `service install`:
 
 - `--kestrun-manifest <path>`: manifest used by the service runtime.
 - `--service-log-path <path>`: service bootstrap and operation log path.
+- `--deployment-root <folder>`: override where per-service bundles are created.
+- `--content-root <folder>`: copy the full folder (including subdirectories) into the service bundle.
 - `--arguments <args...>`: script arguments for installed service execution.
+- if `--content-root` is provided and `--script` is also provided, `--script` must be relative to that folder.
+- if `--content-root` is provided and `--script` is omitted, default script is `./server.ps1` under that folder.
+- if the selected script does not exist inside `--content-root`, install fails with an error.
+- when `--deployment-root` is provided, install writes the service bundle under that root instead of OS defaults.
 - install creates a per-service bundle containing runtime, module, script, and dedicated service-host assets before registration.
 - dedicated `kestrun-service-host` is sourced from the `Kestrun.Tool` payload under `kestrun-service/<rid>/`, not from the PowerShell module payload.
 - `Modules` are bundled from the PowerShell release matching `Microsoft.PowerShell.SDK` used by ServiceHost and
@@ -190,6 +205,8 @@ Direct-run defaults:
 
 ```powershell
 dotnet kestrun service install --name demo --script .\server.ps1 --service-log-path C:\ProgramData\Kestrun\logs\demo.log
+dotnet kestrun service install --name demo --content-root .\examples\PowerShell\MultiRoutes --script .\MultiRoutes.ps1
+dotnet kestrun service install --name demo --deployment-root D:\KestrunServices --script .\server.ps1
 dotnet kestrun service start --name demo
 dotnet kestrun service query --name demo
 dotnet kestrun service stop --name demo

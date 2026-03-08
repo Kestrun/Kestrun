@@ -78,7 +78,9 @@ internal static partial class Program
         string? ServiceLogPath,
         string? ModuleVersion,
         ModuleStorageScope ModuleScope,
-        bool ModuleForce);
+        bool ModuleForce,
+        string? ServiceContentRoot,
+        string? ServiceDeploymentRoot);
 
     private sealed record ServiceHostOptions(
         string ServiceName,
@@ -111,6 +113,11 @@ internal static partial class Program
         string ServiceHostExecutablePath,
         string ScriptPath,
         string ModuleManifestPath);
+
+    private sealed record ResolvedServiceScriptSource(
+        string FullScriptPath,
+        string? FullContentRoot,
+        string RelativeScriptPath);
 
     private static int Main(string[] args)
     {
@@ -647,10 +654,9 @@ internal static partial class Program
             return false;
         }
 
-        var scriptPath = Path.GetFullPath(command.ScriptPath);
-        if (!File.Exists(scriptPath))
+        if (!TryResolveServiceScriptSource(command, out var scriptSource, out var scriptError))
         {
-            Console.Error.WriteLine($"Script file not found: {scriptPath}");
+            Console.Error.WriteLine(scriptError);
             exitCode = 2;
             return false;
         }
@@ -884,12 +890,13 @@ internal static partial class Program
 
         var serviceName = command.ServiceName;
 
-        var scriptPath = Path.GetFullPath(command.ScriptPath);
-        if (!File.Exists(scriptPath))
+        if (!TryResolveServiceScriptSource(command, out var scriptSource, out var scriptError))
         {
-            Console.Error.WriteLine($"Script file not found: {scriptPath}");
+            Console.Error.WriteLine(scriptError);
             return 2;
         }
+
+        var scriptPath = scriptSource.FullScriptPath;
 
         var moduleManifestPath = LocateModuleManifest(command.KestrunManifestPath, command.KestrunFolder);
         if (moduleManifestPath is null)
@@ -908,7 +915,7 @@ internal static partial class Program
             WarnIfNewerGalleryVersionExists(moduleManifestPath, command.ServiceLogPath);
         }
 
-        if (!TryPrepareServiceBundle(serviceName, scriptPath, moduleManifestPath, out var serviceBundle, out var bundleError))
+        if (!TryPrepareServiceBundle(serviceName, scriptPath, moduleManifestPath, scriptSource.FullContentRoot, scriptSource.RelativeScriptPath, out var serviceBundle, out var bundleError, command.ServiceDeploymentRoot))
         {
             Console.Error.WriteLine(bundleError);
             return 1;
@@ -975,7 +982,7 @@ internal static partial class Program
             result = RemoveWindowsService(command);
             if (result == 0)
             {
-                TryRemoveServiceBundle(serviceName);
+                TryRemoveServiceBundle(serviceName, command.ServiceDeploymentRoot);
             }
 
             return result;
@@ -986,7 +993,7 @@ internal static partial class Program
             result = RemoveLinuxUserDaemon(serviceName);
             if (result == 0)
             {
-                TryRemoveServiceBundle(serviceName);
+                TryRemoveServiceBundle(serviceName, command.ServiceDeploymentRoot);
             }
 
             return result;
@@ -997,7 +1004,7 @@ internal static partial class Program
             result = RemoveMacLaunchAgent(serviceName);
             if (result == 0)
             {
-                TryRemoveServiceBundle(serviceName);
+                TryRemoveServiceBundle(serviceName, command.ServiceDeploymentRoot);
             }
 
             return result;
@@ -1783,6 +1790,8 @@ internal static partial class Program
         string serviceName,
         string sourceScriptPath,
         string sourceModuleManifestPath,
+        string? sourceContentRoot,
+        string relativeScriptPath,
         out ServiceBundleLayout? serviceBundle,
         out string error,
         string? deploymentRootOverride = null)
@@ -1899,8 +1908,33 @@ internal static partial class Program
                 return false;
             }
 
-            var bundledScriptPath = Path.Combine(scriptDirectory, Path.GetFileName(fullScriptPath));
-            File.Copy(fullScriptPath, bundledScriptPath, overwrite: true);
+            var bundledScriptPath = Path.Combine(scriptDirectory, relativeScriptPath.Replace('/', Path.DirectorySeparatorChar));
+            if (string.IsNullOrWhiteSpace(sourceContentRoot))
+            {
+                var bundledScriptDirectory = Path.GetDirectoryName(bundledScriptPath);
+                if (!string.IsNullOrWhiteSpace(bundledScriptDirectory))
+                {
+                    _ = Directory.CreateDirectory(bundledScriptDirectory);
+                }
+
+                File.Copy(fullScriptPath, bundledScriptPath, overwrite: true);
+            }
+            else
+            {
+                CopyDirectoryContents(
+                    sourceContentRoot,
+                    scriptDirectory,
+                    showProgress,
+                    "Bundling service script folder",
+                    exclusionPatterns: null);
+            }
+
+            if (!File.Exists(bundledScriptPath))
+            {
+                error = $"Service bundle copy did not include script: {bundledScriptPath}";
+                return false;
+            }
+
             completedBundleSteps++;
             bundleProgress?.Report(completedBundleSteps);
             bundleProgress?.Complete(completedBundleSteps);
@@ -1918,6 +1952,84 @@ internal static partial class Program
             error = $"Failed to prepare service bundle at '{serviceRoot}': {ex.Message}";
             return false;
         }
+    }
+
+    /// <summary>
+    /// Resolves service-install script source, including optional content-root semantics.
+    /// </summary>
+    /// <param name="command">Parsed service command.</param>
+    /// <param name="scriptSource">Resolved script source details.</param>
+    /// <param name="error">Error details when validation fails.</param>
+    /// <returns>True when script source is valid and exists.</returns>
+    private static bool TryResolveServiceScriptSource(ParsedCommand command, out ResolvedServiceScriptSource scriptSource, out string error)
+    {
+        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty);
+        error = string.Empty;
+
+        var requestedScriptPath = string.IsNullOrWhiteSpace(command.ScriptPath)
+            ? DefaultScriptFileName
+            : command.ScriptPath;
+
+        if (string.IsNullOrWhiteSpace(command.ServiceContentRoot))
+        {
+            var fullScriptPath = Path.GetFullPath(requestedScriptPath);
+            if (!File.Exists(fullScriptPath))
+            {
+                error = $"Script file not found: {fullScriptPath}";
+                return false;
+            }
+
+            scriptSource = new ResolvedServiceScriptSource(fullScriptPath, null, Path.GetFileName(fullScriptPath));
+            return true;
+        }
+
+        var fullContentRoot = Path.GetFullPath(command.ServiceContentRoot);
+        if (!Directory.Exists(fullContentRoot))
+        {
+            error = $"Service content root directory not found: {fullContentRoot}";
+            return false;
+        }
+
+        if (Path.IsPathRooted(requestedScriptPath))
+        {
+            error = "When --content-root is specified, --script must be a relative path within that folder.";
+            return false;
+        }
+
+        var fullScriptPathFromRoot = Path.GetFullPath(Path.Combine(fullContentRoot, requestedScriptPath));
+        if (!IsPathWithinDirectory(fullScriptPathFromRoot, fullContentRoot))
+        {
+            error = $"Script path '{requestedScriptPath}' escapes the service content root '{fullContentRoot}'.";
+            return false;
+        }
+
+        if (!File.Exists(fullScriptPathFromRoot))
+        {
+            error = $"Script file '{requestedScriptPath}' was not found under service content root '{fullContentRoot}'.";
+            return false;
+        }
+
+        var relativeScriptPath = Path.GetRelativePath(fullContentRoot, fullScriptPathFromRoot);
+        scriptSource = new ResolvedServiceScriptSource(fullScriptPathFromRoot, fullContentRoot, relativeScriptPath);
+        return true;
+    }
+
+    /// <summary>
+    /// Checks whether a path is inside (or equal to) a given directory.
+    /// </summary>
+    /// <param name="candidatePath">Candidate absolute path.</param>
+    /// <param name="directoryPath">Directory absolute path.</param>
+    /// <returns>True when candidate is within the directory tree.</returns>
+    private static bool IsPathWithinDirectory(string candidatePath, string directoryPath)
+    {
+        var fullCandidate = Path.GetFullPath(candidatePath)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var fullDirectory = Path.GetFullPath(directoryPath)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        return fullCandidate.Equals(fullDirectory, StringComparison.OrdinalIgnoreCase)
+            || fullCandidate.StartsWith(fullDirectory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            || fullCandidate.StartsWith(fullDirectory + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -2020,11 +2132,19 @@ internal static partial class Program
     /// Removes service bundle directories for a given service name from known deployment roots.
     /// </summary>
     /// <param name="serviceName">Service name.</param>
-    private static void TryRemoveServiceBundle(string serviceName)
+    private static void TryRemoveServiceBundle(string serviceName, string? deploymentRootOverride = null)
     {
         var serviceDirectoryName = GetServiceDeploymentDirectoryName(serviceName);
 
-        foreach (var candidateRoot in GetServiceDeploymentRootCandidates())
+        var candidateRoots = new List<string>();
+        if (!string.IsNullOrWhiteSpace(deploymentRootOverride))
+        {
+            candidateRoots.Add(deploymentRootOverride);
+        }
+
+        candidateRoots.AddRange(GetServiceDeploymentRootCandidates());
+
+        foreach (var candidateRoot in candidateRoots.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             if (string.IsNullOrWhiteSpace(candidateRoot))
             {
@@ -4241,7 +4361,7 @@ internal static partial class Program
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseArguments(string[] args, out ParsedCommand parsedCommand, out string error)
     {
-        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], null, null, null, null, null, ModuleStorageScope.Local, false);
+        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], null, null, null, null, null, ModuleStorageScope.Local, false, null, null);
         if (args.Length == 0)
         {
             error = $"No command provided. Use '{ProductName} help' to list commands.";
@@ -4318,7 +4438,7 @@ internal static partial class Program
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseRunArguments(string[] args, int startIndex, string? kestrunFolder, string? kestrunManifestPath, out ParsedCommand parsedCommand, out string error)
     {
-        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], kestrunFolder, kestrunManifestPath, null, null, null, ModuleStorageScope.Local, false);
+        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], kestrunFolder, kestrunManifestPath, null, null, null, ModuleStorageScope.Local, false, null, null);
         error = string.Empty;
 
         var scriptPathSet = false;
@@ -4398,7 +4518,7 @@ internal static partial class Program
             scriptPath = DefaultScriptFileName;
         }
 
-        parsedCommand = new ParsedCommand(CommandMode.Run, scriptPath, scriptArguments, kestrunFolder, kestrunManifestPath, null, null, null, ModuleStorageScope.Local, false);
+        parsedCommand = new ParsedCommand(CommandMode.Run, scriptPath, scriptArguments, kestrunFolder, kestrunManifestPath, null, null, null, ModuleStorageScope.Local, false, null, null);
 
         return true;
     }
@@ -4413,7 +4533,7 @@ internal static partial class Program
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseModuleArguments(string[] args, int startIndex, out ParsedCommand parsedCommand, out string error)
     {
-        parsedCommand = new ParsedCommand(CommandMode.ModuleInfo, string.Empty, [], null, null, null, null, null, ModuleStorageScope.Local, false);
+        parsedCommand = new ParsedCommand(CommandMode.ModuleInfo, string.Empty, [], null, null, null, null, null, ModuleStorageScope.Local, false, null, null);
         error = string.Empty;
 
         if (startIndex >= args.Length)
@@ -4529,7 +4649,7 @@ internal static partial class Program
             return false;
         }
 
-        parsedCommand = new ParsedCommand(mode.Value, string.Empty, [], null, null, null, null, moduleVersion, moduleScope, moduleForce);
+        parsedCommand = new ParsedCommand(mode.Value, string.Empty, [], null, null, null, null, moduleVersion, moduleScope, moduleForce, null, null);
         return true;
     }
 
@@ -4544,7 +4664,7 @@ internal static partial class Program
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseServiceArguments(string[] args, int startIndex, string? kestrunFolder, string? kestrunManifestPath, out ParsedCommand parsedCommand, out string error)
     {
-        parsedCommand = new ParsedCommand(CommandMode.ServiceInstall, string.Empty, [], kestrunFolder, kestrunManifestPath, null, null, null, ModuleStorageScope.Local, false);
+        parsedCommand = new ParsedCommand(CommandMode.ServiceInstall, string.Empty, [], kestrunFolder, kestrunManifestPath, null, null, null, ModuleStorageScope.Local, false, null, null);
         error = string.Empty;
 
         if (startIndex >= args.Length)
@@ -4576,6 +4696,8 @@ internal static partial class Program
         var scriptPathSet = false;
         var scriptArguments = Array.Empty<string>();
         string? serviceLogPath = null;
+        string? serviceContentRoot = null;
+        string? serviceDeploymentRoot = null;
 
         while (index < args.Length)
         {
@@ -4658,6 +4780,44 @@ internal static partial class Program
                 continue;
             }
 
+            if (current is "--deployment-root")
+            {
+                if (mode is CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+                {
+                    error = "Service start/stop/query does not accept --deployment-root.";
+                    return false;
+                }
+
+                if (index + 1 >= args.Length)
+                {
+                    error = "Missing value for --deployment-root.";
+                    return false;
+                }
+
+                serviceDeploymentRoot = args[index + 1];
+                index += 2;
+                continue;
+            }
+
+            if (current is "--content-root")
+            {
+                if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+                {
+                    error = "Service remove/start/stop/query does not accept --content-root.";
+                    return false;
+                }
+
+                if (index + 1 >= args.Length)
+                {
+                    error = "Missing value for --content-root.";
+                    return false;
+                }
+
+                serviceContentRoot = args[index + 1];
+                index += 2;
+                continue;
+            }
+
             if (mode == CommandMode.ServiceInstall && (current is "--arguments" or "--"))
             {
                 scriptArguments = [.. args.Skip(index + 1)];
@@ -4698,7 +4858,7 @@ internal static partial class Program
             scriptPath = DefaultScriptFileName;
         }
 
-        parsedCommand = new ParsedCommand(mode.Value, scriptPath, scriptArguments, kestrunFolder, kestrunManifestPath, serviceName, serviceLogPath, null, ModuleStorageScope.Local, false);
+        parsedCommand = new ParsedCommand(mode.Value, scriptPath, scriptArguments, kestrunFolder, kestrunManifestPath, serviceName, serviceLogPath, null, ModuleStorageScope.Local, false, serviceContentRoot, serviceDeploymentRoot);
 
         return true;
     }
@@ -4879,7 +5039,7 @@ internal static partial class Program
 
             case "service":
                 Console.WriteLine("Usage:");
-                Console.WriteLine("  kestrun [--nocheck] [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --name <service-name> [--service-log-path <path-to-log-file>] [--script <main.ps1> | <main.ps1>] [--arguments <script arguments...>]");
+                Console.WriteLine("  kestrun [--nocheck] [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --name <service-name> [--service-log-path <path-to-log-file>] [--deployment-root <folder>] [--content-root <folder>] [--script <main.ps1> | <main.ps1>] [--arguments <script arguments...>]");
                 Console.WriteLine("  kestrun service remove --name <service-name>");
                 Console.WriteLine("  kestrun service start --name <service-name>");
                 Console.WriteLine("  kestrun service stop --name <service-name>");
@@ -4887,12 +5047,17 @@ internal static partial class Program
                 Console.WriteLine();
                 Console.WriteLine("Options (service install):");
                 Console.WriteLine("  --script <path>             Optional named script path (alternative to positional <main.ps1>).");
+                Console.WriteLine("  --content-root <folder>     Copy the full folder into the service bundle; --script is resolved relative to this folder.");
+                Console.WriteLine("  --deployment-root <folder>  Override where per-service bundles are created (default is OS-specific).");
                 Console.WriteLine("  --kestrun-manifest <path>   Use an explicit Kestrun.psd1 manifest for the service runtime.");
                 Console.WriteLine("  --service-log-path <path>   Set service bootstrap/operation log file path.");
                 Console.WriteLine("  --arguments <args...>       Pass remaining values to the installed script.");
                 Console.WriteLine();
                 Console.WriteLine("Notes:");
                 Console.WriteLine("  - install registers the service/daemon but does not auto-start it.");
+                Console.WriteLine("  - If no script is provided, ./server.ps1 is used.");
+                Console.WriteLine("  - When --content-root is provided, the script path must be relative to that folder and must exist inside it.");
+                Console.WriteLine("  - --deployment-root overrides the OS default bundle root used during install and remove cleanup.");
                 Console.WriteLine("  - install snapshots runtime/module/script plus dedicated service-host from Kestrun.Tool payload into a per-service bundle before registration.");
                 Console.WriteLine("  - install shows progress bars during bundle staging in interactive terminals.");
                 Console.WriteLine("  - bundle roots: Windows %ProgramData%\\Kestrun\\services; Linux /var/kestrun/services or /usr/local/kestrun/services (with user fallback); macOS /usr/local/kestrun/services (with user fallback).");

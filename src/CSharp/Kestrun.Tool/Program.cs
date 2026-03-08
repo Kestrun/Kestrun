@@ -3407,7 +3407,9 @@ internal static partial class Program
     /// </summary>
     /// <param name="moduleManifestPath">Absolute path to Kestrun.psd1.</param>
     private static void EnsureKestrunAssemblyPreloaded(string moduleManifestPath)
-        => RunnerRuntime.EnsureKestrunAssemblyPreloaded(moduleManifestPath);
+        => RunnerRuntime.EnsureKestrunAssemblyPreloaded(
+            moduleManifestPath,
+            static message => Console.Error.WriteLine($"WARNING: {message}"));
 
     /// <summary>
     /// Ensures PowerShell built-in modules are discoverable for embedded runspace execution.

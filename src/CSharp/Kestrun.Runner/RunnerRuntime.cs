@@ -22,9 +22,11 @@ public static class RunnerRuntime
     public static void EnsureNet10Runtime(string productName)
     {
         var framework = RuntimeInformation.FrameworkDescription;
-        if (!framework.Contains(".NET 10", StringComparison.OrdinalIgnoreCase))
+        var runtimeVersion = Environment.Version;
+        if (runtimeVersion.Major < 10)
         {
-            throw new RuntimeException($"{productName} requires .NET 10 runtime. Current runtime: {framework}");
+            throw new RuntimeException(
+                $"{productName} requires .NET 10 runtime (Environment.Version.Major >= 10). Current runtime: {framework} (Environment.Version: {runtimeVersion})");
         }
     }
 
@@ -32,7 +34,8 @@ public static class RunnerRuntime
     /// Ensures Kestrun.dll from the selected module root is loaded into the default context.
     /// </summary>
     /// <param name="moduleManifestPath">Absolute path to Kestrun.psd1.</param>
-    public static void EnsureKestrunAssemblyPreloaded(string moduleManifestPath)
+    /// <param name="onWarning">Optional warning callback for non-fatal assembly preload conditions.</param>
+    public static void EnsureKestrunAssemblyPreloaded(string moduleManifestPath, Action<string>? onWarning = null)
     {
         var manifestDirectory = Path.GetDirectoryName(moduleManifestPath);
         if (string.IsNullOrWhiteSpace(manifestDirectory))
@@ -48,6 +51,7 @@ public static class RunnerRuntime
         }
 
         var expectedFullPath = Path.GetFullPath(expectedAssemblyPath);
+        var expectedAssemblyName = AssemblyName.GetAssemblyName(expectedFullPath);
         lock (AssemblyLoadSync)
         {
             s_kestrunModuleLibPath = moduleLibPath;
@@ -70,11 +74,49 @@ public static class RunnerRuntime
                     return;
                 }
 
-                throw new RuntimeException($"Kestrun assembly already loaded from unexpected path: {loadedPath}");
+                var loadedVersion = alreadyLoaded.GetName().Version;
+                var expectedVersion = expectedAssemblyName.Version;
+                if (IsKestrunAssemblyVersionCompatible(loadedVersion, expectedVersion))
+                {
+                    onWarning?.Invoke(
+                        $"Kestrun assembly was already loaded from a different location; continuing with loaded assembly version "
+                        + $"'{(loadedVersion is null ? "unknown" : loadedVersion.ToString())}' "
+                        + $"(expected '{(expectedVersion is null ? "unknown" : expectedVersion.ToString())}').");
+                    return;
+                }
+
+                throw new RuntimeException(
+                    "Kestrun assembly was already loaded from a different location with an incompatible version. "
+                    + $"Loaded version: {(loadedVersion is null ? "unknown" : loadedVersion.ToString())}; "
+                    + $"expected version: {(expectedVersion is null ? "unknown" : expectedVersion.ToString())}.");
             }
 
             _ = AssemblyLoadContext.Default.LoadFromAssemblyPath(expectedFullPath);
         }
+    }
+
+    /// <summary>
+    /// Determines whether an already-loaded Kestrun assembly version is compatible with the expected module version.
+    /// </summary>
+    /// <param name="loadedVersion">Version of the assembly already loaded in the process.</param>
+    /// <param name="expectedVersion">Version of the assembly selected from the module path.</param>
+    /// <returns>True when versions are considered compatible for startup continuation; otherwise false.</returns>
+    private static bool IsKestrunAssemblyVersionCompatible(Version? loadedVersion, Version? expectedVersion)
+    {
+        if (loadedVersion is null || expectedVersion is null)
+        {
+            return false;
+        }
+
+        if (loadedVersion.Major != expectedVersion.Major || loadedVersion.Minor != expectedVersion.Minor)
+        {
+            return false;
+        }
+
+        static int NormalizeBuild(int value) => value < 0 ? 0 : value;
+        var loadedBuild = NormalizeBuild(loadedVersion.Build);
+        var expectedBuild = NormalizeBuild(expectedVersion.Build);
+        return loadedBuild >= expectedBuild;
     }
 
     /// <summary>

@@ -202,7 +202,7 @@ internal static class Program
     private static int RunForegroundDaemon(ParsedOptions options)
     {
         var logPath = ResolveBootstrapLogPath(options.ServiceLogPath, options.ServiceName);
-        var host = new ScriptExecutionHost(options, logPath);
+        using var host = new ScriptExecutionHost(options, logPath);
 
         using var shutdown = new CancellationTokenSource();
         Console.CancelKeyPress += (_, eventArgs) =>
@@ -282,6 +282,16 @@ internal static class Program
             _host.WriteBootstrapLog($"Service '{ServiceName}' stopping.");
             _host.Stop();
             _host.WriteBootstrapLog($"Service '{ServiceName}' stopped.");
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _host.Dispose();
+            }
+
+            base.Dispose(disposing);
         }
     }
 
@@ -465,7 +475,7 @@ internal static class Program
         var psHome = Environment.GetEnvironmentVariable("PSHOME");
         var psModulePath = Environment.GetEnvironmentVariable("PSModulePath");
         log($"PowerShell runtime home prepared. PSHOME='{(string.IsNullOrWhiteSpace(psHome) ? "<null>" : psHome)}', PSModulePath='{(string.IsNullOrWhiteSpace(psModulePath) ? "<null>" : psModulePath)}'.");
-        EnsureKestrunAssemblyPreloaded(moduleManifestPath);
+        EnsureKestrunAssemblyPreloaded(moduleManifestPath, log);
         log("Kestrun assembly preload completed.");
 
         var sessionState = InitialSessionState.CreateDefault2();
@@ -570,8 +580,9 @@ internal static class Program
     /// Ensures Kestrun.dll from the selected module root is loaded into the default context.
     /// </summary>
     /// <param name="moduleManifestPath">Absolute path to Kestrun.psd1.</param>
-    private static void EnsureKestrunAssemblyPreloaded(string moduleManifestPath)
-        => RunnerRuntime.EnsureKestrunAssemblyPreloaded(moduleManifestPath);
+    /// <param name="log">Best-effort service-host logger.</param>
+    private static void EnsureKestrunAssemblyPreloaded(string moduleManifestPath, Action<string> log)
+        => RunnerRuntime.EnsureKestrunAssemblyPreloaded(moduleManifestPath, message => log($"warning: {message}"));
 
     /// <summary>
     /// Ensures PowerShell built-in modules are discoverable for embedded runspace execution.

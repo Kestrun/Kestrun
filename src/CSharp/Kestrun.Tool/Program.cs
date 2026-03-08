@@ -1571,7 +1571,22 @@ internal static partial class Program
             return true;
         }
 
-        error = $"Unable to locate runtime executable '{runtimeBinaryName}' for '{runtimeRid}'. Checked module path '{moduleRoot}' and fallback runtime locations. Use --kestrun-folder to point at a Kestrun module folder that contains runtimes, or run '{ProductName} module install' to refresh module runtimes.";
+        // Module distributions may intentionally omit tool runtime binaries.
+        // In that case, reuse the dedicated service-host payload as the runner executable.
+        if (TryResolveDedicatedServiceHostExecutableFromToolDistribution(out var serviceHostExecutablePath))
+        {
+            runtimeExecutablePath = serviceHostExecutablePath;
+            return true;
+        }
+
+        // Final fallback for non-standard layouts: use the current process executable path when available.
+        if (!string.IsNullOrWhiteSpace(Environment.ProcessPath) && File.Exists(Environment.ProcessPath))
+        {
+            runtimeExecutablePath = Path.GetFullPath(Environment.ProcessPath);
+            return true;
+        }
+
+        error = $"Unable to locate service runner executable for '{runtimeRid}'. Checked module path '{moduleRoot}', fallback runtime locations, bundled service-host payload, and current process path. Reinstall or update Kestrun.Tool, or run '{ProductName} module install' to refresh module assets.";
         return false;
     }
 

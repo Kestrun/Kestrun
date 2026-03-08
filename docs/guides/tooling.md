@@ -72,7 +72,8 @@ Typical use:
 
 - `dotnet tool install -g Kestrun.Tool`: installs published NuGet version (works from any folder).
 - `dotnet tool install -g Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources --prerelease`: installs local dev prerelease package globally.
-- `dotnet tool install --local Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources --prerelease`: installs local dev prerelease package for repo-scoped usage.
+- `dotnet tool install --local Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources --prerelease`:
+installs local dev prerelease package for repo-scoped usage.
 
 If you want `dotnet kestrun` from any folder, install globally.
 

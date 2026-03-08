@@ -10,7 +10,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
 
-        <!-- ServiceHost is redistributed as a single runtime binary under module runtimes. -->
+        <!-- ServiceHost is redistributed as a single runtime binary under Kestrun.Tool runtimes payload. -->
         <PublishSingleFile>true</PublishSingleFile>
         <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
         <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>

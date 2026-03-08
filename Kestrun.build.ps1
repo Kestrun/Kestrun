@@ -202,7 +202,7 @@ Add-BuildTask Help {
     Write-Host '- Clean: Cleans the solution.'
     Write-Host '- Restore: Restores NuGet packages.'
     Write-Host '- Build: Builds the solution.'
-    Write-Host '- Build-KestrunTool: Publishes Kestrun.Tool and service-host runtimes and creates kestrun.cmd / kestrun.ps1 / kestrun.sh launchers in src/PowerShell/Kestrun.'
+    Write-Host '- Build-KestrunTool: Publishes Kestrun.Tool, stages dedicated service-host runtimes in src/CSharp/Kestrun.Tool/kestrun-service, and creates kestrun launchers in src/PowerShell/Kestrun.'
     Write-Host '- Pack-KestrunTool: Packs Kestrun.Tool as a dotnet tool package (dotnet-kestrun) into artifacts/nuget.'
     Write-Host '- Clean-KestrunTool: Removes Kestrun.Tool artifacts, runtimes, and launcher scripts.'
     Write-Host '- Test: Runs tests and Pester tests.'
@@ -266,6 +266,11 @@ Add-BuildTask 'Clean-KestrunTool' {
     $kestrunToolRuntimesDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun/lib/runtimes'
     if (Test-Path -Path $kestrunToolRuntimesDirectory) {
         Remove-Item -Path $kestrunToolRuntimesDirectory -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    $kestrunToolServiceHostRuntimesDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/kestrun-service'
+    if (Test-Path -Path $kestrunToolServiceHostRuntimesDirectory) {
+        Remove-Item -Path $kestrunToolServiceHostRuntimesDirectory -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     $kestrunToolExecutables = @(
@@ -397,12 +402,18 @@ Add-BuildTask 'Build-KestrunTool' {
     Write-Host '🔨 Publishing Kestrun.Tool (kestrun) for PowerShell-supported platforms...'
 
     $kestrunToolPublishRoot = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'Kestrun.Tool'
-    $powershellSrcRoot = Join-Path -Path $PSScriptRoot -ChildPath "src/PowerShell/Kestrun"
+    $powershellSrcRoot = Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun'
     $kestrunToolDestinationDirectory = Join-Path -Path $powershellSrcRoot -ChildPath 'lib'
+    $kestrunToolServiceHostRuntimesDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/kestrun-service'
 
     if (-not (Test-Path -Path $kestrunToolDestinationDirectory)) {
         New-Item -Path $kestrunToolDestinationDirectory -ItemType Directory -Force | Out-Null
     }
+
+    if (Test-Path -Path $kestrunToolServiceHostRuntimesDirectory) {
+        Remove-Item -Path $kestrunToolServiceHostRuntimesDirectory -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    New-Item -Path $kestrunToolServiceHostRuntimesDirectory -ItemType Directory -Force | Out-Null
 
     $legacyRootBinaries = @(
         (Join-Path -Path $kestrunToolDestinationDirectory -ChildPath 'kestrun'),
@@ -488,7 +499,12 @@ Add-BuildTask 'Build-KestrunTool' {
         Write-Host "    ✅ Copied to: $runtimeDestinationBinary"
 
         $serviceHostDestinationBinaryName = if ($runtimeIdentifier -like 'win-*') { 'kestrun-service-host.exe' } else { 'kestrun-service-host' }
-        $serviceHostDestinationBinary = Join-Path -Path $runtimeDestinationDirectory -ChildPath $serviceHostDestinationBinaryName
+        $serviceHostDestinationRuntimeDirectory = Join-Path -Path $kestrunToolServiceHostRuntimesDirectory -ChildPath $runtimeIdentifier
+        if (-not (Test-Path -Path $serviceHostDestinationRuntimeDirectory)) {
+            New-Item -Path $serviceHostDestinationRuntimeDirectory -ItemType Directory -Force | Out-Null
+        }
+
+        $serviceHostDestinationBinary = Join-Path -Path $serviceHostDestinationRuntimeDirectory -ChildPath $serviceHostDestinationBinaryName
         Copy-Item -Path $serviceHostPublishedBinary -Destination $serviceHostDestinationBinary -Force
         Write-Host "    ✅ Copied to: $serviceHostDestinationBinary"
     }
@@ -626,7 +642,7 @@ exec "$KESTRUN_PATH" --kestrun-folder "$SCRIPT_DIR" "$@"
     Write-Host '✅ Tools publish completed for all configured runtimes.'
 }
 
-Add-BuildTask 'Pack-KestrunTool' {
+Add-BuildTask 'Pack-KestrunTool' 'Build-KestrunTool', {
     Write-Host '📦 Packing Kestrun dotnet tool package (dotnet-kestrun)...'
 
     $toolOutputDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'nuget'
@@ -642,6 +658,19 @@ Add-BuildTask 'Pack-KestrunTool' {
         -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
     if ($LASTEXITCODE -ne 0) {
         throw 'dotnet build failed for Kestrun tool packaging.'
+    }
+
+    $serviceHostRuntimesRoot = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/kestrun-service'
+    if (-not (Test-Path -Path $serviceHostRuntimesRoot)) {
+        throw "Missing staged service-host runtimes directory: $serviceHostRuntimesRoot"
+    }
+
+    foreach ($runtimeIdentifier in $KestrunToolRuntimeIdentifiers) {
+        $serviceHostFileName = if ($runtimeIdentifier -like 'win-*') { 'kestrun-service-host.exe' } else { 'kestrun-service-host' }
+        $serviceHostPath = Join-Path -Path $serviceHostRuntimesRoot -ChildPath $runtimeIdentifier -AdditionalChildPath $serviceHostFileName
+        if (-not (Test-Path -Path $serviceHostPath)) {
+            throw "Missing staged service-host runtime binary for '$runtimeIdentifier': $serviceHostPath"
+        }
     }
 
     dotnet pack "$KestrunToolProjectPath" -c $Configuration -o "$toolOutputDirectory" -v:$DotNetVerbosity `

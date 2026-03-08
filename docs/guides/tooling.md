@@ -154,7 +154,8 @@ For `service install`:
 - `--kestrun-manifest <path>`: manifest used by the service runtime.
 - `--service-log-path <path>`: service bootstrap and operation log path.
 - `--arguments <args...>`: script arguments for installed service execution.
-- install creates a per-service bundle containing runtime, module, and script assets before registration.
+- install creates a per-service bundle containing runtime, module, script, and dedicated service-host assets before registration.
+- dedicated `kestrun-service-host` is sourced from the `Kestrun.Tool` payload under `kestrun-service/<rid>/`, not from the PowerShell module payload.
 - install shows progress bars for bundle staging and module file copy in interactive terminals.
 - bundle roots: Windows `%ProgramData%\Kestrun\services`; Linux `/var/kestrun/services`
   or `/usr/local/kestrun/services` (with user fallback when those are not writable).

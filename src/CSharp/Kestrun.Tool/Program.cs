@@ -1609,28 +1609,20 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Tries to resolve a dedicated service-host executable path for the current RID.
+    /// Tries to resolve a dedicated service-host executable path from the Kestrun.Tool distribution.
     /// </summary>
-    /// <param name="moduleManifestPath">Path to Kestrun.psd1.</param>
     /// <param name="serviceHostExecutablePath">Resolved service-host executable path when available.</param>
     /// <returns>True when a dedicated service-host executable is available.</returns>
-    private static bool TryResolveDedicatedServiceHostExecutableFromModule(string moduleManifestPath, out string serviceHostExecutablePath)
+    private static bool TryResolveDedicatedServiceHostExecutableFromToolDistribution(out string serviceHostExecutablePath)
     {
         serviceHostExecutablePath = string.Empty;
-        var fullManifestPath = Path.GetFullPath(moduleManifestPath);
-        var moduleRoot = Path.GetDirectoryName(fullManifestPath);
-        if (string.IsNullOrWhiteSpace(moduleRoot) || !Directory.Exists(moduleRoot))
-        {
-            return false;
-        }
-
         if (!TryGetServiceRuntimeRid(out var runtimeRid, out _))
         {
             return false;
         }
 
         var hostBinaryName = OperatingSystem.IsWindows() ? "kestrun-service-host.exe" : "kestrun-service-host";
-        foreach (var candidate in EnumerateServiceRuntimeExecutableCandidates(moduleRoot, runtimeRid, hostBinaryName))
+        foreach (var candidate in EnumerateDedicatedServiceHostCandidates(runtimeRid, hostBinaryName))
         {
             if (!File.Exists(candidate))
             {
@@ -1642,6 +1634,41 @@ internal static partial class Program
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Enumerates candidate service-host paths shipped with Kestrun.Tool for the target RID.
+    /// </summary>
+    /// <param name="runtimeRid">Runtime identifier segment (for example, win-x64).</param>
+    /// <param name="hostBinaryName">Service-host executable file name.</param>
+    /// <returns>Candidate service-host paths in resolution priority order.</returns>
+    private static IEnumerable<string> EnumerateDedicatedServiceHostCandidates(string runtimeRid, string hostBinaryName)
+    {
+        var executableDirectory = GetExecutableDirectory();
+        var baseDirectory = Path.GetFullPath(AppContext.BaseDirectory);
+        var candidates = new List<string>
+        {
+            Path.Combine(executableDirectory, "kestrun-service", runtimeRid, hostBinaryName),
+            Path.Combine(baseDirectory, "kestrun-service", runtimeRid, hostBinaryName),
+            Path.Combine(executableDirectory, runtimeRid, hostBinaryName),
+            Path.Combine(baseDirectory, runtimeRid, hostBinaryName),
+            Path.Combine(executableDirectory, "runtimes", runtimeRid, hostBinaryName),
+            Path.Combine(baseDirectory, "runtimes", runtimeRid, hostBinaryName),
+            Path.Combine(executableDirectory, hostBinaryName),
+            Path.Combine(baseDirectory, hostBinaryName),
+        };
+
+        foreach (var parent in EnumerateDirectoryAndParents(Environment.CurrentDirectory))
+        {
+            candidates.Add(Path.Combine(parent, "src", "CSharp", "Kestrun.Tool", "kestrun-service", runtimeRid, hostBinaryName));
+            candidates.Add(Path.Combine(parent, "artifacts", "Kestrun.Tool", $"{runtimeRid}-service-host", hostBinaryName));
+            candidates.Add(Path.Combine(parent, "artifacts", "Kestrun.Tool", $"{runtimeRid}-service-host", OperatingSystem.IsWindows() ? "Kestrun.ServiceHost.exe" : "Kestrun.ServiceHost"));
+        }
+
+        foreach (var candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            yield return candidate;
+        }
     }
 
     /// <summary>
@@ -1718,7 +1745,8 @@ internal static partial class Program
 
         var serviceRoot = Path.Combine(deploymentRoot, serviceDirectoryName);
         var runtimeDirectory = Path.Combine(serviceRoot, "runtime");
-        var moduleDirectory = Path.Combine(serviceRoot, "module");
+        var modulesDirectory = Path.Combine(serviceRoot, "Modules");
+        var moduleDirectory = Path.Combine(modulesDirectory, "Kestrun");
         var scriptDirectory = Path.Combine(serviceRoot, "script");
         var showProgress = !Console.IsOutputRedirected;
         using var bundleProgress = showProgress
@@ -1735,6 +1763,7 @@ internal static partial class Program
             }
 
             _ = Directory.CreateDirectory(runtimeDirectory);
+            _ = Directory.CreateDirectory(modulesDirectory);
             _ = Directory.CreateDirectory(moduleDirectory);
             _ = Directory.CreateDirectory(scriptDirectory);
             completedBundleSteps++;
@@ -1745,12 +1774,14 @@ internal static partial class Program
             completedBundleSteps++;
             bundleProgress?.Report(completedBundleSteps);
 
-            var bundledServiceHostPath = bundledRuntimePath;
-            if (TryResolveDedicatedServiceHostExecutableFromModule(fullManifestPath, out var serviceHostExecutablePath))
+            if (!TryResolveDedicatedServiceHostExecutableFromToolDistribution(out var serviceHostExecutablePath))
             {
-                bundledServiceHostPath = Path.Combine(runtimeDirectory, Path.GetFileName(serviceHostExecutablePath));
-                File.Copy(serviceHostExecutablePath, bundledServiceHostPath, overwrite: true);
+                error = $"Unable to locate dedicated service host for current RID in Kestrun.Tool distribution. Expected '{(OperatingSystem.IsWindows() ? "kestrun-service-host.exe" : "kestrun-service-host")}' under 'kestrun-service/<rid>/'. Reinstall or update Kestrun.Tool.";
+                return false;
             }
+
+            var bundledServiceHostPath = Path.Combine(runtimeDirectory, Path.GetFileName(serviceHostExecutablePath));
+            File.Copy(serviceHostExecutablePath, bundledServiceHostPath, overwrite: true);
 
             if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
             {
@@ -4771,7 +4802,7 @@ internal static partial class Program
                 Console.WriteLine();
                 Console.WriteLine("Notes:");
                 Console.WriteLine("  - install registers the service/daemon but does not auto-start it.");
-                Console.WriteLine("  - install snapshots runtime/module/script into a per-service bundle before registration.");
+                Console.WriteLine("  - install snapshots runtime/module/script plus dedicated service-host from Kestrun.Tool payload into a per-service bundle before registration.");
                 Console.WriteLine("  - install shows progress bars during bundle staging in interactive terminals.");
                 Console.WriteLine("  - bundle roots: Windows %ProgramData%\\Kestrun\\services; Linux /var/kestrun/services or /usr/local/kestrun/services (with user fallback); macOS /usr/local/kestrun/services (with user fallback).");
                 Console.WriteLine("  - remove/start/stop/query require --name and do not accept script paths.");

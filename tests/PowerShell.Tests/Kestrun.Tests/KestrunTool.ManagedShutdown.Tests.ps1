@@ -5,10 +5,13 @@ BeforeAll {
 
     $script:root = Get-ProjectRootDirectory
     $script:kestrunLauncher = Join-Path $script:root 'src/PowerShell/Kestrun/kestrun.ps1'
+    $script:kestrunToolProject = Join-Path $script:root 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
 
-    if (-not (Test-Path -Path $script:kestrunLauncher -PathType Leaf)) {
-        throw "kestrun launcher not found: $script:kestrunLauncher"
+    if ((-not (Test-Path -Path $script:kestrunLauncher -PathType Leaf)) -and (-not (Test-Path -Path $script:kestrunToolProject -PathType Leaf))) {
+        throw "Neither kestrun launcher nor Kestrun.Tool project was found. Checked: $script:kestrunLauncher ; $script:kestrunToolProject"
     }
+
+    $script:useLauncher = Test-Path -Path $script:kestrunLauncher -PathType Leaf
 
     $script:port = Get-FreeTcpPort
     $script:tempScript = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-managed-stop-' + [System.Guid]::NewGuid().ToString('N') + '.ps1')
@@ -35,16 +38,29 @@ Start-KrServer -Server `$server
 
     Set-Content -Path $script:tempScript -Value $scriptContent -Encoding UTF8
 
-    $escapedLauncher = $script:kestrunLauncher.Replace("'", "''")
-    $escapedScript = $script:tempScript.Replace("'", "''")
-    $kestrunInvoke = "& '$escapedLauncher' -Arguments @('run','$escapedScript','--arguments','$($script:port)')"
+    if ($script:useLauncher) {
+        $escapedLauncher = $script:kestrunLauncher.Replace("'", "''")
+        $escapedScript = $script:tempScript.Replace("'", "''")
+        $kestrunInvoke = "& '$escapedLauncher' -Arguments @('run','$escapedScript','--arguments','$($script:port)')"
 
-    $script:process = Start-Process -FilePath 'pwsh' -ArgumentList @(
-        '-NoLogo',
-        '-NoProfile',
-        '-Command',
-        $kestrunInvoke
-    ) -PassThru -RedirectStandardOutput $script:stdOut -RedirectStandardError $script:stdErr
+        $script:process = Start-Process -FilePath 'pwsh' -ArgumentList @(
+            '-NoLogo',
+            '-NoProfile',
+            '-Command',
+            $kestrunInvoke
+        ) -PassThru -RedirectStandardOutput $script:stdOut -RedirectStandardError $script:stdErr
+    } else {
+        $script:process = Start-Process -FilePath 'dotnet' -ArgumentList @(
+            'run',
+            '--project',
+            $script:kestrunToolProject,
+            '--',
+            'run',
+            $script:tempScript,
+            '--arguments',
+            "$($script:port)"
+        ) -PassThru -RedirectStandardOutput $script:stdOut -RedirectStandardError $script:stdErr
+    }
 
     $deadline = [DateTime]::UtcNow.AddSeconds(25)
     $script:isReady = $false
@@ -67,17 +83,28 @@ Start-KrServer -Server `$server
 }
 
 AfterAll {
-    if ($script:process -and -not $script:process.HasExited) {
-        $script:process | Stop-Process -Force
+    $processVar = Get-Variable -Name process -Scope Script -ErrorAction SilentlyContinue
+    if ($processVar -and $processVar.Value -and -not $processVar.Value.HasExited) {
+        $processVar.Value | Stop-Process -Force
     }
 
-    if ($script:process) {
-        $script:process.Dispose()
+    if ($processVar -and $processVar.Value) {
+        $processVar.Value.Dispose()
     }
 
-    Remove-Item -Path $script:tempScript -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path $script:stdOut -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path $script:stdErr -Force -ErrorAction SilentlyContinue
+    $tempScriptVar = Get-Variable -Name tempScript -Scope Script -ErrorAction SilentlyContinue
+    $stdOutVar = Get-Variable -Name stdOut -Scope Script -ErrorAction SilentlyContinue
+    $stdErrVar = Get-Variable -Name stdErr -Scope Script -ErrorAction SilentlyContinue
+
+    if ($tempScriptVar -and -not [string]::IsNullOrWhiteSpace($tempScriptVar.Value)) {
+        Remove-Item -Path $tempScriptVar.Value -Force -ErrorAction SilentlyContinue
+    }
+    if ($stdOutVar -and -not [string]::IsNullOrWhiteSpace($stdOutVar.Value)) {
+        Remove-Item -Path $stdOutVar.Value -Force -ErrorAction SilentlyContinue
+    }
+    if ($stdErrVar -and -not [string]::IsNullOrWhiteSpace($stdErrVar.Value)) {
+        Remove-Item -Path $stdErrVar.Value -Force -ErrorAction SilentlyContinue
+    }
 }
 
 Describe 'KestrunTool managed shutdown' {
@@ -185,19 +212,28 @@ Start-KrServer -Server `$server -Quiet:`$false
 
         Set-Content -Path $tempScript2 -Value $scriptContent2 -Encoding UTF8
 
-        $escapedLauncher2 = $script:kestrunLauncher.Replace("'", "''")
-        $escapedScript2 = $tempScript2.Replace("'", "''")
-        $kestrunInvoke2 = "& '$escapedLauncher2' -Arguments @('run','$escapedScript2','--arguments','$port2')"
-        $pwshPath = (Get-Command pwsh -ErrorAction Stop).Source
-        $escapedInvoke2 = $kestrunInvoke2.Replace('"', '""')
-        $cmdLine = "`"$pwshPath`" -NoLogo -NoProfile -NonInteractive -Command `"$escapedInvoke2`""
+        $applicationPath = $null
+        $cmdLine = $null
+        if ($script:useLauncher) {
+            $escapedLauncher2 = $script:kestrunLauncher.Replace("'", "''")
+            $escapedScript2 = $tempScript2.Replace("'", "''")
+            $kestrunInvoke2 = "& '$escapedLauncher2' -Arguments @('run','$escapedScript2','--arguments','$port2')"
+            $applicationPath = (Get-Command pwsh -ErrorAction Stop).Source
+            $escapedInvoke2 = $kestrunInvoke2.Replace('"', '""')
+            $cmdLine = "`"$applicationPath`" -NoLogo -NoProfile -NonInteractive -Command `"$escapedInvoke2`""
+        } else {
+            $applicationPath = (Get-Command dotnet -ErrorAction Stop).Source
+            $toolProjectPath = $script:kestrunToolProject.Replace('"', '""')
+            $scriptPath2 = $tempScript2.Replace('"', '""')
+            $cmdLine = "`"$applicationPath`" run --project `"$toolProjectPath`" -- run `"$scriptPath2`" --arguments $port2"
+        }
 
         $si = New-Object NativeCtrl+STARTUPINFO
         $si.cb = [System.Runtime.InteropServices.Marshal]::SizeOf($si)
         $pi = New-Object NativeCtrl+PROCESS_INFORMATION
 
         $created = [NativeCtrl]::CreateProcessW(
-            $pwshPath,
+            $applicationPath,
             $cmdLine,
             [System.IntPtr]::Zero,
             [System.IntPtr]::Zero,

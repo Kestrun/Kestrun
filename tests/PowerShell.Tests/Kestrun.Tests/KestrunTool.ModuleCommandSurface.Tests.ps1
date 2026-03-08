@@ -5,9 +5,10 @@ BeforeAll {
 
     $script:root = Get-ProjectRootDirectory
     $script:kestrunLauncher = Join-Path $script:root 'src/PowerShell/Kestrun/kestrun.ps1'
+    $script:kestrunToolProject = Join-Path $script:root 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
 
-    if (-not (Test-Path -Path $script:kestrunLauncher -PathType Leaf)) {
-        throw "kestrun launcher not found: $script:kestrunLauncher"
+    if ((-not (Test-Path -Path $script:kestrunLauncher -PathType Leaf)) -and (-not (Test-Path -Path $script:kestrunToolProject -PathType Leaf))) {
+        throw "Neither kestrun launcher nor Kestrun.Tool project was found. Checked: $script:kestrunLauncher ; $script:kestrunToolProject"
     }
 
     $script:InvokeKestrunCommand = {
@@ -16,7 +17,11 @@ BeforeAll {
             [string[]]$Arguments
         )
 
-        $output = & $script:kestrunLauncher @Arguments 2>&1 | Out-String
+        if (Test-Path -Path $script:kestrunLauncher -PathType Leaf) {
+            $output = & $script:kestrunLauncher @Arguments 2>&1 | Out-String
+        } else {
+            $output = & dotnet run --project $script:kestrunToolProject -- @Arguments 2>&1 | Out-String
+        }
         [pscustomobject]@{
             ExitCode = $LASTEXITCODE
             Output = $output

@@ -37,9 +37,9 @@ public class KestrunToolCommandSurfaceTests
     [Trait("Category", "Tooling")]
     public void IsNoCheckOption_Accepts_Aliases()
     {
-        Assert.True((bool)Invoke("IsNoCheckOption", "--nocheck")!);
-        Assert.True((bool)Invoke("IsNoCheckOption", "--no-check")!);
-        Assert.False((bool)Invoke("IsNoCheckOption", "--check")!);
+        Assert.True((bool)Invoke("IsNoCheckOption", "--nocheck"));
+        Assert.True((bool)Invoke("IsNoCheckOption", "--no-check"));
+        Assert.False((bool)Invoke("IsNoCheckOption", "--check"));
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class KestrunToolCommandSurfaceTests
     public void FilterGlobalOptions_RemovesNoCheck_ForMetaCommands()
     {
         var input = new[] { "--nocheck", "version" };
-        var filtered = (List<string>)InvokeWithStringArray("FilterGlobalOptions", input)!;
+        var filtered = (List<string>)InvokeWithStringArray("FilterGlobalOptions", input);
 
         Assert.Equal(["version"], filtered);
     }
@@ -56,94 +56,94 @@ public class KestrunToolCommandSurfaceTests
     [Trait("Category", "Tooling")]
     public void TryParseArguments_ModuleInstall_WithVersion_Succeeds()
     {
-        var parse = InvokeTryParseArguments(["module", "install", "--version", "1.2.3"]);
+        var (Success, ParsedCommand, _) = InvokeTryParseArguments(["module", "install", "--version", "1.2.3"]);
 
-        Assert.True(parse.Success);
-        Assert.Equal("ModuleInstall", GetParsedCommandMode(parse.ParsedCommand!));
-        Assert.Equal("1.2.3", GetParsedCommandField(parse.ParsedCommand!, "ModuleVersion"));
-        Assert.Equal("Local", GetParsedCommandField(parse.ParsedCommand!, "ModuleScope"));
+        Assert.True(Success);
+        Assert.Equal("ModuleInstall", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal("1.2.3", GetParsedCommandField(ParsedCommand!, "ModuleVersion"));
+        Assert.Equal("Local", GetParsedCommandField(ParsedCommand!, "ModuleScope"));
     }
 
     [Fact]
     [Trait("Category", "Tooling")]
     public void TryParseArguments_ModuleInstall_WithGlobalScope_Succeeds()
     {
-        var parse = InvokeTryParseArguments(["module", "install", "--scope", "global"]);
+        var (Success, ParsedCommand, _) = InvokeTryParseArguments(["module", "install", "--scope", "global"]);
 
-        Assert.True(parse.Success);
-        Assert.Equal("ModuleInstall", GetParsedCommandMode(parse.ParsedCommand!));
-        Assert.Equal("Global", GetParsedCommandField(parse.ParsedCommand!, "ModuleScope"));
+        Assert.True(Success);
+        Assert.Equal("ModuleInstall", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal("Global", GetParsedCommandField(ParsedCommand!, "ModuleScope"));
     }
 
     [Fact]
     [Trait("Category", "Tooling")]
     public void TryParseArguments_ModuleUpdate_WithForce_Succeeds()
     {
-        var parse = InvokeTryParseArguments(["module", "update", "--force"]);
+        var (Success, ParsedCommand, _) = InvokeTryParseArguments(["module", "update", "--force"]);
 
-        Assert.True(parse.Success);
-        Assert.Equal("ModuleUpdate", GetParsedCommandMode(parse.ParsedCommand!));
-        Assert.Equal("True", GetParsedCommandField(parse.ParsedCommand!, "ModuleForce"));
+        Assert.True(Success);
+        Assert.Equal("ModuleUpdate", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal("True", GetParsedCommandField(ParsedCommand!, "ModuleForce"));
     }
 
     [Fact]
     [Trait("Category", "Tooling")]
     public void TryParseArguments_ModuleInstall_WithForce_Fails()
     {
-        var parse = InvokeTryParseArguments(["module", "install", "--force"]);
+        var (Success, _, Error) = InvokeTryParseArguments(["module", "install", "--force"]);
 
-        Assert.False(parse.Success);
-        Assert.Contains("does not accept --force", parse.Error, StringComparison.Ordinal);
+        Assert.False(Success);
+        Assert.Contains("does not accept --force", Error, StringComparison.Ordinal);
     }
 
     [Fact]
     [Trait("Category", "Tooling")]
     public void TryParseArguments_ModuleInstall_WithInvalidScope_Fails()
     {
-        var parse = InvokeTryParseArguments(["module", "install", "--scope", "team"]);
+        var (Success, _, Error) = InvokeTryParseArguments(["module", "install", "--scope", "team"]);
 
-        Assert.False(parse.Success);
-        Assert.Contains("Unknown module scope", parse.Error, StringComparison.Ordinal);
+        Assert.False(Success);
+        Assert.Contains("Unknown module scope", Error, StringComparison.Ordinal);
     }
 
     [Fact]
     [Trait("Category", "Tooling")]
     public void TryParseArguments_ModuleRemove_WithoutVersion_Succeeds()
     {
-        var parse = InvokeTryParseArguments(["module", "remove"]);
+        var (Success, ParsedCommand, _) = InvokeTryParseArguments(["module", "remove"]);
 
-        Assert.True(parse.Success);
-        Assert.Equal("ModuleRemove", GetParsedCommandMode(parse.ParsedCommand!));
-        Assert.Null(GetParsedCommandField(parse.ParsedCommand!, "ModuleVersion"));
+        Assert.True(Success);
+        Assert.Equal("ModuleRemove", GetParsedCommandMode(ParsedCommand!));
+        Assert.Null(GetParsedCommandField(ParsedCommand!, "ModuleVersion"));
     }
 
     [Fact]
     [Trait("Category", "Tooling")]
     public void TryParseArguments_ModuleRemove_WithVersion_Fails()
     {
-        var parse = InvokeTryParseArguments(["module", "remove", "--version", "1.2.3"]);
+        var (Success, _, Error) = InvokeTryParseArguments(["module", "remove", "--version", "1.2.3"]);
 
-        Assert.False(parse.Success);
-        Assert.Contains("does not accept --version", parse.Error, StringComparison.Ordinal);
+        Assert.False(Success);
+        Assert.Contains("does not accept --version", Error, StringComparison.Ordinal);
     }
 
     [Fact]
     [Trait("Category", "Tooling")]
     public void TryParseArguments_ModuleInfo_Succeeds()
     {
-        var parse = InvokeTryParseArguments(["module", "info"]);
+        var (Success, ParsedCommand, _) = InvokeTryParseArguments(["module", "info"]);
 
-        Assert.True(parse.Success);
-        Assert.Equal("ModuleInfo", GetParsedCommandMode(parse.ParsedCommand!));
-        Assert.Null(GetParsedCommandField(parse.ParsedCommand!, "ModuleVersion"));
-        Assert.Equal("Local", GetParsedCommandField(parse.ParsedCommand!, "ModuleScope"));
+        Assert.True(Success);
+        Assert.Equal("ModuleInfo", GetParsedCommandMode(ParsedCommand!));
+        Assert.Null(GetParsedCommandField(ParsedCommand!, "ModuleVersion"));
+        Assert.Equal("Local", GetParsedCommandField(ParsedCommand!, "ModuleScope"));
     }
 
     [Fact]
     [Trait("Category", "Tooling")]
     public void TryParseArguments_ModuleCommand_AllowsLauncherInjectedKestrunOptions()
     {
-        var parse = InvokeTryParseArguments([
+        var (Success, ParsedCommand, _) = InvokeTryParseArguments([
             "--kestrun-folder",
             "C:\\temp\\module",
             "--kestrun-manifest",
@@ -152,18 +152,18 @@ public class KestrunToolCommandSurfaceTests
             "info",
         ]);
 
-        Assert.True(parse.Success);
-        Assert.Equal("ModuleInfo", GetParsedCommandMode(parse.ParsedCommand!));
+        Assert.True(Success);
+        Assert.Equal("ModuleInfo", GetParsedCommandMode(ParsedCommand!));
     }
 
     [Fact]
     [Trait("Category", "Tooling")]
     public void TryParseArguments_ModuleInstall_MissingVersionValue_Fails()
     {
-        var parse = InvokeTryParseArguments(["module", "install", "--version"]);
+        var (Success, _, Error) = InvokeTryParseArguments(["module", "install", "--version"]);
 
-        Assert.False(parse.Success);
-        Assert.Contains("Missing value for --version", parse.Error, StringComparison.Ordinal);
+        Assert.False(Success);
+        Assert.Contains("Missing value for --version", Error, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -181,7 +181,7 @@ public class KestrunToolCommandSurfaceTests
     [Trait("Category", "Tooling")]
     public void GetDefaultPowerShellModulePath_UsesExpectedFolderConvention()
     {
-        var path = (string)Invoke("GetDefaultPowerShellModulePath")!;
+        var path = (string)Invoke("GetDefaultPowerShellModulePath");
 
         Assert.EndsWith("Modules", path, StringComparison.OrdinalIgnoreCase);
 
@@ -232,9 +232,9 @@ public class KestrunToolCommandSurfaceTests
                 "@{`n    ModuleVersion = '1.0.0'`n}",
                 Encoding.UTF8);
 
-            var result = InvokeTryValidateInstallAction(Path.Combine(tempRoot, "Kestrun"), "local");
-            Assert.False(result.Success);
-            Assert.Contains("module update", result.Error, StringComparison.Ordinal);
+            var (Success, Error) = InvokeTryValidateInstallAction(Path.Combine(tempRoot, "Kestrun"), "local");
+            Assert.False(Success);
+            Assert.Contains("module update", Error, StringComparison.Ordinal);
         }
         finally
         {
@@ -254,9 +254,9 @@ public class KestrunToolCommandSurfaceTests
         {
             _ = Directory.CreateDirectory(Path.Combine(tempRoot, "Kestrun", "1.0.0"));
 
-            var result = InvokeTryValidateUpdateAction(Path.Combine(tempRoot, "Kestrun"), "1.0.0", force: false);
-            Assert.False(result.Success);
-            Assert.Contains("--force", result.Error, StringComparison.Ordinal);
+            var (Success, Error) = InvokeTryValidateUpdateAction(Path.Combine(tempRoot, "Kestrun"), "1.0.0", force: false);
+            Assert.False(Success);
+            Assert.Contains("--force", Error, StringComparison.Ordinal);
         }
         finally
         {
@@ -276,8 +276,8 @@ public class KestrunToolCommandSurfaceTests
         {
             _ = Directory.CreateDirectory(Path.Combine(tempRoot, "Kestrun", "1.0.0"));
 
-            var result = InvokeTryValidateUpdateAction(Path.Combine(tempRoot, "Kestrun"), "1.0.0", force: true);
-            Assert.True(result.Success);
+            var (Success, Error) = InvokeTryValidateUpdateAction(Path.Combine(tempRoot, "Kestrun"), "1.0.0", force: true);
+            Assert.True(Success);
         }
         finally
         {
@@ -328,7 +328,7 @@ public class KestrunToolCommandSurfaceTests
     [Trait("Category", "Tooling")]
     public void CompareModuleVersionValues_OrdersPrereleaseSuffixesWithinSameBaseVersion()
     {
-        var comparison = (int)Invoke("CompareModuleVersionValues", "1.0.0-beta4", "1.0.0-beta3")!;
+        var comparison = (int)Invoke("CompareModuleVersionValues", "1.0.0-beta4", "1.0.0-beta3");
         Assert.True(comparison > 0);
     }
 
@@ -357,7 +357,7 @@ public class KestrunToolCommandSurfaceTests
 """,
                 Encoding.UTF8);
 
-            var records = (System.Collections.IEnumerable)Invoke("GetInstalledModuleRecords", Path.Combine(tempRoot, "Kestrun"))!;
+            var records = (System.Collections.IEnumerable)Invoke("GetInstalledModuleRecords", Path.Combine(tempRoot, "Kestrun"));
             var firstRecord = records.Cast<object>().First();
 
             Assert.Equal("1.0.0-beta3", GetRecordField(firstRecord, "Version"));
@@ -387,7 +387,7 @@ public class KestrunToolCommandSurfaceTests
                 "@{`n    ModuleVersion = '1.0.0'`n}",
                 Encoding.UTF8);
 
-            var records = (System.Collections.IEnumerable)Invoke("GetInstalledModuleRecords", Path.Combine(tempRoot, "Kestrun"))!;
+            var records = (System.Collections.IEnumerable)Invoke("GetInstalledModuleRecords", Path.Combine(tempRoot, "Kestrun"));
             var firstRecord = records.Cast<object>().First();
 
             Assert.Equal("1.0.0", GetRecordField(firstRecord, "Version"));
@@ -414,9 +414,9 @@ public class KestrunToolCommandSurfaceTests
             File.WriteAllText(Path.Combine(moduleRoot, "1.0.0", "Kestrun.psd1"), "@{ ModuleVersion = '1.0.0' }", Encoding.UTF8);
             File.WriteAllText(Path.Combine(nestedDirectory, "notes.txt"), "sample", Encoding.UTF8);
 
-            var result = InvokeTryRemoveInstalledModule(moduleRoot, showProgress: false);
+            var (Success, Error) = InvokeTryRemoveInstalledModule(moduleRoot, showProgress: false);
 
-            Assert.True(result.Success);
+            Assert.True(Success);
             Assert.False(Directory.Exists(moduleRoot));
         }
         finally
@@ -436,10 +436,10 @@ public class KestrunToolCommandSurfaceTests
         try
         {
             var moduleRoot = Path.Combine(tempRoot, "Kestrun");
-            var result = InvokeTryRemoveInstalledModule(moduleRoot, showProgress: false);
+            var (Success, Error) = InvokeTryRemoveInstalledModule(moduleRoot, showProgress: false);
 
-            Assert.True(result.Success);
-            Assert.True(string.IsNullOrWhiteSpace(result.Error));
+            Assert.True(Success);
+            Assert.True(string.IsNullOrWhiteSpace(Error));
         }
         finally
         {
@@ -468,11 +468,11 @@ public class KestrunToolCommandSurfaceTests
             _ = Directory.CreateDirectory(Path.GetDirectoryName(runtimePath)!);
             File.WriteAllText(runtimePath, "runtime-binary", Encoding.UTF8);
 
-            var result = InvokeTryResolveServiceRuntimeExecutableFromModule(manifestPath);
+            var (Success, RuntimePath, Error) = InvokeTryResolveServiceRuntimeExecutableFromModule(manifestPath);
 
-            Assert.True(result.Success);
-            Assert.True(string.IsNullOrWhiteSpace(result.Error));
-            Assert.Equal(Path.GetFullPath(runtimePath), result.RuntimePath);
+            Assert.True(Success);
+            Assert.True(string.IsNullOrWhiteSpace(Error));
+            Assert.Equal(Path.GetFullPath(runtimePath), RuntimePath);
         }
         finally
         {
@@ -505,12 +505,12 @@ public class KestrunToolCommandSurfaceTests
             _ = Directory.CreateDirectory(Path.GetDirectoryName(fallbackRuntimePath)!);
             File.WriteAllText(fallbackRuntimePath, "fallback-runtime", Encoding.UTF8);
 
-            var result = InvokeTryResolveServiceRuntimeExecutableFromModule(manifestPath);
+            var (Success, RuntimePath, Error) = InvokeTryResolveServiceRuntimeExecutableFromModule(manifestPath);
 
-            Assert.True(result.Success);
-            Assert.True(string.IsNullOrWhiteSpace(result.Error));
+            Assert.True(Success);
+            Assert.True(string.IsNullOrWhiteSpace(Error));
 
-            var resolvedRuntimePath = Path.GetFullPath(result.RuntimePath);
+            var resolvedRuntimePath = Path.GetFullPath(RuntimePath);
             var expectedSuffix = Path.Combine("src", "PowerShell", "Kestrun", "runtimes", runtimeRid, runtimeBinaryName);
             var pathComparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
@@ -550,19 +550,19 @@ public class KestrunToolCommandSurfaceTests
             File.WriteAllText(scriptPath, "Write-Output 'hello'", Encoding.UTF8);
 
             var bundleRoot = Path.Combine(tempRoot, "bundle-root");
-            var result = InvokeTryPrepareServiceBundle("svc:test", scriptPath, manifestPath, bundleRoot);
+            var (Success, Bundle, BundleRootPath, RuntimeExecutablePath, ScriptPath, ModuleManifestPath, Error) = InvokeTryPrepareServiceBundle("svc:test", scriptPath, manifestPath, bundleRoot);
 
-            Assert.True(result.Success);
-            Assert.True(string.IsNullOrWhiteSpace(result.Error));
-            Assert.NotNull(result.Bundle);
+            Assert.True(Success);
+            Assert.True(string.IsNullOrWhiteSpace(Error));
+            Assert.NotNull(Bundle);
 
-            Assert.True(Directory.Exists(result.BundleRootPath));
-            Assert.True(File.Exists(result.RuntimeExecutablePath));
-            Assert.True(File.Exists(result.ScriptPath));
-            Assert.True(File.Exists(result.ModuleManifestPath));
+            Assert.True(Directory.Exists(BundleRootPath));
+            Assert.True(File.Exists(RuntimeExecutablePath));
+            Assert.True(File.Exists(ScriptPath));
+            Assert.True(File.Exists(ModuleManifestPath));
 
-            Assert.StartsWith(Path.GetFullPath(bundleRoot), result.BundleRootPath, StringComparison.OrdinalIgnoreCase);
-            Assert.Equal("runtime-binary", File.ReadAllText(result.RuntimeExecutablePath, Encoding.UTF8));
+            Assert.StartsWith(Path.GetFullPath(bundleRoot), BundleRootPath, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal("runtime-binary", File.ReadAllText(RuntimeExecutablePath, Encoding.UTF8));
         }
         finally
         {
@@ -577,7 +577,7 @@ public class KestrunToolCommandSurfaceTests
     [Trait("Category", "Tooling")]
     public void TryParseArguments_ServiceInstall_WithContentRootAndDeploymentRoot_Succeeds()
     {
-        var parse = InvokeTryParseArguments([
+        var (Success, ParsedCommand, _) = InvokeTryParseArguments([
             "service",
             "install",
             "--name",
@@ -590,18 +590,18 @@ public class KestrunToolCommandSurfaceTests
             ".\\scripts\\start.ps1",
         ]);
 
-        Assert.True(parse.Success);
-        Assert.Equal("ServiceInstall", GetParsedCommandMode(parse.ParsedCommand!));
-        Assert.Equal(@".\app", GetParsedCommandField(parse.ParsedCommand!, "ServiceContentRoot"));
-        Assert.Equal(@"D:\KestrunServices", GetParsedCommandField(parse.ParsedCommand!, "ServiceDeploymentRoot"));
-        Assert.Equal(@".\scripts\start.ps1", GetParsedCommandField(parse.ParsedCommand!, "ScriptPath"));
+        Assert.True(Success);
+        Assert.Equal("ServiceInstall", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal(@".\app", GetParsedCommandField(ParsedCommand!, "ServiceContentRoot"));
+        Assert.Equal(@"D:\KestrunServices", GetParsedCommandField(ParsedCommand!, "ServiceDeploymentRoot"));
+        Assert.Equal(@".\scripts\start.ps1", GetParsedCommandField(ParsedCommand!, "ScriptPath"));
     }
 
     [Fact]
     [Trait("Category", "Tooling")]
     public void TryParseArguments_ServiceInstall_WithContentRootAndNoScript_UsesDefaultServerScript()
     {
-        var parse = InvokeTryParseArguments([
+        var (Success, ParsedCommand, _) = InvokeTryParseArguments([
             "service",
             "install",
             "--name",
@@ -610,16 +610,16 @@ public class KestrunToolCommandSurfaceTests
             ".\\app",
         ]);
 
-        Assert.True(parse.Success);
-        Assert.Equal("ServiceInstall", GetParsedCommandMode(parse.ParsedCommand!));
-        Assert.Equal("server.ps1", GetParsedCommandField(parse.ParsedCommand!, "ScriptPath"));
+        Assert.True(Success);
+        Assert.Equal("ServiceInstall", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal("server.ps1", GetParsedCommandField(ParsedCommand!, "ScriptPath"));
     }
 
     [Fact]
     [Trait("Category", "Tooling")]
     public void TryParseArguments_ServiceStart_WithDeploymentRoot_Fails()
     {
-        var parse = InvokeTryParseArguments([
+        var (Success, _, Error) = InvokeTryParseArguments([
             "service",
             "start",
             "--name",
@@ -628,8 +628,8 @@ public class KestrunToolCommandSurfaceTests
             @"D:\KestrunServices",
         ]);
 
-        Assert.False(parse.Success);
-        Assert.Contains("does not accept --deployment-root", parse.Error, StringComparison.Ordinal);
+        Assert.False(Success);
+        Assert.Contains("does not accept --deployment-root", Error, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -642,7 +642,7 @@ public class KestrunToolCommandSurfaceTests
             var contentRoot = Path.Combine(tempRoot, "content");
             _ = Directory.CreateDirectory(contentRoot);
 
-            var parse = InvokeTryParseArguments([
+            var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
                 "service",
                 "install",
                 "--name",
@@ -653,9 +653,9 @@ public class KestrunToolCommandSurfaceTests
                 Path.Combine(contentRoot, "server.ps1"),
             ]);
 
-            Assert.True(parse.Success);
+            Assert.True(Success);
 
-            var result = InvokeTryResolveServiceScriptSource(parse.ParsedCommand!);
+            var result = InvokeTryResolveServiceScriptSource(ParsedCommand!);
             Assert.False(result.Success);
             Assert.Contains("must be a relative path", result.Error, StringComparison.Ordinal);
         }
@@ -697,7 +697,7 @@ public class KestrunToolCommandSurfaceTests
             File.WriteAllText(Path.Combine(nestedConfig, "settings.json"), "{}", Encoding.UTF8);
 
             var bundleRoot = Path.Combine(tempRoot, "bundle-root");
-            var result = InvokeTryPrepareServiceBundle(
+            var (Success, Bundle, BundleRootPath, _, ScriptPath, _, Error) = InvokeTryPrepareServiceBundle(
                 "svc:test",
                 scriptPath,
                 manifestPath,
@@ -705,16 +705,16 @@ public class KestrunToolCommandSurfaceTests
                 contentRoot,
                 Path.Combine("scripts", "start.ps1"));
 
-            Assert.True(result.Success);
-            Assert.True(string.IsNullOrWhiteSpace(result.Error));
-            Assert.NotNull(result.Bundle);
+            Assert.True(Success);
+            Assert.True(string.IsNullOrWhiteSpace(Error));
+            Assert.NotNull(Bundle);
 
-            var bundledConfig = Path.Combine(result.BundleRootPath, "script", "config", "settings.json");
-            var bundledScript = Path.Combine(result.BundleRootPath, "script", "scripts", "start.ps1");
+            var bundledConfig = Path.Combine(BundleRootPath, "script", "config", "settings.json");
+            var bundledScript = Path.Combine(BundleRootPath, "script", "scripts", "start.ps1");
 
             Assert.True(File.Exists(bundledConfig));
             Assert.True(File.Exists(bundledScript));
-            Assert.Equal(Path.GetFullPath(bundledScript), Path.GetFullPath(result.ScriptPath));
+            Assert.Equal(Path.GetFullPath(bundledScript), Path.GetFullPath(ScriptPath));
         }
         finally
         {
@@ -738,7 +738,7 @@ public class KestrunToolCommandSurfaceTests
             bundledScriptPath,
             bundledManifestPath,
             Array.Empty<string>(),
-            null)!;
+            null);
 
         Assert.Contains("--kestrun-manifest", args);
         Assert.Contains(Path.GetFullPath(bundledManifestPath), args);
@@ -969,7 +969,7 @@ public class KestrunToolCommandSurfaceTests
 
         var property = bundle.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         Assert.NotNull(property);
-        return property!.GetValue(bundle)?.ToString() ?? string.Empty;
+        return property.GetValue(bundle)?.ToString() ?? string.Empty;
     }
 
     private static byte[] CreatePackageWithNuspec(string nuspec)
@@ -990,21 +990,21 @@ public class KestrunToolCommandSurfaceTests
     {
         var mode = GetParsedCommandField(parsedCommand, "Mode");
         Assert.NotNull(mode);
-        return mode!;
+        return mode;
     }
 
     private static string? GetParsedCommandField(object parsedCommand, string propertyName)
     {
         var property = parsedCommand.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         Assert.NotNull(property);
-        return property!.GetValue(parsedCommand)?.ToString();
+        return property.GetValue(parsedCommand)?.ToString();
     }
 
     private static string? GetRecordField(object record, string propertyName)
     {
         var property = record.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         Assert.NotNull(property);
-        return property!.GetValue(record)?.ToString();
+        return property.GetValue(record)?.ToString();
     }
 
     private static bool GetResultBoolean(object result, string propertyName)

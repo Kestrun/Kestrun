@@ -157,10 +157,31 @@ $ExamplesSolutionFilter = Join-Path -Path $PSScriptRoot -ChildPath 'Examples.sln
 
 $script:PowerShellReleaseAssetCache = @{}
 
+<#
+.SYNOPSIS
+    Retrieves the root directory for caching PowerShell SDK release assets for Kestrun.Tool.
+.DESCRIPTION
+    This function returns the directory path where PowerShell SDK release assets are cached for Kestrun.Tool.
+    The cache is used to store downloaded PowerShell SDK archives to avoid redundant downloads during the build and test processes.
+    The cache root is defined as a '.package/powershell-cache' directory relative to the script's location.
+.EXAMPLE
+    $cacheRoot = Get-KestrunToolPowerShellCacheRoot
+    This example retrieves the root directory path for caching PowerShell SDK release assets and stores it in the $cacheRoot variable.
+#>
 function Get-KestrunToolPowerShellCacheRoot {
     return (Join-Path -Path $PSScriptRoot -ChildPath '.package' -AdditionalChildPath 'powershell-cache')
 }
 
+<#
+.SYNOPSIS
+    Retrieves the Microsoft.PowerShell.SDK version specified in the Kestrun.ServiceHost project file.
+.DESCRIPTION
+    This function parses the Kestrun.ServiceHost.csproj file to find the version of the Microsoft.PowerShell.SDK package reference.
+    It returns the version as a string. If the package reference is not found or does not have a version specified, it throws an error.
+.EXAMPLE
+    $sdkVersion = Get-PowerShellSdkVersionForServiceHost
+    This example retrieves the Microsoft.PowerShell.SDK version from the Kestrun.ServiceHost project file and stores it in the $sdkVersion variable.
+#>
 function Get-PowerShellSdkVersionForServiceHost {
     $project = [xml](Get-Content -Path $KestrunServiceHostProjectPath -Raw)
     $sdkReference = $project.Project.ItemGroup.PackageReference |
@@ -174,6 +195,18 @@ function Get-PowerShellSdkVersionForServiceHost {
     return [string]$sdkReference.Version
 }
 
+<#
+.SYNOPSIS
+    Retrieves the PowerShell release asset for a given version and runtime identifier.
+.DESCRIPTION
+    This function queries the GitHub API for the specified PowerShell version, caches the release assets,
+    and returns the asset that matches the expected naming convention for the given runtime identifier.
+    It first looks for an exact match of the asset name and then falls back to a more lenient search if an exact match is not found.
+.PARAMETER Version
+    The version of PowerShell for which to retrieve the release asset (e.g., '7.3.0').
+.PARAMETER RuntimeIdentifier
+    The runtime identifier (RID) for which to retrieve the PowerShell SDK asset (e.g., 'win-x64', 'linux-x64').
+#>
 function Get-PowerShellReleaseAsset {
     param(
         [Parameter(Mandatory = $true)]
@@ -206,7 +239,27 @@ function Get-PowerShellReleaseAsset {
     return $asset
 }
 
-function Ensure-PowerShellModulesPayloadForRuntime {
+<#
+.SYNOPSIS
+    Tests the PowerShell modules payload for a specific runtime.
+.DESCRIPTION
+    This function retrieves the PowerShell SDK release asset for the specified version and runtime identifier,
+    ensures that the archive is available in the cache, and then extracts only the Modules content from the archive
+    to a designated location. This is used to stage the PowerShell modules for Kestrun.Tool's ServiceHost and other components.
+.PARAMETER Version
+    The version of the PowerShell SDK to retrieve and test.
+.PARAMETER RuntimeIdentifier
+    The runtime identifier (RID) for which to retrieve the PowerShell SDK (e.g., 'win-x64', 'linux-x64').
+.PARAMETER DestinationRoot
+    The root directory where the Modules content should be extracted for testing.
+.PARAMETER CacheRoot
+    The directory where PowerShell SDK release archives are cached locally.
+.EXAMPLE
+    Test-PowerShellModulesPayloadForRuntime -Version '7.3.0' -RuntimeIdentifier 'win-x64' -DestinationRoot 'C:\Temp\PowerShellModules' -CacheRoot 'C:\Temp\PowerShellCache'
+    This example tests the PowerShell modules payload for the Windows x64 runtime of version 7.3.0, extracting the Modules content to
+    'C:\Temp\PowerShellModules' and using 'C:\Temp\PowerShellCache' for caching the release archive.
+#>
+function Test-PowerShellModulesPayloadForRuntime {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Version,
@@ -225,7 +278,7 @@ function Ensure-PowerShellModulesPayloadForRuntime {
         New-Item -Path $CacheRoot -ItemType Directory -Force | Out-Null
     }
 
-    $archivePath = Ensure-PowerShellReleaseArchiveInCache -Version $Version -RuntimeIdentifier $RuntimeIdentifier -CacheRoot $CacheRoot -Asset $asset
+    $archivePath = Test-PowerShellReleaseArchiveInCache -Version $Version -RuntimeIdentifier $RuntimeIdentifier -CacheRoot $CacheRoot -Asset $asset
 
     $runtimeDestinationRoot = Join-Path -Path $DestinationRoot -ChildPath $RuntimeIdentifier
     $modulesDestination = Join-Path -Path $runtimeDestinationRoot -ChildPath 'Modules'
@@ -243,6 +296,15 @@ function Ensure-PowerShellModulesPayloadForRuntime {
     Write-Host "    ✅ Staged PowerShell modules to: $modulesDestination"
 }
 
+<#
+.SYNOPSIS
+    Retrieves the relative path of a module from an archive entry.
+.DESCRIPTION
+    This function takes an archive entry path and determines if it corresponds to a PowerShell module.
+    If it does, it returns the relative path of the module within the Modules directory.
+.PARAMETER EntryPath
+    The full path of the archive entry.
+#>
 function Get-ModulesRelativePathFromArchiveEntry {
     param(
         [Parameter(Mandatory = $true)]
@@ -258,6 +320,19 @@ function Get-ModulesRelativePathFromArchiveEntry {
     return $modulesPrefixMatch.Groups['relative'].Value
 }
 
+<#
+.SYNOPSIS
+    Extracts only the PowerShell modules from a given archive to a specified destination.
+.DESCRIPTION
+    This function takes the path to a PowerShell SDK archive, identifies the entries that correspond to PowerShell modules,
+    and extracts only those entries to the specified destination directory. It supports both .zip and .tar.gz archive formats.
+.PARAMETER ArchivePath
+    The file path to the PowerShell SDK archive.
+.PARAMETER DestinationModulesPath
+    The directory where the extracted PowerShell modules will be placed.
+.PARAMETER ArchiveName
+    The name of the archive file, used for logging and error messages.
+#>
 function Expand-PowerShellModulesOnlyFromArchive {
     param(
         [Parameter(Mandatory = $true)]
@@ -357,7 +432,29 @@ function Expand-PowerShellModulesOnlyFromArchive {
     }
 }
 
-function Ensure-PowerShellReleaseArchiveInCache {
+<#
+.SYNOPSIS
+    Tests if the PowerShell SDK release archive for a given version and runtime identifier is available in the cache, and if not, downloads it.
+.DESCRIPTION
+    This function checks if the PowerShell SDK release archive for the specified version and runtime identifier is already present in the local cache.
+    If it is not found, it downloads the archive from the GitHub release assets and saves it to the cache directory.
+    The function returns the path to the archive in the cache, whether it was newly downloaded or already existed.
+.PARAMETER Version
+    The version of the PowerShell SDK (e.g., '7.3.0').
+.PARAMETER RuntimeIdentifier
+    The runtime identifier (RID) for which to check the PowerShell SDK archive (e.g., 'win-x64', 'linux-x64').
+.PARAMETER CacheRoot
+    The directory where PowerShell SDK release archives are cached locally.
+.PARAMETER Asset
+    The release asset object containing information about the PowerShell SDK archive, including its name and download URL.
+.PARAMETER Quiet
+    A switch parameter that, when set, suppresses informational output about the download process.
+.EXAMPLE
+    Test-PowerShellReleaseArchiveInCache -Version '7.3.0' -RuntimeIdentifier 'win-x64' -CacheRoot 'C:\Temp\PowerShellCache' -Asset $asset
+    This example checks if the PowerShell SDK release archive for version 7.3.0 and runtime identifier 'win-x64' is available in the cache at 'C:\Temp\PowerShellCache'.
+    If it is not found, it downloads the archive using the information from the provided $asset object.
+#>
+function Test-PowerShellReleaseArchiveInCache {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Version,
@@ -391,6 +488,24 @@ function Ensure-PowerShellReleaseArchiveInCache {
     return $archivePath
 }
 
+<#
+.SYNOPSIS
+    Prefetches and caches the PowerShell SDK runtime archives for Kestrun.Tool based on the specified version and runtime identifiers.
+.DESCRIPTION
+    This function iterates through the provided list of runtime identifiers, retrieves the corresponding PowerShell SDK release asset for each runtime, and ensures that the archive is available in the local cache.
+    It uses the Get-PowerShellReleaseAsset function to obtain the asset information and the Test-PowerShellReleaseArchiveInCache function to check for the archive in the cache and download it if necessary.
+    This prefetching process helps to optimize the build and test workflows by ensuring that all required PowerShell SDK archives are readily available in the cache before they are needed for staging or testing.
+.PARAMETER Version
+    The version of the PowerShell SDK for which to prefetch the runtime archives (e.g., '7.3.0').
+.PARAMETER RuntimeIdentifiers
+    An array of runtime identifiers (RIDs) for which to prefetch the PowerShell SDK archives (e.g., 'win-x64', 'linux-x64').
+.PARAMETER CacheRoot
+    The directory where PowerShell SDK release archives are cached locally.
+.EXAMPLE
+    Restore-KestrunToolPowerShellCache -Version '7.3.0' -RuntimeIdentifiers @('win-x64', 'linux-x64') -CacheRoot 'C:\Temp\PowerShellCache'
+    This example prefetches and caches the PowerShell SDK runtime archives for version 7.3.0 for the Windows x64 and Linux x64 runtimes,
+    ensuring that the required archives are available in the cache at 'C:\Temp\PowerShellCache' for Kestrun.Tool's build and test processes.
+#>
 function Restore-KestrunToolPowerShellCache {
     param(
         [Parameter(Mandatory = $true)]
@@ -404,7 +519,7 @@ function Restore-KestrunToolPowerShellCache {
     Write-Host '📥 Prefetching PowerShell SDK runtime archives for Kestrun.Tool...' -ForegroundColor DarkCyan
     foreach ($runtimeIdentifier in $RuntimeIdentifiers) {
         $asset = Get-PowerShellReleaseAsset -Version $Version -RuntimeIdentifier $runtimeIdentifier
-        [void](Ensure-PowerShellReleaseArchiveInCache -Version $Version -RuntimeIdentifier $runtimeIdentifier -CacheRoot $CacheRoot -Asset $asset)
+        [void](Test-PowerShellReleaseArchiveInCache -Version $Version -RuntimeIdentifier $runtimeIdentifier -CacheRoot $CacheRoot -Asset $asset)
     }
     Write-Host '✅ PowerShell SDK archives are cached for all configured runtimes.' -ForegroundColor DarkCyan
 }
@@ -694,7 +809,9 @@ Add-BuildTask 'Build-KestrunTool' {
             Remove-Item -Path $serviceHostPublishPath -Recurse -Force -ErrorAction SilentlyContinue
         }
 
-        dotnet publish "$KestrunServiceHostProjectPath" -c $Configuration -r $runtimeIdentifier --self-contained true /p:DebugSymbols=false /p:DebugType=None /p:Version=$Version /p:InformationalVersion=$VersionDetails.InformationalVersion -o "$serviceHostPublishPath" -v:$DotNetVerbosity
+        dotnet publish "$KestrunServiceHostProjectPath" -c $Configuration -r $runtimeIdentifier `
+            --self-contained true /p:DebugSymbols=false /p:DebugType=None /p:Version=$Version /p:InformationalVersion=$VersionDetails.InformationalVersion `
+            -o "$serviceHostPublishPath" -v:$DotNetVerbosity
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet publish failed for ServiceHost runtime '$runtimeIdentifier'."
         }
@@ -728,7 +845,7 @@ Add-BuildTask 'Build-KestrunTool' {
         Copy-Item -Path $serviceHostPublishedBinary -Destination $serviceHostDestinationBinary -Force
         Write-Host "    ✅ Copied to: $serviceHostDestinationBinary"
 
-        Ensure-PowerShellModulesPayloadForRuntime -Version $powerShellSdkVersion -RuntimeIdentifier $runtimeIdentifier -DestinationRoot $kestrunToolServiceHostRuntimesDirectory -CacheRoot $kestrunToolCacheRoot
+        Test-PowerShellModulesPayloadForRuntime -Version $powerShellSdkVersion -RuntimeIdentifier $runtimeIdentifier -DestinationRoot $kestrunToolServiceHostRuntimesDirectory -CacheRoot $kestrunToolCacheRoot
     }
 
     Write-Host '✅ ServiceHost payload staging completed for all configured runtimes.'

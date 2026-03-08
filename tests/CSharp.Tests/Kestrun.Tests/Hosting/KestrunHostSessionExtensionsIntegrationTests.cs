@@ -16,7 +16,8 @@ public class KestrunHostSessionExtensionsIntegrationTests
     private static KestrunHost CreateBuiltHost(Action<KestrunHost>? configure = null)
     {
         var logger = new LoggerConfiguration().CreateLogger();
-        var host = new KestrunHost("TestSession", logger, AppContext.BaseDirectory);
+        // Use a unique app name per test host to avoid shared listener/config state across parallel tests.
+        var host = new KestrunHost($"TestSession-{Guid.NewGuid():N}", logger, AppContext.BaseDirectory);
         host.ConfigureListener(0, IPAddress.Loopback, useConnectionLogging: false);
         configure?.Invoke(host);
         host.EnableConfiguration();

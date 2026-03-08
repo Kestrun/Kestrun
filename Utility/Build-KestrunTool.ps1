@@ -108,7 +108,7 @@ function Get-PowerShellSdkVersionForServiceHost {
 .PARAMETER IncludeApiAccept
     Adds the GitHub API JSON `Accept` header when specified.
 #>
-function Get-GitHubRequestHeaders {
+function Get-GitHubRequestHeader {
     param(
         [Parameter(Mandatory = $false)]
         [switch]$IncludeApiAccept
@@ -189,7 +189,7 @@ function Get-PowerShellReleaseAsset {
 
     if (-not $script:PowerShellReleaseAssetCache.ContainsKey($Version)) {
         $releaseApiUrl = "https://api.github.com/repos/PowerShell/PowerShell/releases/tags/v$Version"
-        $headers = Get-GitHubRequestHeaders -IncludeApiAccept
+        $headers = Get-GitHubRequestHeader -IncludeApiAccept
 
         try {
             $release = Invoke-RestMethod -Uri $releaseApiUrl -Headers $headers -ErrorAction Stop
@@ -271,7 +271,7 @@ function Test-PowerShellReleaseArchiveInCache {
 
     if (-not (Test-Path -Path $archivePath)) {
         Write-Host "   ⬇️ Downloading PowerShell SDK archive for $RuntimeIdentifier ($Version)..." -ForegroundColor DarkCyan
-        $downloadHeaders = Get-GitHubRequestHeaders
+        $downloadHeaders = Get-GitHubRequestHeader
         Invoke-WebRequest -Uri $downloadUrl -Headers $downloadHeaders -OutFile $archivePath -UseBasicParsing -ErrorAction Stop
     } else {
         Write-Host "   ♻️ Reusing cached PowerShell SDK archive for $RuntimeIdentifier ($Version)." -ForegroundColor DarkCyan

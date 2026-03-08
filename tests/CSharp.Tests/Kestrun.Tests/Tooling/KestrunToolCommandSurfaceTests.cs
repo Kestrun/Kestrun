@@ -575,6 +575,158 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithContentRootAndDeploymentRoot_Succeeds()
+    {
+        var parse = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--content-root",
+            ".\\app",
+            "--deployment-root",
+            "D:\\KestrunServices",
+            "--script",
+            ".\\scripts\\start.ps1",
+        ]);
+
+        Assert.True(parse.Success);
+        Assert.Equal("ServiceInstall", GetParsedCommandMode(parse.ParsedCommand!));
+        Assert.Equal(@".\app", GetParsedCommandField(parse.ParsedCommand!, "ServiceContentRoot"));
+        Assert.Equal(@"D:\KestrunServices", GetParsedCommandField(parse.ParsedCommand!, "ServiceDeploymentRoot"));
+        Assert.Equal(@".\scripts\start.ps1", GetParsedCommandField(parse.ParsedCommand!, "ScriptPath"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithContentRootAndNoScript_UsesDefaultServerScript()
+    {
+        var parse = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--content-root",
+            ".\\app",
+        ]);
+
+        Assert.True(parse.Success);
+        Assert.Equal("ServiceInstall", GetParsedCommandMode(parse.ParsedCommand!));
+        Assert.Equal("server.ps1", GetParsedCommandField(parse.ParsedCommand!, "ScriptPath"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceStart_WithDeploymentRoot_Fails()
+    {
+        var parse = InvokeTryParseArguments([
+            "service",
+            "start",
+            "--name",
+            "demo",
+            "--deployment-root",
+            @"D:\KestrunServices",
+        ]);
+
+        Assert.False(parse.Success);
+        Assert.Contains("does not accept --deployment-root", parse.Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithContentRootAndAbsoluteScript_Fails()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            var contentRoot = Path.Combine(tempRoot, "content");
+            _ = Directory.CreateDirectory(contentRoot);
+
+            var parse = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--content-root",
+                contentRoot,
+                "--script",
+                Path.Combine(contentRoot, "server.ps1"),
+            ]);
+
+            Assert.True(parse.Success);
+
+            var result = InvokeTryResolveServiceScriptSource(parse.ParsedCommand!);
+            Assert.False(result.Success);
+            Assert.Contains("must be a relative path", result.Error, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryPrepareServiceBundle_WithContentRoot_CopiesEntireFolderAndPreservesRelativeScriptPath()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            var moduleRoot = Path.Combine(tempRoot, "module-src");
+            _ = Directory.CreateDirectory(moduleRoot);
+            var manifestPath = Path.Combine(moduleRoot, "Kestrun.psd1");
+            File.WriteAllText(manifestPath, "@{`n    ModuleVersion = '1.0.0'`n}", Encoding.UTF8);
+
+            var runtimeRid = GetRuntimeRidForCurrentProcess();
+            var runtimeBinaryName = OperatingSystem.IsWindows() ? "kestrun.exe" : "kestrun";
+            var runtimeSourcePath = Path.Combine(moduleRoot, "runtimes", runtimeRid, runtimeBinaryName);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(runtimeSourcePath)!);
+            File.WriteAllText(runtimeSourcePath, "runtime-binary", Encoding.UTF8);
+
+            var contentRoot = Path.Combine(tempRoot, "service-content");
+            var nestedScripts = Path.Combine(contentRoot, "scripts");
+            var nestedConfig = Path.Combine(contentRoot, "config");
+            _ = Directory.CreateDirectory(nestedScripts);
+            _ = Directory.CreateDirectory(nestedConfig);
+
+            var scriptPath = Path.Combine(nestedScripts, "start.ps1");
+            File.WriteAllText(scriptPath, "Write-Output 'hello'", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(nestedConfig, "settings.json"), "{}", Encoding.UTF8);
+
+            var bundleRoot = Path.Combine(tempRoot, "bundle-root");
+            var result = InvokeTryPrepareServiceBundle(
+                "svc:test",
+                scriptPath,
+                manifestPath,
+                bundleRoot,
+                contentRoot,
+                Path.Combine("scripts", "start.ps1"));
+
+            Assert.True(result.Success);
+            Assert.True(string.IsNullOrWhiteSpace(result.Error));
+            Assert.NotNull(result.Bundle);
+
+            var bundledConfig = Path.Combine(result.BundleRootPath, "script", "config", "settings.json");
+            var bundledScript = Path.Combine(result.BundleRootPath, "script", "scripts", "start.ps1");
+
+            Assert.True(File.Exists(bundledConfig));
+            Assert.True(File.Exists(bundledScript));
+            Assert.Equal(Path.GetFullPath(bundledScript), Path.GetFullPath(result.ScriptPath));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void BuildWindowsServiceHostArguments_UsesBundledManifestPath()
     {
         var bundledScriptPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "script", "server.ps1"));
@@ -715,15 +867,31 @@ public class KestrunToolCommandSurfaceTests
     }
 
     private static (bool Success, object? Bundle, string BundleRootPath, string RuntimeExecutablePath, string ScriptPath, string ModuleManifestPath, string Error)
-        InvokeTryPrepareServiceBundle(string serviceName, string scriptPath, string manifestPath, string bundleRoot)
+        InvokeTryPrepareServiceBundle(
+            string serviceName,
+            string scriptPath,
+            string manifestPath,
+            string bundleRoot,
+            string? contentRoot = null,
+            string? relativeScriptPath = null)
     {
         var method = ProgramType.GetMethod("TryPrepareServiceBundle", BindingFlags.Static | BindingFlags.NonPublic);
         Assert.NotNull(method);
 
-        var values = new object?[] { serviceName, scriptPath, manifestPath, null, null, bundleRoot };
+        var values = new object?[]
+        {
+            serviceName,
+            scriptPath,
+            manifestPath,
+            contentRoot,
+            relativeScriptPath ?? Path.GetFileName(scriptPath),
+            null,
+            null,
+            bundleRoot,
+        };
         var success = (bool)method!.Invoke(null, values)!;
-        var bundle = values[3];
-        var error = values[4]?.ToString() ?? string.Empty;
+        var bundle = values[5];
+        var error = values[6]?.ToString() ?? string.Empty;
 
         return (
             success,
@@ -732,6 +900,35 @@ public class KestrunToolCommandSurfaceTests
             GetBundleField(bundle, "RuntimeExecutablePath"),
             GetBundleField(bundle, "ScriptPath"),
             GetBundleField(bundle, "ModuleManifestPath"),
+            error);
+    }
+
+    private static (bool Success, string FullScriptPath, string FullContentRoot, string RelativeScriptPath, string Error)
+        InvokeTryResolveServiceScriptSource(object parsedCommand)
+    {
+        var method = ProgramType.GetMethod("TryResolveServiceScriptSource", BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        var values = new object?[] { parsedCommand, null, null };
+        var success = (bool)method!.Invoke(null, values)!;
+        var source = values[1];
+        var error = values[2]?.ToString() ?? string.Empty;
+
+        var fullScriptPath = string.Empty;
+        var fullContentRoot = string.Empty;
+        var relativeScriptPath = string.Empty;
+        if (source is not null)
+        {
+            fullScriptPath = GetRecordField(source, "FullScriptPath") ?? string.Empty;
+            fullContentRoot = GetRecordField(source, "FullContentRoot") ?? string.Empty;
+            relativeScriptPath = GetRecordField(source, "RelativeScriptPath") ?? string.Empty;
+        }
+
+        return (
+            success,
+            fullScriptPath,
+            fullContentRoot,
+            relativeScriptPath,
             error);
     }
 

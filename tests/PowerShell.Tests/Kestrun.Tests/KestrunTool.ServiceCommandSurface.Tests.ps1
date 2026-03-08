@@ -5,9 +5,10 @@ BeforeAll {
 
     $script:root = Get-ProjectRootDirectory
     $script:kestrunLauncher = Join-Path $script:root 'src/PowerShell/Kestrun/kestrun.ps1'
+    $script:kestrunToolProject = Join-Path $script:root 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
 
-    if (-not (Test-Path -Path $script:kestrunLauncher -PathType Leaf)) {
-        throw "kestrun launcher not found: $script:kestrunLauncher"
+    if ((-not (Test-Path -Path $script:kestrunLauncher -PathType Leaf)) -and (-not (Test-Path -Path $script:kestrunToolProject -PathType Leaf))) {
+        throw "Neither kestrun launcher nor Kestrun.Tool project was found. Checked: $script:kestrunLauncher ; $script:kestrunToolProject"
     }
 
     $script:serviceNameToCleanup = 'test'
@@ -25,7 +26,12 @@ BeforeAll {
             [string[]]$Arguments
         )
 
-        $output = & $script:kestrunLauncher @Arguments 2>&1 | Out-String
+        if (Test-Path -Path $script:kestrunLauncher -PathType Leaf) {
+            $output = & $script:kestrunLauncher @Arguments 2>&1 | Out-String
+        } else {
+            $output = & dotnet run --project $script:kestrunToolProject -- @Arguments 2>&1 | Out-String
+        }
+
         [pscustomobject]@{
             ExitCode = $LASTEXITCODE
             Output = $output
@@ -65,6 +71,8 @@ Describe 'KestrunTool service command surface' {
         $result.Output | Should -Match 'service stop --name <service-name>'
         $result.Output | Should -Match 'service query --name <service-name>'
         $result.Output | Should -Match 'service-log-path <path-to-log-file>'
+        $result.Output | Should -Match 'content-root <folder>'
+        $result.Output | Should -Match 'deployment-root <folder>'
         $result.Output | Should -Match 'shows progress bars during bundle staging'
     }
 
@@ -110,12 +118,14 @@ Describe 'KestrunTool service command surface' {
         $result.Output | Should -Match 'Missing value for --service-log-path\.'
     }
 
-    It 'installs without auto-starting the service' -Skip:(-not ($IsWindows -and $script:isWindowsAdmin)) {
-        if (-not $IsWindows) {
-            Set-ItResult -Skipped -Because 'This assertion is currently validated on Windows only.'
-            return
-        }
+    It 'fails service install when --deployment-root value is missing' {
+        $result = & $script:InvokeKestrunCommand -Arguments @('service', 'install', '--name', 'test', '--deployment-root')
 
+        $result.ExitCode | Should -Be 2
+        $result.Output | Should -Match 'Missing value for --deployment-root\.'
+    }
+
+    It 'installs without auto-starting the service' -Skip:(-not ($IsWindows -and $script:isWindowsAdmin)) {
         $scriptPath = Join-Path $script:root 'docs/_includes/examples/pwsh/10.2-OpenAPI-Component-Schema.ps1'
         $result = & $script:InvokeKestrunCommand -Arguments @('service', 'install', '--name', $script:serviceNameToCleanup, $scriptPath)
 

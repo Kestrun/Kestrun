@@ -216,13 +216,23 @@ jobs:
               run: |
                   $ErrorActionPreference = 'Stop'
                   Invoke-Build 'Pack-KestrunTool' -DotNetVerbosity $Env:DOTNET_VERBOSITY
-                  
+
             - name: 🧰 Install Kestrun.Tool from local artifacts for testing
               shell: pwsh
               run: |
                   $ErrorActionPreference = 'Stop'
                   $localToolPath = Join-Path -Path $PWD -ChildPath 'artifacts/nuget'
                   dotnet tool install --global Kestrun.Tool --add-source $localToolPath --prerelease
+
+            - name: Install Kestrun Module
+              shell: pwsh
+              run: |
+                  Invoke-Build Install-Module
+                  
+            - name: Query Kestrun Module Info
+              shell: pwsh
+              run: |
+                  dotnet kestrun module info
 
             - name: 🧪 Run Tests
               shell: pwsh

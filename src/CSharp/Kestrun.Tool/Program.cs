@@ -997,12 +997,16 @@ internal static partial class Program
 
         if (OperatingSystem.IsLinux())
         {
-            return InstallLinuxUserDaemon(serviceName, serviceBundle.ServiceHostExecutablePath, daemonArgs, workingDirectory);
+            var result = InstallLinuxUserDaemon(serviceName, serviceBundle.ServiceHostExecutablePath, daemonArgs, workingDirectory);
+            WriteServiceOperationResult("install", "linux", serviceName, result, command.ServiceLogPath);
+            return result;
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            return InstallMacLaunchAgent(serviceName, serviceBundle.ServiceHostExecutablePath, daemonArgs, workingDirectory);
+            var result = InstallMacLaunchAgent(serviceName, serviceBundle.ServiceHostExecutablePath, daemonArgs, workingDirectory);
+            WriteServiceOperationResult("install", "macos", serviceName, result, command.ServiceLogPath);
+            return result;
         }
 
         Console.Error.WriteLine("Service installation is not supported on this OS.");
@@ -1044,6 +1048,8 @@ internal static partial class Program
                 TryRemoveServiceBundle(serviceName, command.ServiceDeploymentRoot);
             }
 
+            WriteServiceOperationResult("remove", "linux", serviceName, result, command.ServiceLogPath);
+
             return result;
         }
 
@@ -1054,6 +1060,8 @@ internal static partial class Program
             {
                 TryRemoveServiceBundle(serviceName, command.ServiceDeploymentRoot);
             }
+
+            WriteServiceOperationResult("remove", "macos", serviceName, result, command.ServiceLogPath);
 
             return result;
         }
@@ -1084,12 +1092,16 @@ internal static partial class Program
 
         if (OperatingSystem.IsLinux())
         {
-            return StartLinuxUserDaemon(serviceName);
+            var result = StartLinuxUserDaemon(serviceName);
+            WriteServiceOperationResult("start", "linux", serviceName, result, command.ServiceLogPath);
+            return result;
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            return StartMacLaunchAgent(serviceName);
+            var result = StartMacLaunchAgent(serviceName);
+            WriteServiceOperationResult("start", "macos", serviceName, result, command.ServiceLogPath);
+            return result;
         }
 
         Console.Error.WriteLine("Service start is not supported on this OS.");
@@ -1118,12 +1130,16 @@ internal static partial class Program
 
         if (OperatingSystem.IsLinux())
         {
-            return StopLinuxUserDaemon(serviceName);
+            var result = StopLinuxUserDaemon(serviceName);
+            WriteServiceOperationResult("stop", "linux", serviceName, result, command.ServiceLogPath);
+            return result;
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            return StopMacLaunchAgent(serviceName);
+            var result = StopMacLaunchAgent(serviceName);
+            WriteServiceOperationResult("stop", "macos", serviceName, result, command.ServiceLogPath);
+            return result;
         }
 
         Console.Error.WriteLine("Service stop is not supported on this OS.");
@@ -1152,12 +1168,16 @@ internal static partial class Program
 
         if (OperatingSystem.IsLinux())
         {
-            return QueryLinuxUserDaemon(serviceName);
+            var result = QueryLinuxUserDaemon(serviceName);
+            WriteServiceOperationResult("query", "linux", serviceName, result, command.ServiceLogPath);
+            return result;
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            return QueryMacLaunchAgent(serviceName);
+            var result = QueryMacLaunchAgent(serviceName);
+            WriteServiceOperationResult("query", "macos", serviceName, result, command.ServiceLogPath);
+            return result;
         }
 
         Console.Error.WriteLine("Service query is not supported on this OS.");
@@ -1526,6 +1546,23 @@ internal static partial class Program
     }
 
     /// <summary>
+    /// Writes a standardized service operation result entry.
+    /// </summary>
+    /// <param name="operation">Operation name (install/start/stop/query/remove).</param>
+    /// <param name="platform">Platform label.</param>
+    /// <param name="serviceName">Service name.</param>
+    /// <param name="exitCode">Process exit code.</param>
+    /// <param name="configuredPath">Optional configured log path.</param>
+    private static void WriteServiceOperationResult(string operation, string platform, string serviceName, int exitCode, string? configuredPath)
+    {
+        var result = exitCode == 0 ? "success" : "failed";
+        WriteServiceOperationLog(
+            $"operation='{operation}' service='{serviceName}' platform='{platform}' result='{result}' exitCode={exitCode}",
+            configuredPath,
+            serviceName);
+    }
+
+    /// <summary>
     /// Resolves the service operation log path from user input, service config, or defaults.
     /// </summary>
     /// <param name="configuredPath">Optional configured log path.</param>
@@ -1534,11 +1571,7 @@ internal static partial class Program
     private static string ResolveServiceOperationLogPath(string? configuredPath, string? serviceName)
     {
         var defaultFileName = "kestrun-tool-service.log";
-        var defaultPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-            "Kestrun",
-            "logs",
-            defaultFileName);
+        var defaultPath = RunnerRuntime.ResolveBootstrapLogPath(null, defaultFileName);
 
         if (!string.IsNullOrWhiteSpace(configuredPath))
         {
@@ -2094,17 +2127,15 @@ internal static partial class Program
 
         if (!string.IsNullOrWhiteSpace(deploymentRootOverride))
         {
-            try
+            var overrideRoot = Path.GetFullPath(deploymentRootOverride);
+            if (!TryEnsureDirectoryWritable(overrideRoot, out var overrideError))
             {
-                deploymentRoot = Path.GetFullPath(deploymentRootOverride);
-                _ = Directory.CreateDirectory(deploymentRoot);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                error = $"Unable to create deployment root '{deploymentRootOverride}': {ex.Message}";
+                error = $"Unable to use deployment root '{deploymentRootOverride}': {overrideError}";
                 return false;
             }
+
+            deploymentRoot = overrideRoot;
+            return true;
         }
 
         var failures = new List<string>();
@@ -2118,7 +2149,12 @@ internal static partial class Program
             try
             {
                 var fullCandidate = Path.GetFullPath(candidate);
-                _ = Directory.CreateDirectory(fullCandidate);
+                if (!TryEnsureDirectoryWritable(fullCandidate, out var candidateError))
+                {
+                    failures.Add($"{candidate} ({candidateError})");
+                    continue;
+                }
+
                 deploymentRoot = fullCandidate;
                 return true;
             }
@@ -2132,6 +2168,31 @@ internal static partial class Program
             ? "Unable to resolve a writable service deployment root."
             : $"Unable to resolve a writable service deployment root. Attempted: {string.Join("; ", failures)}";
         return false;
+    }
+
+    /// <summary>
+    /// Ensures a directory is writable by creating and deleting a short-lived probe file.
+    /// </summary>
+    /// <param name="directoryPath">Directory path to validate.</param>
+    /// <param name="error">Error details when the path is not writable.</param>
+    /// <returns>True when the directory can be created and written to.</returns>
+    private static bool TryEnsureDirectoryWritable(string directoryPath, out string error)
+    {
+        error = string.Empty;
+
+        try
+        {
+            _ = Directory.CreateDirectory(directoryPath);
+            var probePath = Path.Combine(directoryPath, $".kestrun-write-probe-{Guid.NewGuid():N}");
+            File.WriteAllText(probePath, "ok");
+            File.Delete(probePath);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
     }
 
     /// <summary>
@@ -2183,6 +2244,7 @@ internal static partial class Program
     private static void TryRemoveServiceBundle(string serviceName, string? deploymentRootOverride = null)
     {
         var serviceDirectoryName = GetServiceDeploymentDirectoryName(serviceName);
+        var printedPermissionHint = false;
 
         var candidateRoots = new List<string>();
         if (!string.IsNullOrWhiteSpace(deploymentRootOverride))
@@ -2206,9 +2268,71 @@ internal static partial class Program
             }
             catch (Exception ex)
             {
+                if (IsExpectedUnixProtectedRootCleanupFailure(candidateRoot, ex, deploymentRootOverride))
+                {
+                    if (!printedPermissionHint)
+                    {
+                        Console.Error.WriteLine("Info: Skipping cleanup of root-owned service bundle locations. Use sudo to remove legacy bundles under system roots.");
+                        printedPermissionHint = true;
+                    }
+
+                    continue;
+                }
+
                 Console.Error.WriteLine($"Warning: Failed to remove service bundle '{serviceRoot}': {ex.Message}");
             }
         }
+    }
+
+    /// <summary>
+    /// Returns true when cleanup failures are expected for protected Unix roots owned by another user.
+    /// </summary>
+    /// <param name="candidateRoot">Deployment root candidate being cleaned.</param>
+    /// <param name="exception">Raised exception.</param>
+    /// <param name="deploymentRootOverride">Optional explicit deployment root override.</param>
+    /// <returns>True when the error can be downgraded to informational output.</returns>
+    private static bool IsExpectedUnixProtectedRootCleanupFailure(string candidateRoot, Exception exception, string? deploymentRootOverride)
+    {
+        if (!string.IsNullOrWhiteSpace(deploymentRootOverride))
+        {
+            return false;
+        }
+
+        if (exception is not UnauthorizedAccessException)
+        {
+            return false;
+        }
+
+        if (!(OperatingSystem.IsLinux() || OperatingSystem.IsMacOS()))
+        {
+            return false;
+        }
+
+        if (IsLikelyRunningAsRootOnUnix())
+        {
+            return false;
+        }
+
+        return IsProtectedUnixServiceRoot(candidateRoot);
+    }
+
+    /// <summary>
+    /// Returns true when the path is a protected system root used for service bundle fallback on Unix.
+    /// </summary>
+    /// <param name="candidateRoot">Deployment root candidate.</param>
+    /// <returns>True when path is a protected system root.</returns>
+    private static bool IsProtectedUnixServiceRoot(string candidateRoot)
+    {
+        if (string.IsNullOrWhiteSpace(candidateRoot))
+        {
+            return false;
+        }
+
+        var fullCandidate = Path.GetFullPath(candidateRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        return string.Equals(fullCandidate, "/var/kestrun/services", StringComparison.Ordinal)
+            || string.Equals(fullCandidate, "/usr/local/kestrun/services", StringComparison.Ordinal);
     }
 
     /// <summary>
@@ -2449,6 +2573,12 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int InstallLinuxUserDaemon(string serviceName, string exePath, IReadOnlyList<string> runnerArgs, string workingDirectory)
     {
+        if (IsLikelyRunningAsRootOnLinux())
+        {
+            Console.Error.WriteLine("Warning: Running as root installs a root user-level unit via systemctl --user.");
+            Console.Error.WriteLine("That unit is managed from root's user session and is separate from your regular user units.");
+        }
+
         var userHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         var unitDirectory = Path.Combine(userHome, ".config", "systemd", "user");
         _ = Directory.CreateDirectory(unitDirectory);
@@ -2478,6 +2608,7 @@ internal static partial class Program
         if (reloadResult.ExitCode != 0)
         {
             Console.Error.WriteLine(reloadResult.Error);
+            WriteLinuxUserSystemdFailureHint(reloadResult);
             return reloadResult.ExitCode;
         }
 
@@ -2485,6 +2616,7 @@ internal static partial class Program
         if (enableResult.ExitCode != 0)
         {
             Console.Error.WriteLine(enableResult.Error);
+            WriteLinuxUserSystemdFailureHint(enableResult);
             return enableResult.ExitCode;
         }
 
@@ -2514,6 +2646,7 @@ internal static partial class Program
         if (reloadResult.ExitCode != 0)
         {
             Console.Error.WriteLine(reloadResult.Error);
+            WriteLinuxUserSystemdFailureHint(reloadResult);
             return reloadResult.ExitCode;
         }
 
@@ -2533,6 +2666,7 @@ internal static partial class Program
         if (result.ExitCode != 0)
         {
             Console.Error.WriteLine(result.Error);
+            WriteLinuxUserSystemdFailureHint(result);
             return result.ExitCode;
         }
 
@@ -2552,6 +2686,7 @@ internal static partial class Program
         if (result.ExitCode != 0)
         {
             Console.Error.WriteLine(result.Error);
+            WriteLinuxUserSystemdFailureHint(result);
             return result.ExitCode;
         }
 
@@ -2571,6 +2706,7 @@ internal static partial class Program
         if (result.ExitCode != 0)
         {
             Console.Error.WriteLine(result.Error);
+            WriteLinuxUserSystemdFailureHint(result);
             return result.ExitCode;
         }
 
@@ -2842,6 +2978,49 @@ internal static partial class Program
         return safeName.EndsWith(".service", StringComparison.OrdinalIgnoreCase)
             ? safeName
             : $"{safeName}.service";
+    }
+
+    /// <summary>
+    /// Returns true when the current Linux process is likely running as root.
+    /// </summary>
+    /// <returns>True when username resolves to root on Linux.</returns>
+    private static bool IsLikelyRunningAsRootOnLinux() => OperatingSystem.IsLinux() && string.Equals(Environment.UserName, "root", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Returns true when the current Unix process is likely running as root.
+    /// </summary>
+    /// <returns>True when username resolves to root on Linux or macOS.</returns>
+    private static bool IsLikelyRunningAsRootOnUnix() => (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+        && string.Equals(Environment.UserName, "root", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Writes actionable guidance for common user-level systemd failures on Linux.
+    /// </summary>
+    /// <param name="result">Captured process result from a failed systemctl --user call.</param>
+    private static void WriteLinuxUserSystemdFailureHint(ProcessResult result)
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return;
+        }
+
+        var diagnostics = string.IsNullOrWhiteSpace(result.Error) ? result.Output : result.Error;
+        if (string.IsNullOrWhiteSpace(diagnostics))
+        {
+            return;
+        }
+
+        if (!diagnostics.Contains("Failed to connect to bus", StringComparison.OrdinalIgnoreCase)
+            && !diagnostics.Contains("No medium found", StringComparison.OrdinalIgnoreCase)
+            && !diagnostics.Contains("Access denied", StringComparison.OrdinalIgnoreCase)
+            && !diagnostics.Contains("Permission denied", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        Console.Error.WriteLine("Hint: Linux service commands use user-level systemd units (systemctl --user).");
+        Console.Error.WriteLine("Run install/start/stop/query/remove as the same non-root user that installed the unit.");
+        Console.Error.WriteLine("If running over SSH or a headless session, enable linger: sudo loginctl enable-linger <user>.");
     }
 
     /// <summary>

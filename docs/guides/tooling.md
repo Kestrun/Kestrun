@@ -179,6 +179,8 @@ For `service install`:
 - install shows progress bars for bundle staging and module file copy in interactive terminals.
 - bundle roots: Windows `%ProgramData%\Kestrun\services`; Linux `/var/kestrun/services`
   or `/usr/local/kestrun/services` (with user fallback when those are not writable).
+- on Linux, root candidates are used only when writable; otherwise install falls back to `$HOME/.local/share/kestrun/services`.
+- default bootstrap/service logs on Linux are written under `$HOME/.local/share/kestrun/logs` unless `--service-log-path` is provided.
 
 ## Dedicated service-host direct run
 
@@ -230,6 +232,34 @@ dotnet tool install -g Kestrun.Tool --add-source .\artifacts\nuget --ignore-fail
 dotnet tool uninstall --local Kestrun.Tool
 dotnet tool install --local Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources --prerelease
 dotnet tool restore
+```
+
+## Troubleshooting (Linux)
+
+Kestrun service commands on Linux use `systemctl --user` (user-level units), not system-wide units.
+
+- Install and run the tool as the same non-root user.
+- Avoid `sudo dotnet tool install -g Kestrun.Tool` unless you intentionally want the tool under root.
+- Avoid `sudo dotnet kestrun service ...` unless you intentionally want to manage root's user unit set.
+
+If installed with `sudo` by mistake:
+
+```bash
+sudo dotnet tool uninstall -g Kestrun.Tool
+dotnet tool install -g Kestrun.Tool
+```
+
+Ensure your shell PATH includes your user tools location:
+
+```bash
+export PATH="$PATH:$HOME/.dotnet/tools"
+```
+
+If `systemctl --user` reports bus/session errors in SSH or headless environments,
+enable lingering so your user manager stays available:
+
+```bash
+sudo loginctl enable-linger <user>
 ```
 
 ## Build and pack in this repo

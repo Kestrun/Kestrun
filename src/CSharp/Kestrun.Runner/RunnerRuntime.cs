@@ -175,10 +175,7 @@ public static class RunnerRuntime
     /// <returns>Resolved absolute log file path.</returns>
     public static string ResolveBootstrapLogPath(string? configuredPath, string defaultFileName)
     {
-        var defaultDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-            "Kestrun",
-            "logs");
+        var defaultDirectory = GetDefaultBootstrapLogDirectory();
         var defaultPath = Path.Combine(defaultDirectory, defaultFileName);
 
         if (string.IsNullOrWhiteSpace(configuredPath))
@@ -192,6 +189,38 @@ public static class RunnerRuntime
             || configuredPath.EndsWith('/')
             ? Path.Combine(fullPath, defaultFileName)
             : fullPath;
+    }
+
+    /// <summary>
+    /// Returns the default bootstrap log directory for the current platform.
+    /// </summary>
+    /// <returns>Writable preferred log directory path.</returns>
+    private static string GetDefaultBootstrapLogDirectory()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                "Kestrun",
+                "logs");
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            return Path.Combine(userProfile, ".local", "share", "kestrun", "logs");
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            return Path.Combine(userProfile, "Library", "Application Support", "Kestrun", "logs");
+        }
+
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Kestrun",
+            "logs");
     }
 
     /// <summary>

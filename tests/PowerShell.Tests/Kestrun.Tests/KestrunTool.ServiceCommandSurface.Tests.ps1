@@ -179,5 +179,4 @@ Describe 'KestrunTool service command surface' {
         $content | Should -Match "Service '$serviceName' install operation completed\."
         $content | Should -Match "Service '$serviceName' remove operation completed\."
     }
-
 }

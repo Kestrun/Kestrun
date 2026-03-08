@@ -101,6 +101,61 @@ function Get-PowerShellSdkVersionForServiceHost {
 
 <#
 .SYNOPSIS
+    Builds GitHub request headers for API and download calls.
+.DESCRIPTION
+    Uses `GITHUB_TOKEN` (preferred) or `GH_TOKEN` when available to authenticate
+    requests and avoid low anonymous API rate limits in CI.
+.PARAMETER IncludeApiAccept
+    Adds the GitHub API JSON `Accept` header when specified.
+#>
+function Get-GitHubRequestHeaders {
+    param(
+        [Parameter(Mandatory = $false)]
+        [switch]$IncludeApiAccept
+    )
+
+    $headers = @{
+        'User-Agent' = 'kestrun-build'
+    }
+
+    $token = @($env:GITHUB_TOKEN, $env:GH_TOKEN) |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Select-Object -First 1
+
+    if (-not [string]::IsNullOrWhiteSpace($token)) {
+        $headers['Authorization'] = "Bearer $token"
+    }
+
+    if ($IncludeApiAccept) {
+        $headers['Accept'] = 'application/vnd.github+json'
+    }
+
+    return $headers
+}
+
+<#
+.SYNOPSIS
+    Detects whether an error looks like a GitHub API rate-limit failure.
+.PARAMETER ErrorRecord
+    The caught PowerShell error record.
+#>
+function Test-IsGitHubRateLimitError {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Management.Automation.ErrorRecord]$ErrorRecord
+    )
+
+    $combinedErrorText = @(
+        [string]$ErrorRecord.Exception.Message,
+        [string]$ErrorRecord.ErrorDetails.Message,
+        [string]$ErrorRecord
+    ) -join "`n"
+
+    return $combinedErrorText -match '(?i)api rate limit exceeded|rate limit exceeded'
+}
+
+<#
+.SYNOPSIS
     Retrieves the appropriate PowerShell release asset from GitHub for a given version and runtime identifier.
 .DESCRIPTION
     This function queries the GitHub API for the PowerShell release corresponding to the specified version,
@@ -129,15 +184,30 @@ function Get-PowerShellReleaseAsset {
         [string]$RuntimeIdentifier
     )
 
+    $archiveExtension = if ($RuntimeIdentifier -like 'win-*') { '.zip' } else { '.tar.gz' }
+    $expectedName = "PowerShell-$Version-$RuntimeIdentifier$archiveExtension"
+
     if (-not $script:PowerShellReleaseAssetCache.ContainsKey($Version)) {
         $releaseApiUrl = "https://api.github.com/repos/PowerShell/PowerShell/releases/tags/v$Version"
-        $release = Invoke-RestMethod -Uri $releaseApiUrl -Headers @{ 'User-Agent' = 'kestrun-build' } -ErrorAction Stop
-        $script:PowerShellReleaseAssetCache[$Version] = @($release.assets)
+        $headers = Get-GitHubRequestHeaders -IncludeApiAccept
+
+        try {
+            $release = Invoke-RestMethod -Uri $releaseApiUrl -Headers $headers -ErrorAction Stop
+            $script:PowerShellReleaseAssetCache[$Version] = @($release.assets)
+        } catch {
+            if (Test-IsGitHubRateLimitError -ErrorRecord $_) {
+                Write-Warning "GitHub API rate limit reached while fetching PowerShell release metadata for v$Version. Falling back to direct release URL for $expectedName."
+                return [pscustomobject]@{
+                    name = $expectedName
+                    browser_download_url = "https://github.com/PowerShell/PowerShell/releases/download/v$Version/$expectedName"
+                }
+            }
+
+            throw
+        }
     }
 
     $assets = $script:PowerShellReleaseAssetCache[$Version]
-    $archiveExtension = if ($RuntimeIdentifier -like 'win-*') { '.zip' } else { '.tar.gz' }
-    $expectedName = "PowerShell-$Version-$RuntimeIdentifier$archiveExtension"
 
     $asset = $assets | Where-Object { $_.name -ieq $expectedName } | Select-Object -First 1
     if (-not $asset) {
@@ -201,7 +271,8 @@ function Test-PowerShellReleaseArchiveInCache {
 
     if (-not (Test-Path -Path $archivePath)) {
         Write-Host "   ⬇️ Downloading PowerShell SDK archive for $RuntimeIdentifier ($Version)..." -ForegroundColor DarkCyan
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $archivePath -UseBasicParsing -ErrorAction Stop
+        $downloadHeaders = Get-GitHubRequestHeaders
+        Invoke-WebRequest -Uri $downloadUrl -Headers $downloadHeaders -OutFile $archivePath -UseBasicParsing -ErrorAction Stop
     } else {
         Write-Host "   ♻️ Reusing cached PowerShell SDK archive for $RuntimeIdentifier ($Version)." -ForegroundColor DarkCyan
     }

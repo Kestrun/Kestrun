@@ -3,7 +3,7 @@
 using Kestrun;
 using Kestrun.Runner;
 using Xunit;
-#endif 
+#endif
 
 namespace KestrunTests.Runtime;
 

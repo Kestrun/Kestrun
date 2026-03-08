@@ -59,6 +59,7 @@ jobs:
             POWERSHELL_DISTRIBUTION_CHANNEL: GitHub-Actions
             ACTIONS_STEP_DEBUG: ${{ inputs.debug && 'true' || '' }}
             UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
+            GITHUB_TOKEN: ${{ github.token }}
 
         steps:
             # Detect if GH "Enable debug logging" is ON
@@ -92,7 +93,7 @@ jobs:
 
             # 🔊 Only enable super-verbose logs in debug runs
             - name: 🔧 Enable debug flags
-              if: ${{ steps.detect_debug.outputs.enabled == 'true' }}
+              if: ${{ steps.detect_debug.outputs.gh_debug == 'true' }}
               shell: bash
               run: |
                   {
@@ -105,14 +106,14 @@ jobs:
                   } >> "$GITHUB_ENV"
 
             - name: 🔧 Echo debug flag
-              run: echo "debug=${{ steps.detect_debug.outputs.enabled }}  event=${{ github.event_name }}"
+              run: echo "debug=${{ steps.detect_debug.outputs.gh_debug }}  event=${{ github.event_name }}"
               if: ${{ always() && github.event_name != '' }}
 
             # 🔊 decide verbosity once, early
             - name: 🔧 Set build verbosity
               shell: bash
               run: |
-                  if [[ "${{ steps.detect_debug.outputs.enabled == 'true' }}" == "true" ]]; then
+                  if [[ "${{ steps.detect_debug.outputs.gh_debug == 'true' }}" == "true" ]]; then
                     echo "DOTNET_VERBOSITY=diag" >> "$GITHUB_ENV"
                     echo "PESTER_VERBOSITY=Detailed" >> "$GITHUB_ENV"
                   else
@@ -154,7 +155,7 @@ jobs:
 
             # 🐛 Debug-only; non-fatal if it exits 1
             - name: 🔎 List Roslyn packages (transitive)
-              if: ${{ steps.detect_debug.outputs.enabled == 'true' }}
+              if: ${{ steps.detect_debug.outputs.gh_debug == 'true' }}
               continue-on-error: true
               shell: pwsh
               run: |
@@ -164,7 +165,7 @@ jobs:
 
             # 🐛 Debug-only; non-fatal inventory
             - name: 📂 List Roslyn candidates in repo
-              if: ${{ steps.detect_debug.outputs.enabled == 'true' }}
+              if: ${{ steps.detect_debug.outputs.gh_debug == 'true' }}
               continue-on-error: true
               shell: pwsh
               run: |
@@ -187,7 +188,7 @@ jobs:
 
             # 🐛 Optional deep-dive build with binlog in debug (non-fatal)
             - name: 🧰 Debug build with binlog
-              if: ${{ steps.detect_debug.outputs.enabled == 'true' }}
+              if: ${{ steps.detect_debug.outputs.gh_debug == 'true' }}
               continue-on-error: true
               shell: pwsh
               run: |
@@ -195,7 +196,7 @@ jobs:
 
             # 🐛 Debug-only; force Roslyn load (non-fatal)
             - name: 🧪 Mini Roslyn sanity check (before Pester)
-              if: ${{ steps.detect_debug.outputs.enabled == 'true' }}
+              if: ${{ steps.detect_debug.outputs.gh_debug == 'true' }}
               continue-on-error: true
               shell: pwsh
               run: |
@@ -208,6 +209,20 @@ jobs:
                   if ([type]::GetType('Kestrun.Scripting.CSharpDelegateBuilder')) {
                     try { [Kestrun.Scripting.CSharpDelegateBuilder]::Compile('int x=1;') } catch { $_ | Out-String | Write-Host }
                   }
+                    Write-Host "Roslyn sanity check completed (errors ignored in debug)"
+            # Build the tool before testing to ensure the latest bits are used in tests, and to validate the tool builds on all platforms before running tests that depend on it
+            - name: 📦 Pack Kestrun.Tool for testing
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  Invoke-Build 'Pack-KestrunTool' -DotNetVerbosity $Env:DOTNET_VERBOSITY
+                  
+            - name: 🧰 Install Kestrun.Tool from local artifacts for testing
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  $localToolPath = Join-Path -Path $PWD -ChildPath 'artifacts/nuget'
+                  dotnet tool install --global Kestrun.Tool --add-source $localToolPath --prerelease
 
             - name: 🧪 Run Tests
               shell: pwsh

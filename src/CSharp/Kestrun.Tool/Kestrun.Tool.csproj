@@ -25,6 +25,7 @@
         <PackageVersion Condition="'$(Version)' == ''">0.0.1</PackageVersion>
         <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Release'">true</GeneratePackageOnBuild>
         <GeneratePackageOnBuild Condition="'$(Configuration)' != 'Release'">false</GeneratePackageOnBuild>
+        <NoWarn>$(NoWarn);NU5111</NoWarn>
 
         <!-- Single-file publish defaults for runtime publish flow (disabled for dotnet tool packing). -->
         <PublishSingleFile Condition="'$(PackAsTool)' != 'true'">true</PublishSingleFile>

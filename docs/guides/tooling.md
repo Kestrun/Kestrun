@@ -156,6 +156,8 @@ For `service install`:
 - `--arguments <args...>`: script arguments for installed service execution.
 - install creates a per-service bundle containing runtime, module, script, and dedicated service-host assets before registration.
 - dedicated `kestrun-service-host` is sourced from the `Kestrun.Tool` payload under `kestrun-service/<rid>/`, not from the PowerShell module payload.
+- `Modules` are bundled from the PowerShell release matching `Microsoft.PowerShell.SDK` used by ServiceHost and
+ copied into the service `Modules` folder during install.
 - install shows progress bars for bundle staging and module file copy in interactive terminals.
 - bundle roots: Windows `%ProgramData%\Kestrun\services`; Linux `/var/kestrun/services`
   or `/usr/local/kestrun/services` (with user fallback when those are not writable).

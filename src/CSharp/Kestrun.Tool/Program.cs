@@ -670,6 +670,13 @@ internal static partial class Program
             return false;
         }
 
+        if (!TryResolvePowerShellModulesPayloadFromToolDistribution(out _))
+        {
+            Console.Error.WriteLine("Unable to locate bundled PowerShell Modules payload for current RID in Kestrun.Tool distribution. Reinstall or update Kestrun.Tool.");
+            exitCode = 1;
+            return false;
+        }
+
         if (WindowsServiceExists(command.ServiceName))
         {
             Console.Error.WriteLine($"Windows service '{command.ServiceName}' already exists.");
@@ -1637,6 +1644,33 @@ internal static partial class Program
     }
 
     /// <summary>
+    /// Tries to resolve bundled PowerShell Modules payload from the Kestrun.Tool distribution.
+    /// </summary>
+    /// <param name="modulesPayloadPath">Resolved modules payload path when available.</param>
+    /// <returns>True when the modules payload is available.</returns>
+    private static bool TryResolvePowerShellModulesPayloadFromToolDistribution(out string modulesPayloadPath)
+    {
+        modulesPayloadPath = string.Empty;
+        if (!TryGetServiceRuntimeRid(out var runtimeRid, out _))
+        {
+            return false;
+        }
+
+        foreach (var candidate in EnumeratePowerShellModulesPayloadCandidates(runtimeRid))
+        {
+            if (!Directory.Exists(candidate))
+            {
+                continue;
+            }
+
+            modulesPayloadPath = Path.GetFullPath(candidate);
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Enumerates candidate service-host paths shipped with Kestrun.Tool for the target RID.
     /// </summary>
     /// <param name="runtimeRid">Runtime identifier segment (for example, win-x64).</param>
@@ -1663,6 +1697,36 @@ internal static partial class Program
             candidates.Add(Path.Combine(parent, "src", "CSharp", "Kestrun.Tool", "kestrun-service", runtimeRid, hostBinaryName));
             candidates.Add(Path.Combine(parent, "artifacts", "Kestrun.Tool", $"{runtimeRid}-service-host", hostBinaryName));
             candidates.Add(Path.Combine(parent, "artifacts", "Kestrun.Tool", $"{runtimeRid}-service-host", OperatingSystem.IsWindows() ? "Kestrun.ServiceHost.exe" : "Kestrun.ServiceHost"));
+        }
+
+        foreach (var candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            yield return candidate;
+        }
+    }
+
+    /// <summary>
+    /// Enumerates candidate PowerShell Modules payload paths shipped with Kestrun.Tool for the target RID.
+    /// </summary>
+    /// <param name="runtimeRid">Runtime identifier segment (for example, win-x64).</param>
+    /// <returns>Candidate modules payload paths in resolution priority order.</returns>
+    private static IEnumerable<string> EnumeratePowerShellModulesPayloadCandidates(string runtimeRid)
+    {
+        var executableDirectory = GetExecutableDirectory();
+        var baseDirectory = Path.GetFullPath(AppContext.BaseDirectory);
+        var candidates = new List<string>
+        {
+            Path.Combine(executableDirectory, "kestrun-service", runtimeRid, "Modules"),
+            Path.Combine(baseDirectory, "kestrun-service", runtimeRid, "Modules"),
+            Path.Combine(executableDirectory, runtimeRid, "Modules"),
+            Path.Combine(baseDirectory, runtimeRid, "Modules"),
+            Path.Combine(executableDirectory, "runtimes", runtimeRid, "Modules"),
+            Path.Combine(baseDirectory, "runtimes", runtimeRid, "Modules"),
+        };
+
+        foreach (var parent in EnumerateDirectoryAndParents(Environment.CurrentDirectory))
+        {
+            candidates.Add(Path.Combine(parent, "src", "CSharp", "Kestrun.Tool", "kestrun-service", runtimeRid, "Modules"));
         }
 
         foreach (var candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
@@ -1750,7 +1814,7 @@ internal static partial class Program
         var scriptDirectory = Path.Combine(serviceRoot, "script");
         var showProgress = !Console.IsOutputRedirected;
         using var bundleProgress = showProgress
-            ? new ConsoleProgressBar("Preparing service bundle", 4, FormatServiceBundleStepProgressDetail)
+            ? new ConsoleProgressBar("Preparing service bundle", 5, FormatServiceBundleStepProgressDetail)
             : null;
         var completedBundleSteps = 0;
         bundleProgress?.Report(0);
@@ -1782,6 +1846,21 @@ internal static partial class Program
 
             var bundledServiceHostPath = Path.Combine(runtimeDirectory, Path.GetFileName(serviceHostExecutablePath));
             File.Copy(serviceHostExecutablePath, bundledServiceHostPath, overwrite: true);
+
+            if (!TryResolvePowerShellModulesPayloadFromToolDistribution(out var toolModulesPayloadPath))
+            {
+                error = "Unable to locate bundled PowerShell Modules payload for current RID in Kestrun.Tool distribution. Expected payload under 'kestrun-service/<rid>/Modules/'. Reinstall or update Kestrun.Tool.";
+                return false;
+            }
+
+            CopyDirectoryContents(
+                toolModulesPayloadPath,
+                modulesDirectory,
+                showProgress,
+                "Bundling service runtime modules",
+                exclusionPatterns: null);
+            completedBundleSteps++;
+            bundleProgress?.Report(completedBundleSteps);
 
             if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
             {

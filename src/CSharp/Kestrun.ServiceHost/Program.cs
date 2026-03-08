@@ -17,7 +17,8 @@ internal static class Program
         string ModuleManifestPath,
         string[] ScriptArguments,
         string? ServiceLogPath,
-        bool DirectRunMode);
+        bool DirectRunMode,
+        bool DiscoverPowerShellHome);
 
     private static int Main(string[] args)
     {
@@ -55,6 +56,7 @@ internal static class Program
         var scriptArguments = Array.Empty<string>();
         string? serviceLogPath = null;
         var directRunMode = false;
+        var discoverPowerShellHome = false;
 
         var index = 0;
         while (index < args.Length)
@@ -103,6 +105,13 @@ internal static class Program
                 continue;
             }
 
+            if (current is "--discover-pshome")
+            {
+                discoverPowerShellHome = true;
+                index += 1;
+                continue;
+            }
+
             if (current is "--arguments" or "--")
             {
                 scriptArguments = [.. args.Skip(index + 1)];
@@ -148,11 +157,12 @@ internal static class Program
             Path.GetFullPath(moduleManifestPath),
             scriptArguments,
             serviceLogPath,
-            directRunMode);
+            directRunMode,
+            discoverPowerShellHome);
         return true;
     }
 
-    private static void PrintUsage() => Console.WriteLine("Usage: kestrun-service-host [--name <service>] [--runner-exe <path>] (--script <path> | --run <path>) --kestrun-manifest <path> [--service-log-path <path>] [--arguments ...]");
+    private static void PrintUsage() => Console.WriteLine("Usage: kestrun-service-host [--name <service>] [--runner-exe <path>] (--script <path> | --run <path>) --kestrun-manifest <path> [--service-log-path <path>] [--discover-pshome] [--arguments ...]");
 
     /// <summary>
     /// Resolves the path of the current executable for diagnostic and compatibility metadata.
@@ -328,6 +338,7 @@ internal static class Program
                     _options.ScriptPath,
                     _options.ScriptArguments,
                     _options.ModuleManifestPath,
+                    _options.DiscoverPowerShellHome,
                     WriteBootstrapLog,
                     _shutdown.Token));
 
@@ -442,17 +453,15 @@ internal static class Program
         string scriptPath,
         IReadOnlyList<string> scriptArguments,
         string moduleManifestPath,
+        bool discoverPowerShellHome,
         Action<string> log,
         CancellationToken stopToken)
     {
         log($"Preparing script execution. script='{scriptPath}', manifest='{moduleManifestPath}', args=[{FormatScriptArguments(scriptArguments)}]");
         EnsureNet10Runtime();
         log("Verified .NET 10 runtime.");
-        //   Environment.SetEnvironmentVariable("PSHOME", "C:\\Program Files\\PowerShell\\7-preview");
-        Environment.SetEnvironmentVariable("PSHOME", "C:\\Users\\m_dan\\Documents\\GitHub\\kestrun\\kestrun\\pws");
+        ConfigurePowerShellHome(discoverPowerShellHome, moduleManifestPath, log);
         EnsurePowerShellRuntimeHome();
-        // Environment.SetEnvironmentVariable("PSHOME", "C:\\Users\\m_dan\\Documents\\GitHub\\kestrun\\kestrun\\pws");
-        // Environment.SetEnvironmentVariable("PSHOME", "C:\\Program Files\\PowerShell\\7-preview");
         var psHome = Environment.GetEnvironmentVariable("PSHOME");
         var psModulePath = Environment.GetEnvironmentVariable("PSModulePath");
         log($"PowerShell runtime home prepared. PSHOME='{(string.IsNullOrWhiteSpace(psHome) ? "<null>" : psHome)}', PSModulePath='{(string.IsNullOrWhiteSpace(psModulePath) ? "<null>" : psModulePath)}'.");
@@ -519,6 +528,43 @@ internal static class Program
     /// </summary>
     private static void EnsureNet10Runtime()
         => RunnerRuntime.EnsureNet10Runtime("kestrun-service-host");
+
+    /// <summary>
+    /// Configures <c>PSHOME</c> for service-host script execution.
+    /// </summary>
+    /// <param name="discoverPowerShellHome">When true, does not set <c>PSHOME</c> and lets runtime discovery resolve it.</param>
+    /// <param name="moduleManifestPath">Absolute path to Kestrun.psd1.</param>
+    /// <param name="log">Best-effort service-host logger.</param>
+    private static void ConfigurePowerShellHome(bool discoverPowerShellHome, string moduleManifestPath, Action<string> log)
+    {
+        if (discoverPowerShellHome)
+        {
+            log("PSHOME discovery mode enabled; skipping PSHOME override.");
+            return;
+        }
+
+        var serviceRoot = ResolveServiceRootFromManifestPath(moduleManifestPath);
+        Environment.SetEnvironmentVariable("PSHOME", serviceRoot);
+        log($"PSHOME set to service root '{serviceRoot}'.");
+    }
+
+    /// <summary>
+    /// Resolves the service root path from the staged Kestrun module manifest.
+    /// </summary>
+    /// <param name="moduleManifestPath">Absolute path to Kestrun.psd1 under <c>Modules/Kestrun</c>.</param>
+    /// <returns>Absolute service root path.</returns>
+    private static string ResolveServiceRootFromManifestPath(string moduleManifestPath)
+    {
+        var manifestDirectory = Path.GetDirectoryName(moduleManifestPath);
+        if (string.IsNullOrWhiteSpace(manifestDirectory))
+        {
+            return AppContext.BaseDirectory;
+        }
+
+        var moduleRoot = Directory.GetParent(manifestDirectory);
+        var serviceRoot = moduleRoot?.Parent;
+        return serviceRoot?.FullName ?? AppContext.BaseDirectory;
+    }
 
     /// <summary>
     /// Ensures Kestrun.dll from the selected module root is loaded into the default context.
@@ -623,9 +669,7 @@ internal static class Program
         }
 
         var invalidChars = Path.GetInvalidFileNameChars();
-        var sanitized = new string(value
-            .Select(c => invalidChars.Contains(c) ? '-' : c)
-            .ToArray())
+        var sanitized = new string([.. value.Select(c => invalidChars.Contains(c) ? '-' : c)])
             .Trim();
         return string.IsNullOrWhiteSpace(sanitized) ? "default" : sanitized;
     }

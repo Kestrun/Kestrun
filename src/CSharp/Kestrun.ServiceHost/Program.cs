@@ -514,14 +514,12 @@ internal static class Program
         while (!asyncResult.IsCompleted)
         {
             _ = asyncResult.AsyncWaitHandle.WaitOne(200);
-            if (!stopToken.IsCancellationRequested || stopRequested)
+            if (stopToken.IsCancellationRequested && !stopRequested)
             {
-                continue;
+                stopRequested = true;
+                log("Stop requested. Stopping Kestrun server...");
+                _ = Task.Run(RequestManagedStopAsync);
             }
-
-            stopRequested = true;
-            log("Stop requested. Stopping Kestrun server...");
-            _ = Task.Run(RequestManagedStopAsync);
         }
 
         output = powershell.EndInvoke(asyncResult);

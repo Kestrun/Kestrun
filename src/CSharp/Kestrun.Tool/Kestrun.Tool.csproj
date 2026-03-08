@@ -20,12 +20,12 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/kestrun/Kestrun</RepositoryUrl>
         <PackageProjectUrl>https://github.com/kestrun/Kestrun</PackageProjectUrl>
-        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <!-- README metadata is for regular NuGet packages, not dotnet tool installs. -->
+        <PackageReadmeFile Condition="'$(PackAsTool)' != 'true'">README.md</PackageReadmeFile>
         <Version Condition="'$(Version)' == ''">0.0.1</Version>
         <PackageVersion Condition="'$(Version)' == ''">0.0.1</PackageVersion>
         <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Release'">true</GeneratePackageOnBuild>
         <GeneratePackageOnBuild Condition="'$(Configuration)' != 'Release'">false</GeneratePackageOnBuild>
-        <NoWarn>$(NoWarn);NU5111</NoWarn>
 
         <!-- Single-file publish defaults for runtime publish flow (disabled for dotnet tool packing). -->
         <PublishSingleFile Condition="'$(PackAsTool)' != 'true'">true</PublishSingleFile>
@@ -45,8 +45,8 @@
 
     <ItemGroup>
         <None Remove="kestrun-service\**\*" />
-        <Content Include="kestrun-service\**\*" Pack="true" PackagePath="tools/net10.0/any/kestrun-service/" Link="%(RecursiveDir)%(Filename)%(Extension)" />
-        <None Include="../../../README.md" Pack="true" PackagePath="\" />
+        <Content Include="kestrun-service\**\*" Exclude="kestrun-service\**\InstallPSResourceGetPolicyDefinitions.ps1;kestrun-service\**\SamplePSReadLineProfile.ps1" Pack="true" PackagePath="tools/net10.0/any/kestrun-service/" Link="%(RecursiveDir)%(Filename)%(Extension)" />
+        <None Include="README.md" Pack="true" PackagePath="\" Condition="'$(PackAsTool)' != 'true'" />
         <None Include="../../../LICENSE.txt" Pack="true" PackagePath="\" />
     </ItemGroup>
 </Project>

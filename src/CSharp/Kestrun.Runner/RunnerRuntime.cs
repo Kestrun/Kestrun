@@ -494,18 +494,71 @@ public static class RunnerRuntime
                     .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 candidates.AddRange(discovered);
             }
-
-            candidates = [
-                .. candidates.Select(path =>
-                    path.EndsWith("pwsh", StringComparison.OrdinalIgnoreCase)
-                        ? Path.GetDirectoryName(path) ?? path
-                        : path)
-            ];
         }
+
+        candidates = [
+            .. candidates
+                .Select(NormalizePowerShellHomeCandidate)
+                .Where(static path => !string.IsNullOrWhiteSpace(path))
+        ];
 
         return candidates
             .Where(Directory.Exists)
             .Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Normalizes a PowerShell home candidate, resolving executable symlinks to their installation directory.
+    /// </summary>
+    /// <param name="path">Candidate path (directory or pwsh executable path).</param>
+    /// <returns>Normalized directory path when possible; otherwise original candidate path.</returns>
+    private static string NormalizePowerShellHomeCandidate(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return string.Empty;
+        }
+
+        var trimmedPath = path.Trim();
+        var fullPath = Path.GetFullPath(trimmedPath);
+
+        if (!IsPowerShellExecutablePath(fullPath))
+        {
+            return fullPath;
+        }
+
+        var resolvedPath = TryResolveFinalPath(fullPath) ?? fullPath;
+        return Path.GetDirectoryName(resolvedPath) ?? resolvedPath;
+    }
+
+    /// <summary>
+    /// Determines whether a path points to the pwsh executable.
+    /// </summary>
+    /// <param name="path">Path to evaluate.</param>
+    /// <returns>True when the file name is pwsh or pwsh.exe.</returns>
+    private static bool IsPowerShellExecutablePath(string path)
+    {
+        var fileName = Path.GetFileName(path);
+        return string.Equals(fileName, "pwsh", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(fileName, "pwsh.exe", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Resolves a symlink path to its final target when supported by the platform.
+    /// </summary>
+    /// <param name="path">Path that may be a symbolic link.</param>
+    /// <returns>Resolved full target path when available; otherwise null.</returns>
+    private static string? TryResolveFinalPath(string path)
+    {
+        try
+        {
+            var resolved = File.ResolveLinkTarget(path, returnFinalTarget: true);
+            return resolved is null ? null : Path.GetFullPath(resolved.FullName);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>

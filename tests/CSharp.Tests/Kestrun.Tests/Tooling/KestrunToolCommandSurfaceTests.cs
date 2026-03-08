@@ -623,6 +623,29 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithServiceUserAndPassword_Succeeds()
+    {
+        var (Success, ParsedCommand, _) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--service-user",
+            "svc-kestrun",
+            "--service-password",
+            "P@ssw0rd!",
+            "--script",
+            ".\\server.ps1",
+        ]);
+
+        Assert.True(Success);
+        Assert.Equal("ServiceInstall", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal("svc-kestrun", GetParsedCommandField(ParsedCommand!, "ServiceUser"));
+        Assert.Equal("P@ssw0rd!", GetParsedCommandField(ParsedCommand!, "ServicePassword"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void TryParseArguments_ServiceStart_WithDeploymentRoot_Fails()
     {
         var (Success, _, Error) = InvokeTryParseArguments([
@@ -819,6 +842,65 @@ public class KestrunToolCommandSurfaceTests
         Assert.True(InvokeIsWindowsBuiltinServiceAccount(@"NT AUTHORITY\NetworkService"));
         Assert.True(InvokeIsWindowsBuiltinServiceAccount(@"NT AUTHORITY\LocalService"));
         Assert.False(InvokeIsWindowsBuiltinServiceAccount(@"DOMAIN\svc-kestrun"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void BuildLinuxSystemdUnitContent_WithServiceUser_UsesSystemScopeUserAndTarget()
+    {
+        var content = InvokeBuildLinuxSystemdUnitContent(
+            "demo",
+            "/usr/bin/kestrun-service-host",
+            ["--run", "script.ps1"],
+            "/opt/kestrun/demo",
+            "svc-kestrun");
+
+        Assert.Contains("User=svc-kestrun", content, StringComparison.Ordinal);
+        Assert.Contains("WantedBy=multi-user.target", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("WantedBy=default.target", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void BuildLinuxSystemdUnitContent_WithoutServiceUser_UsesUserScopeTarget()
+    {
+        var content = InvokeBuildLinuxSystemdUnitContent(
+            "demo",
+            "/usr/bin/kestrun-service-host",
+            ["--run", "script.ps1"],
+            "/opt/kestrun/demo",
+            null);
+
+        Assert.DoesNotContain("User=", content, StringComparison.Ordinal);
+        Assert.Contains("WantedBy=default.target", content, StringComparison.Ordinal);
+        Assert.DoesNotContain("WantedBy=multi-user.target", content, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void BuildLaunchdPlist_WithServiceUser_IncludesUserName()
+    {
+        var plist = InvokeBuildLaunchdPlist(
+            "com.kestrun.demo",
+            "/opt/kestrun/demo",
+            ["/usr/local/bin/kestrun-service-host", "--run", "server.ps1"],
+            "svc-kestrun");
+
+        Assert.Contains("<key>UserName</key>", plist, StringComparison.Ordinal);
+        Assert.Contains("<string>svc-kestrun</string>", plist, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void BuildLaunchdPlist_WithoutServiceUser_OmitsUserName()
+    {
+        var plist = InvokeBuildLaunchdPlist(
+            "com.kestrun.demo",
+            "/opt/kestrun/demo",
+            ["/usr/local/bin/kestrun-service-host", "--run", "server.ps1"],
+            null);
+
+        Assert.DoesNotContain("<key>UserName</key>", plist, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1060,6 +1142,31 @@ public class KestrunToolCommandSurfaceTests
         Assert.NotNull(method);
 
         return (bool)method!.Invoke(null, [accountName])!;
+    }
+
+    private static string InvokeBuildLinuxSystemdUnitContent(
+        string serviceName,
+        string exePath,
+        IReadOnlyList<string> runnerArgs,
+        string workingDirectory,
+        string? serviceUser)
+    {
+        var method = ProgramType.GetMethod("BuildLinuxSystemdUnitContent", BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        return (string)method!.Invoke(null, [serviceName, exePath, runnerArgs, workingDirectory, serviceUser])!;
+    }
+
+    private static string InvokeBuildLaunchdPlist(
+        string label,
+        string workingDirectory,
+        IReadOnlyList<string> programArguments,
+        string? serviceUser)
+    {
+        var method = ProgramType.GetMethod("BuildLaunchdPlist", BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        return (string)method!.Invoke(null, [label, workingDirectory, programArguments, serviceUser])!;
     }
 
     private static string? InvokeTryDeleteDirectoryWithRetry(string directoryPath, int maxAttempts, int initialDelayMs)

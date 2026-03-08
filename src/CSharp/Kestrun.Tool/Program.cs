@@ -2700,23 +2700,7 @@ internal static partial class Program
 
         var unitName = GetLinuxUnitName(serviceName);
         var unitPath = Path.Combine(unitDirectory, unitName);
-        var execStart = string.Join(" ", new[] { EscapeSystemdToken(exePath) }.Concat(runnerArgs.Select(EscapeSystemdToken)));
-        var unitContent = string.Join('\n',
-            "[Unit]",
-            $"Description={serviceName}",
-            "After=network.target",
-            "",
-            "[Service]",
-            "Type=simple",
-            useSystemScope ? $"User={serviceUser}" : string.Empty,
-            $"WorkingDirectory={workingDirectory}",
-            $"ExecStart={execStart}",
-            "Restart=always",
-            "RestartSec=2",
-            "",
-            "[Install]",
-            useSystemScope ? "WantedBy=multi-user.target" : "WantedBy=default.target",
-            "");
+        var unitContent = BuildLinuxSystemdUnitContent(serviceName, exePath, runnerArgs, workingDirectory, serviceUser);
 
         File.WriteAllText(unitPath, unitContent);
 
@@ -2748,6 +2732,38 @@ internal static partial class Program
             ? $"Installed Linux system daemon '{unitName}' for user '{serviceUser}' (not started)."
             : $"Installed Linux user daemon '{unitName}' (not started).");
         return 0;
+    }
+
+    /// <summary>
+    /// Builds Linux systemd unit file content for a service install.
+    /// </summary>
+    /// <param name="serviceName">Service name used for Description.</param>
+    /// <param name="exePath">Executable path for the runner.</param>
+    /// <param name="runnerArgs">Arguments passed to the runner executable.</param>
+    /// <param name="workingDirectory">Working directory for the systemd unit.</param>
+    /// <param name="serviceUser">Optional Linux user account for system-scoped units.</param>
+    /// <returns>Rendered unit file content.</returns>
+    private static string BuildLinuxSystemdUnitContent(string serviceName, string exePath, IReadOnlyList<string> runnerArgs, string workingDirectory, string? serviceUser)
+    {
+        var useSystemScope = !string.IsNullOrWhiteSpace(serviceUser);
+        var execStart = string.Join(" ", new[] { EscapeSystemdToken(exePath) }.Concat(runnerArgs.Select(EscapeSystemdToken)));
+
+        return string.Join('\n',
+            "[Unit]",
+            $"Description={serviceName}",
+            "After=network.target",
+            "",
+            "[Service]",
+            "Type=simple",
+            useSystemScope ? $"User={serviceUser}" : string.Empty,
+            $"WorkingDirectory={workingDirectory}",
+            $"ExecStart={execStart}",
+            "Restart=always",
+            "RestartSec=2",
+            "",
+            "[Install]",
+            useSystemScope ? "WantedBy=multi-user.target" : "WantedBy=default.target",
+            "");
     }
 
     /// <summary>

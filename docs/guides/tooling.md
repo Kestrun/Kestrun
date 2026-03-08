@@ -63,14 +63,16 @@ If you built the package locally (for example via
 to use a development build instead of the published NuGet build:
 
 ```powershell
-dotnet tool install -g Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources
+dotnet tool install -g Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources --prerelease
 ```
+
+Use `--prerelease` when consuming RC/beta/alpha tool packages.
 
 Typical use:
 
 - `dotnet tool install -g Kestrun.Tool`: installs published NuGet version (works from any folder).
-- `dotnet tool install -g Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources`: installs local dev package globally.
-- `dotnet tool install --local Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources`: installs local dev package for repo-scoped usage.
+- `dotnet tool install -g Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources --prerelease`: installs local dev prerelease package globally.
+- `dotnet tool install --local Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources --prerelease`: installs local dev prerelease package for repo-scoped usage.
 
 If you want `dotnet kestrun` from any folder, install globally.
 
@@ -204,11 +206,11 @@ If `dotnet kestrun service install ...` prints `Elevated operation failed` but
 ```powershell
 # global refresh
 dotnet tool uninstall -g Kestrun.Tool
-dotnet tool install -g Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources
+dotnet tool install -g Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources --prerelease
 
 # local refresh
 dotnet tool uninstall --local Kestrun.Tool
-dotnet tool install --local Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources
+dotnet tool install --local Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources --prerelease
 dotnet tool restore
 ```
 

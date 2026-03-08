@@ -670,12 +670,9 @@ internal static partial class Program
             return false;
         }
 
-        if (!TryResolvePowerShellModulesPayloadFromToolDistribution(out _))
-        {
-            Console.Error.WriteLine("Unable to locate bundled PowerShell Modules payload for current RID in Kestrun.Tool distribution. Reinstall or update Kestrun.Tool.");
-            exitCode = 1;
-            return false;
-        }
+        // Do not hard-fail preflight on bundled modules payload resolution.
+        // Elevated relaunch can run under a different working-directory/layout context,
+        // so definitive payload validation is performed during actual bundle preparation.
 
         if (WindowsServiceExists(command.ServiceName))
         {
@@ -1196,7 +1193,7 @@ internal static partial class Program
         if (!IsWindowsAdministrator())
         {
             var relaunchArgs = BuildWindowsServiceRegisterArguments(command, serviceHostExecutablePath, runnerExecutablePath, scriptPath, moduleManifestPath);
-            return RelaunchElevatedOnWindows(relaunchArgs, runnerExecutablePath);
+            return RelaunchElevatedOnWindows(relaunchArgs);
         }
 
         var createResult = CreateWindowsServiceRegistration(

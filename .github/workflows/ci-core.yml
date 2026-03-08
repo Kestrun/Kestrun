@@ -222,13 +222,13 @@ jobs:
               run: |
                   $ErrorActionPreference = 'Stop'
                   $localToolPath = Join-Path -Path $PWD -ChildPath 'artifacts/nuget'
-                  dotnet tool install --global Kestrun.Tool --add-source $localToolPath --prerelease
+                  dotnet tool install --global Kestrun.Tool --add-source $localToolPath --prerelease --ignore-failed-sources 
 
             - name: Install Kestrun Module
               shell: pwsh
               run: |
                   Invoke-Build Install-Module
-                  
+
             - name: Query Kestrun Module Info
               shell: pwsh
               run: |

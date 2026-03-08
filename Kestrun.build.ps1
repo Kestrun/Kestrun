@@ -418,7 +418,7 @@ Add-BuildTask 'Pack-KestrunTool' 'Build-KestrunTool', {
 
     # Build first to avoid intermittent pack-time publish artifact resolution issues.
     dotnet build "$KestrunToolProjectPath" -c $Configuration -v:$DotNetVerbosity `
-        -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+        -p:Version=$Version -p:InformationalVersion="$($VersionDetails.InformationalVersion)"
     if ($LASTEXITCODE -ne 0) {
         throw 'dotnet build failed for Kestrun tool packaging.'
     }

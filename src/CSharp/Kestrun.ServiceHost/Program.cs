@@ -62,46 +62,65 @@ internal static class Program
         while (index < args.Length)
         {
             var current = args[index];
-            if (current is "--name" && index + 1 < args.Length)
+            if (current is "--name")
             {
-                serviceName = args[index + 1];
-                index += 2;
+                if (!TryReadOptionValue(args, ref index, current, out serviceName, out error))
+                {
+                    return false;
+                }
+
                 continue;
             }
 
-            if (current is "--runner-exe" && index + 1 < args.Length)
+            if (current is "--runner-exe")
             {
-                runnerExecutablePath = args[index + 1];
-                index += 2;
+                if (!TryReadOptionValue(args, ref index, current, out runnerExecutablePath, out error))
+                {
+                    return false;
+                }
+
                 continue;
             }
 
-            if (current is "--script" && index + 1 < args.Length)
+            if (current is "--script")
             {
-                scriptPath = args[index + 1];
-                index += 2;
+                if (!TryReadOptionValue(args, ref index, current, out scriptPath, out error))
+                {
+                    return false;
+                }
+
                 continue;
             }
 
-            if (current is "--run" && index + 1 < args.Length)
+            if (current is "--run")
             {
-                scriptPath = args[index + 1];
+                if (!TryReadOptionValue(args, ref index, current, out scriptPath, out error))
+                {
+                    return false;
+                }
+
                 directRunMode = true;
-                index += 2;
                 continue;
             }
 
-            if (current is "--kestrun-manifest" && index + 1 < args.Length)
+            if (current is "--kestrun-manifest")
             {
-                moduleManifestPath = args[index + 1];
-                index += 2;
+                if (!TryReadOptionValue(args, ref index, current, out moduleManifestPath, out error))
+                {
+                    return false;
+                }
+
                 continue;
             }
 
-            if (current is "--service-log-path" && index + 1 < args.Length)
+            if (current is "--service-log-path")
             {
-                serviceLogPath = args[index + 1];
-                index += 2;
+                if (!TryReadOptionValue(args, ref index, current, out var parsedLogPath, out error))
+                {
+                    return false;
+                }
+
+                serviceLogPath = parsedLogPath;
                 continue;
             }
 
@@ -159,6 +178,30 @@ internal static class Program
             serviceLogPath,
             directRunMode,
             discoverPowerShellHome);
+        return true;
+    }
+
+    /// <summary>
+    /// Reads a required value for the current option and advances the parse index.
+    /// </summary>
+    /// <param name="args">Raw argument list.</param>
+    /// <param name="index">Current option index; advanced when a value is consumed.</param>
+    /// <param name="optionName">Option name used in diagnostics.</param>
+    /// <param name="value">Parsed option value.</param>
+    /// <param name="error">Error message when value is missing.</param>
+    /// <returns>True when a value exists; otherwise false.</returns>
+    private static bool TryReadOptionValue(string[] args, ref int index, string optionName, out string value, out string error)
+    {
+        value = string.Empty;
+        error = string.Empty;
+        if (index + 1 >= args.Length)
+        {
+            error = $"Missing value for {optionName}.";
+            return false;
+        }
+
+        value = args[index + 1];
+        index += 2;
         return true;
     }
 
@@ -249,6 +292,7 @@ internal static class Program
     private sealed class KestrunWindowsService : ServiceBase
     {
         private readonly ScriptExecutionHost _host;
+        private int _hostDisposed;
 
         public KestrunWindowsService(ParsedOptions options)
         {
@@ -277,21 +321,42 @@ internal static class Program
             });
         }
 
+        /// <summary>
+        /// Requests the script host to stop and waits for it to complete before allowing the service to stop. Also ensures the host is disposed when the service is stopped by the runtime or when the service object is disposed.
+        /// </summary> <remarks>
+        /// Windows Services have a complex lifecycle and can be stopped by the runtime in various ways, such as when the service is uninstalled or when the system is shutting down. By implementing both <see cref="OnStop"/> and <see cref="Dispose(bool)"/>, we ensure that the script host is given the opportunity to stop gracefully and release resources in all scenarios.
+        /// </remarks>
         protected override void OnStop()
         {
             _host.WriteBootstrapLog($"Service '{ServiceName}' stopping.");
             _host.Stop();
             _host.WriteBootstrapLog($"Service '{ServiceName}' stopped.");
+            DisposeHostOnce();
         }
 
+        /// <summary>
+        /// Ensures the script host is disposed when the service is stopped or when the service object is disposed by the runtime.
+        /// </summary>
+        /// <param name="disposing">True when called from <see cref="IDisposable.Dispose"/>; false when called from the finalizer.</param>
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
-                _host.Dispose();
+                DisposeHostOnce();
             }
 
             base.Dispose(disposing);
+        }
+
+        /// <summary>
+        /// Disposes the script host exactly once across <see cref="OnStop"/> and <see cref="Dispose(bool)"/>.
+        /// </summary>
+        private void DisposeHostOnce()
+        {
+            if (Interlocked.Exchange(ref _hostDisposed, 1) == 0)
+            {
+                _host.Dispose();
+            }
         }
     }
 
@@ -305,6 +370,7 @@ internal static class Program
         private Action<int>? _onExit;
         private Task<int>? _executionTask;
         private int? _exitCode;
+        private int _disposed;
 
         public ScriptExecutionHost(ParsedOptions options, string bootstrapLogPath)
         {
@@ -447,7 +513,13 @@ internal static class Program
             }
         }
 
-        public void Dispose() => _shutdown.Dispose();
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                _shutdown.Dispose();
+            }
+        }
     }
 
     /// <summary>

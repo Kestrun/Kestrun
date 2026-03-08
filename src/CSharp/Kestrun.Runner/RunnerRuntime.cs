@@ -178,7 +178,7 @@ public static class RunnerRuntime
     /// <returns>A task representing the stop attempt.</returns>
     public static async Task RequestManagedStopAsync()
     {
-        var hostManagerType = Type.GetType("Kestrun.KestrunHostManager, Kestrun", throwOnError: false, ignoreCase: false);
+        var hostManagerType = ResolveKestrunHostManagerType();
         if (hostManagerType is null)
         {
             return;
@@ -210,6 +210,25 @@ public static class RunnerRuntime
     }
 
     /// <summary>
+    /// Resolves the Kestrun host manager type from the current process.
+    /// </summary>
+    /// <returns>The host manager type when available; otherwise null.</returns>
+    private static Type? ResolveKestrunHostManagerType()
+    {
+        var hostManagerType = Type.GetType("Kestrun.KestrunHostManager, Kestrun", throwOnError: false, ignoreCase: false);
+        if (hostManagerType is not null)
+        {
+            return hostManagerType;
+        }
+
+        // Fallback: inspect loaded assemblies in case the simple assembly-qualified lookup misses.
+        return AppDomain.CurrentDomain
+            .GetAssemblies()
+            .Select(static assembly => assembly.GetType("Kestrun.KestrunHostManager", throwOnError: false, ignoreCase: false))
+            .FirstOrDefault(static type => type is not null);
+    }
+
+    /// <summary>
     /// Resolves a bootstrap log path from an optional configured path and default file name.
     /// </summary>
     /// <param name="configuredPath">Configured file or directory path.</param>
@@ -227,8 +246,6 @@ public static class RunnerRuntime
 
         var fullPath = Path.GetFullPath(configuredPath);
         return Directory.Exists(fullPath)
-            || configuredPath.EndsWith('\\')
-            || configuredPath.EndsWith('/')
             ? Path.Combine(fullPath, defaultFileName)
             : fullPath;
     }

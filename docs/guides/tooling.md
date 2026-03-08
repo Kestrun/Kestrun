@@ -175,7 +175,7 @@ For `service install`:
 - if the selected script does not exist inside `--content-root`, install fails with an error.
 - when `--deployment-root` is provided, install writes the service bundle under that root instead of OS defaults.
 - install creates a per-service bundle containing runtime, module, script, and dedicated service-host assets before registration.
-- dedicated `kestrun-service-host` is sourced from the `Kestrun.Tool` payload under `kestrun-service/<rid>/`, not from the PowerShell module payload.
+- dedicated `kestrun-service-host` is sourced from the `Kestrun.Tool` package's internal `kestrun-service` folder under the dotnet tool install location, not from the PowerShell module payload.
 - `Modules` are bundled from the PowerShell release matching `Microsoft.PowerShell.SDK` used by ServiceHost and
  copied into the service `Modules` folder during install.
 - install shows progress bars for bundle staging and module file copy in interactive terminals.

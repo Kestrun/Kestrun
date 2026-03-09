@@ -21,8 +21,8 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryUrl>https://github.com/kestrun/Kestrun</RepositoryUrl>
         <PackageProjectUrl>https://github.com/kestrun/Kestrun</PackageProjectUrl>
-        <!-- README metadata is for regular NuGet packages, not dotnet tool installs. -->
-        <PackageReadmeFile Condition="'$(PackAsTool)' != 'true'">README.md</PackageReadmeFile>
+        <!-- Include README metadata in the nuspec so tool packs also satisfy NuGet readme checks. -->
+        <PackageReadmeFile>README.md</PackageReadmeFile>
         <Version Condition="'$(Version)' == ''">0.0.1</Version>
         <PackageVersion Condition="'$(Version)' == ''">0.0.1</PackageVersion>
         <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Release'">true</GeneratePackageOnBuild>

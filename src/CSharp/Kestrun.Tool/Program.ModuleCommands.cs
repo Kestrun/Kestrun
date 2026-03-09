@@ -424,13 +424,8 @@ internal static partial class Program
             {
                 return false;
             }
-
-            if (!TryInstallExtractedModule(manifestPath, moduleRoot, packageVersion, showProgress, allowOverwrite, out installedManifestPath, out errorText))
-            {
-                return false;
-            }
-
-            return File.Exists(installedManifestPath);
+            // Install extracted module from staging to final destination, with optional overwrite for updates.
+            return TryInstallExtractedModule(manifestPath, moduleRoot, packageVersion, showProgress, allowOverwrite, out installedManifestPath, out errorText) && File.Exists(installedManifestPath);
         }
         catch (Exception ex)
         {
@@ -521,9 +516,9 @@ internal static partial class Program
             ? fullStagingPath
             : fullStagingPath + Path.DirectorySeparatorChar;
 
-        foreach (var payloadEntry in payloadEntries)
+        foreach (var (Entry, RelativePath) in payloadEntries)
         {
-            var relativePath = NormalizePayloadRelativePath(payloadEntry.RelativePath, shouldStripModulePrefix);
+            var relativePath = NormalizePayloadRelativePath(RelativePath, shouldStripModulePrefix);
             if (string.IsNullOrWhiteSpace(relativePath))
             {
                 continue;
@@ -532,7 +527,7 @@ internal static partial class Program
             if (!TryResolveSafeStagingDestination(
                     stagingPath,
                     fullStagingPathWithSeparator,
-                    payloadEntry.Entry.FullName,
+                    Entry.FullName,
                     relativePath,
                     comparisonType,
                     out var destinationPath,
@@ -547,7 +542,7 @@ internal static partial class Program
                 _ = Directory.CreateDirectory(destinationDirectory);
             }
 
-            payloadEntry.Entry.ExtractToFile(destinationPath, overwrite: true);
+            Entry.ExtractToFile(destinationPath, overwrite: true);
             extractedEntryCount++;
             extractProgress?.Report(extractedEntryCount);
         }
@@ -688,4 +683,306 @@ internal static partial class Program
             // Cleanup failures are non-fatal for module install flow.
         }
     }
+
+    /// <summary>
+    /// Parses arguments for module install/update/remove/info commands.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="startIndex">Index after module token.</param>
+    /// <param name="parsedCommand">Parsed command payload.</param>
+    /// <param name="error">Error message when parsing fails.</param>
+    /// <returns>True when parsing succeeds.</returns>
+    private static bool TryParseModuleArguments(string[] args, int startIndex, out ParsedCommand parsedCommand, out string error)
+    {
+        parsedCommand = CreateDefaultModuleParsedCommand();
+
+        if (!TryResolveModuleAction(args, startIndex, out var parseState, out error))
+        {
+            return false;
+        }
+
+        if (!TryParseModuleOptionLoop(args, startIndex + 1, parseState, out error))
+        {
+            return false;
+        }
+
+        parsedCommand = CreateParsedModuleCommand(parseState);
+        return true;
+    }
+
+    /// <summary>
+    /// Holds mutable parse state for module command options.
+    /// </summary>
+    private sealed class ModuleParseState
+    {
+        public required string ActionToken { get; init; }
+
+        public required CommandMode Mode { get; init; }
+
+        public string? ModuleVersion { get; set; }
+
+        public ModuleStorageScope ModuleScope { get; set; } = ModuleStorageScope.Local;
+
+        public bool ModuleScopeSet { get; set; }
+
+        public bool ModuleForce { get; set; }
+
+        public bool ModuleForceSet { get; set; }
+    }
+
+    /// <summary>
+    /// Creates the default parsed command placeholder used during module argument parsing.
+    /// </summary>
+    /// <returns>Default parsed command for module mode.</returns>
+    private static ParsedCommand CreateDefaultModuleParsedCommand()
+        => new(CommandMode.ModuleInfo, string.Empty, [], null, null, null, null, null, null, null, ModuleStorageScope.Local, false, null, null);
+
+    /// <summary>
+    /// Resolves and validates the module action token into parsing state.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="startIndex">Index after module token.</param>
+    /// <param name="parseState">Initialized module parse state.</param>
+    /// <param name="error">Error message when action parsing fails.</param>
+    /// <returns>True when a module action is resolved successfully.</returns>
+    private static bool TryResolveModuleAction(string[] args, int startIndex, out ModuleParseState parseState, out string error)
+    {
+        parseState = null!;
+        error = string.Empty;
+
+        if (startIndex >= args.Length)
+        {
+            error = "Missing module action. Use 'module install', 'module update', 'module remove', or 'module info'.";
+            return false;
+        }
+
+        var actionToken = args[startIndex];
+        var mode = actionToken.ToLowerInvariant() switch
+        {
+            "install" => CommandMode.ModuleInstall,
+            "update" => CommandMode.ModuleUpdate,
+            "remove" => CommandMode.ModuleRemove,
+            "info" => CommandMode.ModuleInfo,
+            _ => (CommandMode?)null,
+        };
+
+        if (mode is null)
+        {
+            error = $"Unknown module action: {actionToken}. Use 'module install', 'module update', 'module remove', or 'module info'.";
+            return false;
+        }
+
+        parseState = new ModuleParseState
+        {
+            ActionToken = actionToken,
+            Mode = mode.Value,
+        };
+        return true;
+    }
+
+    /// <summary>
+    /// Parses module command options from the remaining argument tokens.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="startIndex">First option index after action token.</param>
+    /// <param name="parseState">Mutable module parse state.</param>
+    /// <param name="error">Error message when option parsing fails.</param>
+    /// <returns>True when module options parse successfully.</returns>
+    private static bool TryParseModuleOptionLoop(string[] args, int startIndex, ModuleParseState parseState, out string error)
+    {
+        error = string.Empty;
+        var index = startIndex;
+
+        while (index < args.Length)
+        {
+            if (!TryConsumeModuleOption(args, parseState, ref index, out error))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Attempts to consume one module option at the current parser index.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="parseState">Mutable module parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error message when the current token is invalid.</param>
+    /// <returns>True when parsing can continue.</returns>
+    private static bool TryConsumeModuleOption(string[] args, ModuleParseState parseState, ref int index, out string error)
+    {
+        error = string.Empty;
+        var current = args[index];
+        var acceptsVersion = parseState.Mode is CommandMode.ModuleInstall or CommandMode.ModuleUpdate;
+
+        if (current is ModuleScopeOption or "-s")
+        {
+            return TryConsumeModuleScopeOption(args, parseState, ref index, out error);
+        }
+
+        if (current is ModuleVersionOption or "-v")
+        {
+            return TryConsumeModuleVersionOption(args, parseState, acceptsVersion, ref index, out error);
+        }
+
+        if (current is ModuleForceOption or "-f")
+        {
+            return TryConsumeModuleForceOption(parseState, ref index, out error);
+        }
+
+        if (current.StartsWith("--", StringComparison.Ordinal))
+        {
+            error = $"Unknown option: {current}";
+            return false;
+        }
+
+        error = $"Unexpected argument for module {parseState.ActionToken}: {current}";
+        return false;
+    }
+
+    /// <summary>
+    /// Consumes and validates the module scope option value.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="parseState">Mutable module parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error message when scope parsing fails.</param>
+    /// <returns>True when scope option is valid.</returns>
+    private static bool TryConsumeModuleScopeOption(string[] args, ModuleParseState parseState, ref int index, out string error)
+    {
+        error = string.Empty;
+
+        if (!TryConsumeOptionValue(args, ref index, ModuleScopeOption, out var scopeToken, out error,
+                $"Missing value for {ModuleScopeOption}. Use '{ModuleScopeLocalValue}' or '{ModuleScopeGlobalValue}'."))
+        {
+            return false;
+        }
+
+        if (parseState.ModuleScopeSet)
+        {
+            error = $"Module scope was provided multiple times. Use {ModuleScopeOption} once.";
+            return false;
+        }
+
+        if (!TryParseModuleScope(scopeToken, out var moduleScope))
+        {
+            error = $"Unknown module scope: {scopeToken}. Use '{ModuleScopeLocalValue}' or '{ModuleScopeGlobalValue}'.";
+            return false;
+        }
+
+        parseState.ModuleScope = moduleScope;
+        parseState.ModuleScopeSet = true;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes and validates the module version option value.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="parseState">Mutable module parse state.</param>
+    /// <param name="acceptsVersion">True when current action accepts version option.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error message when version parsing fails.</param>
+    /// <returns>True when version option is valid.</returns>
+    private static bool TryConsumeModuleVersionOption(
+        string[] args,
+        ModuleParseState parseState,
+        bool acceptsVersion,
+        ref int index,
+        out string error)
+    {
+        error = string.Empty;
+
+        if (!acceptsVersion)
+        {
+            error = $"Module {parseState.ActionToken} does not accept {ModuleVersionOption}.";
+            return false;
+        }
+
+        if (!TryConsumeOptionValue(args, ref index, ModuleVersionOption, out var versionValue, out error))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(parseState.ModuleVersion))
+        {
+            error = $"Module version was provided multiple times. Use {ModuleVersionOption} once.";
+            return false;
+        }
+
+        parseState.ModuleVersion = versionValue;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes and validates the module force option.
+    /// </summary>
+    /// <param name="parseState">Mutable module parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error message when force option is invalid.</param>
+    /// <returns>True when force option is valid.</returns>
+    private static bool TryConsumeModuleForceOption(ModuleParseState parseState, ref int index, out string error)
+    {
+        error = string.Empty;
+
+        if (parseState.Mode != CommandMode.ModuleUpdate)
+        {
+            error = $"Module {parseState.ActionToken} does not accept {ModuleForceOption}.";
+            return false;
+        }
+
+        if (parseState.ModuleForceSet)
+        {
+            error = $"{ModuleForceOption} was provided multiple times. Use {ModuleForceOption} once.";
+            return false;
+        }
+
+        parseState.ModuleForce = true;
+        parseState.ModuleForceSet = true;
+        index += 1;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes a single option value and advances parser index.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="optionName">Option name used in default missing-value messages.</param>
+    /// <param name="value">Parsed option value.</param>
+    /// <param name="error">Error message when value is missing.</param>
+    /// <param name="missingValueError">Optional custom missing-value error text.</param>
+    /// <returns>True when value is present and consumed.</returns>
+    private static bool TryConsumeOptionValue(
+        string[] args,
+        ref int index,
+        string optionName,
+        out string value,
+        out string error,
+        string? missingValueError = null)
+    {
+        value = string.Empty;
+        error = string.Empty;
+
+        if (index + 1 >= args.Length)
+        {
+            error = missingValueError ?? $"Missing value for {optionName}.";
+            return false;
+        }
+
+        value = args[index + 1];
+        index += 2;
+        return true;
+    }
+
+    /// <summary>
+    /// Creates the final parsed command payload from module parse state.
+    /// </summary>
+    /// <param name="parseState">Completed parse state.</param>
+    /// <returns>Parsed command payload.</returns>
+    private static ParsedCommand CreateParsedModuleCommand(ModuleParseState parseState)
+        => new(parseState.Mode, string.Empty, [], null, null, null, null, null, null, parseState.ModuleVersion, parseState.ModuleScope, parseState.ModuleForce, null, null);
 }

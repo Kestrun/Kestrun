@@ -235,143 +235,237 @@ internal static partial class Program
         error = string.Empty;
         var current = args[index];
 
-        if (current is "--script")
+        return current switch
         {
-            if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
-            {
-                error = "Service remove/start/stop/query does not accept --script.";
-                return true;
-            }
+            "--script" => TryConsumeServiceScriptOption(args, mode, state, ref index, out error),
+            "--name" or "-n" => TryConsumeServiceNameOption(args, state, ref index, out error),
+            "--kestrun-folder" or "-k" => TryConsumeKestrunFolderOption(args, ref kestrunFolder, ref index, out error),
+            "--kestrun-manifest" or "-m" => TryConsumeKestrunManifestOption(args, ref kestrunManifestPath, ref index, out error),
+            "--service-log-path" => TryConsumeServiceLogPathOption(args, state, ref index, out error),
+            "--service-user" => TryConsumeServiceUserOption(args, mode, state, ref index, out error),
+            "--service-password" => TryConsumeServicePasswordOption(args, mode, state, ref index, out error),
+            "--deployment-root" => TryConsumeServiceDeploymentRootOption(args, mode, state, ref index, out error),
+            "--content-root" => TryConsumeServiceContentRootOption(args, mode, state, ref index, out error),
+            _ => false,
+        };
+    }
 
-            if (!TryConsumeOptionValue(args, ref index, "--script", out var value, out error))
-            {
-                return true;
-            }
-
-            if (state.ScriptPathSet)
-            {
-                error = "Script path was provided multiple times. Use either positional script path or --script once.";
-                return true;
-            }
-
-            state.ScriptPath = value;
-            state.ScriptPathSet = true;
+    /// <summary>
+    /// Consumes and validates the service script option.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceScriptOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        error = string.Empty;
+        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+        {
+            error = "Service remove/start/stop/query does not accept --script.";
             return true;
         }
 
-        if (current is "--name" or "-n")
+        if (!TryConsumeOptionValue(args, ref index, "--script", out var value, out error))
         {
-            if (!TryConsumeOptionValue(args, ref index, "--name", out var value, out error))
-            {
-                return true;
-            }
-
-            state.ServiceName = value;
             return true;
         }
 
-        if (current is "--kestrun-folder" or "-k")
+        if (state.ScriptPathSet)
         {
-            if (!TryConsumeOptionValue(args, ref index, "--kestrun-folder", out var value, out error))
-            {
-                return true;
-            }
-
-            kestrunFolder = value;
+            error = "Script path was provided multiple times. Use either positional script path or --script once.";
             return true;
         }
 
-        if (current is "--kestrun-manifest" or "-m")
-        {
-            if (!TryConsumeOptionValue(args, ref index, "--kestrun-manifest", out var value, out error))
-            {
-                return true;
-            }
+        state.ScriptPath = value;
+        state.ScriptPathSet = true;
+        return true;
+    }
 
-            kestrunManifestPath = value;
+    /// <summary>
+    /// Consumes and applies the service name option.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceNameOption(string[] args, ServiceParseState state, ref int index, out string error)
+    {
+        if (!TryConsumeOptionValue(args, ref index, "--name", out var value, out error))
+        {
             return true;
         }
 
-        if (current is "--service-log-path")
-        {
-            if (!TryConsumeOptionValue(args, ref index, "--service-log-path", out var value, out error))
-            {
-                return true;
-            }
+        state.ServiceName = value;
+        return true;
+    }
 
-            state.ServiceLogPath = value;
+    /// <summary>
+    /// Consumes and applies the Kestrun folder option.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="kestrunFolder">Optional folder override.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeKestrunFolderOption(string[] args, ref string? kestrunFolder, ref int index, out string error)
+    {
+        if (!TryConsumeOptionValue(args, ref index, "--kestrun-folder", out var value, out error))
+        {
             return true;
         }
 
-        if (current is "--service-user")
+        kestrunFolder = value;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes and applies the Kestrun manifest option.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="kestrunManifestPath">Optional manifest override.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeKestrunManifestOption(string[] args, ref string? kestrunManifestPath, ref int index, out string error)
+    {
+        if (!TryConsumeOptionValue(args, ref index, "--kestrun-manifest", out var value, out error))
         {
-            if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
-            {
-                error = "Service remove/start/stop/query does not accept --service-user.";
-                return true;
-            }
-
-            if (!TryConsumeOptionValue(args, ref index, "--service-user", out var value, out error))
-            {
-                return true;
-            }
-
-            state.ServiceUser = value;
             return true;
         }
 
-        if (current is "--service-password")
+        kestrunManifestPath = value;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes and applies the service log path option.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceLogPathOption(string[] args, ServiceParseState state, ref int index, out string error)
+    {
+        if (!TryConsumeOptionValue(args, ref index, "--service-log-path", out var value, out error))
         {
-            if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
-            {
-                error = "Service remove/start/stop/query does not accept --service-password.";
-                return true;
-            }
-
-            if (!TryConsumeOptionValue(args, ref index, "--service-password", out var value, out error))
-            {
-                return true;
-            }
-
-            state.ServicePassword = value;
             return true;
         }
 
-        if (current is "--deployment-root")
+        state.ServiceLogPath = value;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes and validates the service-user option.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceUserOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        error = string.Empty;
+        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
         {
-            if (mode is CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
-            {
-                error = "Service start/stop/query does not accept --deployment-root.";
-                return true;
-            }
-
-            if (!TryConsumeOptionValue(args, ref index, "--deployment-root", out var value, out error))
-            {
-                return true;
-            }
-
-            state.ServiceDeploymentRoot = value;
+            error = "Service remove/start/stop/query does not accept --service-user.";
             return true;
         }
 
-        if (current is "--content-root")
+        if (!TryConsumeOptionValue(args, ref index, "--service-user", out var value, out error))
         {
-            if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
-            {
-                error = "Service remove/start/stop/query does not accept --content-root.";
-                return true;
-            }
-
-            if (!TryConsumeOptionValue(args, ref index, "--content-root", out var value, out error))
-            {
-                return true;
-            }
-
-            state.ServiceContentRoot = value;
             return true;
         }
 
-        return false;
+        state.ServiceUser = value;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes and validates the service-password option.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServicePasswordOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        error = string.Empty;
+        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+        {
+            error = "Service remove/start/stop/query does not accept --service-password.";
+            return true;
+        }
+
+        if (!TryConsumeOptionValue(args, ref index, "--service-password", out var value, out error))
+        {
+            return true;
+        }
+
+        state.ServicePassword = value;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes and validates the deployment-root option.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceDeploymentRootOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        error = string.Empty;
+        if (mode is CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+        {
+            error = "Service start/stop/query does not accept --deployment-root.";
+            return true;
+        }
+
+        if (!TryConsumeOptionValue(args, ref index, "--deployment-root", out var value, out error))
+        {
+            return true;
+        }
+
+        state.ServiceDeploymentRoot = value;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes and validates the content-root option.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceContentRootOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        error = string.Empty;
+        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+        {
+            error = "Service remove/start/stop/query does not accept --content-root.";
+            return true;
+        }
+
+        if (!TryConsumeOptionValue(args, ref index, "--content-root", out var value, out error))
+        {
+            return true;
+        }
+
+        state.ServiceContentRoot = value;
+        return true;
     }
 
     /// <summary>

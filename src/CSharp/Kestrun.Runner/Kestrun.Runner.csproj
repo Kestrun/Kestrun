@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <AssemblyName>Kestrun.Runner</AssemblyName>
+        <RootNamespace>Kestrun.Runner</RootNamespace>
+        <AssemblyTitle>Kestrun.Runner</AssemblyTitle>
+        <Product>Kestrun.Runner</Product>
+        <Description>Shared runner utilities for Kestrun executable hosts.</Description>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.6.0-rc.1" />
+    </ItemGroup>
+</Project>

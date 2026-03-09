@@ -59,6 +59,48 @@ $definitionPublicPath = Join-Path -Path $artifactsPath -ChildPath 'Public-Defini
 Write-Host "📦 Creating module distribution at $artifactsPath"
 Write-Host "🔍 Version: $Version"
 
+function Write-TextFileWithRetry {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        [Parameter(Mandatory = $false)]
+        [AllowNull()]
+        [string]$Content,
+        [Parameter(Mandatory = $false)]
+        [int]$MaxAttempts = 8,
+        [Parameter(Mandatory = $false)]
+        [int]$InitialDelayMilliseconds = 100
+    )
+
+    $directoryPath = Split-Path -Path $Path -Parent
+    if (-not [string]::IsNullOrWhiteSpace($directoryPath) -and -not (Test-Path -Path $directoryPath)) {
+        New-Item -Path $directoryPath -ItemType Directory -Force | Out-Null
+    }
+
+    if ($null -eq $Content) {
+        $Content = [string]::Empty
+    }
+
+    $encoding = [System.Text.UTF8Encoding]::new($false)
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        try {
+            [System.IO.File]::WriteAllText($Path, $Content, $encoding)
+            return
+        } catch [System.IO.IOException] {
+            if ($attempt -ge $MaxAttempts) {
+                throw
+            }
+
+            $delayMilliseconds = [Math]::Min(
+                2000,
+                [int]([double]$InitialDelayMilliseconds * [Math]::Pow(2, $attempt - 1))
+            )
+            Write-Host "⚠️ File write lock detected for '$Path'. Retrying in $delayMilliseconds ms ($attempt/$MaxAttempts)..." -ForegroundColor Yellow
+            Start-Sleep -Milliseconds $delayMilliseconds
+        }
+    }
+}
+
 
 # 1. Figure out which public functions are "in route runspace" using Get-KrCommandsByContext
 Write-Host '🔍 Analyzing public functions for runtime context...'
@@ -76,26 +118,37 @@ $routeNames = $routeCmds.Name
 
 # 3. Build Private.ps1 (all private helpers, same as before)
 Write-Host '🛠️ Building Private.ps1...'
+$privateContentBuilder = [System.Text.StringBuilder]::new()
 Get-ChildItem "$kestrunSrcPath/Private/*.ps1" -Recurse | ForEach-Object {
     $content = Remove-CommentHelpBlock -Path $_.FullName
-    $content | Out-File $privateModulePath -Append -Encoding utf8
-    #  Add-Content -Path $privateModulePath -Value "`n"
+    if (-not [string]::IsNullOrWhiteSpace($content)) {
+        [void]$privateContentBuilder.AppendLine($content)
+    }
 }
+Write-TextFileWithRetry -Path $privateModulePath -Content $privateContentBuilder.ToString()
 
 # 4. Build Public.Route.ps1 and Public.Definition.ps1
 Write-Host '🛠️ Building Public.Route.ps1 and Public.Definition.ps1...'
 #    Split based on function name <-> file name
+$routePublicContentBuilder = [System.Text.StringBuilder]::new()
+$definitionPublicContentBuilder = [System.Text.StringBuilder]::new()
 Get-ChildItem "$kestrunSrcPath/Public/*.ps1" -Recurse | ForEach-Object {
     $fnName = [System.IO.Path]::GetFileNameWithoutExtension($_.Name)
-
-    $targetPath = if ($routeNames -contains $fnName) {
-        $routePublicPath
-    } else {
-        $definitionPublicPath
-    }
     $content = Remove-CommentHelpBlock -Path $_.FullName
-    $content | Out-File $targetPath -Append -Encoding utf8
+    if ([string]::IsNullOrWhiteSpace($content)) {
+        return
+    }
+
+    if ($routeNames -contains $fnName) {
+        [void]$routePublicContentBuilder.AppendLine($content)
+        return
+    }
+
+    [void]$definitionPublicContentBuilder.AppendLine($content)
 }
+Write-TextFileWithRetry -Path $routePublicPath -Content $routePublicContentBuilder.ToString()
+Write-TextFileWithRetry -Path $definitionPublicPath -Content $definitionPublicContentBuilder.ToString()
+
 # 5. Build the module manifest
 Write-Host '🛠️ Updating module manifest...'
 pwsh -NoProfile -File .\Utility\Update-Manifest.ps1 -ModuleRootPath $kestrunSrcPath -FileVersion $FileVersion -OutputPath $artifactsPath

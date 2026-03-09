@@ -150,7 +150,11 @@ if ($isDebug) {
 $SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath 'Kestrun.sln'
 $KestrunProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun/Kestrun.csproj'
 $KestrunAnnotationsProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Annotations/Kestrun.Annotations.csproj'
+$KestrunToolProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
+$KestrunServiceHostProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.ServiceHost/Kestrun.ServiceHost.csproj'
+$KestrunToolRuntimeIdentifiers = @('win-x64', 'win-arm64', 'linux-x64', 'linux-arm64', 'osx-x64', 'osx-arm64')
 $ExamplesSolutionFilter = Join-Path -Path $PSScriptRoot -ChildPath 'Examples.slnf'
+$KestrunToolPowerShellCacheRoot = Join-Path -Path $PSScriptRoot -ChildPath '.package' -AdditionalChildPath 'powershell-cache'
 
 Write-Host '---------------------------------------------------' -ForegroundColor DarkCyan
 if (-not $Version) {
@@ -199,38 +203,48 @@ Add-BuildTask Help {
     Write-Host '- Clean: Cleans the solution.'
     Write-Host '- Restore: Restores NuGet packages.'
     Write-Host '- Build: Builds the solution.'
+    Write-Host '- Pack-KestrunTool: Packs Kestrun.Tool as a dotnet tool package (dotnet-kestrun) into artifacts/nuget using Release configuration.'
     Write-Host '- Test: Runs tests and Pester tests.'
-    Write-Host '- Package: Packages the solution.'
+    Write-Host '- Package: Packages the solution and includes the Kestrun dotnet tool package.'
     Write-Host '- All: Runs Clean, Build, and Test tasks in sequence.'
     Write-Host '-----------------------------------------------------'
     Write-Host '🧩 Additional Tasks:' -ForegroundColor Green
     Write-Host '- Nuget-CodeAnalysis: Updates CodeAnalysis packages.'
-    Write-Host '- Clean-CodeAnalysis: Cleans the CodeAnalysis packages.'
-    Write-Host '- Test-xUnit: Runs Kestrun DLL tests.'
-    Write-Host '- Test-Pester: Runs Pester tests.'
-    Write-Host '- Manifest: Updates the Kestrun.psd1 manifest.'
     Write-Host '- New-LargeFile: Generates a large test file.'
     Write-Host '- Clean-LargeFile: Cleans the generated large test files.'
-    Write-Host '- ThirdPartyNotices: Generates third-party notices.'
-    Write-Host '- Build-Help: Generates PowerShell help documentation.'
-    Write-Host '- Clean-Help: Cleans the PowerShell help documentation.'
-    Write-Host '- Build-TutorialIndex: Regenerates docs/pwsh/tutorial/index.md.'
+    Write-Host '- Coverage: Generates code coverage reports.'
+    Write-Host '- Report-Coverage: Generates code coverage report webpage.'
+
+    # Formatting and linting tasks
+    Write-Host '- Format: Formats the codebase.'
+    Write-Host '- Normalize-LineEndings: Normalizes line endings to LF in .ps1, .psm1, and .cs files.'
+    # Documentation tasks
     Write-Host '- Export-OpenApiSamples: Runs all OpenAPI 10.x samples and exports v3.0/v3.1/v3.2 JSON under docs/_includes/examples/pwsh/Assets/OpenAPI.'
+    Write-Host '- Manifest: Updates the Kestrun.psd1 manifest.'
+    Write-Host '- ThirdPartyNotices: Generates third-party notices.'
+    # Module management tasks
     Write-Host '- Install-Module: Installs the Kestrun module.'
     Write-Host '- Remove-Module: Removes the Kestrun module.'
     Write-Host '- Update-Module: Updates the Kestrun module.'
-    Write-Host '- Format: Formats the codebase.'
-    Write-Host '- Coverage: Generates code coverage reports.'
-    Write-Host '- Report-Coverage: Generates code coverage report webpage.'
-    Write-Host '- Clean-Coverage: Cleans the code coverage reports.'
-    Write-Host '- Normalize-LineEndings: Normalizes line endings to LF in .ps1, .psm1, and .cs files.'
+    # Build tasks
+    Write-Host '- Build-KestrunTool: Publishes dedicated ServiceHost runtimes and stages PowerShell Modules payloads in src/CSharp/Kestrun.Tool/kestrun-service using the current -Configuration value.'
+    Write-Host '- Build-Help: Generates PowerShell help documentation.'
+    Write-Host '- Build-TutorialIndex: Regenerates docs/pwsh/tutorial/index.md.'
+    # Test tasks
     Write-Host '- Test-Tutorials: Runs tests on tutorial documentation.'
+    Write-Host '- Test-xUnit: Runs Kestrun DLL tests.'
+    Write-Host '- Test-Pester: Runs Pester tests.'
+    # Clean tasks
     Write-Host '- Deep-Clean: Cleans all build artifacts.'
     Write-Host '- Clean-Package: Cleans the package output directories.'
+    Write-Host '- Clean-KestrunTool: Removes Kestrun.Tool artifacts, runtimes, and launcher scripts.'
+    Write-Host '- Clean-Help: Cleans the PowerShell help documentation.'
+    Write-Host '- Clean-Coverage: Cleans the code coverage reports.'
+    Write-Host '- Clean-CodeAnalysis: Cleans the CodeAnalysis packages.'
     Write-Host '-----------------------------------------------------'
 }
 
-Add-BuildTask 'Clean' 'Clean-CodeAnalysis', 'Clean-Help', 'Clean-Dotnet', 'Clean-PowerShellLib', {
+Add-BuildTask 'Clean' 'Clean-CodeAnalysis', 'Clean-Help', 'Clean-Dotnet', 'Clean-PowerShellLib', 'Clean-KestrunTool', {
     Write-Host '✅ Clean completed.'
 }
 
@@ -240,6 +254,31 @@ Add-BuildTask 'Clean-PowerShellLib' {
         Remove-Item -Recurse -Force './src/PowerShell/Kestrun/lib' -ErrorAction SilentlyContinue
     }
     Write-Host '✅ PowerShell library Clean completed.'
+}
+
+Add-BuildTask 'Clean-KestrunTool' {
+    Write-Host '🧹 Cleaning Kestrun.Tool artifacts...'
+
+    $kestrunToolOutputRoots = @(
+        (Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'Kestrun.Tool'),
+        # Legacy output paths kept for one-way cleanup during the rename transition.
+        (Join-Path -Path $PSScriptRoot -ChildPath 'publish' -AdditionalChildPath 'Kestrun.Tool')
+    )
+
+    foreach ($kestrunToolOutputRoot in $kestrunToolOutputRoots) {
+        if (Test-Path -Path $kestrunToolOutputRoot) {
+            Remove-Item -Path $kestrunToolOutputRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    $kestrunToolServiceHostRuntimesDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/kestrun-service'
+    if (Test-Path -Path $kestrunToolServiceHostRuntimesDirectory) {
+        Remove-Item -Path $kestrunToolServiceHostRuntimesDirectory -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+
+
+    Write-Host '✅ Kestrun.Tool clean completed.'
 }
 
 Add-BuildTask 'Clean-Dotnet' {
@@ -258,6 +297,7 @@ Add-BuildTask 'CleanObj' {
     }
     Write-Host '✅ Obj clean completed.'
 }
+
 Add-BuildTask 'CleanBin' {
     Write-Host '🧹 Cleaning bin folders...'
     if (Test-Path -Path '.\src\CSharp\Kestrun.Annotations\bin') {
@@ -270,12 +310,21 @@ Add-BuildTask 'CleanBin' {
 }
 
 Add-BuildTask 'Clean-Package' {
-    Write-Host '🧼 Clearing previous package artifacts...'
-    $out = Join-Path -Path $PWD -ChildPath 'artifacts'
+    Write-Host '🧼 Clearing previous package ...'
+    $out = Join-Path -Path $PWD -ChildPath '.\.package'
     if (Test-Path -Path $out) {
         Remove-Item -Path $out -Recurse -Force -ErrorAction Stop
     }
     Write-Host '✅ Package clean completed.'
+}
+
+Add-BuildTask 'Clean-Artifacts' {
+    Write-Host '🧼 Clearing previous artifacts...'
+    $out = Join-Path -Path $PWD -ChildPath 'artifacts'
+    if (Test-Path -Path $out) {
+        Remove-Item -Path $out -Recurse -Force -ErrorAction Stop
+    }
+    Write-Host '✅ Artifacts clean completed.'
 }
 
 Add-BuildTask 'Clean-CodeAnalysis' {
@@ -286,7 +335,7 @@ Add-BuildTask 'Clean-CodeAnalysis' {
     Write-Host '✅ CodeAnalysis clean completed.'
 }
 
-Add-BuildTask 'Deep-Clean' 'Clean', 'CleanObj', 'CleanBin' , 'Clean-Package', {
+Add-BuildTask 'Deep-Clean' 'Clean', 'CleanObj', 'CleanBin' , 'Clean-Artifacts', 'Clean-Package', {
     Write-Host '🧼 Deep cleaning completed.'
 }
 
@@ -338,6 +387,71 @@ Add-BuildTask 'BuildExamples' {
             throw "dotnet build failed for Kestrun.Annotations project for framework $framework"
         }
     }
+}
+
+Add-BuildTask 'Build-KestrunTool' {
+    Write-Host "🔧 Staging Kestrun.Tool service-host runtimes using configuration: $Configuration"
+
+    $kestrunToolPublishRoot = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'Kestrun.Tool'
+    $kestrunToolServiceHostRuntimesDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/kestrun-service'
+
+    & .\Utility\Build-KestrunTool.ps1 `
+        -KestrunServiceHostProjectPath $KestrunServiceHostProjectPath `
+        -Configuration $Configuration `
+        -DotNetVerbosity $DotNetVerbosity `
+        -Version $Version `
+        -InformationalVersion $VersionDetails.InformationalVersion `
+        -RuntimeIdentifiers $KestrunToolRuntimeIdentifiers `
+        -PublishRoot $kestrunToolPublishRoot `
+        -CacheRoot $KestrunToolPowerShellCacheRoot `
+        -ServiceHostRuntimesDirectory $kestrunToolServiceHostRuntimesDirectory
+}
+
+Add-BuildTask 'Pack-KestrunTool' 'Set-PackageConfiguration', 'Build-KestrunTool', {
+    Write-Host '📦 Packing Kestrun dotnet tool package (dotnet-kestrun)...'
+
+    $toolOutputDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'nuget'
+    if (-not (Test-Path -Path $toolOutputDirectory)) {
+        New-Item -Path $toolOutputDirectory -ItemType Directory -Force | Out-Null
+    }
+
+    Remove-Item -Path (Join-Path -Path $toolOutputDirectory -ChildPath 'Kestrun.Tool*.nupkg') -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path (Join-Path -Path $toolOutputDirectory -ChildPath 'Kestrun.Tool*.snupkg') -Force -ErrorAction SilentlyContinue
+
+    # Build first to avoid intermittent pack-time publish artifact resolution issues.
+    dotnet build "$KestrunToolProjectPath" -c $Configuration -v:$DotNetVerbosity `
+        -p:Version=$Version -p:InformationalVersion="$($VersionDetails.InformationalVersion)"
+    if ($LASTEXITCODE -ne 0) {
+        throw 'dotnet build failed for Kestrun tool packaging.'
+    }
+
+    $serviceHostRuntimesRoot = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/kestrun-service'
+    if (-not (Test-Path -Path $serviceHostRuntimesRoot)) {
+        throw "Missing staged service-host runtimes directory: $serviceHostRuntimesRoot"
+    }
+
+    foreach ($runtimeIdentifier in $KestrunToolRuntimeIdentifiers) {
+        $serviceHostFileName = if ($runtimeIdentifier -like 'win-*') { 'kestrun-service-host.exe' } else { 'kestrun-service-host' }
+        $serviceHostPath = Join-Path -Path $serviceHostRuntimesRoot -ChildPath $runtimeIdentifier -AdditionalChildPath $serviceHostFileName
+        if (-not (Test-Path -Path $serviceHostPath)) {
+            throw "Missing staged service-host runtime binary for '$runtimeIdentifier': $serviceHostPath"
+        }
+
+        $serviceModulesPath = Join-Path -Path $serviceHostRuntimesRoot -ChildPath $runtimeIdentifier -AdditionalChildPath 'Modules'
+        if (-not (Test-Path -Path $serviceModulesPath)) {
+            throw "Missing staged PowerShell runtime modules for '$runtimeIdentifier': $serviceModulesPath"
+        }
+    }
+
+    dotnet pack "$KestrunToolProjectPath" --no-build -c $Configuration -o "$toolOutputDirectory" -v:$DotNetVerbosity `
+        -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
+    if ($LASTEXITCODE -ne 0) {
+        throw 'dotnet pack failed for Kestrun tool packaging.'
+    }
+
+    Write-Host "✅ Kestrun dotnet tool package created in: $toolOutputDirectory"
+    Write-Host "   Install with: dotnet tool install --global Kestrun.Tool --add-source $toolOutputDirectory"
+    Write-Host '   Run with: dotnet kestrun help'
 }
 
 Add-BuildTask 'Build' 'BuildNoPwsh', 'SyncPowerShellDll', { Write-Host '🚀 Build completed.' }
@@ -421,9 +535,13 @@ Add-BuildTask 'Export-OpenApiSamples' {
     }
 }
 
-Add-BuildTask 'Package' 'Clean-Package', 'Build', {
-    Write-Host '🚀 Starting release build...'
+Add-BuildTask 'Set-PackageConfiguration' {
+    Write-Host '🔧 Using Release configuration for package tasks...'
     $script:Configuration = 'Release'
+}
+
+Add-BuildTask 'Package' 'Set-PackageConfiguration', 'Build', 'Pack-KestrunTool', {
+    Write-Host '🚀 Starting release build...'
 
     # Retrieve the short commit SHA from Git
     #$commit = (git rev-parse --short HEAD).Trim()
@@ -431,10 +549,6 @@ Add-BuildTask 'Package' 'Clean-Package', 'Build', {
 
     $out = Join-Path -Path $PWD -ChildPath 'artifacts'
 
-    if ( (Test-Path -Path $out)) {
-        Write-Host "🗑️ Cleaning existing artifacts at $out ..."
-        Remove-Item -Path $out -Recurse -Force
-    }
     New-Item -Path $out -ItemType Directory -Force | Out-Null
     $kestrunReleasePath = Join-Path -Path $out -ChildPath 'modules' -AdditionalChildPath 'Kestrun'
 

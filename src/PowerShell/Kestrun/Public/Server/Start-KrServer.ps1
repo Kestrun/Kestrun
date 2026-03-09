@@ -38,14 +38,22 @@ function Start-KrServer {
         [switch]$CloseLogsOnExit
     )
     begin {
+        $effectiveQuiet = $Quiet.IsPresent
+        if (-not $PSBoundParameters.ContainsKey('Quiet')) {
+            $effectiveQuiet = [bool]$ExecutionContext.SessionState.PSVariable.GetValue('__krRunnerQuiet', $false)
+        }
+        $managedConsole = [bool]$ExecutionContext.SessionState.PSVariable.GetValue('__krRunnerManagedConsole', $false)
+
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
         $hasConsole = $false
         $writeConsole = $false
         try {
-            $null = [Console]::KeyAvailable
-            $hasConsole = $true
-            $writeConsole = -not $Quiet.IsPresent
+            if (-not $managedConsole) {
+                $null = [Console]::KeyAvailable
+                $hasConsole = $true
+            }
+            $writeConsole = -not $effectiveQuiet
         } catch {
             Write-KrLog -Level Information -Message 'No console available; running in non-interactive mode.'
         }
@@ -58,7 +66,7 @@ function Start-KrServer {
             }
         }
         # Start the Kestrel server
-        if ( -not $Quiet.IsPresent ) {
+        if ( -not $effectiveQuiet ) {
             Write-Host "Starting Kestrun server '$($Server.ApplicationName)' ..."
         }
         $Server.StartAsync() | Out-Null

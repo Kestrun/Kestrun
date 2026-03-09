@@ -4,7 +4,6 @@ namespace Kestrun.Tool;
 
 internal static partial class Program
 {
-
     /// <summary>
     /// Executes the target script by delegating to the dedicated service-host executable.
     /// </summary>
@@ -248,7 +247,6 @@ internal static partial class Program
     /// <param name="kestrunManifestPath">Optional explicit path to Kestrun.psd1.</param>
     private sealed class RunParseState(int index, string? kestrunFolder, string? kestrunManifestPath)
     {
-
         /// <summary>
         /// Gets or sets the current parser index.
         /// </summary>

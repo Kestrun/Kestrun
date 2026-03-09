@@ -45,10 +45,7 @@ AfterAll {
         return
     }
 
-    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
-    $isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    if (-not $isAdmin) {
+    if (-not $script:isWindowsAdmin) {
         return
     }
 

@@ -80,7 +80,8 @@ public static class RunnerRuntime
                     onWarning?.Invoke(
                         $"Kestrun assembly was already loaded from a different location; continuing with loaded assembly version "
                         + $"'{(loadedVersion is null ? "unknown" : loadedVersion.ToString())}' "
-                        + $"(expected '{(expectedVersion is null ? "unknown" : expectedVersion.ToString())}').");
+                        + $"(expected '{(expectedVersion is null ? "unknown" : expectedVersion.ToString())}'). "
+                        + $"Loaded path: '{loadedPath}'. Expected path: '{expectedFullPath}'.");
                     return;
                 }
 

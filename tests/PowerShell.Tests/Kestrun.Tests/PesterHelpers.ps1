@@ -2876,15 +2876,15 @@ function Get-WindowsPrivilegeRightSid {
 
 <#
 .SYNOPSIS
-    Retrieve the SIDs associated with the SeServiceLogonRight and SeDenyServiceLogonRight privilege rights.
+    Retrieve the SIDs associated with the SeServiceLogonRight privilege right.
 .DESCRIPTION
-    These functions are specific wrappers around Get-WindowsPrivilegeRightSid to retrieve the SIDs associated with the SeServiceLogonRight (allowing service logon)
-    and SeDenyServiceLogonRight (denying service logon) privilege rights. They require a working directory for temporary files used during the export process.
-    The functions return arrays of SIDs in string format for each respective privilege right.
+    This function is a specific wrapper around Get-WindowsPrivilegeRightSid to retrieve the SIDs associated with the SeServiceLogonRight privilege right, which allows service logon.
+    It requires a working directory for temporary files used during the export process. The function returns an array of SIDs in string format for the SeServiceLogonRight privilege right.
+    If no SIDs are found or if an error occurs, an empty array is returned.
 .PARAMETER WorkingDirectory
     The directory to use for temporary files during the export process. This should be a valid writable directory path.
 .OUTPUTS
-    An array of strings representing the SIDs associated with the specified privilege right. If no SIDs are found or if an error occurs, an empty array is returned.
+    An array of strings representing the SIDs associated with the SeServiceLogonRight privilege right. If no SIDs are found or if an error occurs, an empty array is returned.
 #>
 function Get-WindowsServiceLogonRightSid {
     param(

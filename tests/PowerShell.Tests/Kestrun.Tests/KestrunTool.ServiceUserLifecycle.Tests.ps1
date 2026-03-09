@@ -232,7 +232,8 @@ Describe 'KestrunTool service user lifecycle' {
         $serviceUser = "krsvc_$suffix"
         $machineQualifiedServiceUser = "$env:COMPUTERNAME\$serviceUser"
         # Keep password <=14 chars to avoid net.exe interactive legacy warning prompt.
-        $servicePassword = "T!a$($suffix.Substring(0, 6))9"
+        # Explicitly guarantee complexity: upper (T/Z), lower (a/b), digit (9), special (!).
+        $servicePassword = "T!a9Zb$($suffix.Substring(0, 4))"
         $serviceName = "test-user-$suffix"
         $deploymentRoot = Join-Path $env:TEMP "kestrun-service-user-$suffix"
         $scriptPath = Join-Path $script:root 'docs/_includes/examples/pwsh/10.2-OpenAPI-Component-Schema.ps1'

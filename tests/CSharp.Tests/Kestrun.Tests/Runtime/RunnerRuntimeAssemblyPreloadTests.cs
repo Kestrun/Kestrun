@@ -80,7 +80,7 @@ public class RunnerRuntimeAssemblyPreloadTests
 
             Assert.False(string.IsNullOrWhiteSpace(warning));
             Assert.Contains("already loaded from a different location", warning, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain(loadedPath!, warning, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains(copiedAssemblyPath, warning, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {

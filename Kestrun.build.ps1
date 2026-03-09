@@ -540,7 +540,7 @@ Add-BuildTask 'Set-PackageConfiguration' {
     $script:Configuration = 'Release'
 }
 
-Add-BuildTask 'Package' 'Clean-Package', 'Set-PackageConfiguration', 'Build', 'Pack-KestrunTool', {
+Add-BuildTask 'Package' 'Set-PackageConfiguration', 'Build', 'Pack-KestrunTool', {
     Write-Host '🚀 Starting release build...'
 
     # Retrieve the short commit SHA from Git

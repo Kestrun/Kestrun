@@ -1,13 +1,9 @@
-using System.Management.Automation;
-using System.Management.Automation.Runspaces;
 using System.Reflection;
 using Kestrun.Runner;
-using Microsoft.PowerShell;
 using System.Diagnostics;
 using System.ComponentModel;
 using System.Security.Principal;
 using System.Runtime.Versioning;
-using System.ServiceProcess;
 using System.Runtime.InteropServices;
 using System.IO.Compression;
 using System.Net;
@@ -84,14 +80,6 @@ internal static partial class Program
         string? ServiceContentRoot,
         string? ServiceDeploymentRoot);
 
-    private sealed record ServiceHostOptions(
-        string ServiceName,
-        string ScriptPath,
-        string[] ScriptArguments,
-        string? KestrunFolder,
-        string? KestrunManifestPath,
-        string? ServiceLogPath);
-
     private sealed record ServiceRegisterOptions(
         string ServiceName,
         string ServiceHostExecutablePath,
@@ -125,23 +113,6 @@ internal static partial class Program
 
     private static int Main(string[] args)
     {
-        if (TryParseServiceHostArguments(args, out var serviceHostOptions, out var serviceHostError))
-        {
-            if (!OperatingSystem.IsWindows())
-            {
-                Console.Error.WriteLine("Internal service host mode is only supported on Windows.");
-                return 1;
-            }
-
-            return RunWindowsServiceHost(serviceHostOptions!);
-        }
-
-        if (!string.IsNullOrWhiteSpace(serviceHostError))
-        {
-            Console.Error.WriteLine(serviceHostError);
-            return 2;
-        }
-
         if (TryParseServiceRegisterArguments(args, out var serviceRegisterOptions, out var serviceRegisterError))
         {
             if (!OperatingSystem.IsWindows())
@@ -245,7 +216,7 @@ internal static partial class Program
             return 2;
         }
 
-        var moduleManifestPath = LocateModuleManifest(kestrunManifestPath, kestrunFolder);
+        var moduleManifestPath = ResolveRunModuleManifestPath(kestrunManifestPath, kestrunFolder);
         if (moduleManifestPath is null)
         {
             WriteModuleNotFoundMessage(kestrunManifestPath, kestrunFolder, Console.Error.WriteLine);
@@ -259,12 +230,7 @@ internal static partial class Program
 
         try
         {
-            return ExecuteScript(fullScriptPath, scriptArguments, moduleManifestPath);
-        }
-        catch (RuntimeException ex)
-        {
-            Console.Error.WriteLine(ex.Message);
-            return 1;
+            return ExecuteScriptViaServiceHost(fullScriptPath, scriptArguments, moduleManifestPath);
         }
         catch (Exception ex)
         {
@@ -283,95 +249,6 @@ internal static partial class Program
         using var identity = WindowsIdentity.GetCurrent();
         var principal = new WindowsPrincipal(identity);
         return principal.IsInRole(WindowsBuiltInRole.Administrator);
-    }
-
-    /// <summary>
-    /// Parses internal Windows service host arguments when present.
-    /// </summary>
-    /// <param name="args">Raw command-line arguments.</param>
-    /// <param name="options">Parsed service host options when successful.</param>
-    /// <param name="error">Parse error when service-host mode is requested but invalid.</param>
-    /// <returns>True when service-host mode is recognized and parsed.</returns>
-    private static bool TryParseServiceHostArguments(string[] args, out ServiceHostOptions? options, out string? error)
-    {
-        options = null;
-        error = null;
-
-        if (args.Length == 0 || !string.Equals(args[0], "--service-host", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        var index = 1;
-        var serviceName = string.Empty;
-        var scriptPath = string.Empty;
-        var scriptArgs = Array.Empty<string>();
-        string? kestrunFolder = null;
-        string? kestrunManifestPath = null;
-        string? serviceLogPath = null;
-
-        while (index < args.Length)
-        {
-            var current = args[index];
-            if (current is "--name" && index + 1 < args.Length)
-            {
-                serviceName = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--script" && index + 1 < args.Length)
-            {
-                scriptPath = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--kestrun-folder" or "-k" && index + 1 < args.Length)
-            {
-                kestrunFolder = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--kestrun-manifest" or "-m" && index + 1 < args.Length)
-            {
-                kestrunManifestPath = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--service-log-path" && index + 1 < args.Length)
-            {
-                serviceLogPath = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--arguments" or "--")
-            {
-                scriptArgs = [.. args.Skip(index + 1)];
-                break;
-            }
-
-            error = $"Unknown service host option: {current}";
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(serviceName))
-        {
-            error = "Missing --name for internal service host mode.";
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(scriptPath))
-        {
-            error = "Missing --script for internal service host mode.";
-            return false;
-        }
-
-        options = new ServiceHostOptions(serviceName, scriptPath, scriptArgs, kestrunFolder, kestrunManifestPath, serviceLogPath);
-        return true;
     }
 
     /// <summary>
@@ -510,151 +387,6 @@ internal static partial class Program
 
         options = new ServiceRegisterOptions(serviceName, serviceHostExecutablePath, runnerExecutablePath, scriptPath, moduleManifestPath, scriptArgs, serviceLogPath, serviceUser, servicePassword);
         return true;
-    }
-
-    /// <summary>
-    /// Runs KestrunTool under Windows Service Control Manager.
-    /// </summary>
-    /// <param name="options">Service host options.</param>
-    /// <returns>Process exit code.</returns>
-    [SupportedOSPlatform("windows")]
-    private static int RunWindowsServiceHost(ServiceHostOptions options)
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            Console.Error.WriteLine("Internal service host mode is only supported on Windows.");
-            return 1;
-        }
-
-        ServiceBase.Run(new KestrunToolWindowsService(options));
-        return 0;
-    }
-
-    /// <summary>
-    /// Windows service adapter that runs a KestrunTool script under SCM lifecycle callbacks.
-    /// </summary>
-    [SupportedOSPlatform("windows")]
-    private sealed class KestrunToolWindowsService : ServiceBase
-    {
-        private readonly ServiceHostOptions _options;
-        private readonly string _bootstrapLogDirectory;
-        private readonly string _bootstrapLogPath;
-        private Task? _runTask;
-
-        /// <summary>
-        /// Initializes the service host wrapper.
-        /// </summary>
-        /// <param name="options">Service host options.</param>
-        public KestrunToolWindowsService(ServiceHostOptions options)
-        {
-            _options = options;
-            ServiceName = options.ServiceName;
-            CanStop = true;
-            AutoLog = true;
-
-            _bootstrapLogPath = ResolveBootstrapLogPath(options.ServiceLogPath);
-            _bootstrapLogDirectory = Path.GetDirectoryName(_bootstrapLogPath) ?? Path.GetTempPath();
-        }
-
-        /// <inheritdoc />
-        protected override void OnStart(string[] args)
-        {
-            WriteBootstrapLog($"Service '{ServiceName}' starting. Script='{_options.ScriptPath}'.");
-            _runTask = Task.Run(() =>
-            {
-                try
-                {
-                    var exitCode = RunScript();
-                    if (exitCode == 0)
-                    {
-                        WriteBootstrapLog($"Service '{ServiceName}' script exited normally.");
-                        return;
-                    }
-
-                    WriteBootstrapLog($"Service '{ServiceName}' script exited with code {exitCode}.");
-                    ExitCode = exitCode;
-                    Stop();
-                }
-                catch (Exception ex)
-                {
-                    WriteBootstrapLog($"Service '{ServiceName}' failed with exception: {ex}");
-                    try
-                    {
-                        EventLog.WriteEntry(ServiceName, ex.ToString(), EventLogEntryType.Error);
-                    }
-                    catch
-                    {
-                        // Ignore EventLog failures to avoid hiding the original error.
-                    }
-
-                    ExitCode = 1;
-                    Stop();
-                }
-            });
-        }
-
-        /// <inheritdoc />
-        protected override void OnStop()
-        {
-            WriteBootstrapLog($"Service '{ServiceName}' stopping.");
-            try
-            {
-                // Run the managed stop on a background thread and wait with a timeout
-                var stopTask = Task.Run(async () => await RequestManagedStopAsync().ConfigureAwait(false));
-                if (!stopTask.Wait(TimeSpan.FromSeconds(30)))
-                {
-                    WriteBootstrapLog($"Service '{ServiceName}' managed stop did not complete within the timeout.");
-                }
-            }
-            catch (Exception ex)
-            {
-                WriteBootstrapLog($"Service '{ServiceName}' stop encountered error: {ex}");
-            }
-
-            _ = _runTask?.Wait(TimeSpan.FromSeconds(15));
-            WriteBootstrapLog($"Service '{ServiceName}' stopped.");
-        }
-
-        private int RunScript()
-        {
-            var scriptPath = Path.GetFullPath(_options.ScriptPath);
-            if (!File.Exists(scriptPath))
-            {
-                WriteBootstrapLog($"Script file not found: {scriptPath}");
-                return 2;
-            }
-
-            var moduleManifestPath = LocateModuleManifest(_options.KestrunManifestPath, _options.KestrunFolder);
-            if (moduleManifestPath is null)
-            {
-                WriteModuleNotFoundMessage(_options.KestrunManifestPath, _options.KestrunFolder, WriteBootstrapLog);
-                return 3;
-            }
-
-            return ExecuteScript(scriptPath, _options.ScriptArguments, moduleManifestPath);
-        }
-
-        private void WriteBootstrapLog(string message)
-        {
-            try
-            {
-                _ = Directory.CreateDirectory(_bootstrapLogDirectory);
-                var line = $"{DateTime.UtcNow:O} {message}{Environment.NewLine}";
-                File.AppendAllText(_bootstrapLogPath, line);
-            }
-            catch
-            {
-                // Best-effort logging only.
-            }
-        }
-
-        /// <summary>
-        /// Resolves the bootstrap log file path from optional configured path.
-        /// </summary>
-        /// <param name="configuredPath">Optional configured full path to the log file.</param>
-        /// <returns>Absolute log file path.</returns>
-        private static string ResolveBootstrapLogPath(string? configuredPath)
-            => RunnerRuntime.ResolveBootstrapLogPath(configuredPath, "kestrun-tool-service.log");
     }
 
     /// <summary>
@@ -1380,9 +1112,15 @@ internal static partial class Program
         string? serviceUser,
         string? servicePassword)
     {
-        var hostArgs = UsesDedicatedServiceHostExecutable(serviceHostExecutablePath)
-            ? BuildDedicatedServiceHostArguments(serviceName, runnerExecutablePath, scriptPath, moduleManifestPath, scriptArguments, serviceLogPath)
-            : BuildWindowsServiceHostArgumentsCore(serviceName, scriptPath, moduleManifestPath, scriptArguments, serviceLogPath);
+        if (!UsesDedicatedServiceHostExecutable(serviceHostExecutablePath))
+        {
+            return new ProcessResult(
+                1,
+                string.Empty,
+                "Service registration now requires the dedicated kestrun-service-host executable. Reinstall or update Kestrun.Tool.");
+        }
+
+        var hostArgs = BuildDedicatedServiceHostArguments(serviceName, runnerExecutablePath, scriptPath, moduleManifestPath, scriptArguments, serviceLogPath);
 
         var imagePath = BuildWindowsCommandLine(serviceHostExecutablePath, hostArgs);
         var scArgs = new List<string>
@@ -1537,48 +1275,6 @@ internal static partial class Program
             serviceName,
             "--runner-exe",
             Path.GetFullPath(runnerExecutablePath),
-            "--script",
-            scriptPath,
-            "--kestrun-manifest",
-            Path.GetFullPath(moduleManifestPath),
-        };
-
-        if (!string.IsNullOrWhiteSpace(serviceLogPath))
-        {
-            arguments.Add("--service-log-path");
-            arguments.Add(Path.GetFullPath(serviceLogPath));
-        }
-
-        if (scriptArguments.Count > 0)
-        {
-            arguments.Add("--arguments");
-            arguments.AddRange(scriptArguments);
-        }
-
-        return arguments;
-    }
-
-    /// <summary>
-    /// Builds internal service-host arguments used for Windows SCM registration.
-    /// </summary>
-    /// <param name="serviceName">Service name.</param>
-    /// <param name="scriptPath">Absolute script path.</param>
-    /// <param name="moduleManifestPath">Manifest path staged for service runtime.</param>
-    /// <param name="scriptArguments">Script arguments forwarded to run mode.</param>
-    /// <param name="serviceLogPath">Optional service log path.</param>
-    /// <returns>Ordered argument tokens.</returns>
-    private static IReadOnlyList<string> BuildWindowsServiceHostArgumentsCore(
-        string serviceName,
-        string scriptPath,
-        string moduleManifestPath,
-        IReadOnlyList<string> scriptArguments,
-        string? serviceLogPath)
-    {
-        var arguments = new List<string>(12 + scriptArguments.Count)
-        {
-            "--service-host",
-            "--name",
-            serviceName,
             "--script",
             scriptPath,
             "--kestrun-manifest",
@@ -1882,25 +1578,26 @@ internal static partial class Program
     /// <returns>Candidate service-host paths in resolution priority order.</returns>
     private static IEnumerable<string> EnumerateDedicatedServiceHostCandidates(string runtimeRid, string hostBinaryName)
     {
-        var executableDirectory = GetExecutableDirectory();
-        var baseDirectory = Path.GetFullPath(AppContext.BaseDirectory);
-        var candidates = new List<string>
-        {
-            Path.Combine(executableDirectory, "kestrun-service", runtimeRid, hostBinaryName),
-            Path.Combine(baseDirectory, "kestrun-service", runtimeRid, hostBinaryName),
-            Path.Combine(executableDirectory, runtimeRid, hostBinaryName),
-            Path.Combine(baseDirectory, runtimeRid, hostBinaryName),
-            Path.Combine(executableDirectory, "runtimes", runtimeRid, hostBinaryName),
-            Path.Combine(baseDirectory, "runtimes", runtimeRid, hostBinaryName),
-            Path.Combine(executableDirectory, hostBinaryName),
-            Path.Combine(baseDirectory, hostBinaryName),
-        };
+        var candidates = new List<string>();
 
+        // 1. Dotnet tool store path: ~/.dotnet/tools/.store/kestrun.tool/<version>/
+        var homeDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(homeDirectory))
+        {
+            var toolStorePath = Path.Combine(homeDirectory, ".dotnet", "tools", ".store", "kestrun.tool");
+            if (Directory.Exists(toolStorePath))
+            {
+                foreach (var versionDir in Directory.GetDirectories(toolStorePath))
+                {
+                    candidates.Add(Path.Combine(versionDir, "kestrun.tool", Path.GetFileName(versionDir), "tools", "net10.0", "any", "kestrun-service", runtimeRid, hostBinaryName));
+                }
+            }
+        }
+
+        // 2. Debug/development path: ./src/CSharp/Kestrun.Tool/kestrun-service/<rid>/
         foreach (var parent in EnumerateDirectoryAndParents(Environment.CurrentDirectory))
         {
             candidates.Add(Path.Combine(parent, "src", "CSharp", "Kestrun.Tool", "kestrun-service", runtimeRid, hostBinaryName));
-            candidates.Add(Path.Combine(parent, "artifacts", "Kestrun.Tool", $"{runtimeRid}-service-host", hostBinaryName));
-            candidates.Add(Path.Combine(parent, "artifacts", "Kestrun.Tool", $"{runtimeRid}-service-host", OperatingSystem.IsWindows() ? "Kestrun.ServiceHost.exe" : "Kestrun.ServiceHost"));
         }
 
         foreach (var candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
@@ -3321,141 +3018,164 @@ internal static partial class Program
     private sealed record ProcessResult(int ExitCode, string Output, string Error);
 
     /// <summary>
-    /// Executes the target script in a runspace that has Kestrun imported by manifest path.
+    /// Executes the target script by delegating to the dedicated service-host executable.
     /// </summary>
     /// <param name="scriptPath">Absolute path to the script to execute.</param>
     /// <param name="scriptArguments">Command-line arguments passed to the target script.</param>
     /// <param name="moduleManifestPath">Absolute path to Kestrun.psd1.</param>
     /// <returns>Process exit code.</returns>
-    private static int ExecuteScript(string scriptPath, IReadOnlyList<string> scriptArguments, string moduleManifestPath)
+    private static int ExecuteScriptViaServiceHost(string scriptPath, IReadOnlyList<string> scriptArguments, string moduleManifestPath)
     {
-        EnsureNet10Runtime();
-        EnsurePowerShellRuntimeHome();
-        EnsureKestrunAssemblyPreloaded(moduleManifestPath);
-
-        var sessionState = InitialSessionState.CreateDefault2();
-        if (OperatingSystem.IsWindows())
+        if (!TryResolveDedicatedServiceHostExecutableFromToolDistribution(out var serviceHostExecutablePath))
         {
-            sessionState.ExecutionPolicy = ExecutionPolicy.Unrestricted;
+            Console.Error.WriteLine("Unable to locate dedicated service host for current RID in Kestrun.Tool distribution.");
+            Console.Error.WriteLine("Expected 'kestrun-service/<rid>/(kestrun-service-host|kestrun-service-host.exe)'. Reinstall or update Kestrun.Tool.");
+            return 1;
         }
 
-        sessionState.ImportPSModule([moduleManifestPath]);
+        var runnerExecutablePath = ResolveCurrentProcessPathOrFallback(serviceHostExecutablePath);
+        var hostArguments = BuildDedicatedServiceHostRunArguments(
+            runnerExecutablePath,
+            scriptPath,
+            moduleManifestPath,
+            scriptArguments,
+            ShouldDiscoverPowerShellHomeForManifest(moduleManifestPath));
 
-        using var runspace = RunspaceFactory.CreateRunspace(sessionState);
-        runspace.Open();
-
-        if (!HasKestrunHostManagerType())
-        {
-            throw new RuntimeException("Failed to import Kestrun module: type Kestrun.KestrunHostManager was not loaded.");
-        }
-
-        runspace.SessionStateProxy.SetVariable("__krRunnerScriptPath", scriptPath);
-        runspace.SessionStateProxy.SetVariable("__krRunnerScriptArgs", scriptArguments.ToArray());
-        runspace.SessionStateProxy.SetVariable("__krRunnerQuiet", true);
-        runspace.SessionStateProxy.SetVariable("__krRunnerManagedConsole", true);
-
-        using var powershell = PowerShell.Create();
-        powershell.Runspace = runspace;
-        // Dot-source the script into the current scope so function metadata used by OpenAPI discovery remains visible.
-        _ = powershell.AddScript(". $__krRunnerScriptPath @__krRunnerScriptArgs", useLocalScope: false);
-
-        var stopRequested = false;
-        void cancelHandler(object? _, ConsoleCancelEventArgs e)
-        {
-            e.Cancel = true;
-            if (stopRequested)
-            {
-                return;
-            }
-
-            stopRequested = true;
-            Console.Error.WriteLine("Ctrl+C detected. Stopping Kestrun server...");
-            _ = Task.Run(RequestManagedStopAsync);
-        }
-
-        Console.CancelKeyPress += cancelHandler;
-        IEnumerable<PSObject> output;
-        try
-        {
-            var asyncResult = powershell.BeginInvoke();
-            while (!asyncResult.IsCompleted)
-            {
-                _ = asyncResult.AsyncWaitHandle.WaitOne(200);
-            }
-
-            output = powershell.EndInvoke(asyncResult);
-        }
-        finally
-        {
-            Console.CancelKeyPress -= cancelHandler;
-        }
-
-        WriteOutput(output);
-        WriteStreams(powershell.Streams);
-
-        return powershell.HadErrors ? 1 : 0;
+        return RunForegroundProcess(serviceHostExecutablePath, hostArguments);
     }
 
     /// <summary>
-    /// Ensures the runner is executing on .NET 10.
+    /// Runs a child process in foreground mode, inheriting the current console handles.
     /// </summary>
-    private static void EnsureNet10Runtime()
-        => RunnerRuntime.EnsureNet10Runtime(ProductName);
+    /// <param name="fileName">Executable to run.</param>
+    /// <param name="arguments">Argument tokens.</param>
+    /// <returns>Process exit code.</returns>
+    private static int RunForegroundProcess(string fileName, IReadOnlyList<string> arguments)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = fileName,
+            UseShellExecute = false,
+            RedirectStandardOutput = false,
+            RedirectStandardError = false,
+            CreateNoWindow = false,
+        };
+
+        foreach (var argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using var process = Process.Start(startInfo);
+        if (process is null)
+        {
+            Console.Error.WriteLine($"Failed to start process: {fileName}");
+            return 1;
+        }
+
+        process.WaitForExit();
+        return process.ExitCode;
+    }
 
     /// <summary>
-    /// Ensures Kestrun.dll from the selected module root is loaded into the default context.
+    /// Resolves a module manifest path for run mode, preferring bundled service payload when no explicit path is provided.
+    /// </summary>
+    /// <param name="kestrunManifestPath">Optional explicit manifest path.</param>
+    /// <param name="kestrunFolder">Optional module folder path.</param>
+    /// <returns>Absolute path to the resolved module manifest, or null when not found.</returns>
+    private static string? ResolveRunModuleManifestPath(string? kestrunManifestPath, string? kestrunFolder)
+    {
+        if (!string.IsNullOrWhiteSpace(kestrunManifestPath) || !string.IsNullOrWhiteSpace(kestrunFolder))
+        {
+            return LocateModuleManifest(kestrunManifestPath, kestrunFolder);
+        }
+
+        if (TryResolvePowerShellModulesPayloadFromToolDistribution(out var modulesPayloadPath))
+        {
+            var bundledManifestPath = Path.Combine(modulesPayloadPath, ModuleName, ModuleManifestFileName);
+            if (File.Exists(bundledManifestPath))
+            {
+                return Path.GetFullPath(bundledManifestPath);
+            }
+        }
+
+        return LocateModuleManifest(null, null);
+    }
+
+    /// <summary>
+    /// Builds arguments for direct foreground run mode on the dedicated service-host executable.
+    /// </summary>
+    /// <param name="runnerExecutablePath">Runner executable path.</param>
+    /// <param name="scriptPath">Absolute script path.</param>
+    /// <param name="moduleManifestPath">Absolute module manifest path.</param>
+    /// <param name="scriptArguments">Script arguments.</param>
+    /// <param name="discoverPowerShellHome">When true, pass --discover-pshome.</param>
+    /// <returns>Ordered argument list.</returns>
+    private static IReadOnlyList<string> BuildDedicatedServiceHostRunArguments(
+        string runnerExecutablePath,
+        string scriptPath,
+        string moduleManifestPath,
+        IReadOnlyList<string> scriptArguments,
+        bool discoverPowerShellHome)
+    {
+        var arguments = new List<string>(12 + scriptArguments.Count)
+        {
+            "--runner-exe",
+            Path.GetFullPath(runnerExecutablePath),
+            "--run",
+            Path.GetFullPath(scriptPath),
+            "--kestrun-manifest",
+            Path.GetFullPath(moduleManifestPath),
+        };
+
+        if (discoverPowerShellHome)
+        {
+            arguments.Add("--discover-pshome");
+        }
+
+        if (scriptArguments.Count > 0)
+        {
+            arguments.Add("--arguments");
+            arguments.AddRange(scriptArguments);
+        }
+
+        return arguments;
+    }
+
+    /// <summary>
+    /// Resolves whether service-host should auto-discover PSHOME for the selected manifest path.
     /// </summary>
     /// <param name="moduleManifestPath">Absolute path to Kestrun.psd1.</param>
-    private static void EnsureKestrunAssemblyPreloaded(string moduleManifestPath)
-        => RunnerRuntime.EnsureKestrunAssemblyPreloaded(
-            moduleManifestPath,
-            static message => Console.Error.WriteLine($"WARNING: {message}"));
-
-    /// <summary>
-    /// Ensures PowerShell built-in modules are discoverable for embedded runspace execution.
-    /// </summary>
-    private static void EnsurePowerShellRuntimeHome()
-        => RunnerRuntime.EnsurePowerShellRuntimeHome(createFallbackDirectories: true);
-
-    /// <summary>
-    /// Verifies that the loaded Kestrun assembly contains the expected host manager type.
-    /// </summary>
-    /// <returns>True when the expected Kestrun host manager type is available.</returns>
-    private static bool HasKestrunHostManagerType()
-        => RunnerRuntime.HasKestrunHostManagerType();
-
-    /// <summary>
-    /// Requests a graceful stop for all running Kestrun hosts managed in the current process.
-    /// </summary>
-    /// <returns>A task representing the stop attempt.</returns>
-    private static Task RequestManagedStopAsync()
-        => RunnerRuntime.RequestManagedStopAsync();
-
-    /// <summary>
-    /// Writes PowerShell pipeline output to stdout.
-    /// </summary>
-    /// <param name="output">Pipeline output collection.</param>
-    private static void WriteOutput(IEnumerable<PSObject> output)
-        => RunnerRuntime.DispatchPowerShellOutput(
-            output,
-            static value => Console.Out.WriteLine(value),
-            skipWhitespace: false);
-
-    /// <summary>
-    /// Writes non-output streams in a console-friendly format.
-    /// </summary>
-    /// <param name="streams">PowerShell data streams.</param>
-    private static void WriteStreams(PSDataStreams streams)
+    /// <returns>True when --discover-pshome should be used.</returns>
+    private static bool ShouldDiscoverPowerShellHomeForManifest(string moduleManifestPath)
     {
-        RunnerRuntime.DispatchPowerShellStreams(
-            streams,
-            onWarning: static message => Console.Error.WriteLine($"WARNING: {message}"),
-            onVerbose: static message => Console.Error.WriteLine($"VERBOSE: {message}"),
-            onDebug: static message => Console.Error.WriteLine($"DEBUG: {message}"),
-            onInformation: static message => Console.Out.WriteLine(message),
-            onError: static message => Console.Error.WriteLine(message),
-            skipWhitespace: true);
+        var fullManifestPath = Path.GetFullPath(moduleManifestPath);
+        var moduleDirectory = Path.GetDirectoryName(fullManifestPath);
+        if (string.IsNullOrWhiteSpace(moduleDirectory))
+        {
+            return true;
+        }
+
+        var moduleRoot = Directory.GetParent(moduleDirectory);
+        var serviceRoot = moduleRoot?.Parent?.FullName;
+        if (string.IsNullOrWhiteSpace(serviceRoot))
+        {
+            return true;
+        }
+
+        var modulesDirectory = Path.Combine(serviceRoot, "Modules");
+        return !Directory.Exists(modulesDirectory);
     }
+
+    /// <summary>
+    /// Resolves the current executable path when available, otherwise falls back to the provided value.
+    /// </summary>
+    /// <param name="fallbackPath">Fallback path when current process path is unavailable.</param>
+    /// <returns>Absolute executable path.</returns>
+    private static string ResolveCurrentProcessPathOrFallback(string fallbackPath)
+        => !string.IsNullOrWhiteSpace(Environment.ProcessPath) && File.Exists(Environment.ProcessPath)
+            ? Path.GetFullPath(Environment.ProcessPath)
+            : Path.GetFullPath(fallbackPath);
 
     /// <summary>
     /// Parses runner-specific global options and returns arguments to pass into command parsing.

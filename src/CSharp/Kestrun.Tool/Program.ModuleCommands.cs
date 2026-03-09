@@ -83,40 +83,129 @@ internal static partial class Program
 
         if (action == ModuleCommandAction.Remove)
         {
-            if (!TryRemoveInstalledModule(moduleRoot, !Console.IsOutputRedirected, out var removeErrorText))
-            {
-                Console.Error.WriteLine($"Failed to remove '{ModuleName}' module.");
-                if (!string.IsNullOrWhiteSpace(removeErrorText))
-                {
-                    Console.Error.WriteLine(removeErrorText);
-                }
-
-                return 1;
-            }
-
-            Console.WriteLine($"{ModuleName} module removed from {GetScopeToken(scope)} module path.");
-            Console.WriteLine($"Module root: {moduleRoot}");
-            return 0;
+            return HandleModuleRemoveAction(moduleRoot, scope, !Console.IsOutputRedirected);
         }
 
-        if (action == ModuleCommandAction.Install
-            && !TryValidateInstallAction(moduleRoot, GetScopeToken(scope), out var installValidationError))
+        if (!TryValidateModuleInstallAction(action, moduleRoot, scope, out var installValidationError))
         {
             Console.Error.WriteLine(installValidationError);
             return 1;
         }
 
-        if (!TryInstallOrUpdateModuleFromGallery(action, version, moduleRoot, !Console.IsOutputRedirected, force, out var installedVersion, out var installedManifestPath, out var errorText))
+        if (!TryExecuteModuleInstallOrUpdate(action, version, moduleRoot, force, out var installedVersion, out var installedManifestPath, out var errorText))
         {
-            Console.Error.WriteLine($"Failed to {action.ToString().ToLowerInvariant()} '{ModuleName}' module.");
-            if (!string.IsNullOrWhiteSpace(errorText))
+            WriteModuleActionFailure(action, errorText);
+            return 1;
+        }
+
+        WriteModuleInstallOrUpdateSuccess(action, scope, moduleRoot, installedVersion, installedManifestPath);
+        return 0;
+    }
+
+    /// <summary>
+    /// Handles module remove operation output and error handling.
+    /// </summary>
+    /// <param name="moduleRoot">Root module directory.</param>
+    /// <param name="scope">Selected module scope.</param>
+    /// <param name="showProgress">True to show progress output.</param>
+    /// <returns>Process exit code.</returns>
+    private static int HandleModuleRemoveAction(string moduleRoot, ModuleStorageScope scope, bool showProgress)
+    {
+        if (!TryRemoveInstalledModule(moduleRoot, showProgress, out var removeErrorText))
+        {
+            Console.Error.WriteLine($"Failed to remove '{ModuleName}' module.");
+            if (!string.IsNullOrWhiteSpace(removeErrorText))
             {
-                Console.Error.WriteLine(errorText);
+                Console.Error.WriteLine(removeErrorText);
             }
 
             return 1;
         }
 
+        Console.WriteLine($"{ModuleName} module removed from {GetScopeToken(scope)} module path.");
+        Console.WriteLine($"Module root: {moduleRoot}");
+        return 0;
+    }
+
+    /// <summary>
+    /// Validates install-specific preconditions for module actions.
+    /// </summary>
+    /// <param name="action">Module action.</param>
+    /// <param name="moduleRoot">Root module directory.</param>
+    /// <param name="scope">Selected module scope.</param>
+    /// <param name="errorText">Validation error details.</param>
+    /// <returns>True when validation passes or action is not install.</returns>
+    private static bool TryValidateModuleInstallAction(
+        ModuleCommandAction action,
+        string moduleRoot,
+        ModuleStorageScope scope,
+        out string errorText)
+    {
+        errorText = string.Empty;
+        return action != ModuleCommandAction.Install
+            || TryValidateInstallAction(moduleRoot, GetScopeToken(scope), out errorText);
+    }
+
+    /// <summary>
+    /// Executes module install/update from PowerShell Gallery.
+    /// </summary>
+    /// <param name="action">Module action.</param>
+    /// <param name="version">Optional requested version.</param>
+    /// <param name="moduleRoot">Root module directory.</param>
+    /// <param name="force">True when update may overwrite existing destination.</param>
+    /// <param name="installedVersion">Installed version text.</param>
+    /// <param name="installedManifestPath">Installed manifest path.</param>
+    /// <param name="errorText">Execution error details.</param>
+    /// <returns>True when install/update succeeds.</returns>
+    private static bool TryExecuteModuleInstallOrUpdate(
+        ModuleCommandAction action,
+        string? version,
+        string moduleRoot,
+        bool force,
+        out string installedVersion,
+        out string installedManifestPath,
+        out string errorText)
+    {
+        return TryInstallOrUpdateModuleFromGallery(
+            action,
+            version,
+            moduleRoot,
+            !Console.IsOutputRedirected,
+            force,
+            out installedVersion,
+            out installedManifestPath,
+            out errorText);
+    }
+
+    /// <summary>
+    /// Writes a standardized module action failure message.
+    /// </summary>
+    /// <param name="action">Module action that failed.</param>
+    /// <param name="errorText">Optional error details.</param>
+    private static void WriteModuleActionFailure(ModuleCommandAction action, string errorText)
+    {
+        Console.Error.WriteLine($"Failed to {action.ToString().ToLowerInvariant()} '{ModuleName}' module.");
+        if (!string.IsNullOrWhiteSpace(errorText))
+        {
+            Console.Error.WriteLine(errorText);
+        }
+    }
+
+    /// <summary>
+    /// Writes a standardized success message for module install/update actions.
+    /// </summary>
+    /// <param name="action">Completed module action.</param>
+    /// <param name="scope">Selected module scope.</param>
+    /// <param name="moduleRoot">Root module directory.</param>
+    /// <param name="installedVersion">Installed version text.</param>
+    /// <param name="installedManifestPath">Installed manifest path.</param>
+    private static void WriteModuleInstallOrUpdateSuccess(
+        ModuleCommandAction action,
+        ModuleStorageScope scope,
+        string moduleRoot,
+        string installedVersion,
+        string installedManifestPath)
+    {
         var installedPath = Path.GetDirectoryName(installedManifestPath) ?? Path.Combine(moduleRoot, installedVersion);
         var versionSuffix = string.IsNullOrWhiteSpace(installedVersion)
             ? string.Empty
@@ -132,7 +221,6 @@ internal static partial class Program
         }
 
         Console.WriteLine($"Module path: {installedPath}");
-        return 0;
     }
 
     /// <summary>

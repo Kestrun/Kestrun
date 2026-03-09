@@ -9,32 +9,93 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int InstallService(ParsedCommand command, bool skipGalleryCheck)
     {
+        if (!TryResolveInstallServiceInputs(command, out var serviceName, out var scriptSource, out var moduleManifestPath, out var inputExitCode))
+        {
+            return inputExitCode;
+        }
+
+        if (!TryRunInstallServicePreflight(command, moduleManifestPath, skipGalleryCheck, out var preflightExitCode))
+        {
+            return preflightExitCode;
+        }
+
+        if (!TryPrepareInstallServiceBundle(command, serviceName, scriptSource, moduleManifestPath, out var serviceBundle, out var bundleExitCode))
+        {
+            return bundleExitCode;
+        }
+
+        return InstallPreparedServiceForCurrentPlatform(command, serviceName, serviceBundle);
+    }
+
+    /// <summary>
+    /// Resolves and validates install-service inputs that are independent of operating-system install mechanics.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <param name="serviceName">Resolved service name.</param>
+    /// <param name="scriptSource">Resolved service script source.</param>
+    /// <param name="moduleManifestPath">Resolved module manifest path.</param>
+    /// <param name="exitCode">Exit code when validation fails.</param>
+    /// <returns>True when inputs are valid and resolved.</returns>
+    private static bool TryResolveInstallServiceInputs(
+        ParsedCommand command,
+        out string serviceName,
+        out ResolvedServiceScriptSource scriptSource,
+        out string moduleManifestPath,
+        out int exitCode)
+    {
+        serviceName = string.Empty;
+        scriptSource = default;
+        moduleManifestPath = string.Empty;
+        exitCode = 0;
+
         if (string.IsNullOrWhiteSpace(command.ServiceName))
         {
             Console.Error.WriteLine("Service name is required. Use --name <value>.");
-            return 2;
+            exitCode = 2;
+            return false;
         }
 
-        var serviceName = command.ServiceName;
+        serviceName = command.ServiceName;
 
-        if (!TryResolveServiceScriptSource(command, out var scriptSource, out var scriptError))
+        if (!TryResolveServiceScriptSource(command, out scriptSource, out var scriptError))
         {
             Console.Error.WriteLine(scriptError);
-            return 2;
+            exitCode = 2;
+            return false;
         }
 
-        var scriptPath = scriptSource.FullScriptPath;
-
-        var moduleManifestPath = LocateModuleManifest(command.KestrunManifestPath, command.KestrunFolder);
-        if (moduleManifestPath is null)
+        var locatedModuleManifestPath = LocateModuleManifest(command.KestrunManifestPath, command.KestrunFolder);
+        if (locatedModuleManifestPath is null)
         {
             WriteModuleNotFoundMessage(command.KestrunManifestPath, command.KestrunFolder, Console.Error.WriteLine);
-            return 3;
+            exitCode = 3;
+            return false;
         }
+
+        moduleManifestPath = locatedModuleManifestPath;
+        return true;
+    }
+
+    /// <summary>
+    /// Performs install-service preflight checks such as Windows elevation checks, gallery warnings, and privileged-user validation.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <param name="moduleManifestPath">Resolved module manifest path.</param>
+    /// <param name="skipGalleryCheck">True when gallery checks should be skipped.</param>
+    /// <param name="exitCode">Exit code when a preflight check fails.</param>
+    /// <returns>True when preflight checks pass.</returns>
+    private static bool TryRunInstallServicePreflight(
+        ParsedCommand command,
+        string moduleManifestPath,
+        bool skipGalleryCheck,
+        out int exitCode)
+    {
+        exitCode = 0;
 
         if (OperatingSystem.IsWindows() && !TryPreflightWindowsServiceInstall(command, out var preflightExitCode))
         {
-            return preflightExitCode;
+            exitCode = preflightExitCode;
+            return false;
         }
 
         if (!skipGalleryCheck)
@@ -45,26 +106,76 @@ internal static partial class Program
         if (OperatingSystem.IsLinux() && !string.IsNullOrWhiteSpace(command.ServiceUser) && !IsLikelyRunningAsRootOnLinux())
         {
             Console.Error.WriteLine("Linux system service install with --service-user requires root privileges.");
-            return 1;
+            exitCode = 1;
+            return false;
         }
 
         if (OperatingSystem.IsMacOS() && !string.IsNullOrWhiteSpace(command.ServiceUser) && !IsLikelyRunningAsRootOnUnix())
         {
             Console.Error.WriteLine("macOS system daemon install with --service-user requires root privileges.");
-            return 1;
+            exitCode = 1;
+            return false;
         }
 
-        if (!TryPrepareServiceBundle(serviceName, scriptPath, moduleManifestPath, scriptSource.FullContentRoot, scriptSource.RelativeScriptPath, out var serviceBundle, out var bundleError, command.ServiceDeploymentRoot))
+        return true;
+    }
+
+    /// <summary>
+    /// Creates the service deployment bundle required by platform-specific service registration.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <param name="serviceName">Resolved service name.</param>
+    /// <param name="scriptSource">Resolved service script source.</param>
+    /// <param name="moduleManifestPath">Resolved module manifest path.</param>
+    /// <param name="serviceBundle">Prepared service bundle.</param>
+    /// <param name="exitCode">Exit code when bundle preparation fails.</param>
+    /// <returns>True when bundle preparation succeeds.</returns>
+    private static bool TryPrepareInstallServiceBundle(
+        ParsedCommand command,
+        string serviceName,
+        ResolvedServiceScriptSource scriptSource,
+        string moduleManifestPath,
+        out ServiceBundleLayout serviceBundle,
+        out int exitCode)
+    {
+        serviceBundle = default!;
+        exitCode = 0;
+
+        if (!TryPrepareServiceBundle(
+                serviceName,
+                scriptSource.FullScriptPath,
+                moduleManifestPath,
+                scriptSource.FullContentRoot,
+                scriptSource.RelativeScriptPath,
+                out var preparedServiceBundle,
+                out var bundleError,
+                command.ServiceDeploymentRoot))
         {
             Console.Error.WriteLine(bundleError);
-            return 1;
+            exitCode = 1;
+            return false;
         }
 
-        if (serviceBundle is null)
+        if (preparedServiceBundle is null)
         {
             Console.Error.WriteLine("Service bundle preparation failed.");
-            return 1;
+            exitCode = 1;
+            return false;
         }
+
+        serviceBundle = preparedServiceBundle;
+        return true;
+    }
+
+    /// <summary>
+    /// Installs a prepared service bundle using the platform-specific daemon/service mechanism.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <param name="serviceName">Resolved service name.</param>
+    /// <param name="serviceBundle">Prepared service bundle.</param>
+    /// <returns>Process exit code.</returns>
+    private static int InstallPreparedServiceForCurrentPlatform(ParsedCommand command, string serviceName, ServiceBundleLayout serviceBundle)
+    {
 
         var daemonArgs = BuildDaemonHostArgumentsForService(
             serviceName,

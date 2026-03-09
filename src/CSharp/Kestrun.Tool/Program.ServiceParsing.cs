@@ -261,7 +261,6 @@ internal static partial class Program
     /// <returns>True when the option token is handled.</returns>
     private static bool TryConsumeServiceScriptOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
     {
-        error = string.Empty;
         if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
         {
             error = "Service remove/start/stop/query does not accept --script.";
@@ -371,7 +370,6 @@ internal static partial class Program
     /// <returns>True when the option token is handled.</returns>
     private static bool TryConsumeServiceUserOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
     {
-        error = string.Empty;
         if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
         {
             error = "Service remove/start/stop/query does not accept --service-user.";
@@ -398,7 +396,6 @@ internal static partial class Program
     /// <returns>True when the option token is handled.</returns>
     private static bool TryConsumeServicePasswordOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
     {
-        error = string.Empty;
         if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
         {
             error = "Service remove/start/stop/query does not accept --service-password.";
@@ -425,7 +422,6 @@ internal static partial class Program
     /// <returns>True when the option token is handled.</returns>
     private static bool TryConsumeServiceDeploymentRootOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
     {
-        error = string.Empty;
         if (mode is CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
         {
             error = "Service start/stop/query does not accept --deployment-root.";
@@ -452,7 +448,6 @@ internal static partial class Program
     /// <returns>True when the option token is handled.</returns>
     private static bool TryConsumeServiceContentRootOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
     {
-        error = string.Empty;
         if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
         {
             error = "Service remove/start/stop/query does not accept --content-root.";

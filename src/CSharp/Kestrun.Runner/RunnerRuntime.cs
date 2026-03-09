@@ -504,9 +504,7 @@ public static class RunnerRuntime
         }
         else
         {
-            candidates.Add("/usr/bin/pwsh");
-            candidates.Add("/usr/local/bin/pwsh");
-            candidates.Add("/opt/microsoft/powershell/7/pwsh");
+            candidates.Add("/opt/microsoft/powershell/7");
 
             var whichResult = RunProcessCapture("which", ["pwsh"]);
             if (whichResult.ExitCode == 0)
@@ -532,7 +530,7 @@ public static class RunnerRuntime
     /// Normalizes a PowerShell home candidate, resolving executable symlinks to their installation directory.
     /// </summary>
     /// <param name="path">Candidate path (directory or pwsh executable path).</param>
-    /// <returns>Normalized directory path when possible; otherwise original candidate path.</returns>
+    /// <returns>Normalized directory path when possible; otherwise an empty string.</returns>
     private static string NormalizePowerShellHomeCandidate(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -548,8 +546,35 @@ public static class RunnerRuntime
             return fullPath;
         }
 
-        var resolvedPath = TryResolveFinalPath(fullPath) ?? fullPath;
-        return Path.GetDirectoryName(resolvedPath) ?? resolvedPath;
+        if (!File.Exists(fullPath))
+        {
+            return string.Empty;
+        }
+
+        var executableCandidates = new List<string> { fullPath };
+        var resolvedPath = TryResolveFinalPath(fullPath);
+        if (!string.IsNullOrWhiteSpace(resolvedPath)
+            && !string.Equals(resolvedPath, fullPath, StringComparison.OrdinalIgnoreCase))
+        {
+            executableCandidates.Insert(0, resolvedPath);
+        }
+
+        foreach (var executablePath in executableCandidates)
+        {
+            var candidateHome = Path.GetDirectoryName(executablePath);
+            if (string.IsNullOrWhiteSpace(candidateHome))
+            {
+                continue;
+            }
+
+            var normalizedHome = Path.GetFullPath(candidateHome);
+            if (HasPowerShellManagementModule(normalizedHome))
+            {
+                return normalizedHome;
+            }
+        }
+
+        return string.Empty;
     }
 
     /// <summary>

@@ -236,7 +236,8 @@ Describe 'KestrunTool service user lifecycle' {
         $serviceName = "test-user-$suffix"
         $deploymentRoot = Join-Path $env:TEMP "kestrun-service-user-$suffix"
         $scriptPath = Join-Path $script:root 'docs/_includes/examples/pwsh/10.2-OpenAPI-Component-Schema.ps1'
-        $originalServiceLogonRightSids = @()
+        $originalServiceLogonRightSids = $null
+        $serviceLogonRightUpdated = $false
         $servicePolicySid = $null
 
         try {
@@ -254,6 +255,7 @@ Describe 'KestrunTool service user lifecycle' {
 
             $updatedServiceLogonRightSids = @($originalServiceLogonRightSids + $servicePolicySid | Select-Object -Unique)
             Set-WindowsServiceLogonRightSid -Sids $updatedServiceLogonRightSids -WorkingDirectory $script:root
+            $serviceLogonRightUpdated = $true
 
             $effectiveServiceLogonRightSids = @(Get-WindowsServiceLogonRightSid -WorkingDirectory $script:root)
             if (-not ($effectiveServiceLogonRightSids -contains $servicePolicySid)) {
@@ -289,7 +291,7 @@ Describe 'KestrunTool service user lifecycle' {
             & sc.exe stop $serviceName 2>$null | Out-Null
             & sc.exe delete $serviceName 2>$null | Out-Null
             & net.exe user $serviceUser /delete 2>$null | Out-Null
-            if ($null -ne $originalServiceLogonRightSids) {
+            if ($serviceLogonRightUpdated -and $null -ne $originalServiceLogonRightSids) {
                 Set-WindowsServiceLogonRightSid -Sids $originalServiceLogonRightSids -WorkingDirectory $script:root
             }
             Remove-Item -LiteralPath $deploymentRoot -Recurse -Force -ErrorAction SilentlyContinue

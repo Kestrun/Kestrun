@@ -91,7 +91,10 @@ function Write-TextFileWithRetry {
                 throw
             }
 
-            $delayMilliseconds = [Math]::Min(2000, ($InitialDelayMilliseconds * $attempt))
+            $delayMilliseconds = [Math]::Min(
+                2000,
+                [int]([double]$InitialDelayMilliseconds * [Math]::Pow(2, $attempt - 1))
+            )
             Write-Host "⚠️ File write lock detected for '$Path'. Retrying in $delayMilliseconds ms ($attempt/$MaxAttempts)..." -ForegroundColor Yellow
             Start-Sleep -Milliseconds $delayMilliseconds
         }

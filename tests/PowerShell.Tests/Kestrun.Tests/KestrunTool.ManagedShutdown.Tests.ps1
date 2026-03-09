@@ -128,7 +128,8 @@ Describe 'KestrunTool managed shutdown' {
             return
         }
 
-        Add-Type -TypeDefinition @'
+        if (-not ([System.Management.Automation.PSTypeName]'NativeCtrl').Type) {
+            Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 
@@ -191,7 +192,8 @@ public static class NativeCtrl
     [DllImport("kernel32.dll", SetLastError = true)]
     public static extern bool CloseHandle(IntPtr hObject);
 }
-'@ -ErrorAction SilentlyContinue
+'@
+    }
 
         $port2 = Get-FreeTcpPort
         $tempScript2 = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-ctrlc-' + [System.Guid]::NewGuid().ToString('N') + '.ps1')

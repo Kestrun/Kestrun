@@ -11,7 +11,8 @@ BeforeAll {
         throw "Neither kestrun launcher nor Kestrun.Tool project was found. Checked: $script:kestrunLauncher ; $script:kestrunToolProject"
     }
 
-    $script:serviceNameToCleanup = 'test'
+    $serviceSuffix = [guid]::NewGuid().ToString('N').Substring(0, 8)
+    $script:serviceNameToCleanup = "kestrun-test-$PID-$serviceSuffix"
     $script:isWindowsAdmin = $false
 
     if ($IsWindows) {

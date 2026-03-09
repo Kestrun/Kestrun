@@ -16,125 +16,11 @@ namespace Kestrun.Tool;
 
 internal static partial class Program
 {
-    private const string ModuleManifestFileName = "Kestrun.psd1";
-    private const string ModuleName = "Kestrun";
-    private const string DefaultScriptFileName = "server.ps1";
-    private const string ProductName = "kestrun";
-    private const string ServiceDeploymentProductFolderName = "Kestrun";
-    private const string ServiceDeploymentServicesFolderName = "services";
-    private const string ServiceBundleRuntimeDirectoryName = "runtime";
-    private const string ServiceBundleModulesDirectoryName = "Modules";
-    private const string ServiceBundleScriptDirectoryName = "script";
-    private const string WindowsServiceRuntimeBinaryName = "kestrun.exe";
-    private const string UnixServiceRuntimeBinaryName = "kestrun";
-    private const string ModuleVersionOption = "--version";
-    private const string ModuleScopeOption = "--scope";
-    private const string ModuleForceOption = "--force";
-    private const string ModuleScopeLocalValue = "local";
-    private const string ModuleScopeGlobalValue = "global";
-    private const string NoCheckOption = "--nocheck";
-    private const string NoCheckAliasOption = "--no-check";
-    private const string PowerShellGalleryApiBaseUri = "https://www.powershellgallery.com/api/v2";
-    private static readonly Regex ModuleVersionRegex = MyRegex1();
-    private static readonly Regex ModulePrereleaseRegex = MyRegex2();
-    private static readonly HttpClient GalleryHttpClient = CreateGalleryHttpClient();
-    private static readonly string[] ServiceBundleModuleExclusionPatterns =
-    [
-        "lib/runtimes/*",
-        "lib/net8.0/*",
-        "lib/Microsoft.CodeAnalysis/4*/*",
-    ];
-    private enum CommandMode
-    {
-        Run,
-        ModuleInstall,
-        ModuleUpdate,
-        ModuleRemove,
-        ModuleInfo,
-        ServiceInstall,
-        ServiceRemove,
-        ServiceStart,
-        ServiceStop,
-        ServiceQuery,
-    }
-
-    private enum ModuleCommandAction
-    {
-        Install,
-        Update,
-        Remove,
-    }
-
-    private enum ModuleStorageScope
-    {
-        Local,
-        Global,
-    }
-
-    private sealed record ParsedCommand(
-        CommandMode Mode,
-        string ScriptPath,
-        string[] ScriptArguments,
-        string? KestrunFolder,
-        string? KestrunManifestPath,
-        string? ServiceName,
-        string? ServiceLogPath,
-        string? ServiceUser,
-        string? ServicePassword,
-        string? ModuleVersion,
-        ModuleStorageScope ModuleScope,
-        bool ModuleForce,
-        string? ServiceContentRoot,
-        string? ServiceDeploymentRoot);
-
-    private sealed record ServiceRegisterOptions(
-        string ServiceName,
-        string ServiceHostExecutablePath,
-        string RunnerExecutablePath,
-        string ScriptPath,
-        string ModuleManifestPath,
-        string[] ScriptArguments,
-        string? ServiceLogPath,
-        string? ServiceUser,
-        string? ServicePassword);
-
-    private sealed record GlobalOptions(
-        string[] CommandArgs,
-        bool SkipGalleryCheck);
-
-    private sealed record InstalledModuleRecord(
-        string Version,
-        string ManifestPath);
-
-    private sealed record ServiceBundleLayout(
-        string RootPath,
-        string RuntimeExecutablePath,
-        string ServiceHostExecutablePath,
-        string ScriptPath,
-        string ModuleManifestPath);
-
-    private sealed record ResolvedServiceScriptSource(
-        string FullScriptPath,
-        string? FullContentRoot,
-        string RelativeScriptPath);
-
     private static int Main(string[] args)
     {
-        if (TryParseServiceRegisterArguments(args, out var serviceRegisterOptions, out var serviceRegisterError))
+        if (TryHandleInternalServiceRegisterMode(args, out var serviceRegisterExitCode))
         {
-            if (!OperatingSystem.IsWindows())
-            {
-                Console.Error.WriteLine("Internal service registration mode is only supported on Windows.");
-                return 1;
-            }
-
-            return RegisterWindowsService(serviceRegisterOptions!);
-        }
-
-        if (!string.IsNullOrWhiteSpace(serviceRegisterError))
-        {
-            Console.Error.WriteLine(serviceRegisterError);
-            return 2;
+            return serviceRegisterExitCode;
         }
 
         var globalOptions = ParseGlobalOptions(args);
@@ -152,92 +38,207 @@ internal static partial class Program
             return 2;
         }
 
-        if (parsedCommand.Mode == CommandMode.ServiceInstall)
+        if (TryDispatchParsedCommand(parsedCommand, globalOptions, args, out var commandExitCode))
         {
-            return InstallService(parsedCommand, globalOptions.SkipGalleryCheck);
+            return commandExitCode;
         }
+        // If the command was not handled by dispatch, it must be a run command. Execute the default run mode path.
+        return ExecuteRunMode(parsedCommand, globalOptions.SkipGalleryCheck);
+    }
 
-        if (parsedCommand.Mode is CommandMode.ModuleInstall or CommandMode.ModuleUpdate or CommandMode.ModuleRemove or CommandMode.ModuleInfo)
+    /// <summary>
+    /// Handles internal Windows-only service registration mode prior to normal command parsing.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="exitCode">Exit code when internal service registration mode is handled.</param>
+    /// <returns>True when internal service registration mode was handled.</returns>
+    private static bool TryHandleInternalServiceRegisterMode(string[] args, out int exitCode)
+    {
+        exitCode = 0;
+
+        if (TryParseServiceRegisterArguments(args, out var serviceRegisterOptions, out var serviceRegisterError))
         {
-            if (parsedCommand.Mode is CommandMode.ModuleInstall or CommandMode.ModuleUpdate or CommandMode.ModuleRemove
-                && parsedCommand.ModuleScope == ModuleStorageScope.Global
-                && OperatingSystem.IsWindows()
-                && !IsWindowsAdministrator())
+            if (!OperatingSystem.IsWindows())
             {
-                return RelaunchElevatedOnWindows(args);
+                Console.Error.WriteLine("Internal service registration mode is only supported on Windows.");
+                exitCode = 1;
+                return true;
             }
-            // For non-Windows OSes, attempt module management without elevation and rely on error handling for permission issues.
-            return ManageModuleCommand(parsedCommand);
+
+            exitCode = RegisterWindowsService(serviceRegisterOptions!);
+            return true;
         }
 
-        if (parsedCommand.Mode == CommandMode.ServiceRemove)
+        if (string.IsNullOrWhiteSpace(serviceRegisterError))
         {
-            if (OperatingSystem.IsWindows() && !IsWindowsAdministrator())
-            {
-                return !TryPreflightWindowsServiceRemove(parsedCommand, out var preflightExitCode)
-                    ? preflightExitCode
-                    : RelaunchElevatedOnWindows(args);
-            }
-            // For non-Windows OSes, attempt removal without elevation and rely on error handling for permission issues or missing services.
-            return RemoveService(parsedCommand);
+            return false;
         }
 
-        if (parsedCommand.Mode == CommandMode.ServiceStart)
+        Console.Error.WriteLine(serviceRegisterError);
+        exitCode = 2;
+        return true;
+    }
+
+    /// <summary>
+    /// Dispatches parsed non-run commands and returns an exit code when handled.
+    /// </summary>
+    /// <param name="parsedCommand">Parsed command.</param>
+    /// <param name="globalOptions">Parsed global options.</param>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="exitCode">Exit code when command is handled.</param>
+    /// <returns>True when the command mode is handled by dispatch.</returns>
+    private static bool TryDispatchParsedCommand(ParsedCommand parsedCommand, GlobalOptions globalOptions, string[] args, out int exitCode)
+    {
+        switch (parsedCommand.Mode)
         {
-            if (OperatingSystem.IsWindows() && !IsWindowsAdministrator())
-            {
-                return !TryPreflightWindowsServiceControl(parsedCommand, out var preflightExitCode)
-                    ? preflightExitCode
-                    : RelaunchElevatedOnWindows(args);
-            }
-            // For non-Windows OSes, attempt start without elevation and rely on error handling for permission issues or missing services.
-            return StartService(parsedCommand);
+            case CommandMode.ServiceInstall:
+                exitCode = InstallService(parsedCommand, globalOptions.SkipGalleryCheck);
+                return true;
+            case CommandMode.ModuleInstall:
+            case CommandMode.ModuleUpdate:
+            case CommandMode.ModuleRemove:
+            case CommandMode.ModuleInfo:
+                exitCode = HandleModuleCommand(parsedCommand, args);
+                return true;
+            case CommandMode.ServiceRemove:
+                exitCode = HandleServiceRemoveCommand(parsedCommand, args);
+                return true;
+            case CommandMode.ServiceStart:
+                exitCode = HandleServiceStartCommand(parsedCommand, args);
+                return true;
+            case CommandMode.ServiceStop:
+                exitCode = HandleServiceStopCommand(parsedCommand, args);
+                return true;
+            case CommandMode.ServiceQuery:
+                exitCode = QueryService(parsedCommand);
+                return true;
+            default:
+                exitCode = 0;
+                return false;
         }
+    }
 
-        if (parsedCommand.Mode == CommandMode.ServiceStop)
+    /// <summary>
+    /// Handles module command execution, including Windows elevation for global scope changes.
+    /// </summary>
+    /// <param name="parsedCommand">Parsed module command.</param>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <returns>Process exit code.</returns>
+    private static int HandleModuleCommand(ParsedCommand parsedCommand, string[] args)
+    {
+        if (OperatingSystem.IsWindows() && RequiresWindowsElevationForGlobalModuleOperation(parsedCommand))
         {
-            if (OperatingSystem.IsWindows() && !IsWindowsAdministrator())
-            {
-                return !TryPreflightWindowsServiceControl(parsedCommand, out var preflightExitCode)
-                    ? preflightExitCode
-                    : RelaunchElevatedOnWindows(args);
-            }
-            // For non-Windows OSes, attempt stop without elevation and rely on error handling for permission issues or missing services.
-            return StopService(parsedCommand);
+            return RelaunchElevatedOnWindows(args);
         }
 
-        if (parsedCommand.Mode == CommandMode.ServiceQuery)
+        // For non-Windows OSes, attempt module management without elevation and rely on error handling for permission issues.
+        return ManageModuleCommand(parsedCommand);
+    }
+
+    /// <summary>
+    /// Returns true when a module install/update/remove command requires Windows elevation.
+    /// </summary>
+    /// <param name="parsedCommand">Parsed command.</param>
+    /// <returns>True when the command targets global scope on Windows without elevation.</returns>
+    private static bool RequiresWindowsElevationForGlobalModuleOperation(ParsedCommand parsedCommand)
+    {
+        if (!OperatingSystem.IsWindows())
         {
-            return QueryService(parsedCommand);
+            return false;
+        }
+        // Global scope module operations require admin rights on Windows.
+        return parsedCommand.Mode is CommandMode.ModuleInstall or CommandMode.ModuleUpdate or CommandMode.ModuleRemove
+            && parsedCommand.ModuleScope == ModuleStorageScope.Global
+            && !IsWindowsAdministrator();
+    }
+
+    /// <summary>
+    /// Handles service remove command execution and Windows elevation preflight.
+    /// </summary>
+    /// <param name="parsedCommand">Parsed service command.</param>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <returns>Process exit code.</returns>
+    private static int HandleServiceRemoveCommand(ParsedCommand parsedCommand, string[] args)
+    {
+        if (OperatingSystem.IsWindows() && !IsWindowsAdministrator())
+        {
+            return !TryPreflightWindowsServiceRemove(parsedCommand, out var preflightExitCode)
+                ? preflightExitCode
+                : RelaunchElevatedOnWindows(args);
         }
 
-        var scriptPath = parsedCommand.ScriptPath;
-        var scriptArguments = parsedCommand.ScriptArguments;
-        var kestrunFolder = parsedCommand.KestrunFolder;
-        var kestrunManifestPath = parsedCommand.KestrunManifestPath;
+        // For non-Windows OSes, attempt removal without elevation and rely on permission/service-state errors.
+        return RemoveService(parsedCommand);
+    }
 
-        var fullScriptPath = Path.GetFullPath(scriptPath);
+    /// <summary>
+    /// Handles service start command execution and Windows elevation preflight.
+    /// </summary>
+    /// <param name="parsedCommand">Parsed service command.</param>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <returns>Process exit code.</returns>
+    private static int HandleServiceStartCommand(ParsedCommand parsedCommand, string[] args)
+    {
+        if (OperatingSystem.IsWindows() && !IsWindowsAdministrator())
+        {
+            return !TryPreflightWindowsServiceControl(parsedCommand, out var preflightExitCode)
+                ? preflightExitCode
+                : RelaunchElevatedOnWindows(args);
+        }
+
+        // For non-Windows OSes, attempt start without elevation and rely on permission/service-state errors.
+        return StartService(parsedCommand);
+    }
+
+    /// <summary>
+    /// Handles service stop command execution and Windows elevation preflight.
+    /// </summary>
+    /// <param name="parsedCommand">Parsed service command.</param>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <returns>Process exit code.</returns>
+    private static int HandleServiceStopCommand(ParsedCommand parsedCommand, string[] args)
+    {
+        if (OperatingSystem.IsWindows() && !IsWindowsAdministrator())
+        {
+            return !TryPreflightWindowsServiceControl(parsedCommand, out var preflightExitCode)
+                ? preflightExitCode
+                : RelaunchElevatedOnWindows(args);
+        }
+
+        // For non-Windows OSes, attempt stop without elevation and rely on permission/service-state errors.
+        return StopService(parsedCommand);
+    }
+
+    /// <summary>
+    /// Executes the default run mode path after command parsing succeeds.
+    /// </summary>
+    /// <param name="parsedCommand">Parsed run command.</param>
+    /// <param name="skipGalleryCheck">True to skip gallery version checks.</param>
+    /// <returns>Process exit code.</returns>
+    private static int ExecuteRunMode(ParsedCommand parsedCommand, bool skipGalleryCheck)
+    {
+        var fullScriptPath = Path.GetFullPath(parsedCommand.ScriptPath);
         if (!File.Exists(fullScriptPath))
         {
             Console.Error.WriteLine($"Script file not found: {fullScriptPath}");
             return 2;
         }
 
-        var moduleManifestPath = ResolveRunModuleManifestPath(kestrunManifestPath, kestrunFolder);
+        var moduleManifestPath = ResolveRunModuleManifestPath(parsedCommand.KestrunManifestPath, parsedCommand.KestrunFolder);
         if (moduleManifestPath is null)
         {
-            WriteModuleNotFoundMessage(kestrunManifestPath, kestrunFolder, Console.Error.WriteLine);
+            WriteModuleNotFoundMessage(parsedCommand.KestrunManifestPath, parsedCommand.KestrunFolder, Console.Error.WriteLine);
             return 3;
         }
 
-        if (!globalOptions.SkipGalleryCheck)
+        if (!skipGalleryCheck)
         {
             WarnIfNewerGalleryVersionExists(moduleManifestPath);
         }
 
         try
         {
-            return ExecuteScriptViaServiceHost(fullScriptPath, scriptArguments, moduleManifestPath);
+            return ExecuteScriptViaServiceHost(fullScriptPath, parsedCommand.ScriptArguments, moduleManifestPath);
         }
         catch (Exception ex)
         {
@@ -256,144 +257,6 @@ internal static partial class Program
         using var identity = WindowsIdentity.GetCurrent();
         var principal = new WindowsPrincipal(identity);
         return principal.IsInRole(WindowsBuiltInRole.Administrator);
-    }
-
-    /// <summary>
-    /// Parses internal Windows service registration arguments when present.
-    /// </summary>
-    /// <param name="args">Raw command-line arguments.</param>
-    /// <param name="options">Parsed registration options when successful.</param>
-    /// <param name="error">Parse error when registration mode is requested but invalid.</param>
-    /// <returns>True when service registration mode is recognized and parsed.</returns>
-    private static bool TryParseServiceRegisterArguments(string[] args, out ServiceRegisterOptions? options, out string? error)
-    {
-        options = null;
-        error = null;
-
-        if (args.Length == 0 || !string.Equals(args[0], "--service-register", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        var index = 1;
-        var serviceName = string.Empty;
-        var serviceHostExecutablePath = string.Empty;
-        var runnerExecutablePath = string.Empty;
-        var scriptPath = string.Empty;
-        var moduleManifestPath = string.Empty;
-        var scriptArgs = Array.Empty<string>();
-        string? serviceLogPath = null;
-        string? serviceUser = null;
-        string? servicePassword = null;
-
-        while (index < args.Length)
-        {
-            var current = args[index];
-            if (current is "--name" && index + 1 < args.Length)
-            {
-                serviceName = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--service-host-exe" && index + 1 < args.Length)
-            {
-                serviceHostExecutablePath = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--runner-exe" && index + 1 < args.Length)
-            {
-                runnerExecutablePath = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            // Backward compatibility for older elevated registration invocations.
-            if (current is "--exe" && index + 1 < args.Length)
-            {
-                serviceHostExecutablePath = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--script" && index + 1 < args.Length)
-            {
-                scriptPath = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--kestrun-manifest" or "-m" && index + 1 < args.Length)
-            {
-                moduleManifestPath = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--service-log-path" && index + 1 < args.Length)
-            {
-                serviceLogPath = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--service-user" && index + 1 < args.Length)
-            {
-                serviceUser = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--service-password" && index + 1 < args.Length)
-            {
-                servicePassword = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--arguments" or "--")
-            {
-                scriptArgs = [.. args.Skip(index + 1)];
-                break;
-            }
-
-            error = $"Unknown service register option: {current}";
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(serviceName))
-        {
-            error = "Missing --name for internal service registration mode.";
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(serviceHostExecutablePath))
-        {
-            error = "Missing --service-host-exe for internal service registration mode.";
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(runnerExecutablePath))
-        {
-            runnerExecutablePath = serviceHostExecutablePath;
-        }
-
-        if (string.IsNullOrWhiteSpace(scriptPath))
-        {
-            error = "Missing --script for internal service registration mode.";
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(moduleManifestPath))
-        {
-            error = "Missing --kestrun-manifest for internal service registration mode.";
-            return false;
-        }
-
-        options = new ServiceRegisterOptions(serviceName, serviceHostExecutablePath, runnerExecutablePath, scriptPath, moduleManifestPath, scriptArgs, serviceLogPath, serviceUser, servicePassword);
-        return true;
     }
 
     /// <summary>
@@ -680,279 +543,6 @@ internal static partial class Program
     {
         var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(executablePath);
         return string.Equals(fileNameWithoutExtension, "dotnet", StringComparison.OrdinalIgnoreCase);
-    }
-
-    /// <summary>
-    /// Installs a service/daemon entry that runs the target script through the KestrunTool executable.
-    /// </summary>
-    /// <param name="command">Parsed command information.</param>
-    /// <returns>Process exit code.</returns>
-    private static int InstallService(ParsedCommand command, bool skipGalleryCheck)
-    {
-        if (string.IsNullOrWhiteSpace(command.ServiceName))
-        {
-            Console.Error.WriteLine("Service name is required. Use --name <value>.");
-            return 2;
-        }
-
-        var serviceName = command.ServiceName;
-
-        if (!TryResolveServiceScriptSource(command, out var scriptSource, out var scriptError))
-        {
-            Console.Error.WriteLine(scriptError);
-            return 2;
-        }
-
-        var scriptPath = scriptSource.FullScriptPath;
-
-        var moduleManifestPath = LocateModuleManifest(command.KestrunManifestPath, command.KestrunFolder);
-        if (moduleManifestPath is null)
-        {
-            WriteModuleNotFoundMessage(command.KestrunManifestPath, command.KestrunFolder, Console.Error.WriteLine);
-            return 3;
-        }
-
-        if (OperatingSystem.IsWindows() && !TryPreflightWindowsServiceInstall(command, out var preflightExitCode))
-        {
-            return preflightExitCode;
-        }
-
-        if (!skipGalleryCheck)
-        {
-            WarnIfNewerGalleryVersionExists(moduleManifestPath, command.ServiceLogPath);
-        }
-
-        if (OperatingSystem.IsLinux() && !string.IsNullOrWhiteSpace(command.ServiceUser) && !IsLikelyRunningAsRootOnLinux())
-        {
-            Console.Error.WriteLine("Linux system service install with --service-user requires root privileges.");
-            return 1;
-        }
-
-        if (OperatingSystem.IsMacOS() && !string.IsNullOrWhiteSpace(command.ServiceUser) && !IsLikelyRunningAsRootOnUnix())
-        {
-            Console.Error.WriteLine("macOS system daemon install with --service-user requires root privileges.");
-            return 1;
-        }
-
-        if (!TryPrepareServiceBundle(serviceName, scriptPath, moduleManifestPath, scriptSource.FullContentRoot, scriptSource.RelativeScriptPath, out var serviceBundle, out var bundleError, command.ServiceDeploymentRoot))
-        {
-            Console.Error.WriteLine(bundleError);
-            return 1;
-        }
-
-        if (serviceBundle is null)
-        {
-            Console.Error.WriteLine("Service bundle preparation failed.");
-            return 1;
-        }
-
-        var daemonArgs = BuildDaemonHostArgumentsForService(
-            serviceName,
-            serviceBundle.ServiceHostExecutablePath,
-            serviceBundle.RuntimeExecutablePath,
-            serviceBundle.ScriptPath,
-            serviceBundle.ModuleManifestPath,
-            command.ScriptArguments,
-            command.ServiceLogPath);
-        var workingDirectory = Path.GetDirectoryName(serviceBundle.ScriptPath) ?? Environment.CurrentDirectory;
-
-        if (OperatingSystem.IsWindows())
-        {
-            return InstallWindowsService(
-                command,
-                serviceBundle.ServiceHostExecutablePath,
-                serviceBundle.RuntimeExecutablePath,
-                serviceBundle.ScriptPath,
-                serviceBundle.ModuleManifestPath);
-        }
-
-        if (OperatingSystem.IsLinux())
-        {
-            var result = InstallLinuxUserDaemon(serviceName, serviceBundle.ServiceHostExecutablePath, daemonArgs, workingDirectory, command.ServiceUser);
-            WriteServiceOperationResult("install", "linux", serviceName, result, command.ServiceLogPath);
-            return result;
-        }
-
-        if (OperatingSystem.IsMacOS())
-        {
-            var result = InstallMacLaunchAgent(serviceName, serviceBundle.ServiceHostExecutablePath, daemonArgs, workingDirectory, command.ServiceUser);
-            WriteServiceOperationResult("install", "macos", serviceName, result, command.ServiceLogPath);
-            return result;
-        }
-
-        Console.Error.WriteLine("Service installation is not supported on this OS.");
-        return 1;
-    }
-
-    /// <summary>
-    /// Removes a previously installed service/daemon entry.
-    /// </summary>
-    /// <param name="command">Parsed command information.</param>
-    /// <returns>Process exit code.</returns>
-    private static int RemoveService(ParsedCommand command)
-    {
-        if (string.IsNullOrWhiteSpace(command.ServiceName))
-        {
-            Console.Error.WriteLine("Service name is required. Use --name <value>.");
-            return 2;
-        }
-
-        var serviceName = command.ServiceName;
-
-        int result;
-        if (OperatingSystem.IsWindows())
-        {
-            result = RemoveWindowsService(command);
-            if (result == 0)
-            {
-                TryRemoveServiceBundle(serviceName, command.ServiceDeploymentRoot);
-            }
-
-            return result;
-        }
-
-        if (OperatingSystem.IsLinux())
-        {
-            result = RemoveLinuxUserDaemon(serviceName);
-            if (result == 0)
-            {
-                TryRemoveServiceBundle(serviceName, command.ServiceDeploymentRoot);
-            }
-
-            WriteServiceOperationResult("remove", "linux", serviceName, result, command.ServiceLogPath);
-
-            return result;
-        }
-
-        if (OperatingSystem.IsMacOS())
-        {
-            result = RemoveMacLaunchAgent(serviceName);
-            if (result == 0)
-            {
-                TryRemoveServiceBundle(serviceName, command.ServiceDeploymentRoot);
-            }
-
-            WriteServiceOperationResult("remove", "macos", serviceName, result, command.ServiceLogPath);
-
-            return result;
-        }
-
-        Console.Error.WriteLine("Service removal is not supported on this OS.");
-        return 1;
-    }
-
-    /// <summary>
-    /// Starts a previously installed service/daemon entry.
-    /// </summary>
-    /// <param name="command">Parsed command information.</param>
-    /// <returns>Process exit code.</returns>
-    private static int StartService(ParsedCommand command)
-    {
-        if (string.IsNullOrWhiteSpace(command.ServiceName))
-        {
-            Console.Error.WriteLine("Service name is required. Use --name <value>.");
-            return 2;
-        }
-
-        var serviceName = command.ServiceName;
-
-        if (OperatingSystem.IsWindows())
-        {
-            return StartWindowsService(serviceName, command.ServiceLogPath);
-        }
-
-        if (OperatingSystem.IsLinux())
-        {
-            var result = StartLinuxUserDaemon(serviceName);
-            WriteServiceOperationResult("start", "linux", serviceName, result, command.ServiceLogPath);
-            return result;
-        }
-
-        if (OperatingSystem.IsMacOS())
-        {
-            var result = StartMacLaunchAgent(serviceName);
-            WriteServiceOperationResult("start", "macos", serviceName, result, command.ServiceLogPath);
-            return result;
-        }
-
-        Console.Error.WriteLine("Service start is not supported on this OS.");
-        return 1;
-    }
-
-    /// <summary>
-    /// Stops a previously installed service/daemon entry.
-    /// </summary>
-    /// <param name="command">Parsed command information.</param>
-    /// <returns>Process exit code.</returns>
-    private static int StopService(ParsedCommand command)
-    {
-        if (string.IsNullOrWhiteSpace(command.ServiceName))
-        {
-            Console.Error.WriteLine("Service name is required. Use --name <value>.");
-            return 2;
-        }
-
-        var serviceName = command.ServiceName;
-
-        if (OperatingSystem.IsWindows())
-        {
-            return StopWindowsService(serviceName, command.ServiceLogPath);
-        }
-
-        if (OperatingSystem.IsLinux())
-        {
-            var result = StopLinuxUserDaemon(serviceName);
-            WriteServiceOperationResult("stop", "linux", serviceName, result, command.ServiceLogPath);
-            return result;
-        }
-
-        if (OperatingSystem.IsMacOS())
-        {
-            var result = StopMacLaunchAgent(serviceName);
-            WriteServiceOperationResult("stop", "macos", serviceName, result, command.ServiceLogPath);
-            return result;
-        }
-
-        Console.Error.WriteLine("Service stop is not supported on this OS.");
-        return 1;
-    }
-
-    /// <summary>
-    /// Queries a previously installed service/daemon entry.
-    /// </summary>
-    /// <param name="command">Parsed command information.</param>
-    /// <returns>Process exit code.</returns>
-    private static int QueryService(ParsedCommand command)
-    {
-        if (string.IsNullOrWhiteSpace(command.ServiceName))
-        {
-            Console.Error.WriteLine("Service name is required. Use --name <value>.");
-            return 2;
-        }
-
-        var serviceName = command.ServiceName;
-
-        if (OperatingSystem.IsWindows())
-        {
-            return QueryWindowsService(serviceName, command.ServiceLogPath);
-        }
-
-        if (OperatingSystem.IsLinux())
-        {
-            var result = QueryLinuxUserDaemon(serviceName);
-            WriteServiceOperationResult("query", "linux", serviceName, result, command.ServiceLogPath);
-            return result;
-        }
-
-        if (OperatingSystem.IsMacOS())
-        {
-            var result = QueryMacLaunchAgent(serviceName);
-            WriteServiceOperationResult("query", "macos", serviceName, result, command.ServiceLogPath);
-            return result;
-        }
-
-        Console.Error.WriteLine("Service query is not supported on this OS.");
-        return 1;
     }
 
     /// <summary>
@@ -1667,184 +1257,6 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Creates a per-service deployment bundle with runtime binary, module files, and the script entrypoint.
-    /// </summary>
-    /// <param name="serviceName">Service name.</param>
-    /// <param name="sourceScriptPath">Source script path.</param>
-    /// <param name="sourceModuleManifestPath">Source module manifest path.</param>
-    /// <param name="serviceBundle">Created service bundle paths.</param>
-    /// <param name="error">Error details when bundling fails.</param>
-    /// <param name="deploymentRootOverride">Optional deployment root override for tests.</param>
-    /// <returns>True when service bundle creation succeeds.</returns>
-    private static bool TryPrepareServiceBundle(
-        string serviceName,
-        string sourceScriptPath,
-        string sourceModuleManifestPath,
-        string? sourceContentRoot,
-        string relativeScriptPath,
-        out ServiceBundleLayout? serviceBundle,
-        out string error,
-        string? deploymentRootOverride = null)
-    {
-        serviceBundle = null;
-        error = string.Empty;
-
-        var fullScriptPath = Path.GetFullPath(sourceScriptPath);
-        if (!File.Exists(fullScriptPath))
-        {
-            error = $"Script file not found: {fullScriptPath}";
-            return false;
-        }
-
-        var fullManifestPath = Path.GetFullPath(sourceModuleManifestPath);
-        if (!File.Exists(fullManifestPath))
-        {
-            error = $"Kestrun manifest file not found: {fullManifestPath}";
-            return false;
-        }
-
-        if (!TryResolveServiceRuntimeExecutableFromModule(fullManifestPath, out var runtimeExecutablePath, out var runtimeError))
-        {
-            error = runtimeError;
-            return false;
-        }
-
-        var moduleRoot = Path.GetDirectoryName(fullManifestPath)!;
-        var serviceDirectoryName = GetServiceDeploymentDirectoryName(serviceName);
-
-        if (!TryResolveServiceDeploymentRoot(deploymentRootOverride, out var deploymentRoot, out var deploymentError))
-        {
-            error = deploymentError;
-            return false;
-        }
-
-        var serviceRoot = Path.Combine(deploymentRoot, serviceDirectoryName);
-        var runtimeDirectory = Path.Combine(serviceRoot, ServiceBundleRuntimeDirectoryName);
-        var modulesDirectory = Path.Combine(serviceRoot, ServiceBundleModulesDirectoryName);
-        var moduleDirectory = Path.Combine(modulesDirectory, ModuleName);
-        var scriptDirectory = Path.Combine(serviceRoot, ServiceBundleScriptDirectoryName);
-        var showProgress = !Console.IsOutputRedirected;
-        using var bundleProgress = showProgress
-            ? new ConsoleProgressBar("Preparing service bundle", 5, FormatServiceBundleStepProgressDetail)
-            : null;
-        var completedBundleSteps = 0;
-        bundleProgress?.Report(0);
-
-        try
-        {
-            if (Directory.Exists(serviceRoot))
-            {
-                Directory.Delete(serviceRoot, recursive: true);
-            }
-
-            _ = Directory.CreateDirectory(runtimeDirectory);
-            _ = Directory.CreateDirectory(modulesDirectory);
-            _ = Directory.CreateDirectory(moduleDirectory);
-            _ = Directory.CreateDirectory(scriptDirectory);
-            completedBundleSteps++;
-            bundleProgress?.Report(completedBundleSteps);
-
-            var bundledRuntimePath = Path.Combine(runtimeDirectory, Path.GetFileName(runtimeExecutablePath));
-            File.Copy(runtimeExecutablePath, bundledRuntimePath, overwrite: true);
-            completedBundleSteps++;
-            bundleProgress?.Report(completedBundleSteps);
-
-            if (!TryResolveDedicatedServiceHostExecutableFromToolDistribution(out var serviceHostExecutablePath))
-            {
-                error = $"Unable to locate dedicated service host for current RID in Kestrun.Tool distribution. Expected '{(OperatingSystem.IsWindows() ? "kestrun-service-host.exe" : "kestrun-service-host")}' under 'kestrun-service/<rid>/'. Reinstall or update Kestrun.Tool.";
-                return false;
-            }
-
-            var bundledServiceHostPath = Path.Combine(runtimeDirectory, Path.GetFileName(serviceHostExecutablePath));
-            File.Copy(serviceHostExecutablePath, bundledServiceHostPath, overwrite: true);
-
-            if (!TryResolvePowerShellModulesPayloadFromToolDistribution(out var toolModulesPayloadPath))
-            {
-                error = "Unable to locate bundled PowerShell Modules payload for current RID in Kestrun.Tool distribution. Expected payload under 'kestrun-service/<rid>/Modules/'. Reinstall or update Kestrun.Tool.";
-                return false;
-            }
-
-            CopyDirectoryContents(
-                toolModulesPayloadPath,
-                modulesDirectory,
-                showProgress,
-                "Bundling service runtime modules",
-                exclusionPatterns: null);
-            completedBundleSteps++;
-            bundleProgress?.Report(completedBundleSteps);
-
-            if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
-            {
-                TryEnsureServiceRuntimeExecutablePermissions(bundledRuntimePath);
-                if (!string.Equals(bundledRuntimePath, bundledServiceHostPath, StringComparison.OrdinalIgnoreCase))
-                {
-                    TryEnsureServiceRuntimeExecutablePermissions(bundledServiceHostPath);
-                }
-            }
-
-            CopyDirectoryContents(
-                moduleRoot,
-                moduleDirectory,
-                showProgress,
-                "Bundling module files",
-                ServiceBundleModuleExclusionPatterns);
-            completedBundleSteps++;
-            bundleProgress?.Report(completedBundleSteps);
-
-            var bundledManifestPath = Path.Combine(moduleDirectory, Path.GetFileName(fullManifestPath));
-            if (!File.Exists(bundledManifestPath))
-            {
-                error = $"Service bundle copy did not include module manifest: {bundledManifestPath}";
-                return false;
-            }
-
-            var bundledScriptPath = Path.Combine(scriptDirectory, relativeScriptPath.Replace('/', Path.DirectorySeparatorChar));
-            if (string.IsNullOrWhiteSpace(sourceContentRoot))
-            {
-                var bundledScriptDirectory = Path.GetDirectoryName(bundledScriptPath);
-                if (!string.IsNullOrWhiteSpace(bundledScriptDirectory))
-                {
-                    _ = Directory.CreateDirectory(bundledScriptDirectory);
-                }
-
-                File.Copy(fullScriptPath, bundledScriptPath, overwrite: true);
-            }
-            else
-            {
-                CopyDirectoryContents(
-                    sourceContentRoot,
-                    scriptDirectory,
-                    showProgress,
-                    "Bundling service script folder",
-                    exclusionPatterns: null);
-            }
-
-            if (!File.Exists(bundledScriptPath))
-            {
-                error = $"Service bundle copy did not include script: {bundledScriptPath}";
-                return false;
-            }
-
-            completedBundleSteps++;
-            bundleProgress?.Report(completedBundleSteps);
-            bundleProgress?.Complete(completedBundleSteps);
-
-            serviceBundle = new ServiceBundleLayout(
-                Path.GetFullPath(serviceRoot),
-                Path.GetFullPath(bundledRuntimePath),
-                Path.GetFullPath(bundledServiceHostPath),
-                Path.GetFullPath(bundledScriptPath),
-                Path.GetFullPath(bundledManifestPath));
-            return true;
-        }
-        catch (Exception ex)
-        {
-            error = $"Failed to prepare service bundle at '{serviceRoot}': {ex.Message}";
-            return false;
-        }
-    }
-
-    /// <summary>
     /// Resolves service-install script source, including optional content-root semantics.
     /// </summary>
     /// <param name="command">Parsed service command.</param>
@@ -2295,524 +1707,6 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Starts a Windows service using sc.exe.
-    /// </summary>
-    /// <param name="serviceName">Service name.</param>
-    /// <returns>Process exit code.</returns>
-    private static int StartWindowsService(string serviceName, string? configuredLogPath)
-    {
-        var result = RunProcess("sc.exe", ["start", serviceName]);
-        if (result.ExitCode != 0)
-        {
-            Console.Error.WriteLine(result.Error);
-            WriteServiceOperationLog(
-                $"operation='start' service='{serviceName}' platform='windows' result='failed' exitCode={result.ExitCode} error='{result.Error.Trim()}'",
-                configuredLogPath,
-                serviceName);
-            return result.ExitCode;
-        }
-
-        WriteServiceOperationLog(
-            $"operation='start' service='{serviceName}' platform='windows' result='success' exitCode=0",
-            configuredLogPath,
-            serviceName);
-        Console.WriteLine($"Started Windows service '{serviceName}'.");
-        return 0;
-    }
-
-    /// <summary>
-    /// Stops a Windows service using sc.exe.
-    /// </summary>
-    /// <param name="serviceName">Service name.</param>
-    /// <returns>Process exit code.</returns>
-    private static int StopWindowsService(string serviceName, string? configuredLogPath)
-    {
-        var result = RunProcess("sc.exe", ["stop", serviceName]);
-        if (result.ExitCode != 0)
-        {
-            Console.Error.WriteLine(result.Error);
-            WriteServiceOperationLog(
-                $"operation='stop' service='{serviceName}' platform='windows' result='failed' exitCode={result.ExitCode} error='{result.Error.Trim()}'",
-                configuredLogPath,
-                serviceName);
-            return result.ExitCode;
-        }
-
-        WriteServiceOperationLog(
-            $"operation='stop' service='{serviceName}' platform='windows' result='success' exitCode=0",
-            configuredLogPath,
-            serviceName);
-        Console.WriteLine($"Stopped Windows service '{serviceName}'.");
-        return 0;
-    }
-
-    /// <summary>
-    /// Queries a Windows service using sc.exe.
-    /// </summary>
-    /// <param name="serviceName">Service name.</param>
-    /// <returns>Process exit code.</returns>
-    private static int QueryWindowsService(string serviceName, string? configuredLogPath)
-    {
-        var result = RunProcess("sc.exe", ["query", serviceName]);
-        if (result.ExitCode != 0)
-        {
-            Console.Error.WriteLine(result.Error);
-            WriteServiceOperationLog(
-                $"operation='query' service='{serviceName}' platform='windows' result='failed' exitCode={result.ExitCode} error='{result.Error.Trim()}'",
-                configuredLogPath,
-                serviceName);
-            return result.ExitCode;
-        }
-
-        var stateLine = result.Output
-            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .FirstOrDefault(static line => line.Contains("STATE", StringComparison.OrdinalIgnoreCase)) ?? "STATE: unknown";
-
-        WriteServiceOperationLog(
-            $"operation='query' service='{serviceName}' platform='windows' result='success' exitCode=0 state='{stateLine}'",
-            configuredLogPath,
-            serviceName);
-
-        return 0;
-    }
-
-    /// <summary>
-    /// Installs a systemd unit (user scope by default; system scope when serviceUser is provided).
-    /// </summary>
-    /// <param name="serviceName">Unit base name.</param>
-    /// <param name="exePath">Executable path.</param>
-    /// <param name="runnerArgs">Runner arguments.</param>
-    /// <param name="workingDirectory">Working directory for the unit.</param>
-    /// <param name="serviceUser">Optional service account for system scope.</param>
-    /// <returns>Process exit code.</returns>
-    private static int InstallLinuxUserDaemon(string serviceName, string exePath, IReadOnlyList<string> runnerArgs, string workingDirectory, string? serviceUser)
-    {
-        var useSystemScope = !string.IsNullOrWhiteSpace(serviceUser);
-
-        if (useSystemScope && !IsLikelyRunningAsRootOnLinux())
-        {
-            Console.Error.WriteLine("Linux system service install with --service-user requires root privileges.");
-            return 1;
-        }
-
-        if (!useSystemScope && IsLikelyRunningAsRootOnLinux())
-        {
-            Console.Error.WriteLine("Warning: Running as root installs a root user-level unit via systemctl --user.");
-            Console.Error.WriteLine("That unit is managed from root's user session and is separate from your regular user units.");
-        }
-
-        var unitDirectory = useSystemScope
-            ? "/etc/systemd/system"
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "systemd", "user");
-        _ = Directory.CreateDirectory(unitDirectory);
-
-        var unitName = GetLinuxUnitName(serviceName);
-        var unitPath = Path.Combine(unitDirectory, unitName);
-        var unitContent = BuildLinuxSystemdUnitContent(serviceName, exePath, runnerArgs, workingDirectory, serviceUser);
-
-        File.WriteAllText(unitPath, unitContent);
-
-        var reloadResult = RunLinuxSystemctl(useSystemScope, ["daemon-reload"]);
-        if (reloadResult.ExitCode != 0)
-        {
-            Console.Error.WriteLine(reloadResult.Error);
-            if (!useSystemScope)
-            {
-                WriteLinuxUserSystemdFailureHint(reloadResult);
-            }
-
-            return reloadResult.ExitCode;
-        }
-
-        var enableResult = RunLinuxSystemctl(useSystemScope, ["enable", unitName]);
-        if (enableResult.ExitCode != 0)
-        {
-            Console.Error.WriteLine(enableResult.Error);
-            if (!useSystemScope)
-            {
-                WriteLinuxUserSystemdFailureHint(enableResult);
-            }
-
-            return enableResult.ExitCode;
-        }
-
-        Console.WriteLine(useSystemScope
-            ? $"Installed Linux system daemon '{unitName}' for user '{serviceUser}' (not started)."
-            : $"Installed Linux user daemon '{unitName}' (not started).");
-        return 0;
-    }
-
-    /// <summary>
-    /// Builds Linux systemd unit file content for a service install.
-    /// </summary>
-    /// <param name="serviceName">Service name used for Description.</param>
-    /// <param name="exePath">Executable path for the runner.</param>
-    /// <param name="runnerArgs">Arguments passed to the runner executable.</param>
-    /// <param name="workingDirectory">Working directory for the systemd unit.</param>
-    /// <param name="serviceUser">Optional Linux user account for system-scoped units.</param>
-    /// <returns>Rendered unit file content.</returns>
-    private static string BuildLinuxSystemdUnitContent(string serviceName, string exePath, IReadOnlyList<string> runnerArgs, string workingDirectory, string? serviceUser)
-    {
-        var useSystemScope = !string.IsNullOrWhiteSpace(serviceUser);
-        var execStart = string.Join(" ", new[] { EscapeSystemdToken(exePath) }.Concat(runnerArgs.Select(EscapeSystemdToken)));
-
-        return string.Join('\n',
-            "[Unit]",
-            $"Description={serviceName}",
-            "After=network.target",
-            "",
-            "[Service]",
-            "Type=simple",
-            useSystemScope ? $"User={serviceUser}" : string.Empty,
-            $"WorkingDirectory={workingDirectory}",
-            $"ExecStart={execStart}",
-            "Restart=always",
-            "RestartSec=2",
-            "",
-            "[Install]",
-            useSystemScope ? "WantedBy=multi-user.target" : "WantedBy=default.target",
-            "");
-    }
-
-    /// <summary>
-    /// Removes a user-level systemd unit.
-    /// </summary>
-    /// <param name="serviceName">Unit base name.</param>
-    /// <returns>Process exit code.</returns>
-    private static int RemoveLinuxUserDaemon(string serviceName)
-    {
-        var useSystemScope = IsLinuxSystemUnitInstalled(serviceName);
-        var unitDirectory = useSystemScope
-            ? "/etc/systemd/system"
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "systemd", "user");
-        var unitName = GetLinuxUnitName(serviceName);
-        var unitPath = Path.Combine(unitDirectory, unitName);
-
-        _ = RunLinuxSystemctl(useSystemScope, ["disable", "--now", unitName]);
-        if (File.Exists(unitPath))
-        {
-            File.Delete(unitPath);
-        }
-
-        var reloadResult = RunLinuxSystemctl(useSystemScope, ["daemon-reload"]);
-        if (reloadResult.ExitCode != 0)
-        {
-            Console.Error.WriteLine(reloadResult.Error);
-            if (!useSystemScope)
-            {
-                WriteLinuxUserSystemdFailureHint(reloadResult);
-            }
-
-            return reloadResult.ExitCode;
-        }
-
-        Console.WriteLine(useSystemScope
-            ? $"Removed Linux system daemon '{unitName}'."
-            : $"Removed Linux user daemon '{unitName}'.");
-        return 0;
-    }
-
-    /// <summary>
-    /// Starts a Linux user-level systemd unit.
-    /// </summary>
-    /// <param name="serviceName">Unit base name.</param>
-    /// <returns>Process exit code.</returns>
-    private static int StartLinuxUserDaemon(string serviceName)
-    {
-        var useSystemScope = IsLinuxSystemUnitInstalled(serviceName);
-        var unitName = GetLinuxUnitName(serviceName);
-        var result = RunLinuxSystemctl(useSystemScope, ["start", unitName]);
-        if (result.ExitCode != 0)
-        {
-            Console.Error.WriteLine(result.Error);
-            if (!useSystemScope)
-            {
-                WriteLinuxUserSystemdFailureHint(result);
-            }
-
-            return result.ExitCode;
-        }
-
-        Console.WriteLine(useSystemScope
-            ? $"Started Linux system daemon '{unitName}'."
-            : $"Started Linux user daemon '{unitName}'.");
-        return 0;
-    }
-
-    /// <summary>
-    /// Stops a Linux user-level systemd unit.
-    /// </summary>
-    /// <param name="serviceName">Unit base name.</param>
-    /// <returns>Process exit code.</returns>
-    private static int StopLinuxUserDaemon(string serviceName)
-    {
-        var useSystemScope = IsLinuxSystemUnitInstalled(serviceName);
-        var unitName = GetLinuxUnitName(serviceName);
-        var result = RunLinuxSystemctl(useSystemScope, ["stop", unitName]);
-        if (result.ExitCode != 0)
-        {
-            Console.Error.WriteLine(result.Error);
-            if (!useSystemScope)
-            {
-                WriteLinuxUserSystemdFailureHint(result);
-            }
-
-            return result.ExitCode;
-        }
-
-        Console.WriteLine(useSystemScope
-            ? $"Stopped Linux system daemon '{unitName}'."
-            : $"Stopped Linux user daemon '{unitName}'.");
-        return 0;
-    }
-
-    /// <summary>
-    /// Queries a Linux user-level systemd unit.
-    /// </summary>
-    /// <param name="serviceName">Unit base name.</param>
-    /// <returns>Process exit code.</returns>
-    private static int QueryLinuxUserDaemon(string serviceName)
-    {
-        var useSystemScope = IsLinuxSystemUnitInstalled(serviceName);
-        var unitName = GetLinuxUnitName(serviceName);
-        var result = RunLinuxSystemctl(useSystemScope, ["status", unitName]);
-        if (result.ExitCode != 0)
-        {
-            Console.Error.WriteLine(result.Error);
-            if (!useSystemScope)
-            {
-                WriteLinuxUserSystemdFailureHint(result);
-            }
-
-            return result.ExitCode;
-        }
-
-        return 0;
-    }
-
-    /// <summary>
-    /// Runs systemctl in user or system scope.
-    /// </summary>
-    /// <param name="useSystemScope">True for system scope; false for user scope.</param>
-    /// <param name="arguments">Arguments after optional scope switch.</param>
-    /// <returns>Process execution result.</returns>
-    private static ProcessResult RunLinuxSystemctl(bool useSystemScope, IReadOnlyList<string> arguments)
-    {
-        return useSystemScope
-            ? RunProcess("systemctl", arguments)
-            : RunProcess("systemctl", ["--user", .. arguments]);
-    }
-
-    /// <summary>
-    /// Returns true when a system-scoped unit file exists for the service.
-    /// </summary>
-    /// <param name="serviceName">Service name.</param>
-    /// <returns>True when a system unit exists under /etc/systemd/system.</returns>
-    private static bool IsLinuxSystemUnitInstalled(string serviceName)
-    {
-        var unitName = GetLinuxUnitName(serviceName);
-        var systemUnitPath = Path.Combine("/etc/systemd/system", unitName);
-        return File.Exists(systemUnitPath);
-    }
-
-    /// <summary>
-    /// Installs a macOS launch agent plist (or launch daemon when a service user is specified).
-    /// </summary>
-    /// <param name="serviceName">Agent label.</param>
-    /// <param name="exePath">Executable path.</param>
-    /// <param name="runnerArgs">Runner arguments.</param>
-    /// <param name="workingDirectory">Working directory for launchd.</param>
-    /// <param name="serviceUser">Optional service account for system daemon scope.</param>
-    /// <returns>Process exit code.</returns>
-    private static int InstallMacLaunchAgent(string serviceName, string exePath, IReadOnlyList<string> runnerArgs, string workingDirectory, string? serviceUser)
-    {
-        var useSystemScope = !string.IsNullOrWhiteSpace(serviceUser);
-        if (useSystemScope && !IsLikelyRunningAsRootOnUnix())
-        {
-            Console.Error.WriteLine("macOS system daemon install with --service-user requires root privileges.");
-            return 1;
-        }
-
-        var agentDirectory = useSystemScope
-            ? "/Library/LaunchDaemons"
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "LaunchAgents");
-        _ = Directory.CreateDirectory(agentDirectory);
-
-        var plistName = $"{serviceName}.plist";
-        var plistPath = Path.Combine(agentDirectory, plistName);
-        var programArgs = new[] { exePath }.Concat(runnerArgs).ToArray();
-        var plistContent = BuildLaunchdPlist(serviceName, workingDirectory, programArgs, serviceUser);
-        File.WriteAllText(plistPath, plistContent);
-
-        Console.WriteLine(useSystemScope
-            ? $"Installed macOS launch daemon '{serviceName}' for user '{serviceUser}' (not started)."
-            : $"Installed macOS launch agent '{serviceName}' (not started).");
-        return 0;
-    }
-
-    /// <summary>
-    /// Removes a macOS launch agent plist.
-    /// </summary>
-    /// <param name="serviceName">Agent label.</param>
-    /// <returns>Process exit code.</returns>
-    private static int RemoveMacLaunchAgent(string serviceName)
-    {
-        var useSystemScope = IsMacSystemLaunchDaemonInstalled(serviceName);
-        var agentDirectory = useSystemScope
-            ? "/Library/LaunchDaemons"
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "LaunchAgents");
-        var plistPath = Path.Combine(agentDirectory, $"{serviceName}.plist");
-
-        // Unload the agent before deleting the plist to ensure launchd doesn't keep a stale reference to the file.
-        _ = useSystemScope
-            ? RunProcess("launchctl", ["bootout", $"system/{serviceName}"])
-            : RunProcess("launchctl", ["unload", plistPath]);
-
-        // It's possible for the unload to fail if the agent isn't running, but we want to attempt it anyway to avoid leaving a stale loaded agent if the plist is present.
-        if (File.Exists(plistPath))
-        {
-            File.Delete(plistPath);
-        }
-
-        Console.WriteLine(useSystemScope
-            ? $"Removed macOS launch daemon '{serviceName}'."
-            : $"Removed macOS launch agent '{serviceName}'.");
-        return 0;
-    }
-
-    /// <summary>
-    /// Starts a macOS launch agent by loading its plist.
-    /// </summary>
-    /// <param name="serviceName">Agent label.</param>
-    /// <returns>Process exit code.</returns>
-    private static int StartMacLaunchAgent(string serviceName)
-    {
-        var useSystemScope = IsMacSystemLaunchDaemonInstalled(serviceName);
-        var agentDirectory = useSystemScope
-            ? "/Library/LaunchDaemons"
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "LaunchAgents");
-        var plistPath = Path.Combine(agentDirectory, $"{serviceName}.plist");
-        if (!File.Exists(plistPath))
-        {
-            Console.Error.WriteLine($"Launch agent plist not found: {plistPath}");
-            return 2;
-        }
-
-        var result = useSystemScope
-            ? RunProcess("launchctl", ["bootstrap", "system", plistPath])
-            : RunProcess("launchctl", ["load", "-w", plistPath]);
-        if (result.ExitCode != 0)
-        {
-            Console.Error.WriteLine(result.Error);
-            return result.ExitCode;
-        }
-
-        Console.WriteLine(useSystemScope
-            ? $"Started macOS launch daemon '{serviceName}'."
-            : $"Started macOS launch agent '{serviceName}'.");
-        return 0;
-    }
-
-    /// <summary>
-    /// Stops a macOS launch agent by unloading its plist.
-    /// </summary>
-    /// <param name="serviceName">Agent label.</param>
-    /// <returns>Process exit code.</returns>
-    private static int StopMacLaunchAgent(string serviceName)
-    {
-        var useSystemScope = IsMacSystemLaunchDaemonInstalled(serviceName);
-        var agentDirectory = useSystemScope
-            ? "/Library/LaunchDaemons"
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "LaunchAgents");
-        var plistPath = Path.Combine(agentDirectory, $"{serviceName}.plist");
-        if (!File.Exists(plistPath))
-        {
-            Console.Error.WriteLine($"Launch agent plist not found: {plistPath}");
-            return 2;
-        }
-
-        var result = useSystemScope
-            ? RunProcess("launchctl", ["bootout", $"system/{serviceName}"])
-            : RunProcess("launchctl", ["unload", plistPath]);
-        if (result.ExitCode != 0)
-        {
-            Console.Error.WriteLine(result.Error);
-            return result.ExitCode;
-        }
-
-        Console.WriteLine(useSystemScope
-            ? $"Stopped macOS launch daemon '{serviceName}'."
-            : $"Stopped macOS launch agent '{serviceName}'.");
-        return 0;
-    }
-
-    /// <summary>
-    /// Queries a macOS launch agent by label.
-    /// </summary>
-    /// <param name="serviceName">Agent label.</param>
-    /// <returns>Process exit code.</returns>
-    private static int QueryMacLaunchAgent(string serviceName)
-    {
-        var useSystemScope = IsMacSystemLaunchDaemonInstalled(serviceName);
-        var result = useSystemScope
-            ? RunProcess("launchctl", ["print", $"system/{serviceName}"])
-            : RunProcess("launchctl", ["list", serviceName]);
-        if (result.ExitCode != 0)
-        {
-            Console.Error.WriteLine(result.Error);
-            return result.ExitCode;
-        }
-
-        return 0;
-    }
-
-    /// <summary>
-    /// Returns true when a system-scoped launch daemon plist exists for the service.
-    /// </summary>
-    /// <param name="serviceName">Service label.</param>
-    /// <returns>True when plist exists under /Library/LaunchDaemons.</returns>
-    private static bool IsMacSystemLaunchDaemonInstalled(string serviceName)
-    {
-        var plistPath = Path.Combine("/Library/LaunchDaemons", $"{serviceName}.plist");
-        return File.Exists(plistPath);
-    }
-
-    /// <summary>
-    /// Builds a launchd plist document for a persistent launch agent/daemon.
-    /// </summary>
-    /// <param name="label">Launchd label.</param>
-    /// <param name="workingDirectory">Working directory.</param>
-    /// <param name="programArguments">Program argument list.</param>
-    /// <param name="serviceUser">Optional macOS account name for LaunchDaemon UserName.</param>
-    /// <returns>XML plist content.</returns>
-    private static string BuildLaunchdPlist(string label, string workingDirectory, IReadOnlyList<string> programArguments, string? serviceUser)
-    {
-        var argsXml = string.Join(string.Empty, programArguments.Select(arg => $"\n    <string>{EscapeXml(arg)}</string>"));
-        var userXml = string.IsNullOrWhiteSpace(serviceUser)
-            ? string.Empty
-            : $"\n  <key>UserName</key>\n  <string>{EscapeXml(serviceUser)}</string>";
-        return $"""
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>{EscapeXml(label)}</string>
-  <key>ProgramArguments</key>
-  <array>{argsXml}
-  </array>
-  <key>WorkingDirectory</key>
-    <string>{EscapeXml(workingDirectory)}</string>{userXml}
-  <key>RunAtLoad</key>
-  <true/>
-  <key>KeepAlive</key>
-  <true/>
-</dict>
-</plist>
-""";
-    }
-
-    /// <summary>
     /// Escapes XML-sensitive characters.
     /// </summary>
     /// <param name="input">Raw input string.</param>
@@ -3223,178 +2117,6 @@ internal static partial class Program
     private static bool IsNoCheckOption(string token)
         => string.Equals(token, NoCheckOption, StringComparison.OrdinalIgnoreCase)
             || string.Equals(token, NoCheckAliasOption, StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>
-    /// Executes a module management command.
-    /// </summary>
-    /// <param name="command">Parsed module command.</param>
-    /// <returns>Process exit code.</returns>
-    private static int ManageModuleCommand(ParsedCommand command)
-    {
-        return command.Mode switch
-        {
-            CommandMode.ModuleInstall => ManageModuleFromGallery(ModuleCommandAction.Install, command.ModuleVersion, command.ModuleScope, command.ModuleForce),
-            CommandMode.ModuleUpdate => ManageModuleFromGallery(ModuleCommandAction.Update, command.ModuleVersion, command.ModuleScope, command.ModuleForce),
-            CommandMode.ModuleRemove => ManageModuleFromGallery(ModuleCommandAction.Remove, null, command.ModuleScope, force: false),
-            CommandMode.ModuleInfo => PrintModuleInfo(command.ModuleScope),
-            _ => throw new InvalidOperationException($"Unsupported module mode: {command.Mode}"),
-        };
-    }
-
-    /// <summary>
-    /// Prints module installation details for local and gallery versions.
-    /// </summary>
-    /// <returns>Process exit code.</returns>
-    private static int PrintModuleInfo(ModuleStorageScope scope)
-    {
-        var modulePath = GetPowerShellModulePath(scope);
-        var moduleRoot = Path.Combine(modulePath, ModuleName);
-        var records = GetInstalledModuleRecords(moduleRoot);
-        var latestInstalledVersionText = records.Count > 0 ? records[0].Version : null;
-
-        Console.WriteLine($"Module name: {ModuleName}");
-        Console.WriteLine($"Selected module scope: {GetScopeToken(scope)}");
-        Console.WriteLine($"Module path root: {modulePath}");
-
-        if (records.Count == 0)
-        {
-            Console.WriteLine("Installed versions: none");
-        }
-        else
-        {
-            Console.WriteLine("Installed versions:");
-            foreach (var record in records)
-            {
-                Console.WriteLine($"  - {record.Version} ({Path.GetDirectoryName(record.ManifestPath)})");
-            }
-        }
-
-        if (TryGetLatestGalleryVersionString(out var galleryVersion, out _))
-        {
-            Console.WriteLine($"Latest PowerShell Gallery version: {galleryVersion}");
-
-            if (!string.IsNullOrWhiteSpace(latestInstalledVersionText)
-                && CompareModuleVersionValues(galleryVersion, latestInstalledVersionText) > 0)
-            {
-                Console.WriteLine($"Update available: run '{ProductName} module update'.");
-            }
-        }
-        else
-        {
-            Console.WriteLine("Latest PowerShell Gallery version: unavailable");
-        }
-
-        return 0;
-    }
-
-    /// <summary>
-    /// Installs, updates, or removes the Kestrun module in the current-user module path.
-    /// </summary>
-    /// <param name="action">Module action to perform.</param>
-    /// <param name="version">Optional specific module version.</param>
-    /// <param name="scope">Module installation scope.</param>
-    /// <param name="force">When true, update overwrites an existing target version folder.</param>
-    /// <returns>Process exit code.</returns>
-    private static int ManageModuleFromGallery(ModuleCommandAction action, string? version, ModuleStorageScope scope, bool force)
-    {
-        var modulePath = GetPowerShellModulePath(scope);
-        var moduleRoot = Path.Combine(modulePath, ModuleName);
-
-        if (action == ModuleCommandAction.Remove)
-        {
-            if (!TryRemoveInstalledModule(moduleRoot, !Console.IsOutputRedirected, out var removeErrorText))
-            {
-                Console.Error.WriteLine($"Failed to remove '{ModuleName}' module.");
-                if (!string.IsNullOrWhiteSpace(removeErrorText))
-                {
-                    Console.Error.WriteLine(removeErrorText);
-                }
-
-                return 1;
-            }
-
-            Console.WriteLine($"{ModuleName} module removed from {GetScopeToken(scope)} module path.");
-            Console.WriteLine($"Module root: {moduleRoot}");
-            return 0;
-        }
-
-        if (action == ModuleCommandAction.Install
-            && !TryValidateInstallAction(moduleRoot, GetScopeToken(scope), out var installValidationError))
-        {
-            Console.Error.WriteLine(installValidationError);
-            return 1;
-        }
-
-        if (!TryInstallOrUpdateModuleFromGallery(action, version, moduleRoot, !Console.IsOutputRedirected, force, out var installedVersion, out var installedManifestPath, out var errorText))
-        {
-            Console.Error.WriteLine($"Failed to {action.ToString().ToLowerInvariant()} '{ModuleName}' module.");
-            if (!string.IsNullOrWhiteSpace(errorText))
-            {
-                Console.Error.WriteLine(errorText);
-            }
-
-            return 1;
-        }
-
-        var installedPath = Path.GetDirectoryName(installedManifestPath) ?? Path.Combine(moduleRoot, installedVersion);
-        var versionSuffix = string.IsNullOrWhiteSpace(installedVersion)
-            ? string.Empty
-            : $" (version {installedVersion})";
-
-        if (action == ModuleCommandAction.Install)
-        {
-            Console.WriteLine($"{ModuleName} module installed{versionSuffix} to {GetScopeToken(scope)} scope.");
-        }
-        else
-        {
-            Console.WriteLine($"{ModuleName} module updated{versionSuffix} in {GetScopeToken(scope)} scope.");
-        }
-
-        Console.WriteLine($"Module path: {installedPath}");
-        return 0;
-    }
-
-    /// <summary>
-    /// Downloads a module package from PowerShell Gallery and installs it into the user module path.
-    /// </summary>
-    /// <param name="action">Module action being executed.</param>
-    /// <param name="requestedVersion">Optional requested package version.</param>
-    /// <param name="moduleRoot">Root folder for module versions.</param>
-    /// <param name="installedVersion">Installed module version.</param>
-    /// <param name="installedManifestPath">Installed manifest path.</param>
-    /// <param name="errorText">Error details when installation fails.</param>
-    /// <returns>True when install/update succeeds.</returns>
-    private static bool TryInstallOrUpdateModuleFromGallery(
-        ModuleCommandAction action,
-        string? requestedVersion,
-        string moduleRoot,
-        bool showProgress,
-        bool force,
-        out string installedVersion,
-        out string installedManifestPath,
-        out string errorText)
-    {
-        installedVersion = string.Empty;
-        installedManifestPath = string.Empty;
-        if (!TryDownloadModulePackage(requestedVersion, showProgress, out var packageBytes, out var packageVersion, out errorText))
-        {
-            return false;
-        }
-
-        if (action == ModuleCommandAction.Update
-            && !TryValidateUpdateAction(moduleRoot, packageVersion, force, out errorText))
-        {
-            return false;
-        }
-
-        if (!TryExtractModulePackage(packageBytes, packageVersion, moduleRoot, showProgress, force, out installedManifestPath, out errorText))
-        {
-            return false;
-        }
-
-        installedVersion = packageVersion;
-        return true;
-    }
 
     /// <summary>
     /// Downloads the Kestrun nupkg package from PowerShell Gallery.
@@ -4899,268 +3621,6 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Parses arguments for service install/remove commands.
-    /// </summary>
-    /// <param name="args">Raw command-line arguments.</param>
-    /// <param name="startIndex">Index after service token.</param>
-    /// <param name="kestrunFolder">Optional folder containing Kestrun.psd1.</param>
-    /// <param name="parsedCommand">Parsed command payload.</param>
-    /// <param name="error">Error message when parsing fails.</param>
-    /// <returns>True when parsing succeeds.</returns>
-    private static bool TryParseServiceArguments(string[] args, int startIndex, string? kestrunFolder, string? kestrunManifestPath, out ParsedCommand parsedCommand, out string error)
-    {
-        parsedCommand = new ParsedCommand(CommandMode.ServiceInstall, string.Empty, [], kestrunFolder, kestrunManifestPath, null, null, null, null, null, ModuleStorageScope.Local, false, null, null);
-        error = string.Empty;
-
-        if (startIndex >= args.Length)
-        {
-            error = "Missing service action. Use 'service install', 'service remove', 'service start', 'service stop', or 'service query'.";
-            return false;
-        }
-
-        var action = args[startIndex];
-        var mode = action.ToLowerInvariant() switch
-        {
-            "install" => CommandMode.ServiceInstall,
-            "remove" => CommandMode.ServiceRemove,
-            "start" => CommandMode.ServiceStart,
-            "stop" => CommandMode.ServiceStop,
-            "query" => CommandMode.ServiceQuery,
-            _ => (CommandMode?)null,
-        };
-
-        if (mode is null)
-        {
-            error = $"Unknown service action: {action}. Use 'service install', 'service remove', 'service start', 'service stop', or 'service query'.";
-            return false;
-        }
-
-        var index = startIndex + 1;
-        var serviceName = string.Empty;
-        var scriptPath = string.Empty;
-        var scriptPathSet = false;
-        var scriptArguments = Array.Empty<string>();
-        string? serviceLogPath = null;
-        string? serviceUser = null;
-        string? servicePassword = null;
-        string? serviceContentRoot = null;
-        string? serviceDeploymentRoot = null;
-
-        while (index < args.Length)
-        {
-            var current = args[index];
-            if (current is "--script")
-            {
-                if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
-                {
-                    error = "Service remove/start/stop/query does not accept --script.";
-                    return false;
-                }
-
-                if (index + 1 >= args.Length)
-                {
-                    error = "Missing value for --script.";
-                    return false;
-                }
-
-                if (scriptPathSet)
-                {
-                    error = "Script path was provided multiple times. Use either positional script path or --script once.";
-                    return false;
-                }
-
-                scriptPath = args[index + 1];
-                scriptPathSet = true;
-                index += 2;
-                continue;
-            }
-
-            if (current is "--name" or "-n")
-            {
-                if (index + 1 >= args.Length)
-                {
-                    error = "Missing value for --name.";
-                    return false;
-                }
-
-                serviceName = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--kestrun-folder" or "-k")
-            {
-                if (index + 1 >= args.Length)
-                {
-                    error = "Missing value for --kestrun-folder.";
-                    return false;
-                }
-
-                kestrunFolder = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--kestrun-manifest" or "-m")
-            {
-                if (index + 1 >= args.Length)
-                {
-                    error = "Missing value for --kestrun-manifest.";
-                    return false;
-                }
-
-                kestrunManifestPath = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--service-log-path")
-            {
-                if (index + 1 >= args.Length)
-                {
-                    error = "Missing value for --service-log-path.";
-                    return false;
-                }
-
-                serviceLogPath = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--service-user")
-            {
-                if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
-                {
-                    error = "Service remove/start/stop/query does not accept --service-user.";
-                    return false;
-                }
-
-                if (index + 1 >= args.Length)
-                {
-                    error = "Missing value for --service-user.";
-                    return false;
-                }
-
-                serviceUser = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--service-password")
-            {
-                if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
-                {
-                    error = "Service remove/start/stop/query does not accept --service-password.";
-                    return false;
-                }
-
-                if (index + 1 >= args.Length)
-                {
-                    error = "Missing value for --service-password.";
-                    return false;
-                }
-
-                servicePassword = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--deployment-root")
-            {
-                if (mode is CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
-                {
-                    error = "Service start/stop/query does not accept --deployment-root.";
-                    return false;
-                }
-
-                if (index + 1 >= args.Length)
-                {
-                    error = "Missing value for --deployment-root.";
-                    return false;
-                }
-
-                serviceDeploymentRoot = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (current is "--content-root")
-            {
-                if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
-                {
-                    error = "Service remove/start/stop/query does not accept --content-root.";
-                    return false;
-                }
-
-                if (index + 1 >= args.Length)
-                {
-                    error = "Missing value for --content-root.";
-                    return false;
-                }
-
-                serviceContentRoot = args[index + 1];
-                index += 2;
-                continue;
-            }
-
-            if (mode == CommandMode.ServiceInstall && (current is "--arguments" or "--"))
-            {
-                scriptArguments = [.. args.Skip(index + 1)];
-                break;
-            }
-
-            if (current.StartsWith("--", StringComparison.Ordinal))
-            {
-                error = $"Unknown option: {current}";
-                return false;
-            }
-
-            if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
-            {
-                error = "Service remove/start/stop/query does not accept a script path.";
-                return false;
-            }
-
-            if (scriptPathSet)
-            {
-                error = "Service install script arguments must be preceded by --arguments (or --).";
-                return false;
-            }
-
-            scriptPath = current;
-            scriptPathSet = true;
-            index += 1;
-        }
-
-        if (string.IsNullOrWhiteSpace(serviceName))
-        {
-            error = "Service name is required. Use --name <value>.";
-            return false;
-        }
-
-        if (mode == CommandMode.ServiceInstall && !scriptPathSet)
-        {
-            scriptPath = DefaultScriptFileName;
-        }
-
-        if (mode != CommandMode.ServiceInstall && (!string.IsNullOrWhiteSpace(serviceUser) || !string.IsNullOrWhiteSpace(servicePassword)))
-        {
-            error = "Service user credentials are only supported for service install.";
-            return false;
-        }
-
-        if (mode == CommandMode.ServiceInstall && string.IsNullOrWhiteSpace(serviceUser) && !string.IsNullOrWhiteSpace(servicePassword))
-        {
-            error = "--service-password requires --service-user.";
-            return false;
-        }
-
-        parsedCommand = new ParsedCommand(mode.Value, scriptPath, scriptArguments, kestrunFolder, kestrunManifestPath, serviceName, serviceLogPath, serviceUser, servicePassword, null, ModuleStorageScope.Local, false, serviceContentRoot, serviceDeploymentRoot);
-
-        return true;
-    }
-
-    /// <summary>
     /// Handles help/info/version command routing before command parsing.
     /// </summary>
     /// <param name="args">Raw command-line arguments.</param>
@@ -5547,11 +4007,4 @@ internal static partial class Program
             }
         }
     }
-
-    [GeneratedRegex("--service-log-path\\s+(\\\"(?<quoted>[^\\\"]+)\\\"|(?<plain>\\S+))", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex MyRegex();
-    [GeneratedRegex("^\\s*ModuleVersion\\s*=\\s*['\\\"](?<value>[^'\\\"]+)['\\\"]", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Compiled | RegexOptions.CultureInvariant)]
-    private static partial Regex MyRegex1();
-    [GeneratedRegex("^\\s*Prerelease\\s*=\\s*['\\\"](?<value>[^'\\\"]+)['\\\"]", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Compiled | RegexOptions.CultureInvariant)]
-    private static partial Regex MyRegex2();
 }

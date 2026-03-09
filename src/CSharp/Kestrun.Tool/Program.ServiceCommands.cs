@@ -23,7 +23,7 @@ internal static partial class Program
         {
             return bundleExitCode;
         }
-
+        // Service bundle preparation should not fail silently, but check for null just in case.
         return InstallPreparedServiceForCurrentPlatform(command, serviceName, serviceBundle);
     }
 
@@ -44,7 +44,7 @@ internal static partial class Program
         out int exitCode)
     {
         serviceName = string.Empty;
-        scriptSource = default;
+        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty);
         moduleManifestPath = string.Empty;
         exitCode = 0;
 
@@ -176,7 +176,6 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int InstallPreparedServiceForCurrentPlatform(ParsedCommand command, string serviceName, ServiceBundleLayout serviceBundle)
     {
-
         var daemonArgs = BuildDaemonHostArgumentsForService(
             serviceName,
             serviceBundle.ServiceHostExecutablePath,

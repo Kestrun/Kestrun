@@ -635,63 +635,56 @@ internal static partial class Program
             return false;
         }
 
-        if (current is "--name")
-        {
-            state.ServiceName = value;
-            return true;
-        }
+        return TryApplyServiceRegisterOptionValue(current, value, state, out error);
+    }
 
-        if (current is "--service-host-exe")
-        {
-            state.ServiceHostExecutablePath = value;
-            return true;
-        }
+    /// <summary>
+    /// Applies a consumed service-register option value to parse state.
+    /// </summary>
+    /// <param name="option">Service-register option token.</param>
+    /// <param name="value">Consumed option value.</param>
+    /// <param name="state">Mutable service-register parse state.</param>
+    /// <param name="error">Error text when the option token is unsupported.</param>
+    /// <returns>True when the option value is applied.</returns>
+    private static bool TryApplyServiceRegisterOptionValue(string option, string value, ServiceRegisterParseState state, out string? error)
+    {
+        error = null;
 
-        if (current is "--runner-exe")
+        switch (option)
         {
-            state.RunnerExecutablePath = value;
-            return true;
+            case "--name":
+                state.ServiceName = value;
+                return true;
+            case "--service-host-exe":
+                state.ServiceHostExecutablePath = value;
+                return true;
+            case "--runner-exe":
+                state.RunnerExecutablePath = value;
+                return true;
+            case "--exe":
+                // Backward compatibility for older elevated registration invocations.
+                state.ServiceHostExecutablePath = value;
+                return true;
+            case "--script":
+                state.ScriptPath = value;
+                return true;
+            case "--kestrun-manifest":
+            case "-m":
+                state.ModuleManifestPath = value;
+                return true;
+            case "--service-log-path":
+                state.ServiceLogPath = value;
+                return true;
+            case "--service-user":
+                state.ServiceUser = value;
+                return true;
+            case "--service-password":
+                state.ServicePassword = value;
+                return true;
+            default:
+                error = $"Unknown service register option: {option}";
+                return false;
         }
-
-        // Backward compatibility for older elevated registration invocations.
-        if (current is "--exe")
-        {
-            state.ServiceHostExecutablePath = value;
-            return true;
-        }
-
-        if (current is "--script")
-        {
-            state.ScriptPath = value;
-            return true;
-        }
-
-        if (current is "--kestrun-manifest" or "-m")
-        {
-            state.ModuleManifestPath = value;
-            return true;
-        }
-
-        if (current is "--service-log-path")
-        {
-            state.ServiceLogPath = value;
-            return true;
-        }
-
-        if (current is "--service-user")
-        {
-            state.ServiceUser = value;
-            return true;
-        }
-
-        if (current is "--service-password")
-        {
-            state.ServicePassword = value;
-            return true;
-        }
-
-        error = $"Unknown service register option: {current}";
-        return false;
     }
 
     /// <summary>

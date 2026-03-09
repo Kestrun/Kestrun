@@ -3080,38 +3080,9 @@ internal static partial class Program
             return false;
         }
 
-        var commandTokenIndex = 0;
-        string? kestrunFolder = null;
-        string? kestrunManifestPath = null;
-        while (commandTokenIndex < args.Length)
+        if (!TryParseLeadingKestrunOptions(args, out var commandTokenIndex, out var kestrunFolder, out var kestrunManifestPath, out error))
         {
-            if (args[commandTokenIndex] is "--kestrun-folder" or "-k")
-            {
-                if (commandTokenIndex + 1 >= args.Length)
-                {
-                    error = "Missing value for --kestrun-folder.";
-                    return false;
-                }
-
-                kestrunFolder = args[commandTokenIndex + 1];
-                commandTokenIndex += 2;
-                continue;
-            }
-
-            if (args[commandTokenIndex] is "--kestrun-manifest" or "-m")
-            {
-                if (commandTokenIndex + 1 >= args.Length)
-                {
-                    error = "Missing value for --kestrun-manifest.";
-                    return false;
-                }
-
-                kestrunManifestPath = args[commandTokenIndex + 1];
-                commandTokenIndex += 2;
-                continue;
-            }
-
-            break;
+            return false;
         }
 
         if (commandTokenIndex >= args.Length)
@@ -3120,22 +3091,121 @@ internal static partial class Program
             return false;
         }
 
-        if (string.Equals(args[commandTokenIndex], "run", StringComparison.OrdinalIgnoreCase))
+        return TryParseCommandFromToken(args, commandTokenIndex, kestrunFolder, kestrunManifestPath, out parsedCommand, out error);
+    }
+
+    /// <summary>
+    /// Parses leading global Kestrun options that may appear before the command token.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="commandTokenIndex">Index of the command token after global options.</param>
+    /// <param name="kestrunFolder">Optional module folder path supplied via global option.</param>
+    /// <param name="kestrunManifestPath">Optional module manifest path supplied via global option.</param>
+    /// <param name="error">Error message when a required option value is missing.</param>
+    /// <returns>True when leading options are parsed successfully.</returns>
+    private static bool TryParseLeadingKestrunOptions(
+        string[] args,
+        out int commandTokenIndex,
+        out string? kestrunFolder,
+        out string? kestrunManifestPath,
+        out string error)
+    {
+        commandTokenIndex = 0;
+        kestrunFolder = null;
+        kestrunManifestPath = null;
+        error = string.Empty;
+
+        while (commandTokenIndex < args.Length)
+        {
+            var current = args[commandTokenIndex];
+            if (current is "--kestrun-folder" or "-k")
+            {
+                if (!TryConsumeLeadingOptionValue(args, ref commandTokenIndex, "--kestrun-folder", out var folderValue, out error))
+                {
+                    return false;
+                }
+
+                kestrunFolder = folderValue;
+                continue;
+            }
+
+            if (current is "--kestrun-manifest" or "-m")
+            {
+                if (!TryConsumeLeadingOptionValue(args, ref commandTokenIndex, "--kestrun-manifest", out var manifestValue, out error))
+                {
+                    return false;
+                }
+
+                kestrunManifestPath = manifestValue;
+                continue;
+            }
+
+            break;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes a global option value and advances the parse index.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="index">Current option index, advanced when consumption succeeds.</param>
+    /// <param name="optionName">Canonical option name used in diagnostics.</param>
+    /// <param name="value">Consumed option value.</param>
+    /// <param name="error">Error text when the value is missing.</param>
+    /// <returns>True when the option value is consumed.</returns>
+    private static bool TryConsumeLeadingOptionValue(string[] args, ref int index, string optionName, out string value, out string error)
+    {
+        value = string.Empty;
+        if (index + 1 >= args.Length)
+        {
+            error = $"Missing value for {optionName}.";
+            return false;
+        }
+
+        value = args[index + 1];
+        index += 2;
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Dispatches command parsing based on the selected command token.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="commandTokenIndex">Index of the command token.</param>
+    /// <param name="kestrunFolder">Optional module folder path.</param>
+    /// <param name="kestrunManifestPath">Optional module manifest path.</param>
+    /// <param name="parsedCommand">Parsed command payload.</param>
+    /// <param name="error">Error message when dispatch fails.</param>
+    /// <returns>True when command parsing succeeds.</returns>
+    private static bool TryParseCommandFromToken(
+        string[] args,
+        int commandTokenIndex,
+        string? kestrunFolder,
+        string? kestrunManifestPath,
+        out ParsedCommand parsedCommand,
+        out string error)
+    {
+        var commandToken = args[commandTokenIndex];
+        if (string.Equals(commandToken, "run", StringComparison.OrdinalIgnoreCase))
         {
             return TryParseRunArguments(args, commandTokenIndex + 1, kestrunFolder, kestrunManifestPath, out parsedCommand, out error);
         }
 
-        if (string.Equals(args[commandTokenIndex], "service", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(commandToken, "service", StringComparison.OrdinalIgnoreCase))
         {
             return TryParseServiceArguments(args, commandTokenIndex + 1, kestrunFolder, kestrunManifestPath, out parsedCommand, out error);
         }
 
-        if (string.Equals(args[commandTokenIndex], "module", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(commandToken, "module", StringComparison.OrdinalIgnoreCase))
         {
             return TryParseModuleArguments(args, commandTokenIndex + 1, out parsedCommand, out error);
         }
 
-        error = $"Unknown command: {args[commandTokenIndex]}. Use '{ProductName} help' to list commands.";
+        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], null, null, null, null, null, null, null, ModuleStorageScope.Local, false, null, null);
+        error = $"Unknown command: {commandToken}. Use '{ProductName} help' to list commands.";
         return false;
     }
 

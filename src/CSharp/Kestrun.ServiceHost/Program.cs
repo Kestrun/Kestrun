@@ -465,6 +465,12 @@ internal static class Program
         {
             try
             {
+                if (Volatile.Read(ref _disposed) != 0)
+                {
+                    WriteBootstrapLog("Stop requested after host disposal; skipping shutdown cancellation.");
+                    return;
+                }
+
                 WriteBootstrapLog("Stop requested: cancelling execution task and attempting managed host shutdown.");
                 _shutdown.Cancel();
 
@@ -488,6 +494,10 @@ internal static class Program
                         WriteBootstrapLog("Execution task completed after stop request.");
                     }
                 }
+            }
+            catch (ObjectDisposedException ex)
+            {
+                WriteBootstrapLog($"Failed to stop script execution: {ex.Message}");
             }
             catch (InvalidOperationException ex)
             {

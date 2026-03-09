@@ -777,12 +777,14 @@ public class KestrunToolCommandSurfaceTests
     [Trait("Category", "Tooling")]
     public void BuildWindowsServiceHostArguments_UsesBundledManifestPath()
     {
+        var runnerPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "runtime", "Kestrun.Runner.dll"));
         var bundledScriptPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "script", "server.ps1"));
         var bundledManifestPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "module", "Kestrun.psd1"));
 
         var args = (IReadOnlyList<string>)Invoke(
-            "BuildWindowsServiceHostArgumentsCore",
+            "BuildDedicatedServiceHostArguments",
             "demo",
+            runnerPath,
             bundledScriptPath,
             bundledManifestPath,
             Array.Empty<string>(),

@@ -1,4 +1,4 @@
-param()
+﻿param()
 
 BeforeAll {
     . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
@@ -156,9 +156,10 @@ Describe 'KestrunTool service command surface' {
 
     It 'writes install and remove operations to the service log path' -Skip:(-not ($IsWindows -and $script:isWindowsAdmin)) {
 
-        $serviceName = 'test-log-ops'
+        $serviceName = "kestrun-test-log-$PID-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
         $scriptPath = Join-Path $script:root 'docs/_includes/examples/pwsh/10.2-OpenAPI-Component-Schema.ps1'
-        $logPath = Join-Path $env:ProgramData 'Kestrun\custom-logs\test-service-ops.log'
+        $logFileName = "$serviceName.log"
+        $logPath = Join-Path $env:ProgramData (Join-Path 'Kestrun\custom-logs' $logFileName)
 
         if (Test-Path -LiteralPath $logPath) {
             Remove-Item -LiteralPath $logPath -Force

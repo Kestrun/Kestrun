@@ -441,7 +441,7 @@ Add-BuildTask 'Pack-KestrunTool' 'Build-KestrunTool', {
         }
     }
 
-    dotnet pack "$KestrunToolProjectPath" -c $Configuration -o "$toolOutputDirectory" -v:$DotNetVerbosity `
+    dotnet pack "$KestrunToolProjectPath" --no-build -c $Configuration -o "$toolOutputDirectory" -v:$DotNetVerbosity `
         -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
     if ($LASTEXITCODE -ne 0) {
         throw 'dotnet pack failed for Kestrun tool packaging.'

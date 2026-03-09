@@ -178,7 +178,8 @@ For `service install`:
 - dedicated `kestrun-service-host` is sourced from the `Kestrun.Tool` package's internal `kestrun-service` folder under the dotnet tool install location,
  not from the PowerShell module payload.
 - `Modules` are bundled from the PowerShell release matching `Microsoft.PowerShell.SDK` used by ServiceHost and
- copied into the service `Modules` folder during install.
+ copied into the service `Modules` folder during install.  This bundling is determined at package build time (during `Build-KestrunTool`),
+ not discovered at service install or service runtime.
 - install shows progress bars for bundle staging and module file copy in interactive terminals.
 - when `--service-user` is provided:
   - Windows: service is registered with that account (password may be required by SCM depending on account type).

@@ -2664,14 +2664,9 @@ internal static partial class Program
         var plistPath = Path.Combine(agentDirectory, $"{serviceName}.plist");
 
         // Unload the agent before deleting the plist to ensure launchd doesn't keep a stale reference to the file.
-        if (useSystemScope)
-        {
-            _ = RunProcess("launchctl", ["bootout", $"system/{serviceName}"]);
-        }
-        else
-        {
-            _ = RunProcess("launchctl", ["unload", plistPath]);
-        }
+        _ = useSystemScope
+            ? RunProcess("launchctl", ["bootout", $"system/{serviceName}"])
+            : RunProcess("launchctl", ["unload", plistPath]);
 
         // It's possible for the unload to fail if the agent isn't running, but we want to attempt it anyway to avoid leaving a stale loaded agent if the plist is present.
         if (File.Exists(plistPath))

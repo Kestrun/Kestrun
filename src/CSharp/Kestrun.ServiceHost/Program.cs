@@ -57,6 +57,8 @@ internal static class Program
         string? serviceLogPath = null;
         var directRunMode = false;
         var discoverPowerShellHome = false;
+        var scriptOptionSeen = false;
+        var runOptionSeen = false;
 
         var index = 0;
         while (index < args.Length)
@@ -84,21 +86,35 @@ internal static class Program
 
             if (current is "--script")
             {
+                if (runOptionSeen)
+                {
+                    error = "Options --script and --run are mutually exclusive.";
+                    return false;
+                }
+
                 if (!TryReadOptionValue(args, ref index, current, out scriptPath, out error))
                 {
                     return false;
                 }
 
+                scriptOptionSeen = true;
                 continue;
             }
 
             if (current is "--run")
             {
+                if (scriptOptionSeen)
+                {
+                    error = "Options --script and --run are mutually exclusive.";
+                    return false;
+                }
+
                 if (!TryReadOptionValue(args, ref index, current, out scriptPath, out error))
                 {
                     return false;
                 }
 
+                runOptionSeen = true;
                 directRunMode = true;
                 continue;
             }

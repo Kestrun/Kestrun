@@ -38,6 +38,11 @@ function Enable-KrConfiguration {
         [switch]$PassThru
     )
     begin {
+        $effectiveQuiet = $Quiet.IsPresent
+        if (-not $PSBoundParameters.ContainsKey('Quiet')) {
+            $effectiveQuiet = [bool]$ExecutionContext.SessionState.PSVariable.GetValue('__krRunnerQuiet', $false)
+        }
+
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
     }
@@ -108,7 +113,7 @@ function Enable-KrConfiguration {
 
         Write-KrLog -Level Information -Logger $Server.Logger -Message 'Kestrun server configuration enabled successfully.'
 
-        if (-not $Quiet.IsPresent) {
+        if (-not $effectiveQuiet) {
             Write-Host 'Kestrun server configuration enabled successfully.'
             Write-Host "Server Name: $($Server.Options.ApplicationName)"
         }

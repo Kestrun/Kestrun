@@ -30,12 +30,17 @@ function Stop-KrServer {
         [switch]$Quiet
     )
     begin {
+        $effectiveQuiet = $Quiet.IsPresent
+        if (-not $PSBoundParameters.ContainsKey('Quiet')) {
+            $effectiveQuiet = [bool]$ExecutionContext.SessionState.PSVariable.GetValue('__krRunnerQuiet', $false)
+        }
+
         # Ensure the server instance is resolved
         $Server = Resolve-KestrunServer -Server $Server
         $writeConsole = $false
         try {
             $null = [Console]::KeyAvailable
-            $writeConsole = -not $Quiet.IsPresent
+            $writeConsole = -not $effectiveQuiet
         } catch {
             Write-KrLog -Level Information -Message 'No console available; running in non-interactive mode.'
             $writeConsole = $false

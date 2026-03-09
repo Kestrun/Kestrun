@@ -2827,3 +2827,160 @@ function New-TestFile {
         }
     }
 }
+
+<#
+.SYNOPSIS
+    Retrieve the SIDs associated with a specific Windows privilege right.
+.DESCRIPTION
+    This function exports the local security policy for user rights, parses the relevant section,
+    and extracts the SIDs associated with the specified privilege right (e.g., SeServiceLogonRight).
+    It returns an array of SIDs in string format. The function handles cleanup of temporary files used for exporting the policy.
+.PARAMETER RightName
+    The name of the Windows privilege right to retrieve SIDs for (e.g., 'SeServiceLogonRight').
+.PARAMETER WorkingDirectory
+    The directory to use for temporary files during the export process. This should be a valid writable directory path.
+.OUTPUTS
+    An array of strings representing the SIDs associated with the specified privilege right. If no SIDs are found or if an error occurs, an empty array is returned.
+#>
+function Get-WindowsPrivilegeRightSid {
+    param(
+        [Parameter(Mandatory)]
+        [string]$RightName,
+
+        [Parameter(Mandatory)]
+        [string]$WorkingDirectory
+    )
+
+    $exportPath = Join-Path $WorkingDirectory ('secpol-export-{0}.inf' -f ([Guid]::NewGuid().ToString('N')))
+    try {
+        & secedit.exe /export /cfg $exportPath /areas USER_RIGHTS | Out-Null
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $exportPath)) {
+            throw 'Failed to export local security policy for USER_RIGHTS.'
+        }
+
+        $line = Select-String -Path $exportPath -Pattern "^$([regex]::Escape($RightName))\s*=\s*(.*)$" -CaseSensitive | Select-Object -First 1
+        if (-not $line) {
+            return @()
+        }
+
+        $rawValue = $line.Matches[0].Groups[1].Value.Trim()
+        if ([string]::IsNullOrWhiteSpace($rawValue)) {
+            return @()
+        }
+
+        return @($rawValue.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' })
+    } finally {
+        Remove-Item -LiteralPath $exportPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
+<#
+.SYNOPSIS
+    Retrieve the SIDs associated with the SeServiceLogonRight privilege right.
+.DESCRIPTION
+    This function is a specific wrapper around Get-WindowsPrivilegeRightSid to retrieve the SIDs associated with the SeServiceLogonRight privilege right, which allows service logon.
+    It requires a working directory for temporary files used during the export process. The function returns an array of SIDs in string format for the SeServiceLogonRight privilege right.
+    If no SIDs are found or if an error occurs, an empty array is returned.
+.PARAMETER WorkingDirectory
+    The directory to use for temporary files during the export process. This should be a valid writable directory path.
+.OUTPUTS
+    An array of strings representing the SIDs associated with the SeServiceLogonRight privilege right. If no SIDs are found or if an error occurs, an empty array is returned.
+#>
+function Get-WindowsServiceLogonRightSid {
+    param(
+        [Parameter(Mandatory)]
+        [string]$WorkingDirectory
+    )
+
+    return @(Get-WindowsPrivilegeRightSid -RightName 'SeServiceLogonRight' -WorkingDirectory $WorkingDirectory)
+}
+
+<#
+.SYNOPSIS
+    Retrieve the SIDs associated with the SeDenyServiceLogonRight privilege right.
+.DESCRIPTION
+    This function is a specific wrapper around Get-WindowsPrivilegeRightSid to retrieve the SIDs associated with the SeDenyServiceLogonRight privilege right, which denies service logon.
+    It requires a working directory for temporary files used during the export process. The function returns an array of SIDs in string format for the SeDenyServiceLogonRight privilege right.
+    If no SIDs are found or if an error occurs, an empty array is returned.
+.PARAMETER WorkingDirectory
+    The directory to use for temporary files during the export process. This should be a valid writable directory path.
+.OUTPUTS
+    An array of strings representing the SIDs associated with the SeDenyServiceLogonRight privilege right. If no SIDs are found or if an error occurs, an empty array is returned
+#>
+function Get-WindowsDenyServiceLogonRightSid {
+    param(
+        [Parameter(Mandatory)]
+        [string]$WorkingDirectory
+    )
+
+    return @(Get-WindowsPrivilegeRightSid -RightName 'SeDenyServiceLogonRight' -WorkingDirectory $WorkingDirectory)
+}
+
+<#
+.SYNOPSIS
+    Set the SIDs for the SeServiceLogonRight privilege right.
+.DESCRIPTION
+    This function takes an array of SIDs and sets them as the assigned SIDs for the SeServiceLogonRight privilege right in the local security policy.
+    It creates a temporary INF file with the appropriate format and uses secedit.exe to apply the configuration. The function ensures cleanup of temporary files after execution.
+    If the configuration fails, it throws an error.
+.PARAMETER Sids
+    An array of strings representing the SIDs to assign to the SeServiceLogonRight privilege right. Each SID should be in the format "*S-1-5-21-..." (with an asterisk prefix).
+.PARAMETER WorkingDirectory
+    The directory to use for temporary files during the configuration process. This should be a valid writable directory path.
+.OUTPUTS
+    None. The function performs an action to set the SIDs for the SeServiceLogonRight privilege right and does not return a value. If the operation is successful, it completes silently; if it fails, it throws an error.
+#>
+function Set-WindowsServiceLogonRightSid {
+    param(
+        [Parameter(Mandatory)]
+        [string[]]$Sids,
+
+        [Parameter(Mandatory)]
+        [string]$WorkingDirectory
+    )
+
+    $cfgPath = Join-Path $WorkingDirectory ('secpol-set-{0}.inf' -f ([Guid]::NewGuid().ToString('N')))
+    $dbPath = Join-Path $WorkingDirectory ('secpol-set-{0}.sdb' -f ([Guid]::NewGuid().ToString('N')))
+
+    try {
+        $sidCsv = ($Sids | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique) -join ','
+        $content = @(
+            '[Unicode]'
+            'Unicode=yes'
+            '[Version]'
+            'signature="$CHICAGO$"'
+            'Revision=1'
+            '[Privilege Rights]'
+            "SeServiceLogonRight = $sidCsv"
+        ) -join [Environment]::NewLine
+
+        Set-Content -LiteralPath $cfgPath -Value $content -Encoding ascii
+        & secedit.exe /configure /db $dbPath /cfg $cfgPath /areas USER_RIGHTS | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Failed to configure local security policy USER_RIGHTS.'
+        }
+    } finally {
+        Remove-Item -LiteralPath $cfgPath -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $dbPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
+<#
+.SYNOPSIS
+    Convert an account name to a policy SID.
+.DESCRIPTION
+    This function takes an account name and converts it to a policy SID in the format "*S-1-5-21-...".
+.PARAMETER AccountName
+    The name of the account to convert. This should be in the format "DOMAIN\User" or "User".
+.OUTPUTS
+    A string representing the policy SID for the specified account.
+#>
+function Convert-AccountToPolicySid {
+    param(
+        [Parameter(Mandatory)]
+        [string]$AccountName
+    )
+
+    $sid = ([System.Security.Principal.NTAccount]::new($AccountName)).Translate([System.Security.Principal.SecurityIdentifier]).Value
+    return "*$sid"
+}

@@ -1,7 +1,6 @@
 {
     "version": "0.2.0",
     "configurations": [
-
         {
             "name": "PowerShell: Launch MultiRoutes.ps1",
             "type": "PowerShell",
@@ -150,7 +149,7 @@
             "name": "Launch pwsh with script",
             "type": "coreclr",
             "request": "launch",
-            "program": "C:\\Program Files\\PowerShell\\7-rc\\pwsh.exe",
+            "program": "C:/Program Files/PowerShell/7-rc/pwsh.exe",
             "args": [
                 "-NoLogo",
                 "-NoProfile",
@@ -174,25 +173,24 @@
                 "-ExecutionPolicy",
                 "Bypass",
                 "-Command",
-                "  import-module '.\\src\\PowerShell\\Kestrun\\Kestrun.psd1'; . '${file}'  "
+                "  import-module './src/PowerShell/Kestrun/Kestrun.psd1'; . '${file}'  "
             ],
             "cwd": "${workspaceFolder}",
             "justMyCode": true,
             "console": "integratedTerminal"
         },
-
-              {
+        {
             "name": "Launch pwsh (7.6 RC) with script (bootstrap)",
             "type": "coreclr",
             "request": "launch",
-            "program": "C:\\Program Files\\PowerShell\\7-preview\\pwsh.exe",
+            "program": "C:/Program Files/PowerShell/7-preview/pwsh.exe",
             "args": [
                 "-NoLogo",
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",
                 "-Command",
-                "  import-module '.\\src\\PowerShell\\Kestrun\\Kestrun.psd1'; . '${file}'  "
+                "  import-module './src/PowerShell/Kestrun/Kestrun.psd1'; . '${file}'  "
             ],
             "cwd": "${workspaceFolder}",
             "justMyCode": true,
@@ -204,6 +202,35 @@
             "request": "launch",
             "script": "${file}",
             "cwd": "${cwd}"
+        },
+        {
+            "name": "C#: Kestrun.Tool",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/CSharp/Kestrun.Tool/bin/Debug/net10.0/Kestrun.Tool.dll",
+            "args": [
+                "run",
+                "--script",
+                "${workspaceFolder}/docs/_includes/examples/pwsh/10.3-OpenAPI-Component-RequestBody.ps1"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "C#: Kestrun.ServiceHost",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/CSharp/Kestrun.ServiceHost/bin/Debug/net10.0/Kestrun.ServiceHost.dll",
+            "args": [
+                "--run",
+                "${workspaceFolder}/docs/_includes/examples/pwsh/10.2-OpenAPI-Component-Schema.ps1",
+                "--kestrun-manifest",
+                "${workspaceFolder}/src/PowerShell/Kestrun/Kestrun.psd1"
+            ],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "integratedTerminal"
         }
     ]
 }

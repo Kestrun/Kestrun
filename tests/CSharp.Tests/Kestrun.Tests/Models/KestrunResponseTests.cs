@@ -187,7 +187,7 @@ public partial class KestrunResponseTests
         var ctx = MakeCtx("application/json");
         var res = ctx.Response;
 
-        var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => res.WriteResponseAsync((object?)null, StatusCodes.Status200OK));
+        var ex = await Assert.ThrowsAsync<ArgumentNullException>(() => res.WriteResponseAsync(null, StatusCodes.Status200OK));
 
         Assert.Equal("inputObject", ex.ParamName);
         Assert.Contains("Use WriteResponseAsync(WriteObject)", ex.Message);

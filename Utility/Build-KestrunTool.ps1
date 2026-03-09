@@ -236,7 +236,7 @@ function Get-PowerShellReleaseAsset {
 
 <#
 .SYNOPSIS
-    Tests for the presence of a PowerShell SDK release asset in the local cache, and downloads it if not already cached.
+    Gets a PowerShell SDK release archive from cache, downloading it when needed.
 .DESCRIPTION
     This function checks if the PowerShell SDK archive for the specified version and runtime identifier is already present in the local cache directory. If it is not found, the function downloads the asset from the
     provided asset information and saves it to the cache directory. The path to the cached archive is returned at the end.
@@ -251,7 +251,7 @@ function Get-PowerShellReleaseAsset {
 .OUTPUTS
     A string representing the file path to the PowerShell SDK archive in the local cache, whether it was newly downloaded or already present.
 .EXAMPLE
-    Test-PowerShellReleaseArchiveInCache -Version '7.3.0' -RuntimeIdentifier 'win-x64' -CacheRoot '..\cache' -Asset $asset
+    Get-PowerShellReleaseArchiveFromCache -Version '7.3.0' -RuntimeIdentifier 'win-x64' -CacheRoot '..\cache' -Asset $asset
     This command will check if the PowerShell SDK archive for version 7.3.0 and Windows x64 runtime is already present in the '..\cache' directory.
     If it is not found, it will download the archive from the URL specified in the $asset object and save it to the cache directory.
     The path to the cached archive will be returned at the end.
@@ -260,7 +260,7 @@ function Get-PowerShellReleaseAsset {
     does not already exist. The downloaded file will be saved with the same name as specified in the asset's 'name' property.
     If the download fails, an exception will be thrown. The function also provides console output to indicate whether it is downloading a new archive or reusing an existing cached archive.
 #>
-function Test-PowerShellReleaseArchiveInCache {
+function Get-PowerShellReleaseArchiveFromCache {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Version,
@@ -446,7 +446,7 @@ function Expand-PowerShellModulesOnlyFromArchive {
 
 <#
 .SYNOPSIS
-    Tests for the presence of a PowerShell SDK release asset in the local cache, downloads it if not already cached, and stages the PowerShell modules for a specific runtime.
+    Publishes the PowerShell modules payload for a specific runtime.
 .DESCRIPTION
     This function checks if the PowerShell SDK archive for the specified version and runtime identifier is already present in the local cache directory. If it is not found, the function downloads the asset from Git
 Hub and saves it to the cache directory. Then, it extracts only the 'Modules' content from the PowerShell SDK archive and stages it in the appropriate location
@@ -462,7 +462,7 @@ under the destination root for the specified runtime identifier. If the archive 
 .OUTPUTS
     This function does not return any output. It performs the caching and staging as side effects. If the archive does not contain any modules, an exception is thrown.
 .EXAMPLE
-    Test-PowerShellModulesPayloadForRuntime -Version '7.3.0' -RuntimeIdentifier 'win-x64' -DestinationRoot '..\runtimes' -CacheRoot '..\cache'
+    Publish-PowerShellModulesPayload -Version '7.3.0' -RuntimeIdentifier 'win-x64' -DestinationRoot '..\runtimes' -CacheRoot '..\cache'
     This command will check if the PowerShell SDK archive for version 7.3.0 and Windows x64 runtime is already present in the '..\cache' directory.
     If it is not found, it will download the archive from GitHub and save it to the cache directory. Then, it will extract only the 'Modules'
     content from the PowerShell SDK archive and stage it in the '..\runtimes\win-x64\Modules' directory.
@@ -476,7 +476,7 @@ under the destination root for the specified runtime identifier. If the archive 
     The function also normalizes paths to ensure compatibility across different operating systems.
     The function provides console output to indicate the staging location of the PowerShell modules for the specified runtime identifier.
 #>
-function Test-PowerShellModulesPayloadForRuntime {
+function Publish-PowerShellModulesPayload {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Version,
@@ -491,7 +491,7 @@ function Test-PowerShellModulesPayloadForRuntime {
     $asset = Get-PowerShellReleaseAsset -Version $Version -RuntimeIdentifier $RuntimeIdentifier
     $archiveName = [string]$asset.name
 
-    $archivePath = Test-PowerShellReleaseArchiveInCache -Version $Version -RuntimeIdentifier $RuntimeIdentifier -CacheRoot $CacheRoot -Asset $asset
+    $archivePath = Get-PowerShellReleaseArchiveFromCache -Version $Version -RuntimeIdentifier $RuntimeIdentifier -CacheRoot $CacheRoot -Asset $asset
 
     $runtimeDestinationRoot = Join-Path -Path $DestinationRoot -ChildPath $RuntimeIdentifier
     $modulesDestination = Join-Path -Path $runtimeDestinationRoot -ChildPath 'Modules'
@@ -562,7 +562,7 @@ foreach ($runtimeIdentifier in $RuntimeIdentifiers) {
     Copy-Item -Path $serviceHostPublishedBinary -Destination $serviceHostDestinationBinary -Force
     Write-Host "    ✅ Copied to: $serviceHostDestinationBinary"
 
-    Test-PowerShellModulesPayloadForRuntime -Version $powerShellSdkVersion -RuntimeIdentifier $runtimeIdentifier -DestinationRoot $ServiceHostRuntimesDirectory -CacheRoot $CacheRoot
+    Publish-PowerShellModulesPayload -Version $powerShellSdkVersion -RuntimeIdentifier $runtimeIdentifier -DestinationRoot $ServiceHostRuntimesDirectory -CacheRoot $CacheRoot
 }
 
 Write-Host '✅ ServiceHost payload staging completed for all configured runtimes.'

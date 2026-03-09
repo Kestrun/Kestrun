@@ -131,9 +131,12 @@ public static class RunnerRuntime
     public static void EnsurePowerShellRuntimeHome(bool createFallbackDirectories)
     {
         var currentPsHome = Environment.GetEnvironmentVariable("PSHOME");
-        if (HasPowerShellManagementModule(currentPsHome))
+        var existingPsHome = HasPowerShellManagementModule(currentPsHome)
+            ? currentPsHome
+            : null;
+        if (existingPsHome is not null)
         {
-            EnsurePsModulePathContains(Path.Combine(currentPsHome!, "Modules"));
+            EnsurePsModulePathContains(Path.Combine(existingPsHome, "Modules"));
             return;
         }
 

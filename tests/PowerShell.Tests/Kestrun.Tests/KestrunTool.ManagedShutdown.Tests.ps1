@@ -209,7 +209,7 @@ Add-KrMapRoute -Verbs Get -Pattern '/online' -ScriptBlock {
 }
 
 Enable-KrConfiguration -Server `$server
-Start-KrServer -Server `$server -Quiet:`$false
+Start-KrServer -Server `$server
 "@
 
         Set-Content -Path $tempScript2 -Value $scriptContent2 -Encoding UTF8

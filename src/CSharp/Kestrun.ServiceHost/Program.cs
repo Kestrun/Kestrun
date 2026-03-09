@@ -248,6 +248,7 @@ internal static class Program
         using var host = new ScriptExecutionHost(options, logPath);
 
         using var shutdown = new CancellationTokenSource();
+        var processExitStopRequested = 0;
         Console.CancelKeyPress += (_, eventArgs) =>
         {
             eventArgs.Cancel = true;
@@ -256,9 +257,22 @@ internal static class Program
 
         AppDomain.CurrentDomain.ProcessExit += (_, _) =>
         {
-            if (!shutdown.IsCancellationRequested)
+            if (Interlocked.Exchange(ref processExitStopRequested, 1) == 0)
             {
-                shutdown.Cancel();
+                host.WriteBootstrapLog("ProcessExit received. Triggering fast daemon shutdown.");
+                host.StopForProcessExit();
+            }
+
+            try
+            {
+                if (!shutdown.IsCancellationRequested)
+                {
+                    shutdown.Cancel();
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                // Process-exit can race with using-scope disposal; cancellation is best-effort.
             }
         };
 
@@ -283,7 +297,15 @@ internal static class Program
         }
 
         host.WriteBootstrapLog($"Daemon '{options.ServiceName}' stopping.");
-        host.Stop();
+        if (Volatile.Read(ref processExitStopRequested) == 0)
+        {
+            host.Stop();
+        }
+        else
+        {
+            host.WriteBootstrapLog("Daemon stop already requested from ProcessExit.");
+        }
+
         host.WriteBootstrapLog($"Daemon '{options.ServiceName}' stopped.");
         return 0;
     }
@@ -370,6 +392,7 @@ internal static class Program
         private Action<int>? _onExit;
         private Task<int>? _executionTask;
         private int? _exitCode;
+        private int _stopRequested;
         private int _disposed;
 
         public ScriptExecutionHost(ParsedOptions options, string bootstrapLogPath)
@@ -462,21 +485,42 @@ internal static class Program
         }
 
         public void Stop()
+            => StopCore(managedStopTimeoutMilliseconds: 5000, executionWaitTimeoutMilliseconds: 15000, reason: "Stop requested: cancelling execution task and attempting managed host shutdown.");
+
+        /// <summary>
+        /// Requests a fast stop used during process-exit where shutdown time budgets are constrained by the host OS.
+        /// </summary>
+        public void StopForProcessExit()
+            => StopCore(managedStopTimeoutMilliseconds: 500, executionWaitTimeoutMilliseconds: 1500, reason: "Process-exit stop requested: attempting fast managed host shutdown.");
+
+        /// <summary>
+        /// Stops script execution, first requesting managed host shutdown, then waiting briefly for the execution task.
+        /// </summary>
+        /// <param name="managedStopTimeoutMilliseconds">Timeout for managed host stop coordination.</param>
+        /// <param name="executionWaitTimeoutMilliseconds">Timeout waiting for execution task completion.</param>
+        /// <param name="reason">Diagnostic reason written to bootstrap logs.</param>
+        private void StopCore(int managedStopTimeoutMilliseconds, int executionWaitTimeoutMilliseconds, string reason)
         {
             try
             {
+                if (Interlocked.Exchange(ref _stopRequested, 1) != 0)
+                {
+                    WriteBootstrapLog("Stop already requested; skipping duplicate stop operation.");
+                    return;
+                }
+
                 if (Volatile.Read(ref _disposed) != 0)
                 {
                     WriteBootstrapLog("Stop requested after host disposal; skipping shutdown cancellation.");
                     return;
                 }
 
-                WriteBootstrapLog("Stop requested: cancelling execution task and attempting managed host shutdown.");
+                WriteBootstrapLog(reason);
                 _shutdown.Cancel();
 
-                if (!RequestManagedStopAsync().Wait(5000))
+                if (!RequestManagedStopAsync().Wait(managedStopTimeoutMilliseconds))
                 {
-                    WriteBootstrapLog("Managed host stop timed out after 5000ms.");
+                    WriteBootstrapLog($"Managed host stop timed out after {managedStopTimeoutMilliseconds}ms.");
                 }
                 else
                 {
@@ -485,9 +529,9 @@ internal static class Program
 
                 if (_executionTask is not null)
                 {
-                    if (!_executionTask.Wait(15000))
+                    if (!_executionTask.Wait(executionWaitTimeoutMilliseconds))
                     {
-                        WriteBootstrapLog("Execution task did not complete within 15000ms after stop request.");
+                        WriteBootstrapLog($"Execution task did not complete within {executionWaitTimeoutMilliseconds}ms after stop request.");
                     }
                     else
                     {

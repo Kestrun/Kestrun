@@ -203,7 +203,7 @@ Add-BuildTask Help {
     Write-Host '- Clean: Cleans the solution.'
     Write-Host '- Restore: Restores NuGet packages.'
     Write-Host '- Build: Builds the solution.'
-    Write-Host '- Pack-KestrunTool: Packs Kestrun.Tool as a dotnet tool package (dotnet-kestrun) into artifacts/nuget.'
+    Write-Host '- Pack-KestrunTool: Packs Kestrun.Tool as a dotnet tool package (dotnet-kestrun) into artifacts/nuget using Release configuration.'
     Write-Host '- Test: Runs tests and Pester tests.'
     Write-Host '- Package: Packages the solution and includes the Kestrun dotnet tool package.'
     Write-Host '- All: Runs Clean, Build, and Test tasks in sequence.'
@@ -227,7 +227,7 @@ Add-BuildTask Help {
     Write-Host '- Remove-Module: Removes the Kestrun module.'
     Write-Host '- Update-Module: Updates the Kestrun module.'
     # Build tasks
-    Write-Host '- Build-KestrunTool: Publishes dedicated ServiceHost runtimes and stages PowerShell Modules payloads in src/CSharp/Kestrun.Tool/kestrun-service.'
+    Write-Host '- Build-KestrunTool: Publishes dedicated ServiceHost runtimes and stages PowerShell Modules payloads in src/CSharp/Kestrun.Tool/kestrun-service using the current -Configuration value.'
     Write-Host '- Build-Help: Generates PowerShell help documentation.'
     Write-Host '- Build-TutorialIndex: Regenerates docs/pwsh/tutorial/index.md.'
     # Test tasks
@@ -390,6 +390,8 @@ Add-BuildTask 'BuildExamples' {
 }
 
 Add-BuildTask 'Build-KestrunTool' {
+    Write-Host "🔧 Staging Kestrun.Tool service-host runtimes using configuration: $Configuration"
+
     $kestrunToolPublishRoot = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'Kestrun.Tool'
     $kestrunToolServiceHostRuntimesDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/kestrun-service'
 
@@ -405,7 +407,7 @@ Add-BuildTask 'Build-KestrunTool' {
         -ServiceHostRuntimesDirectory $kestrunToolServiceHostRuntimesDirectory
 }
 
-Add-BuildTask 'Pack-KestrunTool' 'Build-KestrunTool', {
+Add-BuildTask 'Pack-KestrunTool' 'Set-PackageConfiguration', 'Build-KestrunTool', {
     Write-Host '📦 Packing Kestrun dotnet tool package (dotnet-kestrun)...'
 
     $toolOutputDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'nuget'

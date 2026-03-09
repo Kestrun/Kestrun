@@ -171,7 +171,7 @@ public class KestrunToolCommandSurfaceTests
     public void WriteModuleNotFoundMessage_AlwaysIncludes_ModuleInstallGuidance()
     {
         var lines = new List<string>();
-        _ = Invoke("WriteModuleNotFoundMessage", null, null, new Action<string>(lines.Add));
+        InvokeVoid("WriteModuleNotFoundMessage", null, null, new Action<string>(lines.Add));
 
         Assert.Contains(lines, line => line.Contains("module install", StringComparison.Ordinal));
         Assert.Contains(lines, line => line.Contains("No Kestrun module was found", StringComparison.Ordinal));
@@ -968,11 +968,36 @@ public class KestrunToolCommandSurfaceTests
     private static object Invoke(string methodName, params object?[] arguments)
         => InvokeRaw(methodName, arguments);
 
+    private static void InvokeVoid(string methodName, params object?[] arguments)
+    {
+        var method = GetRequiredProgramMethod(methodName);
+        Assert.Equal(typeof(void), method.ReturnType);
+        var result = method.Invoke(null, arguments);
+        Assert.Null(result);
+    }
+
     private static object InvokeRaw(string methodName, object?[] arguments)
+    {
+        var method = GetRequiredProgramMethod(methodName);
+        Assert.NotEqual(typeof(void), method.ReturnType);
+        var result = method.Invoke(null, arguments);
+        Assert.NotNull(result);
+        return result;
+    }
+
+    private static MethodInfo GetRequiredProgramMethod(string methodName)
     {
         var method = ProgramType.GetMethod(methodName, BindingFlags.Static | BindingFlags.NonPublic);
         Assert.NotNull(method);
-        return method!.Invoke(null, arguments)!;
+        return method;
+    }
+
+    private static bool InvokeRequiredBool(MethodInfo method, object?[] arguments)
+    {
+        var result = method.Invoke(null, arguments);
+        Assert.NotNull(result);
+        Assert.IsType<bool>(result);
+        return (bool)result;
     }
 
     private static object InvokeWithStringArray(string methodName, string[] arguments)
@@ -980,77 +1005,70 @@ public class KestrunToolCommandSurfaceTests
 
     private static (bool Success, object? ParsedCommand, string Error) InvokeTryParseArguments(string[] args)
     {
-        var method = ProgramType.GetMethod("TryParseArguments", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
+        var method = GetRequiredProgramMethod("TryParseArguments");
 
         var values = new object?[] { args, null, null };
-        var success = (bool)method!.Invoke(null, values)!;
+        var success = InvokeRequiredBool(method, values);
         var error = values[2]?.ToString() ?? string.Empty;
         return (success, values[1], error);
     }
 
     private static (bool Success, string Version) InvokeTryReadPackageVersion(byte[] packageBytes)
     {
-        var method = ProgramType.GetMethod("TryReadPackageVersion", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
+        var method = GetRequiredProgramMethod("TryReadPackageVersion");
 
         var values = new object?[] { packageBytes, null };
-        var success = (bool)method!.Invoke(null, values)!;
+        var success = InvokeRequiredBool(method, values);
         var version = values[1]?.ToString() ?? string.Empty;
         return (success, version);
     }
 
     private static (bool Success, string Version) InvokeTryReadModuleSemanticVersionFromManifest(string manifestPath)
     {
-        var method = ProgramType.GetMethod("TryReadModuleSemanticVersionFromManifest", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
+        var method = GetRequiredProgramMethod("TryReadModuleSemanticVersionFromManifest");
 
         var values = new object?[] { manifestPath, null };
-        var success = (bool)method!.Invoke(null, values)!;
+        var success = InvokeRequiredBool(method, values);
         var version = values[1]?.ToString() ?? string.Empty;
         return (success, version);
     }
 
     private static (bool Success, string Error) InvokeTryValidateInstallAction(string moduleRoot, string scopeToken)
     {
-        var method = ProgramType.GetMethod("TryValidateInstallAction", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
+        var method = GetRequiredProgramMethod("TryValidateInstallAction");
 
         var values = new object?[] { moduleRoot, scopeToken, null };
-        var success = (bool)method!.Invoke(null, values)!;
+        var success = InvokeRequiredBool(method, values);
         var error = values[2]?.ToString() ?? string.Empty;
         return (success, error);
     }
 
     private static (bool Success, string Error) InvokeTryValidateUpdateAction(string moduleRoot, string packageVersion, bool force)
     {
-        var method = ProgramType.GetMethod("TryValidateUpdateAction", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
+        var method = GetRequiredProgramMethod("TryValidateUpdateAction");
 
         var values = new object?[] { moduleRoot, packageVersion, force, null };
-        var success = (bool)method!.Invoke(null, values)!;
+        var success = InvokeRequiredBool(method, values);
         var error = values[3]?.ToString() ?? string.Empty;
         return (success, error);
     }
 
     private static (bool Success, string Error) InvokeTryRemoveInstalledModule(string moduleRoot, bool showProgress)
     {
-        var method = ProgramType.GetMethod("TryRemoveInstalledModule", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
+        var method = GetRequiredProgramMethod("TryRemoveInstalledModule");
 
         var values = new object?[] { moduleRoot, showProgress, null };
-        var success = (bool)method!.Invoke(null, values)!;
+        var success = InvokeRequiredBool(method, values);
         var error = values[2]?.ToString() ?? string.Empty;
         return (success, error);
     }
 
     private static (bool Success, string RuntimePath, string Error) InvokeTryResolveServiceRuntimeExecutableFromModule(string manifestPath)
     {
-        var method = ProgramType.GetMethod("TryResolveServiceRuntimeExecutableFromModule", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
+        var method = GetRequiredProgramMethod("TryResolveServiceRuntimeExecutableFromModule");
 
         var values = new object?[] { manifestPath, null, null };
-        var success = (bool)method!.Invoke(null, values)!;
+        var success = InvokeRequiredBool(method, values);
         var runtimePath = values[1]?.ToString() ?? string.Empty;
         var error = values[2]?.ToString() ?? string.Empty;
         return (success, runtimePath, error);
@@ -1065,8 +1083,7 @@ public class KestrunToolCommandSurfaceTests
             string? contentRoot = null,
             string? relativeScriptPath = null)
     {
-        var method = ProgramType.GetMethod("TryPrepareServiceBundle", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
+        var method = GetRequiredProgramMethod("TryPrepareServiceBundle");
 
         var values = new object?[]
         {
@@ -1079,7 +1096,7 @@ public class KestrunToolCommandSurfaceTests
             null,
             bundleRoot,
         };
-        var success = (bool)method!.Invoke(null, values)!;
+        var success = InvokeRequiredBool(method, values);
         var bundle = values[5];
         var error = values[6]?.ToString() ?? string.Empty;
 
@@ -1096,11 +1113,10 @@ public class KestrunToolCommandSurfaceTests
     private static (bool Success, string FullScriptPath, string FullContentRoot, string RelativeScriptPath, string Error)
         InvokeTryResolveServiceScriptSource(object parsedCommand)
     {
-        var method = ProgramType.GetMethod("TryResolveServiceScriptSource", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
+        var method = GetRequiredProgramMethod("TryResolveServiceScriptSource");
 
         var values = new object?[] { parsedCommand, null, null };
-        var success = (bool)method!.Invoke(null, values)!;
+        var success = InvokeRequiredBool(method, values);
         var source = values[1];
         var error = values[2]?.ToString() ?? string.Empty;
 
@@ -1124,26 +1140,17 @@ public class KestrunToolCommandSurfaceTests
 
     private static IReadOnlyList<string> InvokeBuildElevatedRelaunchArguments(string executablePath, IReadOnlyList<string> args)
     {
-        var method = ProgramType.GetMethod("BuildElevatedRelaunchArguments", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
-
-        return (IReadOnlyList<string>)method!.Invoke(null, [executablePath, args])!;
+        return Assert.IsAssignableFrom<IReadOnlyList<string>>(InvokeRaw("BuildElevatedRelaunchArguments", [executablePath, args]));
     }
 
     private static string InvokeNormalizeWindowsServiceAccountName(string serviceUser)
     {
-        var method = ProgramType.GetMethod("NormalizeWindowsServiceAccountName", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
-
-        return (string)method!.Invoke(null, [serviceUser])!;
+        return Assert.IsType<string>(InvokeRaw("NormalizeWindowsServiceAccountName", [serviceUser]));
     }
 
     private static bool InvokeIsWindowsBuiltinServiceAccount(string accountName)
     {
-        var method = ProgramType.GetMethod("IsWindowsBuiltinServiceAccount", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
-
-        return (bool)method!.Invoke(null, [accountName])!;
+        return InvokeRequiredBool(GetRequiredProgramMethod("IsWindowsBuiltinServiceAccount"), [accountName]);
     }
 
     private static string InvokeBuildLinuxSystemdUnitContent(
@@ -1153,10 +1160,7 @@ public class KestrunToolCommandSurfaceTests
         string workingDirectory,
         string? serviceUser)
     {
-        var method = ProgramType.GetMethod("BuildLinuxSystemdUnitContent", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
-
-        return (string)method!.Invoke(null, [serviceName, exePath, runnerArgs, workingDirectory, serviceUser])!;
+        return Assert.IsType<string>(InvokeRaw("BuildLinuxSystemdUnitContent", [serviceName, exePath, runnerArgs, workingDirectory, serviceUser]));
     }
 
     private static string InvokeBuildLaunchdPlist(
@@ -1165,20 +1169,16 @@ public class KestrunToolCommandSurfaceTests
         IReadOnlyList<string> programArguments,
         string? serviceUser)
     {
-        var method = ProgramType.GetMethod("BuildLaunchdPlist", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
-
-        return (string)method!.Invoke(null, [label, workingDirectory, programArguments, serviceUser])!;
+        return Assert.IsType<string>(InvokeRaw("BuildLaunchdPlist", [label, workingDirectory, programArguments, serviceUser]));
     }
 
     private static string? InvokeTryDeleteDirectoryWithRetry(string directoryPath, int maxAttempts, int initialDelayMs)
     {
-        var method = ProgramType.GetMethod("TryDeleteDirectoryWithRetry", BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(method);
+        var method = GetRequiredProgramMethod("TryDeleteDirectoryWithRetry");
 
         try
         {
-            _ = method!.Invoke(null, [directoryPath, maxAttempts, initialDelayMs]);
+            _ = method.Invoke(null, [directoryPath, maxAttempts, initialDelayMs]);
             return null;
         }
         catch (TargetInvocationException ex)

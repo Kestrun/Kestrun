@@ -11,7 +11,8 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>true</IsPackable>
-        <PackAsTool>true</PackAsTool>
+        <!-- Default to tool packing, but allow explicit override (for standalone publish scenarios). -->
+        <PackAsTool Condition="'$(PackAsTool)' == ''">true</PackAsTool>
         <ToolCommandName>dotnet-kestrun</ToolCommandName>
 
         <PackageId>Kestrun.Tool</PackageId>
@@ -27,7 +28,11 @@
         <GeneratePackageOnBuild Condition="'$(Configuration)' == 'Release'">true</GeneratePackageOnBuild>
         <GeneratePackageOnBuild Condition="'$(Configuration)' != 'Release'">false</GeneratePackageOnBuild>
 
-        <!-- Single-file publish defaults for runtime publish flow (disabled for dotnet tool packing). -->
+        <!--
+            Single-file publish settings only apply when PackAsTool is explicitly overridden to false
+            (for example: dotnet publish -p:PackAsTool=false).
+            They stay disabled for normal dotnet tool pack/build flows where PackAsTool=true.
+        -->
         <PublishSingleFile Condition="'$(PackAsTool)' != 'true'">true</PublishSingleFile>
         <EnableCompressionInSingleFile Condition="'$(PackAsTool)' != 'true'">true</EnableCompressionInSingleFile>
         <IncludeNativeLibrariesForSelfExtract Condition="'$(PackAsTool)' != 'true'">true</IncludeNativeLibrariesForSelfExtract>

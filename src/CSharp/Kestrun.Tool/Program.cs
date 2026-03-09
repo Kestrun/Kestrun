@@ -20,6 +20,13 @@ internal static partial class Program
     private const string ModuleName = "Kestrun";
     private const string DefaultScriptFileName = "server.ps1";
     private const string ProductName = "kestrun";
+    private const string ServiceDeploymentProductFolderName = "Kestrun";
+    private const string ServiceDeploymentServicesFolderName = "services";
+    private const string ServiceBundleRuntimeDirectoryName = "runtime";
+    private const string ServiceBundleModulesDirectoryName = "Modules";
+    private const string ServiceBundleScriptDirectoryName = "script";
+    private const string WindowsServiceRuntimeBinaryName = "kestrun.exe";
+    private const string UnixServiceRuntimeBinaryName = "kestrun";
     private const string ModuleVersionOption = "--version";
     private const string ModuleScopeOption = "--scope";
     private const string ModuleForceOption = "--force";
@@ -1447,7 +1454,7 @@ internal static partial class Program
             return false;
         }
 
-        var runtimeBinaryName = OperatingSystem.IsWindows() ? "kestrun.exe" : "kestrun";
+        var runtimeBinaryName = OperatingSystem.IsWindows() ? WindowsServiceRuntimeBinaryName : UnixServiceRuntimeBinaryName;
         foreach (var candidate in EnumerateServiceRuntimeExecutableCandidates(moduleRoot, runtimeRid, runtimeBinaryName))
         {
             if (!File.Exists(candidate))
@@ -1580,7 +1587,14 @@ internal static partial class Program
     {
         var candidates = new List<string>();
 
-        // 1. Dotnet tool store path: ~/.dotnet/tools/.store/kestrun.tool/<version>/
+        // 1. Development/source path: ./src/CSharp/Kestrun.Tool/kestrun-service/<rid>/
+        // Prefer this during local builds/tests to avoid accidentally selecting a stale globally installed tool payload.
+        foreach (var parent in EnumerateDirectoryAndParents(Environment.CurrentDirectory))
+        {
+            candidates.Add(Path.Combine(parent, "src", "CSharp", "Kestrun.Tool", "kestrun-service", runtimeRid, hostBinaryName));
+        }
+
+        // 2. Dotnet tool store path: ~/.dotnet/tools/.store/kestrun.tool/<version>/
         var homeDirectory = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         if (!string.IsNullOrWhiteSpace(homeDirectory))
         {
@@ -1592,12 +1606,6 @@ internal static partial class Program
                     candidates.Add(Path.Combine(versionDir, "kestrun.tool", Path.GetFileName(versionDir), "tools", "net10.0", "any", "kestrun-service", runtimeRid, hostBinaryName));
                 }
             }
-        }
-
-        // 2. Debug/development path: ./src/CSharp/Kestrun.Tool/kestrun-service/<rid>/
-        foreach (var parent in EnumerateDirectoryAndParents(Environment.CurrentDirectory))
-        {
-            candidates.Add(Path.Combine(parent, "src", "CSharp", "Kestrun.Tool", "kestrun-service", runtimeRid, hostBinaryName));
         }
 
         foreach (var candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
@@ -1711,10 +1719,10 @@ internal static partial class Program
         }
 
         var serviceRoot = Path.Combine(deploymentRoot, serviceDirectoryName);
-        var runtimeDirectory = Path.Combine(serviceRoot, "runtime");
-        var modulesDirectory = Path.Combine(serviceRoot, "Modules");
-        var moduleDirectory = Path.Combine(modulesDirectory, "Kestrun");
-        var scriptDirectory = Path.Combine(serviceRoot, "script");
+        var runtimeDirectory = Path.Combine(serviceRoot, ServiceBundleRuntimeDirectoryName);
+        var modulesDirectory = Path.Combine(serviceRoot, ServiceBundleModulesDirectoryName);
+        var moduleDirectory = Path.Combine(modulesDirectory, ModuleName);
+        var scriptDirectory = Path.Combine(serviceRoot, ServiceBundleScriptDirectoryName);
         var showProgress = !Console.IsOutputRedirected;
         using var bundleProgress = showProgress
             ? new ConsoleProgressBar("Preparing service bundle", 5, FormatServiceBundleStepProgressDetail)
@@ -2004,7 +2012,10 @@ internal static partial class Program
     {
         if (OperatingSystem.IsWindows())
         {
-            yield return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Kestrun", "services");
+            yield return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                ServiceDeploymentProductFolderName,
+                ServiceDeploymentServicesFolderName);
             yield break;
         }
 

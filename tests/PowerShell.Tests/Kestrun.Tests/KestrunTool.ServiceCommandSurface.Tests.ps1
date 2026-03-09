@@ -19,6 +19,33 @@ BeforeAll {
         $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
         $principal = [Security.Principal.WindowsPrincipal]::new($identity)
         $script:isWindowsAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+        $programPath = Join-Path $script:root 'src/CSharp/Kestrun.Tool/Program.cs'
+        if (-not (Test-Path -LiteralPath $programPath -PathType Leaf)) {
+            throw "Kestrun.Tool Program.cs was not found at: $programPath"
+        }
+
+        $programSource = Get-Content -LiteralPath $programPath -Raw
+        $readToolConstant = {
+            param(
+                [Parameter(Mandatory)]
+                [string]$ConstantName
+            )
+
+            $escapedName = [regex]::Escape($ConstantName)
+            $pattern = 'private const string ' + $escapedName + ' = "(?<value>[^"]+)";'
+            $match = [regex]::Match($programSource, $pattern)
+            if (-not $match.Success) {
+                throw "Unable to resolve '$ConstantName' from $programPath"
+            }
+
+            return $match.Groups['value'].Value
+        }
+
+        $script:serviceDeploymentProductFolderName = & $readToolConstant -ConstantName 'ServiceDeploymentProductFolderName'
+        $script:serviceDeploymentServicesFolderName = & $readToolConstant -ConstantName 'ServiceDeploymentServicesFolderName'
+        $script:serviceBundleRuntimeDirectoryName = & $readToolConstant -ConstantName 'ServiceBundleRuntimeDirectoryName'
+        $script:windowsServiceRuntimeBinaryName = & $readToolConstant -ConstantName 'WindowsServiceRuntimeBinaryName'
     }
 
     $script:InvokeKestrunCommand = {
@@ -146,7 +173,8 @@ Describe 'KestrunTool service command surface' {
         $qcOutput = & sc.exe qc $script:serviceNameToCleanup 2>&1 | Out-String
         $LASTEXITCODE | Should -Be 0
 
-        $expectedBundleRuntimePath = Join-Path $env:ProgramData "Kestrun\services\$($script:serviceNameToCleanup)\runtime\kestrun.exe"
+        $expectedDeploymentRoot = Join-Path $env:ProgramData (Join-Path $script:serviceDeploymentProductFolderName $script:serviceDeploymentServicesFolderName)
+        $expectedBundleRuntimePath = Join-Path $expectedDeploymentRoot "$($script:serviceNameToCleanup)\$($script:serviceBundleRuntimeDirectoryName)\$($script:windowsServiceRuntimeBinaryName)"
         $qcOutput | Should -Match ([regex]::Escape($expectedBundleRuntimePath))
         $qcOutput | Should -Not -Match 'dotnet\.exe'
     }

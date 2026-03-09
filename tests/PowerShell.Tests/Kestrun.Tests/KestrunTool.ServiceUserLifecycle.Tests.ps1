@@ -153,7 +153,28 @@ Describe 'KestrunTool service user lifecycle' {
         $scriptPath = Join-Path $script:root 'docs/_includes/examples/pwsh/10.2-OpenAPI-Component-Schema.ps1'
         $plistPath = "/Library/LaunchDaemons/$serviceName.plist"
 
-        $uid = 55000 + (Get-Random -Minimum 100 -Maximum 999)
+        $existingUidLines = @(& dscl . -list /Users UniqueID 2>$null)
+        $LASTEXITCODE | Should -Be 0
+
+        $existingUids = @{}
+        foreach ($uidLine in $existingUidLines) {
+            if ($uidLine -match '^\S+\s+(\d+)$') {
+                $existingUids[$Matches[1]] = $true
+            }
+        }
+
+        $uid = $null
+        for ($attempt = 0; $attempt -lt 20; $attempt++) {
+            $candidateUid = [string](55000 + (Get-Random -Minimum 100 -Maximum 1000))
+            if (-not $existingUids.ContainsKey($candidateUid)) {
+                $uid = $candidateUid
+                break
+            }
+        }
+
+        if ($null -eq $uid) {
+            throw 'Unable to allocate an unused macOS test UniqueID in the 55100-55999 range after 20 attempts.'
+        }
 
         try {
             & dscl . -create "/Users/$serviceUser" | Out-Null

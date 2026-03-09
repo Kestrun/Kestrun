@@ -363,6 +363,7 @@ Describe 'KestrunTool service user lifecycle' {
         $serviceName = "test-networkservice-$suffix"
         $deploymentRoot = Join-Path $env:TEMP "kestrun-service-networkservice-$suffix"
         $scriptPath = Join-Path $script:root 'docs/_includes/examples/pwsh/10.2-OpenAPI-Component-Schema.ps1'
+        $skipBecause = $null
 
         try {
             $installResult = & $script:InvokeKestrunCommand -Arguments @(
@@ -377,25 +378,29 @@ Describe 'KestrunTool service user lifecycle' {
 
             $startResult = & $script:InvokeKestrunCommand -Arguments @('service', 'start', '--name', $serviceName)
             if ($startResult.ExitCode -eq 5) {
-                Set-ItResult -Skipped -Because 'NetworkService lacks required host permissions on this machine.'
-                return
+                $skipBecause = 'NetworkService lacks required host permissions on this machine.'
+            } else {
+                $startResult.ExitCode | Should -Be 0
+
+                Start-Sleep -Seconds 2
+                $queryResult = & $script:InvokeKestrunCommand -Arguments @('service', 'query', '--name', $serviceName)
+                $queryResult.ExitCode | Should -Be 0
+                $queryResult.Output | Should -Match 'RUNNING'
+
+                $stopResult = & $script:InvokeKestrunCommand -Arguments @('service', 'stop', '--name', $serviceName)
+                $stopResult.ExitCode | Should -Be 0
+
+                $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
+                $removeResult.ExitCode | Should -Be 0
             }
-            $startResult.ExitCode | Should -Be 0
-
-            Start-Sleep -Seconds 2
-            $queryResult = & $script:InvokeKestrunCommand -Arguments @('service', 'query', '--name', $serviceName)
-            $queryResult.ExitCode | Should -Be 0
-            $queryResult.Output | Should -Match 'RUNNING'
-
-            $stopResult = & $script:InvokeKestrunCommand -Arguments @('service', 'stop', '--name', $serviceName)
-            $stopResult.ExitCode | Should -Be 0
-
-            $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
-            $removeResult.ExitCode | Should -Be 0
         } finally {
             & sc.exe stop $serviceName 2>$null | Out-Null
             & sc.exe delete $serviceName 2>$null | Out-Null
             Remove-Item -LiteralPath $deploymentRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        if ($null -ne $skipBecause) {
+            Set-ItResult -Skipped -Because $skipBecause
         }
     }
 }

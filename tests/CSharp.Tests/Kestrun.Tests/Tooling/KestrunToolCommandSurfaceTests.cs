@@ -168,6 +168,43 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryParseArguments_Run_WithScriptOptionMissingValue_Fails()
+    {
+        var (Success, _, Error) = InvokeTryParseArguments(["run", "--script"]);
+
+        Assert.False(Success);
+        Assert.Equal("Missing value for --script.", Error);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseServiceRegisterArguments_KnownOptionWithoutValue_FailsWithMissingValueMessage()
+    {
+        var (Success, _, Error) = InvokeTryParseServiceRegisterArguments([
+            "--service-register",
+            "--name",
+        ]);
+
+        Assert.False(Success);
+        Assert.Equal("Missing value for --name.", Error);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseServiceRegisterArguments_UnknownOption_FailsWithUnknownOptionMessage()
+    {
+        var (Success, _, Error) = InvokeTryParseServiceRegisterArguments([
+            "--service-register",
+            "--unknown-option",
+            "value",
+        ]);
+
+        Assert.False(Success);
+        Assert.Equal("Unknown service register option: --unknown-option", Error);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void WriteModuleNotFoundMessage_AlwaysIncludes_ModuleInstallGuidance()
     {
         var lines = new List<string>();
@@ -1013,6 +1050,16 @@ public class KestrunToolCommandSurfaceTests
         return (success, values[1], error);
     }
 
+    private static (bool Success, object? Options, string Error) InvokeTryParseServiceRegisterArguments(string[] args)
+    {
+        var method = GetRequiredProgramMethod("TryParseServiceRegisterArguments");
+
+        var values = new object?[] { args, null, null };
+        var success = InvokeRequiredBool(method, values);
+        var error = values[2]?.ToString() ?? string.Empty;
+        return (success, values[1], error);
+    }
+
     private static (bool Success, string Version) InvokeTryReadPackageVersion(byte[] packageBytes)
     {
         var method = GetRequiredProgramMethod("TryReadPackageVersion");
@@ -1278,4 +1325,3 @@ public class KestrunToolCommandSurfaceTests
     }
 }
 #endif
-

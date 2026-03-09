@@ -591,7 +591,7 @@ internal static partial class Program
     /// </summary>
     /// <param name="args">Raw command-line arguments.</param>
     /// <param name="state">Mutable parse state.</param>
-    /// <param name="error">Parse error when an unknown option is encountered.</param>
+    /// <param name="error">Parse error when an unsupported option or missing option value is encountered.</param>
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseServiceRegisterOptionLoop(string[] args, ServiceRegisterParseState state, out string? error)
     {
@@ -615,7 +615,7 @@ internal static partial class Program
     /// <param name="args">Raw command-line arguments.</param>
     /// <param name="state">Mutable parse state.</param>
     /// <param name="index">Current parser index.</param>
-    /// <param name="error">Parse error when an unknown option is encountered.</param>
+    /// <param name="error">Parse error when an unsupported option or missing option value is encountered.</param>
     /// <returns>True when parsing can continue.</returns>
     private static bool TryConsumeServiceRegisterOption(string[] args, ServiceRegisterParseState state, ref int index, out string? error)
     {
@@ -631,7 +631,9 @@ internal static partial class Program
 
         if (!TryConsumeServiceRegisterOptionValue(args, ref index, current, out var value))
         {
-            error = $"Unknown service register option: {current}";
+            error = IsServiceRegisterOptionWithValue(current)
+                ? $"Missing value for {current}."
+                : $"Unknown service register option: {current}";
             return false;
         }
 
@@ -688,6 +690,23 @@ internal static partial class Program
     }
 
     /// <summary>
+    /// Determines whether a token is a supported service-register option that requires a value.
+    /// </summary>
+    /// <param name="option">Option token to evaluate.</param>
+    /// <returns>True when the token is a recognized option that requires a value.</returns>
+    private static bool IsServiceRegisterOptionWithValue(string option)
+        => option is "--name"
+            or "--service-host-exe"
+            or "--runner-exe"
+            or "--exe"
+            or "--script"
+            or "--kestrun-manifest"
+            or "-m"
+            or "--service-log-path"
+            or "--service-user"
+            or "--service-password";
+
+    /// <summary>
     /// Attempts to consume a single service-register option value.
     /// </summary>
     /// <param name="args">Raw command-line arguments.</param>
@@ -699,16 +718,7 @@ internal static partial class Program
     {
         value = string.Empty;
 
-        if (option is not "--name"
-            and not "--service-host-exe"
-            and not "--runner-exe"
-            and not "--exe"
-            and not "--script"
-            and not "--kestrun-manifest"
-            and not "-m"
-            and not "--service-log-path"
-            and not "--service-user"
-            and not "--service-password")
+        if (!IsServiceRegisterOptionWithValue(option))
         {
             return false;
         }

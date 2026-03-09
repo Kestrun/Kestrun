@@ -154,7 +154,7 @@ internal static partial class Program
     private static bool TryConsumeRunOption(string[] args, string current, ref RunParseState state, out string error)
     {
         error = string.Empty;
-        if (current is "--script" && state.Index + 1 < args.Length)
+        if (current is "--script")
         {
             return TryConsumeRunScriptOption(args, ref state, out error);
         }
@@ -185,6 +185,12 @@ internal static partial class Program
         if (state.ScriptPathSet)
         {
             error = "Script path was provided multiple times. Use either positional script path or --script once.";
+            return true;
+        }
+
+        if (state.Index + 1 >= args.Length)
+        {
+            error = "Missing value for --script.";
             return true;
         }
 

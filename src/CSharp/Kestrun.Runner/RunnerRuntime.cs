@@ -14,6 +14,7 @@ public static class RunnerRuntime
     private static readonly Lock AssemblyLoadSync = new();
     private static string? s_kestrunModuleLibPath;
     private static bool s_dependencyResolverRegistered;
+    private sealed record KestrunAssemblyLoadInfo(string ModuleLibPath, string ExpectedAssemblyPath, Version? ExpectedVersion);
 
     /// <summary>
     /// Ensures the runner is executing on .NET 10.
@@ -37,6 +38,29 @@ public static class RunnerRuntime
     /// <param name="onWarning">Optional warning callback for non-fatal assembly preload conditions.</param>
     public static void EnsureKestrunAssemblyPreloaded(string moduleManifestPath, Action<string>? onWarning = null)
     {
+        var expected = ResolveExpectedKestrunAssemblyLoadInfo(moduleManifestPath);
+        lock (AssemblyLoadSync)
+        {
+            EnsureDependencyResolverRegistered();
+
+            var alreadyLoaded = GetLoadedKestrunAssembly();
+            if (alreadyLoaded is not null && TryHandleAlreadyLoadedKestrunAssembly(alreadyLoaded, expected, onWarning))
+            {
+                return;
+            }
+
+            s_kestrunModuleLibPath = expected.ModuleLibPath;
+            _ = AssemblyLoadContext.Default.LoadFromAssemblyPath(expected.ExpectedAssemblyPath);
+        }
+    }
+
+    /// <summary>
+    /// Resolves and validates the expected Kestrun assembly load information from a module manifest path.
+    /// </summary>
+    /// <param name="moduleManifestPath">Absolute path to Kestrun.psd1.</param>
+    /// <returns>Resolved Kestrun assembly load information.</returns>
+    private static KestrunAssemblyLoadInfo ResolveExpectedKestrunAssemblyLoadInfo(string moduleManifestPath)
+    {
         var manifestDirectory = Path.GetDirectoryName(moduleManifestPath);
         if (string.IsNullOrWhiteSpace(manifestDirectory))
         {
@@ -52,49 +76,83 @@ public static class RunnerRuntime
 
         var expectedFullPath = Path.GetFullPath(expectedAssemblyPath);
         var expectedAssemblyName = AssemblyName.GetAssemblyName(expectedFullPath);
-        lock (AssemblyLoadSync)
-        {
-            if (!s_dependencyResolverRegistered)
-            {
-                AssemblyLoadContext.Default.Resolving += ResolveKestrunModuleDependency;
-                s_dependencyResolverRegistered = true;
-            }
-
-            var alreadyLoaded = AppDomain.CurrentDomain.GetAssemblies()
-                .FirstOrDefault(a => string.Equals(a.GetName().Name, "Kestrun", StringComparison.Ordinal));
-
-            if (alreadyLoaded is not null)
-            {
-                var loadedPath = string.IsNullOrWhiteSpace(alreadyLoaded.Location)
-                    ? string.Empty
-                    : Path.GetFullPath(alreadyLoaded.Location);
-                if (string.Equals(loadedPath, expectedFullPath, StringComparison.OrdinalIgnoreCase))
-                {
-                    return;
-                }
-
-                var loadedVersion = alreadyLoaded.GetName().Version;
-                var expectedVersion = expectedAssemblyName.Version;
-                if (IsKestrunAssemblyVersionCompatible(loadedVersion, expectedVersion))
-                {
-                    onWarning?.Invoke(
-                        $"Kestrun assembly was already loaded from a different location; continuing with loaded assembly version "
-                        + $"'{(loadedVersion is null ? "unknown" : loadedVersion.ToString())}' "
-                        + $"(expected '{(expectedVersion is null ? "unknown" : expectedVersion.ToString())}'). "
-                        + $"Loaded path: '{loadedPath}'. Expected path: '{expectedFullPath}'.");
-                    return;
-                }
-
-                throw new RuntimeException(
-                    "Kestrun assembly was already loaded from a different location with an incompatible version. "
-                    + $"Loaded version: {(loadedVersion is null ? "unknown" : loadedVersion.ToString())}; "
-                    + $"expected version: {(expectedVersion is null ? "unknown" : expectedVersion.ToString())}.");
-            }
-
-            s_kestrunModuleLibPath = moduleLibPath;
-            _ = AssemblyLoadContext.Default.LoadFromAssemblyPath(expectedFullPath);
-        }
+        return new KestrunAssemblyLoadInfo(moduleLibPath, expectedFullPath, expectedAssemblyName.Version);
     }
+
+    /// <summary>
+    /// Registers the dependency resolver for assemblies loaded from the selected Kestrun module folder.
+    /// </summary>
+    private static void EnsureDependencyResolverRegistered()
+    {
+        if (s_dependencyResolverRegistered)
+        {
+            return;
+        }
+
+        AssemblyLoadContext.Default.Resolving += ResolveKestrunModuleDependency;
+        s_dependencyResolverRegistered = true;
+    }
+
+    /// <summary>
+    /// Returns the already-loaded Kestrun assembly from the current application domain when available.
+    /// </summary>
+    /// <returns>The loaded Kestrun assembly when present; otherwise null.</returns>
+    private static Assembly? GetLoadedKestrunAssembly()
+        => AppDomain.CurrentDomain.GetAssemblies()
+            .FirstOrDefault(a => string.Equals(a.GetName().Name, "Kestrun", StringComparison.Ordinal));
+
+    /// <summary>
+    /// Validates an already-loaded Kestrun assembly against the expected module assembly and handles compatibility warnings.
+    /// </summary>
+    /// <param name="loadedAssembly">Already-loaded Kestrun assembly.</param>
+    /// <param name="expected">Expected Kestrun assembly load information.</param>
+    /// <param name="onWarning">Optional warning callback for compatible preloaded assemblies from a different path.</param>
+    /// <returns>True when startup should continue without loading another assembly; otherwise false.</returns>
+    private static bool TryHandleAlreadyLoadedKestrunAssembly(
+        Assembly loadedAssembly,
+        KestrunAssemblyLoadInfo expected,
+        Action<string>? onWarning)
+    {
+        var loadedPath = GetNormalizedAssemblyLocation(loadedAssembly);
+        if (string.Equals(loadedPath, expected.ExpectedAssemblyPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var loadedVersion = loadedAssembly.GetName().Version;
+        if (!IsKestrunAssemblyVersionCompatible(loadedVersion, expected.ExpectedVersion))
+        {
+            throw new RuntimeException(
+                "Kestrun assembly was already loaded from a different location with an incompatible version. "
+                + $"Loaded version: {FormatVersionForDiagnostics(loadedVersion)}; "
+                + $"expected version: {FormatVersionForDiagnostics(expected.ExpectedVersion)}.");
+        }
+
+        onWarning?.Invoke(
+            $"Kestrun assembly was already loaded from a different location; continuing with loaded assembly version "
+            + $"'{FormatVersionForDiagnostics(loadedVersion)}' "
+            + $"(expected '{FormatVersionForDiagnostics(expected.ExpectedVersion)}'). "
+            + $"Loaded path: '{loadedPath}'. Expected path: '{expected.ExpectedAssemblyPath}'.");
+        return true;
+    }
+
+    /// <summary>
+    /// Returns a normalized assembly location path suitable for diagnostics and comparisons.
+    /// </summary>
+    /// <param name="assembly">Assembly to inspect.</param>
+    /// <returns>Full path when available; otherwise an empty string.</returns>
+    private static string GetNormalizedAssemblyLocation(Assembly assembly)
+        => string.IsNullOrWhiteSpace(assembly.Location)
+            ? string.Empty
+            : Path.GetFullPath(assembly.Location);
+
+    /// <summary>
+    /// Formats assembly versions for diagnostics and warning messages.
+    /// </summary>
+    /// <param name="version">Version value to format.</param>
+    /// <returns>Formatted version text, or <c>unknown</c> when version is unavailable.</returns>
+    private static string FormatVersionForDiagnostics(Version? version)
+        => version is null ? "unknown" : version.ToString();
 
     /// <summary>
     /// Determines whether an already-loaded Kestrun assembly version is compatible with the expected module version.

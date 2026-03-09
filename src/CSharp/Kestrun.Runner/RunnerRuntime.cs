@@ -54,7 +54,6 @@ public static class RunnerRuntime
         var expectedAssemblyName = AssemblyName.GetAssemblyName(expectedFullPath);
         lock (AssemblyLoadSync)
         {
-            s_kestrunModuleLibPath = moduleLibPath;
             if (!s_dependencyResolverRegistered)
             {
                 AssemblyLoadContext.Default.Resolving += ResolveKestrunModuleDependency;
@@ -91,6 +90,7 @@ public static class RunnerRuntime
                     + $"expected version: {(expectedVersion is null ? "unknown" : expectedVersion.ToString())}.");
             }
 
+            s_kestrunModuleLibPath = moduleLibPath;
             _ = AssemblyLoadContext.Default.LoadFromAssemblyPath(expectedFullPath);
         }
     }

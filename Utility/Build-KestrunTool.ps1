@@ -88,15 +88,26 @@ function Get-PowerShellSdkVersionForServiceHost {
     )
 
     $project = [xml](Get-Content -Path $ProjectPath -Raw)
-    $sdkReference = $project.Project.ItemGroup.PackageReference |
-        Where-Object { $_.Include -eq 'Microsoft.PowerShell.SDK' } |
-        Select-Object -First 1
+    $sdkReferences = $project.SelectNodes("//PackageReference[@Include='Microsoft.PowerShell.SDK']")
 
-    if (-not $sdkReference -or [string]::IsNullOrWhiteSpace($sdkReference.Version)) {
+    $sdkVersion = $null
+    foreach ($sdkReference in $sdkReferences) {
+        $candidateVersion = $sdkReference.GetAttribute('Version')
+        if ([string]::IsNullOrWhiteSpace($candidateVersion)) {
+            $candidateVersion = $sdkReference.SelectSingleNode('Version')?.InnerText
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($candidateVersion)) {
+            $sdkVersion = $candidateVersion
+            break
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($sdkVersion)) {
         throw "Unable to determine Microsoft.PowerShell.SDK version from $ProjectPath"
     }
 
-    return [string]$sdkReference.Version
+    return [string]$sdkVersion
 }
 
 <#

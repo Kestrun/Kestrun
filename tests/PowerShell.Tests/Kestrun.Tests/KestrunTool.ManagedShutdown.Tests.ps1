@@ -1,4 +1,4 @@
-﻿param()
+param()
 
 BeforeAll {
     . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
@@ -193,7 +193,7 @@ public static class NativeCtrl
     public static extern bool CloseHandle(IntPtr hObject);
 }
 '@
-    }
+        }
 
         $port2 = Get-FreeTcpPort
         $tempScript2 = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-ctrlc-' + [System.Guid]::NewGuid().ToString('N') + '.ps1')

@@ -1,4 +1,4 @@
-﻿param()
+param()
 
 # Compute environment capabilities at discovery time so -Skip conditions are accurate.
 $script:isWindowsAdmin = $false

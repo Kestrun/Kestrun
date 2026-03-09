@@ -23,8 +23,8 @@ internal static partial class Program
     private const string NoCheckOption = "--nocheck";
     private const string NoCheckAliasOption = "--no-check";
     private const string PowerShellGalleryApiBaseUri = "https://www.powershellgallery.com/api/v2";
-    private static readonly Regex ModuleVersionRegex = MyRegex1();
-    private static readonly Regex ModulePrereleaseRegex = MyRegex2();
+    private static readonly Regex ModuleVersionPatternRegex = ModuleVersionRegex();
+    private static readonly Regex ModulePrereleasePatternRegex = ModulePrereleaseRegex();
     private static readonly HttpClient GalleryHttpClient = CreateGalleryHttpClient();
     private static readonly string[] ServiceBundleModuleExclusionPatterns =
     [
@@ -107,9 +107,9 @@ internal static partial class Program
         string RelativeScriptPath);
 
     [GeneratedRegex("--service-log-path\\s+(\\\"(?<quoted>[^\\\"]+)\\\"|(?<plain>\\S+))", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
-    private static partial Regex MyRegex();
+    private static partial Regex ServiceLogPathRegex();
     [GeneratedRegex("^\\s*ModuleVersion\\s*=\\s*['\\\"](?<value>[^'\\\"]+)['\\\"]", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Compiled | RegexOptions.CultureInvariant)]
-    private static partial Regex MyRegex1();
+    private static partial Regex ModuleVersionRegex();
     [GeneratedRegex("^\\s*Prerelease\\s*=\\s*['\\\"](?<value>[^'\\\"]+)['\\\"]", RegexOptions.IgnoreCase | RegexOptions.Multiline | RegexOptions.Compiled | RegexOptions.CultureInvariant)]
-    private static partial Regex MyRegex2();
+    private static partial Regex ModulePrereleaseRegex();
 }

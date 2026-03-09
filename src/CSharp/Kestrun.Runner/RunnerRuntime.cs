@@ -688,10 +688,12 @@ public static class RunnerRuntime
             return new ProcessResult(1, string.Empty, $"Failed to start process: {fileName}");
         }
 
-        var output = process.StandardOutput.ReadToEnd();
-        var error = process.StandardError.ReadToEnd();
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+
         process.WaitForExit();
-        return new ProcessResult(process.ExitCode, output, error);
+        Task.WaitAll(outputTask, errorTask);
+        return new ProcessResult(process.ExitCode, outputTask.Result, errorTask.Result);
     }
 
     /// <summary>

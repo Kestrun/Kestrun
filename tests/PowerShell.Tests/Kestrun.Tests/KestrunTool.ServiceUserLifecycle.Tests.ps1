@@ -241,7 +241,11 @@ Describe 'KestrunTool service user lifecycle' {
             $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
             $removeResult.ExitCode | Should -Be 0
         } finally {
-            & launchctl bootout "gui/$([System.Diagnostics.Process]::GetCurrentProcess().SessionId)/$serviceName" 2>$null | Out-Null
+            # launchctl gui domain requires the numeric user ID (uid), not the process session ID.
+            $userId = (& /usr/bin/id -u 2>$null | Select-Object -First 1)
+            if (-not [string]::IsNullOrWhiteSpace($userId)) {
+                & launchctl bootout "gui/$userId/$serviceName" 2>$null | Out-Null
+            }
             & launchctl unload "$plistPath" 2>$null | Out-Null
             Remove-Item -LiteralPath $plistPath -Force -ErrorAction SilentlyContinue
             Remove-Item -LiteralPath $deploymentRoot -Recurse -Force -ErrorAction SilentlyContinue

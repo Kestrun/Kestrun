@@ -997,7 +997,7 @@ internal static partial class Program
         }
 
         var text = string.Concat(queryResult.Output, Environment.NewLine, queryResult.Error);
-        var match = MyRegex().Match(text);
+        var match = ServiceLogPathRegex().Match(text);
 
         if (!match.Success)
         {
@@ -2610,7 +2610,7 @@ internal static partial class Program
         try
         {
             var content = File.ReadAllText(manifestPath);
-            var prereleaseMatch = ModulePrereleaseRegex.Match(content);
+            var prereleaseMatch = ModulePrereleasePatternRegex.Match(content);
             if (prereleaseMatch.Success)
             {
                 var prereleaseValue = prereleaseMatch.Groups["value"].Value.Trim();
@@ -2869,7 +2869,7 @@ internal static partial class Program
         try
         {
             var content = File.ReadAllText(manifestPath);
-            var match = ModuleVersionRegex.Match(content);
+            var match = ModuleVersionPatternRegex.Match(content);
             if (!match.Success)
             {
                 return false;

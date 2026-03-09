@@ -20,6 +20,32 @@ internal static class Program
         bool DirectRunMode,
         bool DiscoverPowerShellHome);
 
+    /// <summary>
+    /// Mutable state used while parsing service-host command-line options.
+    /// </summary>
+    private sealed class ArgumentParseState
+    {
+        public string ServiceName { get; set; } = string.Empty;
+
+        public string RunnerExecutablePath { get; set; } = string.Empty;
+
+        public string ScriptPath { get; set; } = string.Empty;
+
+        public string ModuleManifestPath { get; set; } = string.Empty;
+
+        public string[] ScriptArguments { get; set; } = [];
+
+        public string? ServiceLogPath { get; set; }
+
+        public bool DirectRunMode { get; set; }
+
+        public bool DiscoverPowerShellHome { get; set; }
+
+        public bool ScriptOptionSeen { get; set; }
+
+        public bool RunOptionSeen { get; set; }
+    }
+
     private static int Main(string[] args)
     {
         if (!TryParseArguments(args, out var options, out var error))
@@ -44,122 +70,192 @@ internal static class Program
         return 0;
     }
 
+    /// <summary>
+    /// Parses command-line arguments into strongly typed service-host options.
+    /// </summary>
+    /// <param name="args">The command-line arguments passed to the application.</param>
+    /// <param name="options">Parsed options when successful; otherwise null.</param>
+    /// <param name="error">An error message if argument parsing fails.</param>
+    /// <returns>True when arguments were successfully parsed; otherwise false.</returns>
     private static bool TryParseArguments(string[] args, out ParsedOptions? options, out string error)
     {
         options = null;
+
+        var parseState = new ArgumentParseState();
+        return TryParseOptionTokens(args, parseState, out error)
+            && TryBuildParsedOptions(parseState, out options, out error);
+    }
+
+    /// <summary>
+    /// Parses raw argument tokens into intermediate state.
+    /// </summary>
+    /// <param name="args">Raw argument list.</param>
+    /// <param name="parseState">Mutable parse state.</param>
+    /// <param name="error">Error message when parsing fails.</param>
+    /// <returns>True when all tokens were parsed successfully; otherwise false.</returns>
+    private static bool TryParseOptionTokens(string[] args, ArgumentParseState parseState, out string error)
+    {
         error = string.Empty;
-
-        var serviceName = string.Empty;
-        var runnerExecutablePath = string.Empty;
-        var scriptPath = string.Empty;
-        var moduleManifestPath = string.Empty;
-        var scriptArguments = Array.Empty<string>();
-        string? serviceLogPath = null;
-        var directRunMode = false;
-        var discoverPowerShellHome = false;
-        var scriptOptionSeen = false;
-        var runOptionSeen = false;
-
         var index = 0;
         while (index < args.Length)
         {
-            var current = args[index];
-            if (current is "--name")
+            if (!TryHandleArgumentToken(args, ref index, parseState, out var stopParsing, out error))
             {
-                if (!TryReadOptionValue(args, ref index, current, out serviceName, out error))
-                {
-                    return false;
-                }
-
-                continue;
+                return false;
             }
 
-            if (current is "--runner-exe")
+            if (stopParsing)
             {
-                if (!TryReadOptionValue(args, ref index, current, out runnerExecutablePath, out error))
-                {
-                    return false;
-                }
-
-                continue;
+                break;
             }
+        }
 
-            if (current is "--script")
-            {
-                if (runOptionSeen)
-                {
-                    error = "Options --script and --run are mutually exclusive.";
-                    return false;
-                }
+        return true;
+    }
 
-                if (!TryReadOptionValue(args, ref index, current, out scriptPath, out error))
-                {
-                    return false;
-                }
+    /// <summary>
+    /// Parses one argument token and updates parsing state.
+    /// </summary>
+    /// <param name="args">Raw argument list.</param>
+    /// <param name="index">Current argument index.</param>
+    /// <param name="parseState">Mutable parse state.</param>
+    /// <param name="stopParsing">True when token consumes remaining arguments and parsing should stop.</param>
+    /// <param name="error">Error message when parsing fails.</param>
+    /// <returns>True when the token was parsed successfully; otherwise false.</returns>
+    private static bool TryHandleArgumentToken(
+        string[] args,
+        ref int index,
+        ArgumentParseState parseState,
+        out bool stopParsing,
+        out string error)
+    {
+        stopParsing = false;
+        error = string.Empty;
 
-                scriptOptionSeen = true;
-                continue;
-            }
-
-            if (current is "--run")
-            {
-                if (scriptOptionSeen)
-                {
-                    error = "Options --script and --run are mutually exclusive.";
-                    return false;
-                }
-
-                if (!TryReadOptionValue(args, ref index, current, out scriptPath, out error))
-                {
-                    return false;
-                }
-
-                runOptionSeen = true;
-                directRunMode = true;
-                continue;
-            }
-
-            if (current is "--kestrun-manifest")
-            {
-                if (!TryReadOptionValue(args, ref index, current, out moduleManifestPath, out error))
+        var current = args[index];
+        switch (current)
+        {
+            case "--name":
+                if (!TryReadOptionValue(args, ref index, current, out var serviceName, out error))
                 {
                     return false;
                 }
 
-                continue;
-            }
+                parseState.ServiceName = serviceName;
+                return true;
 
-            if (current is "--service-log-path")
-            {
+            case "--runner-exe":
+                if (!TryReadOptionValue(args, ref index, current, out var runnerExecutablePath, out error))
+                {
+                    return false;
+                }
+
+                parseState.RunnerExecutablePath = runnerExecutablePath;
+                return true;
+
+            case "--script":
+                return TryReadScriptPathOption(args, ref index, current, parseState, directRunMode: false, out error);
+
+            case "--run":
+                return TryReadScriptPathOption(args, ref index, current, parseState, directRunMode: true, out error);
+
+            case "--kestrun-manifest":
+                if (!TryReadOptionValue(args, ref index, current, out var moduleManifestPath, out error))
+                {
+                    return false;
+                }
+
+                parseState.ModuleManifestPath = moduleManifestPath;
+                return true;
+
+            case "--service-log-path":
                 if (!TryReadOptionValue(args, ref index, current, out var parsedLogPath, out error))
                 {
                     return false;
                 }
 
-                serviceLogPath = parsedLogPath;
-                continue;
-            }
+                parseState.ServiceLogPath = parsedLogPath;
+                return true;
 
-            if (current is "--discover-pshome")
-            {
-                discoverPowerShellHome = true;
+            case "--discover-pshome":
+                parseState.DiscoverPowerShellHome = true;
                 index += 1;
-                continue;
-            }
+                return true;
 
-            if (current is "--arguments" or "--")
-            {
-                scriptArguments = [.. args.Skip(index + 1)];
-                break;
-            }
+            case "--arguments":
+            case "--":
+                parseState.ScriptArguments = [.. args.Skip(index + 1)];
+                stopParsing = true;
+                return true;
 
-            error = $"Unknown option: {current}";
+            default:
+                error = $"Unknown option: {current}";
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Reads the script path option value and enforces mutual exclusivity between <c>--script</c> and <c>--run</c>.
+    /// </summary>
+    /// <param name="args">Raw argument list.</param>
+    /// <param name="index">Current argument index.</param>
+    /// <param name="optionName">Option name being parsed.</param>
+    /// <param name="parseState">Mutable parse state.</param>
+    /// <param name="directRunMode">True when parsing <c>--run</c>; false for <c>--script</c>.</param>
+    /// <param name="error">Error message when parsing fails.</param>
+    /// <returns>True when parsing succeeds; otherwise false.</returns>
+    private static bool TryReadScriptPathOption(
+        string[] args,
+        ref int index,
+        string optionName,
+        ArgumentParseState parseState,
+        bool directRunMode,
+        out string error)
+    {
+        var conflictingOptionSeen = directRunMode
+            ? parseState.ScriptOptionSeen
+            : parseState.RunOptionSeen;
+        if (conflictingOptionSeen)
+        {
+            error = "Options --script and --run are mutually exclusive.";
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(serviceName) && !string.IsNullOrWhiteSpace(scriptPath))
+        if (!TryReadOptionValue(args, ref index, optionName, out var scriptPath, out error))
         {
-            serviceName = BuildDefaultServiceNameFromScriptPath(scriptPath, directRunMode);
+            return false;
+        }
+
+        parseState.ScriptPath = scriptPath;
+        if (directRunMode)
+        {
+            parseState.RunOptionSeen = true;
+            parseState.DirectRunMode = true;
+        }
+        else
+        {
+            parseState.ScriptOptionSeen = true;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Validates parsed state, applies defaults, and constructs final parsed options.
+    /// </summary>
+    /// <param name="parseState">Parsed intermediate state.</param>
+    /// <param name="options">Final parsed options when successful; otherwise null.</param>
+    /// <param name="error">Error message when validation fails.</param>
+    /// <returns>True when final options can be built; otherwise false.</returns>
+    private static bool TryBuildParsedOptions(ArgumentParseState parseState, out ParsedOptions? options, out string error)
+    {
+        options = null;
+        error = string.Empty;
+
+        var serviceName = parseState.ServiceName;
+        if (string.IsNullOrWhiteSpace(serviceName) && !string.IsNullOrWhiteSpace(parseState.ScriptPath))
+        {
+            serviceName = BuildDefaultServiceNameFromScriptPath(parseState.ScriptPath, parseState.DirectRunMode);
         }
 
         if (string.IsNullOrWhiteSpace(serviceName))
@@ -168,18 +264,17 @@ internal static class Program
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(runnerExecutablePath))
-        {
-            runnerExecutablePath = ResolveCurrentExecutablePath();
-        }
+        var runnerExecutablePath = string.IsNullOrWhiteSpace(parseState.RunnerExecutablePath)
+            ? ResolveCurrentExecutablePath()
+            : parseState.RunnerExecutablePath;
 
-        if (string.IsNullOrWhiteSpace(scriptPath))
+        if (string.IsNullOrWhiteSpace(parseState.ScriptPath))
         {
             error = "Missing --script or --run.";
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(moduleManifestPath))
+        if (string.IsNullOrWhiteSpace(parseState.ModuleManifestPath))
         {
             error = "Missing --kestrun-manifest.";
             return false;
@@ -188,12 +283,12 @@ internal static class Program
         options = new ParsedOptions(
             serviceName,
             Path.GetFullPath(runnerExecutablePath),
-            Path.GetFullPath(scriptPath),
-            Path.GetFullPath(moduleManifestPath),
-            scriptArguments,
-            serviceLogPath,
-            directRunMode,
-            discoverPowerShellHome);
+            Path.GetFullPath(parseState.ScriptPath),
+            Path.GetFullPath(parseState.ModuleManifestPath),
+            parseState.ScriptArguments,
+            parseState.ServiceLogPath,
+            parseState.DirectRunMode,
+            parseState.DiscoverPowerShellHome);
         return true;
     }
 

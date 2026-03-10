@@ -1,36 +1,68 @@
 param()
 
-# Compute environment capabilities at discovery time so -Skip conditions are accurate.
-$script:isWindowsAdmin = $false
-$script:isLinuxRoot = $false
-$script:isMacRoot = $false
-$script:hasLinuxUserMgmt = $false
-$script:hasLinuxSystemctl = $false
-$script:hasLinuxSystemd = $false
-$script:hasMacDscl = $false
-$script:hasMacLaunchctl = $false
+BeforeDiscovery {
+    # Compute environment capabilities at discovery time so -Skip conditions are accurate.
+    $script:isWindowsAdmin = $false
+    $script:isLinuxRoot = $false
+    $script:isMacRoot = $false
+    $script:hasLinuxUserMgmt = $false
+    $script:hasLinuxSystemctl = $false
+    $script:hasLinuxSystemd = $false
+    $script:hasMacDscl = $false
+    $script:hasMacLaunchctl = $false
 
-if ($IsWindows) {
-    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
-    $script:isWindowsAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-}
+    if ($IsWindows) {
+        $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+        $script:isWindowsAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    }
 
-if ($IsLinux) {
-    $script:isLinuxRoot = $env:USER -eq 'root'
-    $script:hasLinuxUserMgmt = [bool](Get-Command useradd -ErrorAction SilentlyContinue) -and [bool](Get-Command userdel -ErrorAction SilentlyContinue)
-    $script:hasLinuxSystemctl = [bool](Get-Command systemctl -ErrorAction SilentlyContinue)
-    $script:hasLinuxSystemd = $script:hasLinuxSystemctl -and (Test-Path -Path '/run/systemd/system' -PathType Container)
-}
+    if ($IsLinux) {
+        $script:isLinuxRoot = $env:USER -eq 'root'
+        $script:hasLinuxUserMgmt = [bool](Get-Command useradd -ErrorAction SilentlyContinue) -and [bool](Get-Command userdel -ErrorAction SilentlyContinue)
+        $script:hasLinuxSystemctl = [bool](Get-Command systemctl -ErrorAction SilentlyContinue)
+        $script:hasLinuxSystemd = $script:hasLinuxSystemctl -and (Test-Path -Path '/run/systemd/system' -PathType Container)
+    }
 
-if ($IsMacOS) {
-    $script:isMacRoot = $env:USER -eq 'root'
-    $script:hasMacDscl = [bool](Get-Command dscl -ErrorAction SilentlyContinue)
-    $script:hasMacLaunchctl = [bool](Get-Command launchctl -ErrorAction SilentlyContinue)
+    if ($IsMacOS) {
+        $script:isMacRoot = $env:USER -eq 'root'
+        $script:hasMacDscl = [bool](Get-Command dscl -ErrorAction SilentlyContinue)
+        $script:hasMacLaunchctl = [bool](Get-Command launchctl -ErrorAction SilentlyContinue)
+    }
 }
 
 BeforeAll {
     . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
+    # Compute environment capabilities at discovery time so -Skip conditions are accurate.
+    $script:isWindowsAdmin = $false
+    $script:isLinuxRoot = $false
+    $script:isMacRoot = $false
+    $script:hasLinuxUserMgmt = $false
+    $script:hasLinuxSystemctl = $false
+    $script:hasLinuxSystemd = $false
+    $script:hasMacDscl = $false
+    $script:hasMacLaunchctl = $false
+
+    if ($IsWindows) {
+        $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+        $script:isWindowsAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    }
+
+    if ($IsLinux) {
+        $script:isLinuxRoot = $env:USER -eq 'root'
+        $script:hasLinuxUserMgmt = [bool](Get-Command useradd -ErrorAction SilentlyContinue) -and [bool](Get-Command userdel -ErrorAction SilentlyContinue)
+        $script:hasLinuxSystemctl = [bool](Get-Command systemctl -ErrorAction SilentlyContinue)
+        $script:hasLinuxSystemd = $script:hasLinuxSystemctl -and (Test-Path -Path '/run/systemd/system' -PathType Container)
+    }
+
+    if ($IsMacOS) {
+        $script:isMacRoot = $env:USER -eq 'root'
+        $script:hasMacDscl = [bool](Get-Command dscl -ErrorAction SilentlyContinue)
+        $script:hasMacLaunchctl = [bool](Get-Command launchctl -ErrorAction SilentlyContinue)
+    }
+
+
 
     $script:root = Get-ProjectRootDirectory
     $script:kestrunLauncher = Join-Path $script:root 'src/PowerShell/Kestrun/kestrun.ps1'

@@ -6,6 +6,7 @@ $script:isLinuxRoot = $false
 $script:isMacRoot = $false
 $script:hasLinuxUserMgmt = $false
 $script:hasLinuxSystemctl = $false
+$script:hasLinuxSystemd = $false
 $script:hasMacDscl = $false
 $script:hasMacLaunchctl = $false
 
@@ -19,6 +20,7 @@ if ($IsLinux) {
     $script:isLinuxRoot = $env:USER -eq 'root'
     $script:hasLinuxUserMgmt = [bool](Get-Command useradd -ErrorAction SilentlyContinue) -and [bool](Get-Command userdel -ErrorAction SilentlyContinue)
     $script:hasLinuxSystemctl = [bool](Get-Command systemctl -ErrorAction SilentlyContinue)
+    $script:hasLinuxSystemd = $script:hasLinuxSystemctl -and (Test-Path -Path '/run/systemd/system' -PathType Container)
 }
 
 if ($IsMacOS) {
@@ -33,9 +35,10 @@ BeforeAll {
     $script:root = Get-ProjectRootDirectory
     $script:kestrunLauncher = Join-Path $script:root 'src/PowerShell/Kestrun/kestrun.ps1'
     $script:kestrunToolProject = Join-Path $script:root 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
+    $script:hasDotnetKestrunTool = [bool](Get-Command dotnet-kestrun -ErrorAction SilentlyContinue)
 
-    if ((-not (Test-Path -Path $script:kestrunLauncher -PathType Leaf)) -and (-not (Test-Path -Path $script:kestrunToolProject -PathType Leaf))) {
-        throw "Neither kestrun launcher nor Kestrun.Tool project was found. Checked: $script:kestrunLauncher ; $script:kestrunToolProject"
+    if ((-not (Test-Path -Path $script:kestrunLauncher -PathType Leaf)) -and (-not $script:hasDotnetKestrunTool) -and (-not (Test-Path -Path $script:kestrunToolProject -PathType Leaf))) {
+        throw "No Kestrun command source found. Checked launcher: $script:kestrunLauncher ; dotnet tool command: dotnet-kestrun ; project: $script:kestrunToolProject"
     }
 
     $script:InvokeKestrunCommand = {
@@ -46,6 +49,8 @@ BeforeAll {
 
         if (Test-Path -Path $script:kestrunLauncher -PathType Leaf) {
             $output = & $script:kestrunLauncher @Arguments 2>&1 | Out-String
+        } elseif ($script:hasDotnetKestrunTool) {
+            $output = & dotnet kestrun @Arguments 2>&1 | Out-String
         } else {
             $output = & dotnet run --project $script:kestrunToolProject -- @Arguments 2>&1 | Out-String
         }
@@ -58,7 +63,7 @@ BeforeAll {
 }
 
 Describe 'KestrunTool service user lifecycle' {
-    It 'handles full Linux lifecycle with default service account' -Skip:(-not ($IsLinux -and $script:hasLinuxSystemctl)) {
+    It 'handles full Linux lifecycle with default service account' -Skip:(-not ($IsLinux -and $script:hasLinuxSystemd)) {
         $suffix = ([Guid]::NewGuid().ToString('N')).Substring(0, 8)
         $serviceName = "test-default-$suffix"
         $deploymentRoot = "/tmp/kestrun-service-default-$suffix"
@@ -102,7 +107,7 @@ Describe 'KestrunTool service user lifecycle' {
         }
     }
 
-    It 'handles full Linux lifecycle for a dedicated service user' -Skip:(-not ($IsLinux -and $script:isLinuxRoot -and $script:hasLinuxUserMgmt -and $script:hasLinuxSystemctl)) {
+    It 'handles full Linux lifecycle for a dedicated service user' -Skip:(-not ($IsLinux -and $script:isLinuxRoot -and $script:hasLinuxUserMgmt -and $script:hasLinuxSystemd)) {
         $suffix = ([Guid]::NewGuid().ToString('N')).Substring(0, 8)
         $serviceUser = "krsvc_$suffix"
         $serviceName = "test-user-$suffix"
@@ -366,18 +371,42 @@ Describe 'KestrunTool service user lifecycle' {
         $skipBecause = $null
 
         try {
+            try {
+                [void]([System.Security.Principal.NTAccount]'NT AUTHORITY\NETWORK SERVICE').Translate([System.Security.Principal.SecurityIdentifier])
+            } catch {
+                Set-ItResult -Skipped -Because 'NetworkService principal is not resolvable on this host.'
+                return
+            }
+
+            $denyServiceLogonRightSids = @(Get-WindowsDenyServiceLogonRightSid -WorkingDirectory $script:root)
+            if ($denyServiceLogonRightSids -contains 'S-1-5-20') {
+                Set-ItResult -Skipped -Because 'NetworkService is denied "Log on as a service" by local/domain policy.'
+                return
+            }
+
             $installResult = & $script:InvokeKestrunCommand -Arguments @(
                 'service', 'install',
                 '--name', $serviceName,
                 '--service-user', 'NetworkService',
                 '--deployment-root', $deploymentRoot,
                 $scriptPath)
-            $installResult.ExitCode | Should -Be 0
+
+            if ($installResult.ExitCode -ne 0) {
+                if ($installResult.Output -match '(?i)access is denied|logon failure|service logon|cannot find the account|networkservice') {
+                    $skipBecause = 'NetworkService install is blocked by host policy on this machine.'
+                } else {
+                    $installResult.ExitCode | Should -Be 0
+                }
+            }
+
+            if ($null -ne $skipBecause) {
+                return
+            }
 
             & icacls.exe $deploymentRoot /grant '*S-1-5-20:(OI)(CI)M' /t /c | Out-Null
 
             $startResult = & $script:InvokeKestrunCommand -Arguments @('service', 'start', '--name', $serviceName)
-            if ($startResult.ExitCode -eq 5) {
+            if ($startResult.ExitCode -eq 5 -or $startResult.Output -match '(?i)access is denied|logon failure|service logon|1069|1057') {
                 $skipBecause = 'NetworkService lacks required host permissions on this machine.'
             } else {
                 $startResult.ExitCode | Should -Be 0

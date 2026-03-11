@@ -2634,10 +2634,20 @@ function Write-KrExampleInstanceOnFailure {
         $Label = $Instance.Name
     }
 
+    $safeBaseName = if ($Instance.BaseName) {
+        $Instance.BaseName -replace '[^\w\.-]+', '_'
+    } else {
+        'unknown-example'
+    }
+
+    $diagDir = Join-Path $PWD "TestResults\Diagnostics\$safeBaseName"
+    New-Item -ItemType Directory -Force -Path $diagDir | Out-Null
+
     Write-Host ''
     Write-Host "=== $Label (failure diagnostics) ===" -ForegroundColor Yellow
+    Write-Host "Saving diagnostics to: $diagDir" -ForegroundColor Cyan
 
-    # Core metadata (keep readable)
+    # Core metadata to screen
     $Instance |
         Select-Object `
             Name,
@@ -2653,17 +2663,64 @@ function Write-KrExampleInstanceOnFailure {
         Out-String |
         Write-Host
 
-    # Process info (after Stop-ExampleScript)
+    # Copy raw stdout/stderr log files if they exist
+    if ($Instance.StdOut -and (Test-Path -LiteralPath $Instance.StdOut)) {
+        Copy-Item -LiteralPath $Instance.StdOut `
+            -Destination (Join-Path $diagDir 'stdout.log') `
+            -Force
+        Write-Host "Copied StdOut log to $(Join-Path $diagDir 'stdout.log')" -ForegroundColor DarkGray
+    } elseif ($Instance.StdOut) {
+        Write-Host "StdOut path not found: $($Instance.StdOut)" -ForegroundColor Red
+    }
+
+    if ($Instance.StdErr -and (Test-Path -LiteralPath $Instance.StdErr)) {
+        Copy-Item -LiteralPath $Instance.StdErr `
+            -Destination (Join-Path $diagDir 'stderr.log') `
+            -Force
+        Write-Host "Copied StdErr log to $(Join-Path $diagDir 'stderr.log')" -ForegroundColor DarkGray
+    } elseif ($Instance.StdErr) {
+        Write-Host "StdErr path not found: $($Instance.StdErr)" -ForegroundColor Red
+    }
+
+    # Process info
+    $processInfo = $null
     if ($Instance.Process) {
         try {
-            Write-Host '=== Process ===' -ForegroundColor Yellow
             $p = $Instance.Process
-            "Id=$($p.Id) HasExited=$($p.HasExited) ExitCode=$($p.ExitCode)" |
-                Write-Host
+            $processInfo = [pscustomobject]@{
+                Id = $p.Id
+                HasExited = $p.HasExited
+                ExitCode = if ($p.HasExited) { $p.ExitCode } else { $null }
+            }
+
+            Write-Host '=== Process ===' -ForegroundColor Yellow
+            Write-Host "Id=$($processInfo.Id) HasExited=$($processInfo.HasExited) ExitCode=$($processInfo.ExitCode)"
         } catch {
             Write-Host "Failed to retrieve process info: $_" -ForegroundColor Red
         }
     }
+
+    # JSON snapshot
+    $diag = [pscustomobject]@{
+        Label = $Label
+        Name = $Instance.Name
+        BaseName = $Instance.BaseName
+        Url = $Instance.Url
+        Host = $Instance.Host
+        Port = $Instance.Port
+        TempPath = $Instance.TempPath
+        Ready = $Instance.Ready
+        ExitedEarly = $Instance.ExitedEarly
+        Https = $Instance.Https
+        StdOutPath = $Instance.StdOut
+        StdErrPath = $Instance.StdErr
+        Process = $processInfo
+    } | ConvertTo-Json -Depth 4
+
+    $jsonPath = Join-Path $diagDir 'instance.json'
+    $diag | Set-Content -LiteralPath $jsonPath -Encoding utf8
+
+    Write-Host "Saved JSON snapshot to $jsonPath" -ForegroundColor Cyan
 
     # STDERR / STDOUT (super useful after stop)
     if ($Instance.StdErr) {
@@ -2678,20 +2735,7 @@ function Write-KrExampleInstanceOnFailure {
 
     # Full JSON dump (for CI / copy-paste)
     Write-Host '=== Full instance (JSON) ===' -ForegroundColor Yellow
-
-    $diag = [pscustomobject]@{
-        Name = $Instance.Name
-        BaseName = $Instance.BaseName
-        Url = $Instance.Url
-        Port = $Instance.Port
-        Ready = $Instance.Ready
-        ExitedEarly = $Instance.ExitedEarly
-        Https = $Instance.Https
-        StdErr = $Instance.StdErr
-        StdOut = $Instance.StdOut
-    }
-
-    $diag | ConvertTo-Json -Depth 4 | Write-Host
+    Write-Host $diag
 }
 
 <#

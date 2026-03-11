@@ -2640,7 +2640,7 @@ function Write-KrExampleInstanceOnFailure {
         'unknown-example'
     }
 
-    $diagDir = Join-Path $PWD "TestResults\Diagnostics\$safeBaseName"
+    $diagDir = Join-Path -Path "TestResults" -ChildPath "Diagnostics" -AdditionalChildPath $safeBaseName
     New-Item -ItemType Directory -Force -Path $diagDir | Out-Null
 
     Write-Host ''

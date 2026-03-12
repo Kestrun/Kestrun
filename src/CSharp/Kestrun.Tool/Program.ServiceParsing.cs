@@ -132,6 +132,11 @@ internal static partial class Program
         {
             if (TryConsumeServiceOption(args, mode, state, ref index, ref kestrunFolder, ref kestrunManifestPath, out error))
             {
+                if (!string.IsNullOrEmpty(error))
+                {
+                    return false;
+                }
+
                 continue;
             }
 

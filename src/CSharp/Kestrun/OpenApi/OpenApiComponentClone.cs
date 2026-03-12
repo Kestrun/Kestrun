@@ -439,7 +439,6 @@ public static class OpenApiComponentClone
             UnevaluatedProperties = schema.UnevaluatedProperties,
             ExclusiveMaximum = schema.ExclusiveMaximum,
             ExclusiveMinimum = schema.ExclusiveMinimum,
-
             Type = schema.Type,
             Format = schema.Format,
             Description = schema.Description,
@@ -479,6 +478,10 @@ public static class OpenApiComponentClone
             UnrecognizedKeywords = schema.UnrecognizedKeywords != null ? new Dictionary<string, JsonNode>(schema.UnrecognizedKeywords) : null,
             DependentRequired = schema.DependentRequired != null ? new Dictionary<string, HashSet<string>>(schema.DependentRequired) : null
         };
+        if (schema is IOpenApiSchemaWithUnevaluatedProperties { UnevaluatedPropertiesSchema: { } unevaluatedSchema })
+        {
+            clone.UnevaluatedPropertiesSchema = unevaluatedSchema.Clone();
+        }
         return clone;
     }
     /// <summary>

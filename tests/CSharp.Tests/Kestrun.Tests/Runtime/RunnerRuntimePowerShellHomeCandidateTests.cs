@@ -19,7 +19,7 @@ public class RunnerRuntimePowerShellHomeCandidateTests
         var binDirectory = Path.Combine(tempRoot, "usr", "bin");
         var executablePath = Path.Combine(binDirectory, "pwsh");
 
-        Directory.CreateDirectory(binDirectory);
+        _ = Directory.CreateDirectory(binDirectory);
         File.WriteAllText(executablePath, "#!/bin/sh\nexit 0\n");
 
         try
@@ -42,7 +42,7 @@ public class RunnerRuntimePowerShellHomeCandidateTests
         var moduleManifestPath = Path.Combine(moduleDirectory, "Microsoft.PowerShell.Management.psd1");
         var executablePath = Path.Combine(psHome, "pwsh");
 
-        Directory.CreateDirectory(moduleDirectory);
+        _ = Directory.CreateDirectory(moduleDirectory);
         File.WriteAllText(moduleManifestPath, "@{ CompatiblePSEditions = @('Core') }\n");
         File.WriteAllText(executablePath, "#!/bin/sh\nexit 0\n");
 
@@ -57,10 +57,7 @@ public class RunnerRuntimePowerShellHomeCandidateTests
         }
     }
 
-    private static string InvokeNormalizePowerShellHomeCandidate(string candidatePath)
-    {
-        return (string)NormalizeCandidateMethod.Invoke(null, [candidatePath])!;
-    }
+    private static string InvokeNormalizePowerShellHomeCandidate(string candidatePath) => (string)NormalizeCandidateMethod.Invoke(null, [candidatePath])!;
 
     private static void TryDeleteDirectory(string path)
     {

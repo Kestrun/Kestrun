@@ -148,7 +148,7 @@ public partial class OpenApiDocDescriptor
             if (TryGetInline(name: exampleRef, kind: OpenApiComponentKind.Examples, out OpenApiExample? inlineExample))
             {
                 // If InlineComponents, clone the example
-                return inlineExample!.Clone();
+                return inlineExample!.CreateShallowCopy();
             }
 
             if (TryGetComponent(name: exampleRef, kind: OpenApiComponentKind.Examples, out OpenApiExample? componentExample))
@@ -211,13 +211,13 @@ public partial class OpenApiDocDescriptor
             if (TryGetInline(name: mediaRef, kind: OpenApiComponentKind.MediaTypes, out OpenApiMediaType? inlineMediaType))
             {
                 // If InlineComponents, clone the media type
-                return inlineMediaType!.Clone();
+                return inlineMediaType!.CreateShallowCopy();
             }
 
             if (TryGetComponent(name: mediaRef, kind: OpenApiComponentKind.MediaTypes, out OpenApiMediaType? componentMediaType))
             {
                 // if in main components, clone it
-                return componentMediaType!.Clone();
+                return componentMediaType!.CreateShallowCopy();
             }
 
             throw new InvalidOperationException(
@@ -283,12 +283,12 @@ public partial class OpenApiDocDescriptor
         if (TryGetInline(name: attribute.ReferenceId, kind: OpenApiComponentKind.Headers, out OpenApiHeader? header))
         {
             // If InlineComponents, clone the header
-            return headers.TryAdd(attribute.Key, header!.Clone());
+            return headers.TryAdd(attribute.Key, header!.CreateShallowCopy());
         }
         else if (TryGetComponent(name: attribute.ReferenceId, kind: OpenApiComponentKind.Headers, out header))
         {
             // if in main components, reference it or clone based on Inline flag
-            IOpenApiHeader oaHeader = attribute.Inline ? header!.Clone() : new OpenApiHeaderReference(attribute.ReferenceId);
+            var oaHeader = attribute.Inline ? header!.CreateShallowCopy() : new OpenApiHeaderReference(attribute.ReferenceId);
             return headers.TryAdd(attribute.Key, oaHeader);
         }
         else if (attribute.Inline)

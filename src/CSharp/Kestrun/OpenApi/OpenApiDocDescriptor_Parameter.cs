@@ -86,7 +86,7 @@ public partial class OpenApiDocDescriptor
             {
                 throw new InvalidOperationException($"Example reference '{exRef.ReferenceId}' cannot be embedded because it is not an OpenApiExample.");
             }
-            parameter.Examples[exRef.Key] = example.Clone();
+            parameter.Examples[exRef.Key] = example.CreateShallowCopy();
         }
         else
         {

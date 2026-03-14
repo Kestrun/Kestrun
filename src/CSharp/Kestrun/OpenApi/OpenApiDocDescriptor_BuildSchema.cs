@@ -205,7 +205,7 @@ public partial class OpenApiDocDescriptor
 
         if (schema is OpenApiSchemaReference refSchema)
         {
-            var modifiedRefSchema = refSchema.Clone();
+            var modifiedRefSchema = refSchema.CreateShallowCopy();
             modifiedRefSchema.Description = null; // clear description to avoid duplication
             // For $ref schemas (enums/complex types), wrap in anyOf with null
             return new OpenApiSchema

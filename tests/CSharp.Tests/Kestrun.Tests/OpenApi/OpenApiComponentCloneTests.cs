@@ -271,4 +271,22 @@ public sealed class OpenApiComponentCloneTests
         var mock = new Mock<IOpenApiExtension>();
         _ = Assert.Throws<InvalidOperationException>(mock.Object.Clone);
     }
+
+    [Fact]
+    public void IOpenApiExtension_Clone_ClonesJsonNodeExtensionDeeply()
+    {
+        IOpenApiExtension original = new JsonNodeExtension(JsonNode.Parse("{\"a\":1}")!);
+
+        var clone = original.Clone();
+
+        Assert.NotSame(original, clone);
+
+        var clonedExtension = Assert.IsType<JsonNodeExtension>(clone);
+        var cloneObj = Assert.IsType<JsonObject>(clonedExtension.Node);
+        cloneObj["a"] = 2;
+
+        var originalExtension = Assert.IsType<JsonNodeExtension>(original);
+        var originalObj = Assert.IsType<JsonObject>(originalExtension.Node);
+        Assert.Equal(1, (int)originalObj["a"]!);
+    }
 }

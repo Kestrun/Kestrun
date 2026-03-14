@@ -221,7 +221,7 @@ public partial class OpenApiDocDescriptor
             schemas.TryGetValue(refId, out var schema))
         {
             // your existing clone semantics
-            return (OpenApiSchema)schema.Clone();
+            return (OpenApiSchema)schema.CreateShallowCopy();
         }
 
         throw new InvalidOperationException(

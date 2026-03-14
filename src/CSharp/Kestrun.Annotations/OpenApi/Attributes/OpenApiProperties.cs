@@ -161,5 +161,5 @@ public abstract class OpenApiProperties : KestrunAnnotation
     /// <summary>
     /// Sets unevaluatedProperties for OpenAPI Schema (null = generator decides).
     /// </summary>
-    public bool UnevaluatedProperties { get; set; }
+    public bool UnevaluatedProperties { get; set; } = true;
 }

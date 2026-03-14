@@ -990,10 +990,7 @@ public class KestrunToolCommandSurfaceTests
                 await releaseTask;
             }
 
-            if (lockedFileHandle is not null)
-            {
-                lockedFileHandle.Dispose();
-            }
+            lockedFileHandle?.Dispose();
 
             if (Directory.Exists(tempRoot))
             {
@@ -1033,7 +1030,7 @@ public class KestrunToolCommandSurfaceTests
     {
         var result = method.Invoke(null, arguments);
         Assert.NotNull(result);
-        Assert.IsType<bool>(result);
+        _ = Assert.IsType<bool>(result);
         return (bool)result;
     }
 
@@ -1185,39 +1182,24 @@ public class KestrunToolCommandSurfaceTests
             error);
     }
 
-    private static IReadOnlyList<string> InvokeBuildElevatedRelaunchArguments(string executablePath, IReadOnlyList<string> args)
-    {
-        return Assert.IsAssignableFrom<IReadOnlyList<string>>(InvokeRaw("BuildElevatedRelaunchArguments", [executablePath, args]));
-    }
+    private static IReadOnlyList<string> InvokeBuildElevatedRelaunchArguments(string executablePath, IReadOnlyList<string> args) => Assert.IsAssignableFrom<IReadOnlyList<string>>(InvokeRaw("BuildElevatedRelaunchArguments", [executablePath, args]));
 
-    private static string InvokeNormalizeWindowsServiceAccountName(string serviceUser)
-    {
-        return Assert.IsType<string>(InvokeRaw("NormalizeWindowsServiceAccountName", [serviceUser]));
-    }
+    private static string InvokeNormalizeWindowsServiceAccountName(string serviceUser) => Assert.IsType<string>(InvokeRaw("NormalizeWindowsServiceAccountName", [serviceUser]));
 
-    private static bool InvokeIsWindowsBuiltinServiceAccount(string accountName)
-    {
-        return InvokeRequiredBool(GetRequiredProgramMethod("IsWindowsBuiltinServiceAccount"), [accountName]);
-    }
+    private static bool InvokeIsWindowsBuiltinServiceAccount(string accountName) => InvokeRequiredBool(GetRequiredProgramMethod("IsWindowsBuiltinServiceAccount"), [accountName]);
 
     private static string InvokeBuildLinuxSystemdUnitContent(
         string serviceName,
         string exePath,
         IReadOnlyList<string> runnerArgs,
         string workingDirectory,
-        string? serviceUser)
-    {
-        return Assert.IsType<string>(InvokeRaw("BuildLinuxSystemdUnitContent", [serviceName, exePath, runnerArgs, workingDirectory, serviceUser]));
-    }
+        string? serviceUser) => Assert.IsType<string>(InvokeRaw("BuildLinuxSystemdUnitContent", [serviceName, exePath, runnerArgs, workingDirectory, serviceUser]));
 
     private static string InvokeBuildLaunchdPlist(
         string label,
         string workingDirectory,
         IReadOnlyList<string> programArguments,
-        string? serviceUser)
-    {
-        return Assert.IsType<string>(InvokeRaw("BuildLaunchdPlist", [label, workingDirectory, programArguments, serviceUser]));
-    }
+        string? serviceUser) => Assert.IsType<string>(InvokeRaw("BuildLaunchdPlist", [label, workingDirectory, programArguments, serviceUser]));
 
     private static string? InvokeTryDeleteDirectoryWithRetry(string directoryPath, int maxAttempts, int initialDelayMs)
     {

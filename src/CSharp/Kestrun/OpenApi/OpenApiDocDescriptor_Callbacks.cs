@@ -22,13 +22,13 @@ public partial class OpenApiDocDescriptor
 
         if (TryGetInline(name: attribute.ReferenceId, kind: OpenApiComponentKind.Callbacks, out OpenApiCallback? callback))
         {
-            metadata.Callbacks.Add(attribute.Key, callback!.Clone());
+            metadata.Callbacks.Add(attribute.Key, callback!.CreateShallowCopy());
         }
         else if (TryGetComponent(name: attribute.ReferenceId, kind: OpenApiComponentKind.Callbacks, out callback))
         {
             if (attribute.Inline)
             {
-                metadata.Callbacks.Add(attribute.Key, callback!.Clone());
+                metadata.Callbacks.Add(attribute.Key, callback!.CreateShallowCopy());
             }
             else
             {

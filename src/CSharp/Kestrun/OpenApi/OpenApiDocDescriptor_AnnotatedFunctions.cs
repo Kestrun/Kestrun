@@ -423,7 +423,7 @@ public partial class OpenApiDocDescriptor
             throw new InvalidOperationException($"Response component with ID '{attribute.ReferenceId}' not found.");
         }
 
-        IOpenApiResponse iResponse = attribute.Inline || inline ? response!.Clone() : new OpenApiResponseReference(attribute.ReferenceId);
+        var iResponse = attribute.Inline || inline ? response!.CreateShallowCopy() : new OpenApiResponseReference(attribute.ReferenceId);
 
         if (attribute.Description is not null)
         {
@@ -893,7 +893,7 @@ public partial class OpenApiDocDescriptor
 
         if (attribute.Inline || isInline)
         {
-            parameter = componentParameter.Clone();
+            parameter = componentParameter.CreateShallowCopy();
             if (componentParameter.Name != paramInfo.Name)
             {
                 throw new InvalidOperationException($"Parameter name {componentParameter.Name} is different from variable name: '{paramInfo.Name}'.");
@@ -977,7 +977,7 @@ public partial class OpenApiDocDescriptor
         var referenceId = ResolveRequestBodyReferenceId(attribute, paramInfo);
         var componentRequestBody = GetRequestBody(referenceId);
 
-        metadata.RequestBody = attribute.Inline ? componentRequestBody.Clone() : new OpenApiRequestBodyReference(referenceId);
+        metadata.RequestBody = attribute.Inline ? componentRequestBody.CreateShallowCopy() : new OpenApiRequestBodyReference(referenceId);
         metadata.RequestBody.Description = attribute.Description ?? help.GetParameterDescription(paramInfo.Name);
 
         routeOptions.ScriptCode.Parameters.Add(new ParameterForInjectionInfo(paramInfo, componentRequestBody, routeOptions.FormOptions));
@@ -1368,7 +1368,7 @@ public partial class OpenApiDocDescriptor
         var componentRequestBody = GetRequestBody(paramInfo.ParameterType.Name);
 
         metadata.RequestBody = attribute.Inline
-            ? componentRequestBody.Clone()
+            ? componentRequestBody.CreateShallowCopy()
             : new OpenApiRequestBodyReference(paramInfo.ParameterType.Name);
 
         metadata.RequestBody.Description ??= help.GetParameterDescription(paramInfo.Name);

@@ -8,7 +8,6 @@ namespace Kestrun.OpenApi;
 /// </summary>
 internal static class OpenApiComponentShallowCopy
 {
-
     /// <summary>
     /// Converts an OpenApiRequestBody to an OpenApiSchema.
     /// </summary>

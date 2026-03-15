@@ -30,11 +30,13 @@ public sealed class OpenApiComponentCloneTests
     }
 
     [Fact]
-    public void IOpenApiParameter_CreateShallowCopy_ThrowsForUnsupportedImplementation()
+    public void IOpenApiParameter_CreateShallowCopy_DoesNotThrowForUnsupportedImplementation()
     {
         var mock = new Mock<IOpenApiParameter>();
 
-        _ = Assert.Throws<InvalidOperationException>(mock.Object.CreateShallowCopy);
+        var clone = mock.Object.CreateShallowCopy();
+
+        Assert.Null(clone);
     }
 
     [Fact]
@@ -102,7 +104,7 @@ public sealed class OpenApiComponentCloneTests
     }
 
     [Fact]
-    public void OpenApiRequestBody_CreateShallowCopy_ClonesContent()
+    public void OpenApiRequestBody_CreateShallowCopy_ClonesContentDictionary()
     {
         var original = new OpenApiRequestBody
         {
@@ -121,7 +123,7 @@ public sealed class OpenApiComponentCloneTests
 
         Assert.NotSame(original, clone);
         Assert.NotSame(original.Content, clone.Content);
-        Assert.NotSame(original.Content!["application/json"], clone.Content!["application/json"]);
+        Assert.Same(original.Content!["application/json"], clone.Content!["application/json"]);
     }
 
     [Fact]

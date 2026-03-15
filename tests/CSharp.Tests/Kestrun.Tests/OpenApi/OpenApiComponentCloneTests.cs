@@ -17,7 +17,7 @@ public sealed class OpenApiComponentCloneTests
             Value = JsonNode.Parse("{\"a\":1}")
         };
 
-        var clone = original.Clone();
+        var clone = original.CreateShallowCopy();
 
         Assert.NotSame(original, clone);
         Assert.Equal(original.Summary, clone.Summary);
@@ -30,15 +30,15 @@ public sealed class OpenApiComponentCloneTests
     }
 
     [Fact]
-    public void IOpenApiParameter_Clone_ThrowsForUnsupportedImplementation()
+    public void IOpenApiParameter_CreateShallowCopy_ThrowsForUnsupportedImplementation()
     {
         var mock = new Mock<IOpenApiParameter>();
 
-        _ = Assert.Throws<InvalidOperationException>(mock.Object.Clone);
+        _ = Assert.Throws<InvalidOperationException>(mock.Object.CreateShallowCopy);
     }
 
     [Fact]
-    public void OpenApiLink_Clone_ClonesNestedRuntimeExpressionWrappers()
+    public void OpenApiLink_CreateShallowCopy_ClonesNestedRuntimeExpressionWrappers()
     {
         var original = new OpenApiLink
         {
@@ -50,7 +50,7 @@ public sealed class OpenApiComponentCloneTests
             RequestBody = new RuntimeExpressionAnyWrapper { Any = JsonNode.Parse("{\"x\":1}") }
         };
 
-        var clone = original.Clone();
+        var clone = original.CreateShallowCopy();
 
         Assert.NotSame(original, clone);
         Assert.NotSame(original.Parameters, clone.Parameters);
@@ -58,7 +58,7 @@ public sealed class OpenApiComponentCloneTests
     }
 
     [Fact]
-    public void OpenApiParameter_Clone_ClonesSchemaExamplesContentAndExampleJson()
+    public void OpenApiParameter_CreateShallowCopy_ClonesSchemaExamplesContentAndExampleJson()
     {
         var schema = new OpenApiSchema
         {
@@ -88,7 +88,7 @@ public sealed class OpenApiComponentCloneTests
             }
         };
 
-        var clone = original.Clone();
+        var clone = original.CreateShallowCopy();
 
         Assert.NotSame(original, clone);
         Assert.NotSame(original.Schema, clone.Schema);
@@ -102,7 +102,7 @@ public sealed class OpenApiComponentCloneTests
     }
 
     [Fact]
-    public void OpenApiRequestBody_Clone_ClonesContent()
+    public void OpenApiRequestBody_CreateShallowCopy_ClonesContent()
     {
         var original = new OpenApiRequestBody
         {
@@ -117,7 +117,7 @@ public sealed class OpenApiComponentCloneTests
             }
         };
 
-        var clone = original.Clone();
+        var clone = original.CreateShallowCopy();
 
         Assert.NotSame(original, clone);
         Assert.NotSame(original.Content, clone.Content);
@@ -153,7 +153,7 @@ public sealed class OpenApiComponentCloneTests
     }
 
     [Fact]
-    public void OpenApiHeader_Clone_ClonesExampleJson()
+    public void OpenApiHeader_CreateShallowCopy_ClonesExampleJson()
     {
         var original = new OpenApiHeader
         {
@@ -162,7 +162,7 @@ public sealed class OpenApiComponentCloneTests
             Schema = new OpenApiSchema { Type = JsonSchemaType.String }
         };
 
-        var clone = original.Clone();
+        var clone = original.CreateShallowCopy();
 
         Assert.NotSame(original, clone);
         Assert.NotSame(original.Schema, clone.Schema);
@@ -174,7 +174,7 @@ public sealed class OpenApiComponentCloneTests
     }
 
     [Fact]
-    public void OpenApiResponse_Clone_ClonesHeadersContentAndLinks()
+    public void OpenApiResponse_CreateShallowCopy_ClonesHeadersContentAndLinks()
     {
         var original = new OpenApiResponse
         {
@@ -201,7 +201,7 @@ public sealed class OpenApiComponentCloneTests
             }
         };
 
-        var clone = original.Clone();
+        var clone = original.CreateShallowCopy();
 
         Assert.NotSame(original, clone);
         Assert.NotSame(original.Headers, clone.Headers);
@@ -210,7 +210,7 @@ public sealed class OpenApiComponentCloneTests
     }
 
     [Fact]
-    public void OpenApiSchema_Clone_ClonesCollectionsAndJsonNodes()
+    public void OpenApiSchema_CreateShallowCopy_ClonesCollectionsAndJsonNodes()
     {
         var original = new OpenApiSchema
         {
@@ -224,7 +224,7 @@ public sealed class OpenApiComponentCloneTests
             }
         };
 
-        var clone = original.Clone();
+        var clone = original.CreateShallowCopy();
 
         Assert.NotSame(original, clone);
         Assert.NotSame(original.Properties, clone.Properties);
@@ -237,7 +237,7 @@ public sealed class OpenApiComponentCloneTests
     }
 
     [Fact]
-    public void OpenApiCallback_Clone_ClonesPathItemsDictionaryInstance()
+    public void OpenApiCallback_CreateShallowCopy_ClonesPathItemsDictionaryInstance()
     {
         var pathItem = new OpenApiPathItem();
         var original = new OpenApiCallback
@@ -248,7 +248,7 @@ public sealed class OpenApiComponentCloneTests
             }
         };
 
-        var clone = original.Clone();
+        var clone = original.CreateShallowCopy();
 
         Assert.NotSame(original, clone);
         Assert.NotSame(original.PathItems, clone.PathItems);
@@ -256,28 +256,28 @@ public sealed class OpenApiComponentCloneTests
     }
 
     [Fact]
-    public void IOpenApiMediaType_Clone_ClonesOpenApiMediaType()
+    public void IOpenApiMediaType_CreateShallowCopy_ClonesOpenApiMediaType()
     {
         IOpenApiMediaType original = new OpenApiMediaType { Schema = new OpenApiSchema { Type = JsonSchemaType.String } };
 
-        var clone = original.Clone();
+        var clone = original.CreateShallowCopy();
 
         Assert.NotSame(original, clone);
     }
 
     [Fact]
-    public void IOpenApiExtension_Clone_ThrowsForUnsupportedImplementation()
+    public void IOpenApiExtension_CreateShallowCopy_ThrowsForUnsupportedImplementation()
     {
         var mock = new Mock<IOpenApiExtension>();
-        _ = Assert.Throws<InvalidOperationException>(mock.Object.Clone);
+        _ = Assert.Throws<InvalidOperationException>(mock.Object.CreateShallowCopy);
     }
 
     [Fact]
-    public void IOpenApiExtension_Clone_ClonesJsonNodeExtensionDeeply()
+    public void IOpenApiExtension_CreateShallowCopy_ClonesJsonNodeExtensionDeeply()
     {
         IOpenApiExtension original = new JsonNodeExtension(JsonNode.Parse("{\"a\":1}")!);
 
-        var clone = original.Clone();
+        var clone = original.CreateShallowCopy();
 
         Assert.NotSame(original, clone);
 

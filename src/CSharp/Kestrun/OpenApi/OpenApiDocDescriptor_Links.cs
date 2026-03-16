@@ -25,17 +25,24 @@ public partial class OpenApiDocDescriptor
                         OpenApiComponentKind.Links);
     }
 
+    /// <summary>
+    /// Tries to add a link to the given links dictionary based on the provided attribute.
+    /// </summary>
+    /// <param name="links">The dictionary of links to which the link will be added.</param>
+    /// <param name="attribute">The attribute containing the link information.</param>
+    /// <returns>True if the link was successfully added; otherwise, false.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the attribute is missing required properties.</exception>
     private bool TryAddLink(IDictionary<string, IOpenApiLink> links, OpenApiResponseLinkRefAttribute attribute)
     {
         if (TryGetInline(name: attribute.ReferenceId, kind: OpenApiComponentKind.Links, out OpenApiLink? link))
         {
             // If InlineComponents, clone the example
-            return links.TryAdd(attribute.Key, link!.Clone());
+            return links.TryAdd(attribute.Key, link!.CreateShallowCopy());
         }
         else if (TryGetComponent(name: attribute.ReferenceId, kind: OpenApiComponentKind.Links, out link))
         {
             // if in main components, reference it or clone based on Inline flag
-            IOpenApiLink oaLink = attribute.Inline ? link!.Clone() : new OpenApiLinkReference(attribute.ReferenceId);
+            var oaLink = attribute.Inline ? link!.CreateShallowCopy() : new OpenApiLinkReference(attribute.ReferenceId);
             return links.TryAdd(attribute.Key, oaLink);
         }
         else if (attribute.Inline)

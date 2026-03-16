@@ -787,7 +787,7 @@ public partial class OpenApiDocDescriptor
         var typeName = type.Name[..^2];
         if (ComponentSchemasExists(typeName))
         {
-            var items = inline ? GetSchema(typeName).Clone() : new OpenApiSchemaReference(typeName);
+            var items = inline ? GetSchema(typeName).CreateShallowCopy() : new OpenApiSchemaReference(typeName);
             return new OpenApiSchema { Type = JsonSchemaType.Array, Items = items };
         }
 
@@ -808,7 +808,7 @@ public partial class OpenApiDocDescriptor
             {
                 if (schema is OpenApiSchema concreteSchema)
                 {
-                    return concreteSchema.Clone();
+                    return concreteSchema.CreateShallowCopy();
                 }
             }
             else

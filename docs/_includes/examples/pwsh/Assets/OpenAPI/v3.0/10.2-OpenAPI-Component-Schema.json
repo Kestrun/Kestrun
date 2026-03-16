@@ -450,7 +450,13 @@
       },
       "InventoryCounts": {
         "type": "object",
-        "description": "Inventory counts by status key."
+        "description": "Inventory counts by status key.",
+        "x-jsonschema-patternProperties": {
+          "^[a-z][a-z0-9_]*$": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
       },
       "KestrunErrorResponse": {
         "required": [

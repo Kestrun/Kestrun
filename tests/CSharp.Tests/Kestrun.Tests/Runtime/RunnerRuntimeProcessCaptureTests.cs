@@ -29,12 +29,12 @@ public class RunnerRuntimeProcessCaptureTests
         var completedTask = await Task.WhenAny(invocationTask, Task.Delay(TimeSpan.FromSeconds(30)));
         Assert.True(ReferenceEquals(completedTask, invocationTask), "RunProcessCapture timed out, indicating potential stdout/stderr deadlock.");
 
-        var result = await invocationTask;
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("OUTLINE_1", result.Output, StringComparison.Ordinal);
-        Assert.Contains("OUTLINE_12000", result.Output, StringComparison.Ordinal);
-        Assert.Contains("ERRLINE_1", result.Error, StringComparison.Ordinal);
-        Assert.Contains("ERRLINE_12000", result.Error, StringComparison.Ordinal);
+        var (ExitCode, Output, Error) = await invocationTask;
+        Assert.Equal(0, ExitCode);
+        Assert.Contains("OUTLINE_1", Output, StringComparison.Ordinal);
+        Assert.Contains("OUTLINE_12000", Output, StringComparison.Ordinal);
+        Assert.Contains("ERRLINE_1", Error, StringComparison.Ordinal);
+        Assert.Contains("ERRLINE_12000", Error, StringComparison.Ordinal);
     }
 
     private static (int ExitCode, string Output, string Error) InvokeRunProcessCapture(string fileName, string[] arguments)

@@ -19,8 +19,8 @@ param(
     [int]    $MaxReruns = 1,
     [ValidateSet('None', 'Normal', 'Detailed', 'Diagnostic', 'Quiet')]
     [string] $Verbosity = 'Normal',
-    [string] $ResultsDir = "$((Get-Location).Path)/artifacts/testresults",
-    [string] $TestPath = "$((Get-Location).Path)/tests/PowerShell.Tests/Kestrun.Tests",
+    [string] $ResultsDir = (Join-Path -Path (Get-Location) -ChildPath 'TestResults'),
+    [string] $TestPath = (Join-Path -Path (Get-Location) -ChildPath 'tests' -AdditionalChildPath 'PowerShell.Tests', 'Kestrun.Tests'),
     [switch] $EmitNUnit,
     [int] $MaxFailedAllowed = 10
 )
@@ -169,7 +169,7 @@ begin {
         $cfg.Run.Path = $Failed.File
         $cfg.Output.Verbosity = $BaseConfig.Output.Verbosity
         $cfg.TestResult.Enabled = $true
-        $cfg.TestResult.OutputPath = Join-Path $ResultsDir ('Pester-rerun-{0}.trx' -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
+        $cfg.TestResult.OutputPath = Join-Path $ResultsDir ('Pester-rerun-{0}.trx' -f (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
         $cfg.Run.Exit = $false
         $cfg.Run.PassThru = $true
         $cfg.Filter.ExcludeTag = $BaseConfig.Filter.ExcludeTag
@@ -210,6 +210,10 @@ begin {
 
 process {
     $baseCfg = New-BasePesterConfig -TestPath $TestPath -Verbosity $Verbosity -EmitNUnit:$EmitNUnit
+
+    Write-Host "📁 Test results directory: $ResultsDir" -ForegroundColor Cyan
+    Write-Host "📄 TRX result file: $($baseCfg.TestResult.OutputPath.Value)" -ForegroundColor DarkCyan
+    Write-Host '📦 GitHub Actions artifact path should include: **/TestResults/**' -ForegroundColor DarkYellow
     Write-Host "🧪 Running Pester tests in '$($baseCfg.Run.Path.Value)'" -ForegroundColor Cyan
 
     $initial = Invoke-PesterWithConfig -Config $baseCfg
@@ -231,6 +235,8 @@ process {
             Write-Host ('🔁 Re-run attempt {0} for {1} failing test(s)...' -f $attempt, $failed.Count)
 
             $rerunCfg = New-RerunConfig -Failed $failed -BaseConfig $baseCfg
+            Write-Host "📄 Re-run TRX result file: $($rerunCfg.TestResult.OutputPath.Value)" -ForegroundColor DarkCyan
+
             $rerun = Invoke-PesterWithConfig -Config $rerunCfg
 
             if ($rerun.Run.FailedCount -gt 0) {

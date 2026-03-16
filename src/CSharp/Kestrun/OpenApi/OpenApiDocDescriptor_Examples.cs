@@ -44,12 +44,12 @@ public partial class OpenApiDocDescriptor
         if (TryGetInline(name: attribute.ReferenceId, kind: OpenApiComponentKind.Examples, out OpenApiExample? example))
         {
             // If InlineComponents, clone the example
-            return examples.TryAdd(attribute.Key, example!.Clone());
+            return examples.TryAdd(attribute.Key, example!.CreateShallowCopy());
         }
         else if (TryGetComponent(name: attribute.ReferenceId, kind: OpenApiComponentKind.Examples, out example))
         {
             // if in main components, reference it or clone based on Inline flag
-            IOpenApiExample oaExample = attribute.Inline ? example!.Clone() : new OpenApiExampleReference(attribute.ReferenceId);
+            var oaExample = attribute.Inline ? example!.CreateShallowCopy() : new OpenApiExampleReference(attribute.ReferenceId);
             return examples.TryAdd(attribute.Key, oaExample);
         }
         else if (attribute.Inline)

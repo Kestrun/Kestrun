@@ -21,7 +21,7 @@ public partial class OpenApiDocDescriptor
             ? throw new InvalidOperationException($"Example reference '{referenceId}' cannot be embedded because it was not found in components.")
             : value is not OpenApiExample example
             ? throw new InvalidOperationException($"Example reference '{referenceId}' cannot be embedded because it is not an OpenApiExample.")
-            : (IOpenApiExample)example.Clone();
+            : example.CreateShallowCopy();
     }
 
     #region Request Body Component Processing

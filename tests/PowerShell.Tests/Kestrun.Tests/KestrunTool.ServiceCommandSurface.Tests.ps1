@@ -1,4 +1,4 @@
-﻿param()
+param()
 
 BeforeAll {
     . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
@@ -15,50 +15,15 @@ BeforeAll {
     $script:serviceNameToCleanup = "kestrun-test-$PID-$serviceSuffix"
     $script:isWindowsAdmin = $false
 
-    if ($IsWindows) {
-        $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-        $principal = [Security.Principal.WindowsPrincipal]::new($identity)
-        $script:isWindowsAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
-        $programPath = Join-Path $script:root 'src/CSharp/Kestrun.Tool/Program.cs'
-        if (-not (Test-Path -LiteralPath $programPath -PathType Leaf)) {
-            throw "Kestrun.Tool Program.cs was not found at: $programPath"
-        }
-
-        $programSource = Get-Content -LiteralPath $programPath -Raw
-        $readToolConstant = {
-            param(
-                [Parameter(Mandatory)]
-                [string]$ConstantName
-            )
-
-            $escapedName = [regex]::Escape($ConstantName)
-            $pattern = 'private const string ' + $escapedName + ' = "(?<value>[^"]+)";'
-            $match = [regex]::Match($programSource, $pattern)
-            if (-not $match.Success) {
-                throw "Unable to resolve '$ConstantName' from $programPath"
-            }
-
-            return $match.Groups['value'].Value
-        }
-
-        $script:serviceDeploymentProductFolderName = & $readToolConstant -ConstantName 'ServiceDeploymentProductFolderName'
-        $script:serviceDeploymentServicesFolderName = & $readToolConstant -ConstantName 'ServiceDeploymentServicesFolderName'
-        $script:serviceBundleRuntimeDirectoryName = & $readToolConstant -ConstantName 'ServiceBundleRuntimeDirectoryName'
-        $script:windowsServiceRuntimeBinaryName = & $readToolConstant -ConstantName 'WindowsServiceRuntimeBinaryName'
-    }
 
     $script:InvokeKestrunCommand = {
         param(
             [Parameter(Mandatory)]
             [string[]]$Arguments
         )
-
-        if (Test-Path -Path $script:kestrunLauncher -PathType Leaf) {
-            $output = & $script:kestrunLauncher @Arguments 2>&1 | Out-String
-        } else {
-            $output = & dotnet run --project $script:kestrunToolProject -- @Arguments 2>&1 | Out-String
-        }
+        # Invoke the Kestrun.Tool with the provided arguments and capture the output and exit code
+        $output = & dotnet run --project $script:kestrunToolProject -- @Arguments 2>&1 | Out-String
 
         [pscustomobject]@{
             ExitCode = $LASTEXITCODE

@@ -183,10 +183,10 @@ function Get-Version {
 }
 
 <#
-  .SYNOPSIS
+.SYNOPSIS
     Chooses the best TFM (Target Framework Moniker) folder from a library folder.
     This is useful for multi-targeted libraries that may have different versions of the same assembly for different frameworks.
-  .DESCRIPTION
+.DESCRIPTION
     Returns the path to the best TFM folder, or null if none is found.
     This is useful for multi-targeted libraries that may have different versions of the same assembly for different frameworks.
 #>
@@ -207,36 +207,35 @@ function Get-BestTfmFolder([string]$LibFolder) {
 }
 
 <#
-    .SYNOPSIS
-        Downloads and extracts a NuGet package.
-    .DESCRIPTION
-        Downloads a NuGet package and extracts it to a specified folder.
-        This function is designed to work cross-platform without relying on nuget.exe.
-    .PARAMETER Id
-        The ID of the NuGet package to download.
-    .PARAMETER Version
-        The version of the NuGet package to download.
-    .PARAMETER WorkRoot
-        The root directory where the package will be downloaded.
-    .PARAMETER Force
-        Whether to force re-download the package if it already exists.
-    .PARAMETER Retries
-        The number of times to retry downloading the package if it fails.
-    .PARAMETER DelaySeconds
-        The number of seconds to wait before retrying the download.
-    .PARAMETER MaxDelaySeconds
-        The maximum number of seconds to wait before retrying the download.
-    .PARAMETER TimeoutSec
-        The number of seconds to wait before timing out the download.
-    .EXAMPLE
-        Get-PackageFolder -Id 'MyPackage' -Version '1.0.0' -WorkRoot 'C:\Packages' -Force
-        This will download and extract the specified NuGet package to the specified work root.
-    .EXAMPLE
-        Get-PackageFolder -Id 'MyPackage' -Version '1.0.0' -WorkRoot 'C:\Packages' -Force -Retries 5
-        This will download and extract the specified NuGet package to the specified work root, with 5 retries on failure.
-
-    .OUTPUTS
-        The path to the extracted package folder.
+.SYNOPSIS
+    Downloads and extracts a NuGet package.
+.DESCRIPTION
+    Downloads a NuGet package and extracts it to a specified folder.
+    This function is designed to work cross-platform without relying on nuget.exe.
+.PARAMETER Id
+    The ID of the NuGet package to download.
+.PARAMETER Version
+    The version of the NuGet package to download.
+.PARAMETER WorkRoot
+    The root directory where the package will be downloaded.
+.PARAMETER Force
+    Whether to force re-download the package if it already exists.
+.PARAMETER Retries
+    The number of times to retry downloading the package if it fails.
+.PARAMETER DelaySeconds
+    The number of seconds to wait before retrying the download.
+.PARAMETER MaxDelaySeconds
+    The maximum number of seconds to wait before retrying the download.
+.PARAMETER TimeoutSec
+    The number of seconds to wait before timing out the download.
+.EXAMPLE
+    Get-PackageFolder -Id 'MyPackage' -Version '1.0.0' -WorkRoot 'C:\Packages' -Force
+    This will download and extract the specified NuGet package to the specified work root.
+.EXAMPLE
+    Get-PackageFolder -Id 'MyPackage' -Version '1.0.0' -WorkRoot 'C:\Packages' -Force -Retries 5
+    This will download and extract the specified NuGet package to the specified work root, with 5 retries on failure.
+.OUTPUTS
+    The path to the extracted package folder.
 #>
 function Get-PackageFolder {
     [CmdletBinding()]
@@ -312,18 +311,17 @@ function Get-PackageFolder {
     }
 }
 
-
 <#
-    .SYNOPSIS
-        Gets the path to the shared framework for a given family and major version.
-    .DESCRIPTION
-        Returns the path to the shared framework, or throws an error if not found.
-    .PARAMETER family
-        The family name of the shared framework (e.g. Microsoft.AspNetCore.App).
-    .PARAMETER major
-        The major version of the shared framework (e.g. 8 or 9).
-    .OUTPUTS
-        The path to the shared framework, or throws an error if not found.
+.SYNOPSIS
+    Gets the path to the shared framework for a given family and major version.
+.DESCRIPTION
+    Returns the path to the shared framework, or throws an error if not found.
+.PARAMETER family
+    The family name of the shared framework (e.g. Microsoft.AspNetCore.App).
+.PARAMETER major
+    The major version of the shared framework (e.g. 8 or 9).
+.OUTPUTS
+    The path to the shared framework, or throws an error if not found.
 #>
 function Get-SharedFrameworkPath {
     param(
@@ -348,16 +346,16 @@ function Get-SharedFrameworkPath {
 }
 
 <#
-    .SYNOPSIS
-        Sets the package name for a Cobertura coverage report.
-    .DESCRIPTION
-        Updates the Cobertura XML file to use a consistent assembly name and optional base path for class names.
-    .PARAMETER CoberturaPath
-        The path to the Cobertura XML file.
-    .PARAMETER AssemblyName
-        The logical assembly name to use (e.g. 'Kestrun.PowerShell').
-    .PARAMETER BasePath
-        The base path to use for resolving class names (optional).
+.SYNOPSIS
+    Sets the package name for a Cobertura coverage report.
+.DESCRIPTION
+    Updates the Cobertura XML file to use a consistent assembly name and optional base path for class names.
+.PARAMETER CoberturaPath
+    The path to the Cobertura XML file.
+.PARAMETER AssemblyName
+    The logical assembly name to use (e.g. 'Kestrun.PowerShell').
+.PARAMETER BasePath
+    The base path to use for resolving class names (optional).
 #>
 function Set-CoberturaPackageName {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
@@ -384,24 +382,24 @@ function Set-CoberturaPackageName {
 }
 
 <#
-    .SYNOPSIS
-        Sets the package name for a Cobertura coverage report.
-    .DESCRIPTION
-        Updates the Cobertura XML file to use a consistent assembly name and optional base path for class names.
-    .PARAMETER CoberturaPath
-        The path to the Cobertura XML file.
-    .PARAMETER AssemblyName
-        The logical assembly name to use (e.g. 'Kestrun.PowerShell').
-    .PARAMETER BasePath
-        The base path to use for resolving class names (optional).
-    .PARAMETER GroupByFirstFolder
-        Whether to group classes by their first folder (Public/Private).
-    .PARAMETER FolderRenameMap
-        A hashtable mapping old folder names to new folder names.
-    .PARAMETER AllowedFirstFolders
-        A list of allowed first folders for grouping.
-    .PARAMETER ExcludePathContains
-        A list of path segments to exclude from grouping.
+.SYNOPSIS
+    Sets the package name for a Cobertura coverage report.
+.DESCRIPTION
+    Updates the Cobertura XML file to use a consistent assembly name and optional base path for class names.
+.PARAMETER CoberturaPath
+    The path to the Cobertura XML file.
+.PARAMETER AssemblyName
+    The logical assembly name to use (e.g. 'Kestrun.PowerShell').
+.PARAMETER BasePath
+    The base path to use for resolving class names (optional).
+.PARAMETER GroupByFirstFolder
+    Whether to group classes by their first folder (Public/Private).
+.PARAMETER FolderRenameMap
+    A hashtable mapping old folder names to new folder names.
+.PARAMETER AllowedFirstFolders
+    A list of allowed first folders for grouping.
+.PARAMETER ExcludePathContains
+    A list of path segments to exclude from grouping.
 #>
 function Set-CoberturaGrouping {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]

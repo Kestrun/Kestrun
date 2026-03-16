@@ -138,19 +138,19 @@
 
 
         <!-- Microsoft.AspNetCore -->
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.24" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="8.0.24" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.24" />
-        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.24" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="8.0.24" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.25" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="8.0.25" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.25" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.25" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="8.0.25" />
         <!-- Serilog -->
         <PackageReference Include="Serilog.Sinks.Http" Version="9.1.0" />
 
         <!-- Caching -->
-        <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="9.0.14" />
-        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.24" />
+        <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="8.0.25" />
+        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.25" />
         <!-- Scripting Engines -->
-        <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.13" />
+        <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.14" />
 
         <!-- Roslyn Scripting -->
         <PackageReference Include="Microsoft.CodeAnalysis" Version="4.9.2" />
@@ -168,17 +168,17 @@
         <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
 
         <!-- Microsoft.AspNetCore -->
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.13" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="9.0.13" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="9.0.13" />
-        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="9.0.13" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="9.0.13" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.14" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="9.0.14" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="9.0.14" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="9.0.14" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="9.0.14" />
         <!-- Serilog -->
         <PackageReference Include="Serilog.Sinks.Http" Version="9.2.1" />
 
         <!-- Caching -->
         <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="9.0.14" />
-        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.13" />
+        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.14" />
         <!-- Scripting Engines -->
         <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.4" />
 

@@ -24,7 +24,7 @@ public class RunnerRuntimeAssemblyPreloadTests
         var manifestPath = Path.Combine(moduleRoot, "Kestrun.psd1");
         var copiedAssemblyPath = Path.Combine(libDirectory, "Kestrun.dll");
 
-        Directory.CreateDirectory(libDirectory);
+        _ = Directory.CreateDirectory(libDirectory);
         File.WriteAllText(manifestPath, "@{}\n");
         File.Copy(loadedPath!, copiedAssemblyPath, overwrite: true);
 
@@ -66,7 +66,7 @@ public class RunnerRuntimeAssemblyPreloadTests
         var manifestPath = Path.Combine(moduleRoot, "Kestrun.psd1");
         var copiedAssemblyPath = Path.Combine(libDirectory, "Kestrun.dll");
 
-        Directory.CreateDirectory(libDirectory);
+        _ = Directory.CreateDirectory(libDirectory);
         File.WriteAllText(manifestPath, "@{}\n");
         File.Copy(loadedPath!, copiedAssemblyPath, overwrite: true);
 

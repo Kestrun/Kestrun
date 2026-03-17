@@ -4,6 +4,419 @@ using Kestrun.Hosting.Options;
 using Kestrun.OpenApi;
 using Microsoft.OpenApi;
 using Xunit;
+
 namespace KestrunTests.OpenApi;
 
-public sealed class OpenApiDocDescriptorAnnotatedFunctionsHelpersTests { [Fact] public void ChooseFirstNonEmpty_ReturnsFirstNonWhitespace_AndNormalizesNewlines() { var chosen = InvokeChooseFirstNonEmpty(" ", null, "line1\r\nline2", "fallback"); Assert.Equal("line1\nline2", chosen); } [Fact] public void ChooseFirstNonEmpty_ReturnsNull_WhenAllValuesAreBlank() { var chosen = InvokeChooseFirstNonEmpty("  ", null, "\t"); Assert.Null(chosen); } [Fact] public void AddQueryParametersFromTemplate_AddsDistinctCaseInsensitiveParameters() { var metadata = new OpenAPIPathMetadata(new MapRouteOptions()) { Parameters = [new OpenApiParameter { Name = "page", In = ParameterLocation.Query, Required = true, Schema = new OpenApiSchema { Type = JsonSchemaType.String } }] }; InvokeAddQueryParametersFromTemplate(metadata, ["page", "sort", "Sort", "filter"]); Assert.NotNull(metadata.Parameters); Assert.Equal(3, metadata.Parameters.Count); var sort = Assert.Single(metadata.Parameters, p => string.Equals(p.Name, "sort", StringComparison.OrdinalIgnoreCase)); Assert.Equal(ParameterLocation.Query, sort.In); Assert.False(sort.Required); var sortSchema = Assert.IsType<OpenApiSchema>(sort.Schema); Assert.Equal(JsonSchemaType.String, sortSchema.Type); } [Fact] public void AddQueryParametersFromTemplate_DoesNothing_WhenNoNamesProvided() { var metadata = new OpenAPIPathMetadata(new MapRouteOptions()); InvokeAddQueryParametersFromTemplate(metadata, []); Assert.NotNull(metadata.Parameters); Assert.Empty(metadata.Parameters); } [Fact] public void ResolveFormContentTypes_PrefersAttributeContentTypes() { var attr = new OpenApiRequestBodyAttribute { ContentType = ["application/xml"] }; var options = new KrFormOptions(); options.AllowedContentTypes.Clear(); options.AllowedContentTypes.Add("multipart/mixed"); var result = InvokeResolveFormContentTypes(attr, options); Assert.Equal(["application/xml"], result); } [Fact] public void ResolveFormContentTypes_UsesOptionsWhenAttributeHasNoContentTypes() { var attr = new OpenApiRequestBodyAttribute { ContentType = [] }; var options = new KrFormOptions(); options.AllowedContentTypes.Clear(); options.AllowedContentTypes.Add("multipart/mixed"); options.AllowedContentTypes.Add("application/json"); var result = InvokeResolveFormContentTypes(attr, options); Assert.Equal(["multipart/mixed", "application/json"], result); } [Fact] public void ResolveFormContentTypes_DefaultsToMultipartFormData_WhenNothingSpecified() { var attr = new OpenApiRequestBodyAttribute { ContentType = [] }; var options = new KrFormOptions(); options.AllowedContentTypes.Clear(); var result = InvokeResolveFormContentTypes(attr, options); Assert.Equal(["multipart/form-data"], result); } [Fact] public void BuildMultipartEncoding_OnlyIncludesLikelyFileRules() { var options = new KrFormOptions(); options.Rules.Add(new KrFormPartRule { Name = "file", StoreToDisk = true }); options.Rules[0].AllowedContentTypes.Add("image/png"); options.Rules.Add(new KrFormPartRule { Name = "note", StoreToDisk = false }); options.Rules[1].AllowedContentTypes.Add("text/plain"); var encoding = InvokeBuildMultipartEncoding(options); Assert.NotNull(encoding); Assert.True(encoding.TryGetValue("file", out var fileEncoding)); Assert.Equal("image/png", fileEncoding.ContentType); Assert.False(encoding.ContainsKey("note")); } [Fact] public void BuildMultipartEncoding_ReturnsNull_WhenNoFileRulesApply() { var options = new KrFormOptions(); options.Rules.Add(new KrFormPartRule { Name = "note", StoreToDisk = false }); options.Rules[0].AllowedContentTypes.Add("text/plain"); var encoding = InvokeBuildMultipartEncoding(options); Assert.Null(encoding); } [Fact] public void BuildFormRequestBodyWithSchema_AddsEncodingOnlyForMultipartMediaTypes() { var schema = new OpenApiSchema { Type = JsonSchemaType.Object }; var attr = new OpenApiRequestBodyAttribute { Description = "payload", Required = true }; var options = new KrFormOptions(); options.Rules.Add(new KrFormPartRule { Name = "file", StoreToDisk = true }); options.Rules[0].AllowedContentTypes.Add("image/png"); var body = InvokeBuildFormRequestBodyWithSchema(schema, ["multipart/form-data", "application/json"], options, attr); Assert.Equal("payload", body.Description); Assert.True(body.Required); Assert.NotNull(body.Content); Assert.True(body.Content.ContainsKey("multipart/form-data")); Assert.True(body.Content.ContainsKey("application/json")); var multipart = Assert.IsType<OpenApiMediaType>(body.Content["multipart/form-data"]); Assert.NotNull(multipart.Encoding); Assert.True(multipart.Encoding.ContainsKey("file")); var json = Assert.IsType<OpenApiMediaType>(body.Content["application/json"]); Assert.Null(json.Encoding); } [Fact] public void SelectDefaultSuccessResponse_ReturnsLowest2xxWithContent() { var responses = new OpenApiResponses { ["200"] = new OpenApiResponse { Description = "ok" }, ["201"] = new OpenApiResponse { Description = "created", Content = new Dictionary<string, IOpenApiMediaType> { ["application/json"] = new OpenApiMediaType { Schema = new OpenApiSchema { Type = JsonSchemaType.Object } } } }, ["202"] = new OpenApiResponse { Description = "accepted", Content = new Dictionary<string, IOpenApiMediaType> { ["application/json"] = new OpenApiMediaType { Schema = new OpenApiSchema { Type = JsonSchemaType.Object } } } } }; var selected = InvokeSelectDefaultSuccessResponse(responses); Assert.Equal("201", selected); } [Fact] public void SelectDefaultSuccessResponse_ReturnsNull_WhenNo2xxResponseHasContent() { var responses = new OpenApiResponses { ["200"] = new OpenApiResponse { Description = "ok" }, ["404"] = new OpenApiResponse { Description = "not found", Content = new Dictionary<string, IOpenApiMediaType> { ["application/json"] = new OpenApiMediaType { Schema = new OpenApiSchema { Type = JsonSchemaType.Object } } } } }; var selected = InvokeSelectDefaultSuccessResponse(responses); Assert.Null(selected); } [Fact] public void TryInferClrTypeFromSchema_InfersPrimitiveFormatsAndArrayItems() { var uuidType = InvokeTryInferClrTypeFromSchema(new OpenApiSchema { Type = JsonSchemaType.String, Format = "uuid" }); var numberType = InvokeTryInferClrTypeFromSchema(new OpenApiSchema { Type = JsonSchemaType.Number, Format = "float" }); var arrayType = InvokeTryInferClrTypeFromSchema(new OpenApiSchema { Type = JsonSchemaType.Array, Items = new OpenApiSchema { Type = JsonSchemaType.Integer, Format = "int32" } }); Assert.Equal(typeof(Guid), uuidType); Assert.Equal(typeof(float), numberType); Assert.Equal(typeof(int[]), arrayType); } [Fact] public void EnsureDefaultResponses_Adds200AndDefault_ForStandardOperations() { var metadata = new OpenAPIPathMetadata(new MapRouteOptions()) { Responses = [] }; InvokeEnsureDefaultResponses(metadata); Assert.NotNull(metadata.Responses); Assert.True(metadata.Responses.ContainsKey("200")); Assert.True(metadata.Responses.ContainsKey("default")); } [Fact] public void EnsureDefaultResponses_Adds204_ForCallbacks() { var metadata = new OpenAPIPathMetadata(new MapRouteOptions()) { PathLikeKind = OpenApiPathLikeKind.Callback, Responses = [] }; InvokeEnsureDefaultResponses(metadata); Assert.NotNull(metadata.Responses); _ = Assert.Single(metadata.Responses); Assert.True(metadata.Responses.ContainsKey("204")); } [Fact] public void BuildPolicyList_TrimsAndRemovesEmptyValues() { var policies = InvokeBuildPolicyList("read, write ,, admin "); Assert.Equal(["read", "write", "admin"], policies); } private static string? InvokeChooseFirstNonEmpty(params string?[] values) { var method = GetStaticMethod("ChooseFirstNonEmpty", typeof(string[])); return (string?)InvokeStatic(method, [values]); } private static void InvokeAddQueryParametersFromTemplate(OpenAPIPathMetadata metadata, IReadOnlyList<string> names) { var method = GetStaticMethod("AddQueryParametersFromTemplate", typeof(OpenAPIPathMetadata), typeof(IReadOnlyList<string>)); _ = InvokeStatic(method, [metadata, names]); } private static string[] InvokeResolveFormContentTypes(OpenApiRequestBodyAttribute attribute, KrFormOptions options) { var method = GetStaticMethod("ResolveFormContentTypes", typeof(OpenApiRequestBodyAttribute), typeof(KrFormOptions)); return Assert.IsType<string[]>(InvokeStatic(method, [attribute, options])); } private static Dictionary<string, OpenApiEncoding>? InvokeBuildMultipartEncoding(KrFormOptions options) { var method = GetStaticMethod("BuildMultipartEncoding", typeof(KrFormOptions)); return (Dictionary<string, OpenApiEncoding>?)InvokeStatic(method, [options]); } private static OpenApiRequestBody InvokeBuildFormRequestBodyWithSchema(OpenApiSchema schema, string[] contentTypes, KrFormOptions options, OpenApiRequestBodyAttribute attribute) { var method = GetStaticMethod("BuildFormRequestBodyWithSchema", typeof(IOpenApiSchema), typeof(string[]), typeof(KrFormOptions), typeof(OpenApiRequestBodyAttribute)); return Assert.IsType<OpenApiRequestBody>(InvokeStatic(method, [schema, contentTypes, options, attribute])); } private static string? InvokeSelectDefaultSuccessResponse(OpenApiResponses responses) { var method = GetStaticMethod("SelectDefaultSuccessResponse", typeof(OpenApiResponses)); return (string?)InvokeStatic(method, [responses]); } private static Type? InvokeTryInferClrTypeFromSchema(OpenApiSchema schema) { var method = GetStaticMethod("TryInferClrTypeFromSchema", typeof(IOpenApiSchema)); return (Type?)InvokeStatic(method, [schema]); } private static void InvokeEnsureDefaultResponses(OpenAPIPathMetadata metadata) { var method = GetStaticMethod("EnsureDefaultResponses", typeof(OpenAPIPathMetadata)); _ = InvokeStatic(method, [metadata]); } private static List<string> InvokeBuildPolicyList(string? policies) { var method = GetStaticMethod("BuildPolicyList", typeof(string)); return Assert.IsType<List<string>>(InvokeStatic(method, [policies])); } private static MethodInfo GetStaticMethod(string name, params Type[] parameterTypes) { var method = typeof(OpenApiDocDescriptor).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static, binder: null, types: parameterTypes, modifiers: null); Assert.NotNull(method); return method; } private static object? InvokeStatic(MethodInfo method, object?[] args) { try { return method.Invoke(null, args); } catch (TargetInvocationException ex) when (ex.InnerException is not null) { throw ex.InnerException; } } }
+public sealed class OpenApiDocDescriptorAnnotatedFunctionsHelpersTests
+{
+    [Fact]
+    public void ChooseFirstNonEmpty_ReturnsFirstNonWhitespace_AndNormalizesNewlines()
+    {
+        var chosen = InvokeChooseFirstNonEmpty(" ", null, "line1\r\nline2", "fallback");
+
+        Assert.Equal("line1\nline2", chosen);
+    }
+
+    [Fact]
+    public void ChooseFirstNonEmpty_ReturnsNull_WhenAllValuesAreBlank()
+    {
+        var chosen = InvokeChooseFirstNonEmpty("  ", null, "\t");
+
+        Assert.Null(chosen);
+    }
+
+    [Fact]
+    public void AddQueryParametersFromTemplate_AddsDistinctCaseInsensitiveParameters()
+    {
+        var metadata = new OpenAPIPathMetadata(new MapRouteOptions())
+        {
+            Parameters =
+            [
+                new OpenApiParameter
+                {
+                    Name = "page",
+                    In = ParameterLocation.Query,
+                    Required = true,
+                    Schema = new OpenApiSchema { Type = JsonSchemaType.String }
+                }
+            ]
+        };
+
+        InvokeAddQueryParametersFromTemplate(metadata, ["page", "sort", "Sort", "filter"]);
+
+        Assert.NotNull(metadata.Parameters);
+        Assert.Equal(3, metadata.Parameters.Count);
+
+        var sort = Assert.Single(metadata.Parameters, p => string.Equals(p.Name, "sort", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(ParameterLocation.Query, sort.In);
+        Assert.False(sort.Required);
+
+        var sortSchema = Assert.IsType<OpenApiSchema>(sort.Schema);
+        Assert.Equal(JsonSchemaType.String, sortSchema.Type);
+    }
+
+    [Fact]
+    public void AddQueryParametersFromTemplate_DoesNothing_WhenNoNamesProvided()
+    {
+        var metadata = new OpenAPIPathMetadata(new MapRouteOptions());
+
+        InvokeAddQueryParametersFromTemplate(metadata, []);
+
+        Assert.NotNull(metadata.Parameters);
+        Assert.Empty(metadata.Parameters);
+    }
+
+    [Fact]
+    public void ResolveFormContentTypes_PrefersAttributeContentTypes()
+    {
+        var attr = new OpenApiRequestBodyAttribute
+        {
+            ContentType = ["application/xml"]
+        };
+
+        var options = new KrFormOptions();
+        options.AllowedContentTypes.Clear();
+        options.AllowedContentTypes.Add("multipart/mixed");
+
+        var result = InvokeResolveFormContentTypes(attr, options);
+
+        Assert.Equal(["application/xml"], result);
+    }
+
+    [Fact]
+    public void ResolveFormContentTypes_UsesOptionsWhenAttributeHasNoContentTypes()
+    {
+        var attr = new OpenApiRequestBodyAttribute
+        {
+            ContentType = []
+        };
+
+        var options = new KrFormOptions();
+        options.AllowedContentTypes.Clear();
+        options.AllowedContentTypes.Add("multipart/mixed");
+        options.AllowedContentTypes.Add("application/json");
+
+        var result = InvokeResolveFormContentTypes(attr, options);
+
+        Assert.Equal(["multipart/mixed", "application/json"], result);
+    }
+
+    [Fact]
+    public void ResolveFormContentTypes_DefaultsToMultipartFormData_WhenNothingSpecified()
+    {
+        var attr = new OpenApiRequestBodyAttribute
+        {
+            ContentType = []
+        };
+
+        var options = new KrFormOptions();
+        options.AllowedContentTypes.Clear();
+
+        var result = InvokeResolveFormContentTypes(attr, options);
+
+        Assert.Equal(["multipart/form-data"], result);
+    }
+
+    [Fact]
+    public void BuildMultipartEncoding_OnlyIncludesLikelyFileRules()
+    {
+        var options = new KrFormOptions();
+        options.Rules.Add(new KrFormPartRule
+        {
+            Name = "file",
+            StoreToDisk = true
+        });
+        options.Rules[0].AllowedContentTypes.Add("image/png");
+
+        options.Rules.Add(new KrFormPartRule
+        {
+            Name = "note",
+            StoreToDisk = false
+        });
+        options.Rules[1].AllowedContentTypes.Add("text/plain");
+
+        var encoding = InvokeBuildMultipartEncoding(options);
+
+        Assert.NotNull(encoding);
+        Assert.True(encoding.TryGetValue("file", out var fileEncoding));
+        Assert.Equal("image/png", fileEncoding.ContentType);
+        Assert.False(encoding.ContainsKey("note"));
+    }
+
+    [Fact]
+    public void BuildMultipartEncoding_ReturnsNull_WhenNoFileRulesApply()
+    {
+        var options = new KrFormOptions();
+        options.Rules.Add(new KrFormPartRule
+        {
+            Name = "note",
+            StoreToDisk = false
+        });
+        options.Rules[0].AllowedContentTypes.Add("text/plain");
+
+        var encoding = InvokeBuildMultipartEncoding(options);
+
+        Assert.Null(encoding);
+    }
+
+    [Fact]
+    public void BuildFormRequestBodyWithSchema_AddsEncodingOnlyForMultipartMediaTypes()
+    {
+        var schema = new OpenApiSchema { Type = JsonSchemaType.Object };
+        var attr = new OpenApiRequestBodyAttribute
+        {
+            Description = "payload",
+            Required = true
+        };
+
+        var options = new KrFormOptions();
+        options.Rules.Add(new KrFormPartRule
+        {
+            Name = "file",
+            StoreToDisk = true
+        });
+        options.Rules[0].AllowedContentTypes.Add("image/png");
+
+        var body = InvokeBuildFormRequestBodyWithSchema(
+            schema,
+            ["multipart/form-data", "application/json"],
+            options,
+            attr);
+
+        Assert.Equal("payload", body.Description);
+        Assert.True(body.Required);
+        Assert.NotNull(body.Content);
+        Assert.True(body.Content.ContainsKey("multipart/form-data"));
+        Assert.True(body.Content.ContainsKey("application/json"));
+
+        var multipart = Assert.IsType<OpenApiMediaType>(body.Content["multipart/form-data"]);
+        Assert.NotNull(multipart.Encoding);
+        Assert.True(multipart.Encoding.ContainsKey("file"));
+
+        var json = Assert.IsType<OpenApiMediaType>(body.Content["application/json"]);
+        Assert.Null(json.Encoding);
+    }
+
+    [Fact]
+    public void SelectDefaultSuccessResponse_ReturnsLowest2xxWithContent()
+    {
+        var responses = new OpenApiResponses
+        {
+            ["200"] = new OpenApiResponse
+            {
+                Description = "ok"
+            },
+            ["201"] = new OpenApiResponse
+            {
+                Description = "created",
+                Content = new Dictionary<string, IOpenApiMediaType>
+                {
+                    ["application/json"] = new OpenApiMediaType
+                    {
+                        Schema = new OpenApiSchema { Type = JsonSchemaType.Object }
+                    }
+                }
+            },
+            ["202"] = new OpenApiResponse
+            {
+                Description = "accepted",
+                Content = new Dictionary<string, IOpenApiMediaType>
+                {
+                    ["application/json"] = new OpenApiMediaType
+                    {
+                        Schema = new OpenApiSchema { Type = JsonSchemaType.Object }
+                    }
+                }
+            }
+        };
+
+        var selected = InvokeSelectDefaultSuccessResponse(responses);
+
+        Assert.Equal("201", selected);
+    }
+
+    [Fact]
+    public void SelectDefaultSuccessResponse_ReturnsNull_WhenNo2xxResponseHasContent()
+    {
+        var responses = new OpenApiResponses
+        {
+            ["200"] = new OpenApiResponse { Description = "ok" },
+            ["404"] = new OpenApiResponse
+            {
+                Description = "not found",
+                Content = new Dictionary<string, IOpenApiMediaType>
+                {
+                    ["application/json"] = new OpenApiMediaType
+                    {
+                        Schema = new OpenApiSchema { Type = JsonSchemaType.Object }
+                    }
+                }
+            }
+        };
+
+        var selected = InvokeSelectDefaultSuccessResponse(responses);
+
+        Assert.Null(selected);
+    }
+
+    [Fact]
+    public void TryInferClrTypeFromSchema_InfersPrimitiveFormatsAndArrayItems()
+    {
+        var uuidType = InvokeTryInferClrTypeFromSchema(
+            new OpenApiSchema
+            {
+                Type = JsonSchemaType.String,
+                Format = "uuid"
+            });
+
+        var numberType = InvokeTryInferClrTypeFromSchema(
+            new OpenApiSchema
+            {
+                Type = JsonSchemaType.Number,
+                Format = "float"
+            });
+
+        var arrayType = InvokeTryInferClrTypeFromSchema(
+            new OpenApiSchema
+            {
+                Type = JsonSchemaType.Array,
+                Items = new OpenApiSchema
+                {
+                    Type = JsonSchemaType.Integer,
+                    Format = "int32"
+                }
+            });
+
+        Assert.Equal(typeof(Guid), uuidType);
+        Assert.Equal(typeof(float), numberType);
+        Assert.Equal(typeof(int[]), arrayType);
+    }
+
+    [Fact]
+    public void EnsureDefaultResponses_Adds200AndDefault_ForStandardOperations()
+    {
+        var metadata = new OpenAPIPathMetadata(new MapRouteOptions())
+        {
+            Responses = []
+        };
+
+        InvokeEnsureDefaultResponses(metadata);
+
+        Assert.NotNull(metadata.Responses);
+        Assert.True(metadata.Responses.ContainsKey("200"));
+        Assert.True(metadata.Responses.ContainsKey("default"));
+    }
+
+    [Fact]
+    public void EnsureDefaultResponses_Adds204_ForCallbacks()
+    {
+        var metadata = new OpenAPIPathMetadata(new MapRouteOptions())
+        {
+            PathLikeKind = OpenApiPathLikeKind.Callback,
+            Responses = []
+        };
+
+        InvokeEnsureDefaultResponses(metadata);
+
+        Assert.NotNull(metadata.Responses);
+        _ = Assert.Single(metadata.Responses);
+        Assert.True(metadata.Responses.ContainsKey("204"));
+    }
+
+    [Fact]
+    public void BuildPolicyList_TrimsAndRemovesEmptyValues()
+    {
+        var policies = InvokeBuildPolicyList("read, write ,, admin ");
+
+        Assert.Equal(["read", "write", "admin"], policies);
+    }
+
+    private static string? InvokeChooseFirstNonEmpty(params string?[] values)
+    {
+        var method = GetStaticMethod("ChooseFirstNonEmpty", typeof(string[]));
+        return (string?)InvokeStatic(method, [values]);
+    }
+
+    private static void InvokeAddQueryParametersFromTemplate(OpenAPIPathMetadata metadata, IReadOnlyList<string> names)
+    {
+        var method = GetStaticMethod("AddQueryParametersFromTemplate", typeof(OpenAPIPathMetadata), typeof(IReadOnlyList<string>));
+        _ = InvokeStatic(method, [metadata, names]);
+    }
+
+    private static string[] InvokeResolveFormContentTypes(OpenApiRequestBodyAttribute attribute, KrFormOptions options)
+    {
+        var method = GetStaticMethod("ResolveFormContentTypes", typeof(OpenApiRequestBodyAttribute), typeof(KrFormOptions));
+        return Assert.IsType<string[]>(InvokeStatic(method, [attribute, options]));
+    }
+
+    private static Dictionary<string, OpenApiEncoding>? InvokeBuildMultipartEncoding(KrFormOptions options)
+    {
+        var method = GetStaticMethod("BuildMultipartEncoding", typeof(KrFormOptions));
+        return (Dictionary<string, OpenApiEncoding>?)InvokeStatic(method, [options]);
+    }
+
+    private static OpenApiRequestBody InvokeBuildFormRequestBodyWithSchema(
+        OpenApiSchema schema,
+        string[] contentTypes,
+        KrFormOptions options,
+        OpenApiRequestBodyAttribute attribute)
+    {
+        var method = GetStaticMethod(
+            "BuildFormRequestBodyWithSchema",
+            typeof(IOpenApiSchema),
+            typeof(string[]),
+            typeof(KrFormOptions),
+            typeof(OpenApiRequestBodyAttribute));
+
+        return Assert.IsType<OpenApiRequestBody>(InvokeStatic(method, [schema, contentTypes, options, attribute]));
+    }
+
+    private static string? InvokeSelectDefaultSuccessResponse(OpenApiResponses responses)
+    {
+        var method = GetStaticMethod("SelectDefaultSuccessResponse", typeof(OpenApiResponses));
+        return (string?)InvokeStatic(method, [responses]);
+    }
+
+    private static Type? InvokeTryInferClrTypeFromSchema(OpenApiSchema schema)
+    {
+        var method = GetStaticMethod("TryInferClrTypeFromSchema", typeof(IOpenApiSchema));
+        return (Type?)InvokeStatic(method, [schema]);
+    }
+
+    private static void InvokeEnsureDefaultResponses(OpenAPIPathMetadata metadata)
+    {
+        var method = GetStaticMethod("EnsureDefaultResponses", typeof(OpenAPIPathMetadata));
+        _ = InvokeStatic(method, [metadata]);
+    }
+
+    private static List<string> InvokeBuildPolicyList(string? policies)
+    {
+        var method = GetStaticMethod("BuildPolicyList", typeof(string));
+        return Assert.IsType<List<string>>(InvokeStatic(method, [policies]));
+    }
+
+    private static MethodInfo GetStaticMethod(string name, params Type[] parameterTypes)
+    {
+        var method = typeof(OpenApiDocDescriptor).GetMethod(
+            name,
+            BindingFlags.NonPublic | BindingFlags.Static,
+            binder: null,
+            types: parameterTypes,
+            modifiers: null);
+
+        Assert.NotNull(method);
+        return method;
+    }
+
+    private static object? InvokeStatic(MethodInfo method, object?[] args)
+    {
+        try
+        {
+            return method.Invoke(null, args);
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException is not null)
+        {
+            throw ex.InnerException;
+        }
+    }
+}

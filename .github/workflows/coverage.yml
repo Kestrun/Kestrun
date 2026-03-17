@@ -178,6 +178,33 @@ jobs:
               shell: pwsh
               run: Invoke-Build Build -DotNetVerbosity $Env:DOTNET_VERBOSITY
 
+            - name: 📦 Pack Kestrun.Tool for testing
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  Invoke-Build 'Pack-KestrunTool' -DotNetVerbosity $Env:DOTNET_VERBOSITY
+
+            - name: 🧰 Install Kestrun.Tool from local artifacts for testing
+              shell: pwsh
+              run: |
+                  $ErrorActionPreference = 'Stop'
+                  $localToolPath = Join-Path -Path $PWD -ChildPath 'artifacts/nuget'
+                  dotnet tool install --global Kestrun.Tool --add-source $localToolPath --prerelease --ignore-failed-sources
+
+                  # Ensure global dotnet tools are resolvable in subsequent workflow steps.
+                  $dotnetToolsPath = Join-Path -Path $HOME -ChildPath '.dotnet/tools'
+                  $dotnetToolsPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+            - name: Install Kestrun Module
+              shell: pwsh
+              run: |
+                  Invoke-Build Install-Module
+
+            - name: Query Kestrun Module Info
+              shell: pwsh
+              run: |
+                  dotnet kestrun module info
+            
             - name: 🧪 Test (Pester) with coverage (JaCoCo, Pester 5)
               shell: pwsh
               run: |

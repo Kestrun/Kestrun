@@ -76,13 +76,21 @@ public class KrDiskPartSinkTests
             }
             catch (IOException) when (attempt < 4)
             {
-                System.Threading.Thread.Sleep(50 * (attempt + 1));
+                Thread.Sleep(50 * (attempt + 1));
                 directory.Refresh();
+            }
+            catch (IOException)
+            {
+                return;
             }
             catch (UnauthorizedAccessException) when (attempt < 4)
             {
-                System.Threading.Thread.Sleep(50 * (attempt + 1));
+                Thread.Sleep(50 * (attempt + 1));
                 directory.Refresh();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return;
             }
         }
     }

@@ -43,7 +43,7 @@ public class StringTableParserTests
         }
         finally
         {
-            TryDeleteDirectory(temp);
+            DeleteDirectoryWithRetries(temp);
         }
     }
 
@@ -78,13 +78,15 @@ public class StringTableParserTests
         }
         finally
         {
-            TryDeleteDirectory(temp);
+            DeleteDirectoryWithRetries(temp);
         }
     }
 
-    private static void TryDeleteDirectory(DirectoryInfo directory)
+    private static void DeleteDirectoryWithRetries(DirectoryInfo directory)
     {
-        for (var attempt = 0; attempt < 5; attempt++)
+        const int maxAttempts = 5;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
             try
             {
@@ -95,14 +97,16 @@ public class StringTableParserTests
 
                 return;
             }
-            catch (IOException) when (attempt < 4)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                System.Threading.Thread.Sleep(50 * (attempt + 1));
-                directory.Refresh();
-            }
-            catch (UnauthorizedAccessException) when (attempt < 4)
-            {
-                System.Threading.Thread.Sleep(50 * (attempt + 1));
+                if (attempt == maxAttempts)
+                {
+                    throw new IOException(
+                        $"Failed to delete temporary test directory '{directory.FullName}' after {maxAttempts} attempts.",
+                        ex);
+                }
+
+                Thread.Sleep(50 * attempt);
                 directory.Refresh();
             }
         }

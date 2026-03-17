@@ -419,6 +419,7 @@ public class KestrunRequestCultureMiddlewareTests
 
     private static void TryDeleteDirectory(DirectoryInfo directory)
     {
+        // Best-effort cleanup: do not fail tests due to transient teardown file locks.
         for (var attempt = 0; attempt < 5; attempt++)
         {
             try
@@ -430,14 +431,24 @@ public class KestrunRequestCultureMiddlewareTests
 
                 return;
             }
-            catch (IOException) when (attempt < 4)
+            catch (IOException)
             {
-                System.Threading.Thread.Sleep(50 * (attempt + 1));
+                if (attempt == 4)
+                {
+                    return;
+                }
+
+                Thread.Sleep(50 * (attempt + 1));
                 directory.Refresh();
             }
-            catch (UnauthorizedAccessException) when (attempt < 4)
+            catch (UnauthorizedAccessException)
             {
-                System.Threading.Thread.Sleep(50 * (attempt + 1));
+                if (attempt == 4)
+                {
+                    return;
+                }
+
+                Thread.Sleep(50 * (attempt + 1));
                 directory.Refresh();
             }
         }

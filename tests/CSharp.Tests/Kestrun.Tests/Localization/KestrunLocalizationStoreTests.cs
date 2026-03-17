@@ -266,6 +266,8 @@ public class KestrunLocalizationStoreTests
 
     private static void TryDeleteDirectory(DirectoryInfo directory)
     {
+        Exception? lastException = null;
+
         for (var attempt = 0; attempt < 5; attempt++)
         {
             try
@@ -277,16 +279,27 @@ public class KestrunLocalizationStoreTests
 
                 return;
             }
-            catch (IOException) when (attempt < 4)
+            catch (IOException ex)
             {
-                System.Threading.Thread.Sleep(50 * (attempt + 1));
-                directory.Refresh();
+                lastException = ex;
             }
-            catch (UnauthorizedAccessException) when (attempt < 4)
+            catch (UnauthorizedAccessException ex)
             {
-                System.Threading.Thread.Sleep(50 * (attempt + 1));
-                directory.Refresh();
+                lastException = ex;
             }
+
+            if (attempt == 4)
+            {
+                break;
+            }
+
+            Thread.Sleep(50 * (attempt + 1));
+            directory.Refresh();
+        }
+
+        if (lastException is not null)
+        {
+            System.Diagnostics.Debug.WriteLine($"Best-effort temp cleanup failed for '{directory.FullName}': {lastException.Message}");
         }
     }
 

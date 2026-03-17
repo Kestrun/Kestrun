@@ -297,4 +297,3 @@ public class KestrunLocalizationStoreTests
         public void Emit(LogEvent logEvent) => Events.Add(logEvent);
     }
 }
-

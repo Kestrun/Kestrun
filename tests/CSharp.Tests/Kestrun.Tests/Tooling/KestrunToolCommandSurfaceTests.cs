@@ -277,7 +277,7 @@ public class KestrunToolCommandSurfaceTests
         {
             if (Directory.Exists(tempRoot))
             {
-                Directory.Delete(tempRoot, recursive: true);
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
     }
@@ -299,7 +299,7 @@ public class KestrunToolCommandSurfaceTests
         {
             if (Directory.Exists(tempRoot))
             {
-                Directory.Delete(tempRoot, recursive: true);
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
     }
@@ -320,7 +320,7 @@ public class KestrunToolCommandSurfaceTests
         {
             if (Directory.Exists(tempRoot))
             {
-                Directory.Delete(tempRoot, recursive: true);
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
     }
@@ -356,7 +356,7 @@ public class KestrunToolCommandSurfaceTests
         {
             if (Directory.Exists(tempRoot))
             {
-                Directory.Delete(tempRoot, recursive: true);
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
     }
@@ -403,7 +403,7 @@ public class KestrunToolCommandSurfaceTests
         {
             if (Directory.Exists(tempRoot))
             {
-                Directory.Delete(tempRoot, recursive: true);
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
     }
@@ -433,7 +433,7 @@ public class KestrunToolCommandSurfaceTests
         {
             if (Directory.Exists(tempRoot))
             {
-                Directory.Delete(tempRoot, recursive: true);
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
     }
@@ -460,7 +460,7 @@ public class KestrunToolCommandSurfaceTests
         {
             if (Directory.Exists(tempRoot))
             {
-                Directory.Delete(tempRoot, recursive: true);
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
     }
@@ -482,7 +482,7 @@ public class KestrunToolCommandSurfaceTests
         {
             if (Directory.Exists(tempRoot))
             {
-                Directory.Delete(tempRoot, recursive: true);
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
     }
@@ -515,7 +515,7 @@ public class KestrunToolCommandSurfaceTests
         {
             if (Directory.Exists(tempRoot))
             {
-                Directory.Delete(tempRoot, recursive: true);
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
     }
@@ -560,7 +560,7 @@ public class KestrunToolCommandSurfaceTests
             Environment.CurrentDirectory = originalDirectory;
             if (Directory.Exists(tempRoot))
             {
-                Directory.Delete(tempRoot, recursive: true);
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
     }
@@ -611,7 +611,7 @@ public class KestrunToolCommandSurfaceTests
             Environment.CurrentDirectory = originalDirectory;
             if (Directory.Exists(tempRoot))
             {
-                Directory.Delete(tempRoot, recursive: true);
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
     }
@@ -729,7 +729,7 @@ public class KestrunToolCommandSurfaceTests
         {
             if (Directory.Exists(tempRoot))
             {
-                Directory.Delete(tempRoot, recursive: true);
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
     }
@@ -792,7 +792,7 @@ public class KestrunToolCommandSurfaceTests
             Environment.CurrentDirectory = originalDirectory;
             if (Directory.Exists(tempRoot))
             {
-                Directory.Delete(tempRoot, recursive: true);
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
     }
@@ -994,7 +994,7 @@ public class KestrunToolCommandSurfaceTests
 
             if (Directory.Exists(tempRoot))
             {
-                Directory.Delete(tempRoot, recursive: true);
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
     }
@@ -1307,3 +1307,4 @@ public class KestrunToolCommandSurfaceTests
     }
 }
 #endif
+

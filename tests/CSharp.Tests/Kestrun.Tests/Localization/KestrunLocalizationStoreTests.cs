@@ -33,7 +33,7 @@ public class KestrunLocalizationStoreTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -59,7 +59,7 @@ public class KestrunLocalizationStoreTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -87,7 +87,7 @@ public class KestrunLocalizationStoreTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -119,7 +119,7 @@ public class KestrunLocalizationStoreTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -146,7 +146,7 @@ public class KestrunLocalizationStoreTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -172,7 +172,7 @@ public class KestrunLocalizationStoreTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -205,7 +205,7 @@ public class KestrunLocalizationStoreTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -241,7 +241,7 @@ public class KestrunLocalizationStoreTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -264,6 +264,32 @@ public class KestrunLocalizationStoreTests
         }));
     }
 
+    private static void TryDeleteDirectory(DirectoryInfo directory)
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            try
+            {
+                if (directory.Exists)
+                {
+                    directory.Delete(recursive: true);
+                }
+
+                return;
+            }
+            catch (IOException) when (attempt < 4)
+            {
+                System.Threading.Thread.Sleep(50 * (attempt + 1));
+                directory.Refresh();
+            }
+            catch (UnauthorizedAccessException) when (attempt < 4)
+            {
+                System.Threading.Thread.Sleep(50 * (attempt + 1));
+                directory.Refresh();
+            }
+        }
+    }
+
     private sealed class CollectingSink : ILogEventSink
     {
         public List<LogEvent> Events { get; } = [];
@@ -271,3 +297,4 @@ public class KestrunLocalizationStoreTests
         public void Emit(LogEvent logEvent) => Events.Add(logEvent);
     }
 }
+

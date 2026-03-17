@@ -43,7 +43,7 @@ public class StringTableParserTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            DeleteDirectoryWithRetries(temp);
         }
     }
 
@@ -78,7 +78,37 @@ public class StringTableParserTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            DeleteDirectoryWithRetries(temp);
+        }
+    }
+
+    private static void DeleteDirectoryWithRetries(DirectoryInfo directory)
+    {
+        const int maxAttempts = 5;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                if (directory.Exists)
+                {
+                    directory.Delete(recursive: true);
+                }
+
+                return;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                if (attempt == maxAttempts)
+                {
+                    throw new IOException(
+                        $"Failed to delete temporary test directory '{directory.FullName}' after {maxAttempts} attempts.",
+                        ex);
+                }
+
+                Thread.Sleep(50 * attempt);
+                directory.Refresh();
+            }
         }
     }
 }

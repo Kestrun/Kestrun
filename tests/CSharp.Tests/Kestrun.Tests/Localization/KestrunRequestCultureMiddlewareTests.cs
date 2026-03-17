@@ -57,7 +57,7 @@ public class KestrunRequestCultureMiddlewareTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -108,7 +108,7 @@ public class KestrunRequestCultureMiddlewareTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -157,7 +157,7 @@ public class KestrunRequestCultureMiddlewareTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -209,7 +209,7 @@ public class KestrunRequestCultureMiddlewareTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -258,7 +258,7 @@ public class KestrunRequestCultureMiddlewareTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -306,7 +306,7 @@ public class KestrunRequestCultureMiddlewareTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -353,7 +353,7 @@ public class KestrunRequestCultureMiddlewareTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -405,7 +405,7 @@ public class KestrunRequestCultureMiddlewareTests
         {
             CultureInfo.CurrentCulture = originalCulture;
             CultureInfo.CurrentUICulture = originalUICulture;
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -415,5 +415,42 @@ public class KestrunRequestCultureMiddlewareTests
         _ = Directory.CreateDirectory(dir);
         var path = Path.Combine(dir, "Messages.psd1");
         File.WriteAllText(path, content);
+    }
+
+    private static void TryDeleteDirectory(DirectoryInfo directory)
+    {
+        // Best-effort cleanup: do not fail tests due to transient teardown file locks.
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            try
+            {
+                if (directory.Exists)
+                {
+                    directory.Delete(recursive: true);
+                }
+
+                return;
+            }
+            catch (IOException)
+            {
+                if (attempt == 4)
+                {
+                    return;
+                }
+
+                Thread.Sleep(50 * (attempt + 1));
+                directory.Refresh();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                if (attempt == 4)
+                {
+                    return;
+                }
+
+                Thread.Sleep(50 * (attempt + 1));
+                directory.Refresh();
+            }
+        }
     }
 }

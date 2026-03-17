@@ -34,7 +34,7 @@ public class KrDiskPartSinkTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
         }
     }
 
@@ -57,7 +57,41 @@ public class KrDiskPartSinkTests
         }
         finally
         {
-            temp.Delete(recursive: true);
+            TryDeleteDirectory(temp);
+        }
+    }
+
+    private static void TryDeleteDirectory(DirectoryInfo directory)
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            try
+            {
+                if (directory.Exists)
+                {
+                    directory.Delete(recursive: true);
+                }
+
+                return;
+            }
+            catch (IOException) when (attempt < 4)
+            {
+                Thread.Sleep(50 * (attempt + 1));
+                directory.Refresh();
+            }
+            catch (IOException)
+            {
+                return;
+            }
+            catch (UnauthorizedAccessException) when (attempt < 4)
+            {
+                Thread.Sleep(50 * (attempt + 1));
+                directory.Refresh();
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return;
+            }
         }
     }
 }

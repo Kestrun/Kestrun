@@ -291,4 +291,63 @@ public sealed class OpenApiComponentCloneTests
         var originalObj = Assert.IsType<JsonObject>(originalExtension.Node);
         Assert.Equal(1, (int)originalObj["a"]!);
     }
+
+    [Fact]
+    public void OpenApiServer_CreateShallowCopy_ClonesVariablesAndExtensions()
+    {
+        var original = new OpenApiServer
+        {
+            Url = "https://api.example.test",
+            Description = "primary",
+            Variables = new Dictionary<string, OpenApiServerVariable>
+            {
+                ["env"] = new OpenApiServerVariable
+                {
+                    Default = "prod",
+                    Enum = ["dev", "prod"]
+                }
+            },
+            Extensions = new Dictionary<string, IOpenApiExtension>
+            {
+                ["x-meta"] = new JsonNodeExtension(JsonNode.Parse("{\"a\":1}")!)
+            }
+        };
+
+        var clone = original.CreateShallowCopy();
+
+        Assert.NotSame(original, clone);
+        Assert.NotSame(original.Variables, clone.Variables);
+        Assert.NotSame(original.Extensions, clone.Extensions);
+        Assert.Equal("prod", clone.Variables!["env"].Default);
+    }
+
+    [Fact]
+    public void RuntimeExpressionAnyWrapper_CreateShallowCopy_ClonesJsonAny()
+    {
+        var original = new RuntimeExpressionAnyWrapper
+        {
+            Expression = RuntimeExpression.Build("$response.body#/id"),
+            Any = JsonNode.Parse("{\"id\":1}")
+        };
+
+        var clone = original.CreateShallowCopy();
+
+        Assert.NotSame(original, clone);
+        Assert.NotSame(original.Any, clone.Any);
+
+        var cloneObj = Assert.IsType<JsonObject>(clone.Any);
+        cloneObj["id"] = 2;
+        var originalObj = Assert.IsType<JsonObject>(original.Any);
+        Assert.Equal(1, (int)originalObj["id"]!);
+    }
+
+    [Fact]
+    public void RuntimeExpressionAnyWrapperDictionary_CreateShallowCopy_ReturnsNullForNullInput()
+    {
+        IDictionary<string, RuntimeExpressionAnyWrapper>? parameters = null;
+
+        var clone = parameters.CreateShallowCopy();
+
+        Assert.Null(clone);
+    }
 }

@@ -93,7 +93,7 @@ public sealed class OpenApiComponentAnnotationScannerFlowTests
             var result = OpenApiComponentAnnotationScanner.ScanFromPath(path);
 
             Assert.True(result.ContainsKey("name"));
-            Assert.Single(result["name"].Annotations);
+            _ = Assert.Single(result["name"].Annotations);
         }
         finally
         {

@@ -68,7 +68,7 @@ public sealed class OpenApiDocDescriptorAnnotatedFunctionsAdditionalBranchesTest
         var descriptor = new OpenApiDocDescriptor(host, OpenApiDocDescriptor.DefaultDocumentationId);
         var metadata = new OpenAPIPathMetadata(new MapRouteOptions());
 
-        var attr = new OpenApiExtensionAttribute { Name = "x-meta", Json = "{\"a\":1}" };
+        var attr = new OpenApiExtensionAttribute { Name = "x-meta", Json = /*lang=json,strict*/ "{\"a\":1}" };
         _ = InvokeInstance(descriptor, "ApplyExtensionAttribute", [metadata, attr]);
 
         Assert.NotNull(metadata.Extensions);
@@ -136,9 +136,9 @@ public sealed class OpenApiDocDescriptorAnnotatedFunctionsAdditionalBranchesTest
         using var host = new KestrunHost("Tests", Log.Logger);
         var descriptor = new OpenApiDocDescriptor(host, OpenApiDocDescriptor.DefaultDocumentationId);
 
-        var result = InvokePrivateWithOuts(descriptor, "TryGetFirstRequestBodySchema", ["missing", null]);
+        var (Result, Args) = InvokePrivateWithOuts(descriptor, "TryGetFirstRequestBodySchema", ["missing", null]);
 
-        Assert.False((bool)result.Result!);
+        Assert.False((bool)Result!);
     }
 
     [Fact]

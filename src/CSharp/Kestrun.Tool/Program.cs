@@ -1266,24 +1266,88 @@ internal static partial class Program
     /// <returns>True when script source is valid and exists.</returns>
     private static bool TryResolveServiceScriptSource(ParsedCommand command, out ResolvedServiceScriptSource scriptSource, out string error)
     {
-        _ = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
         var requestedScriptPath = ResolveRequestedServiceScriptPath(command.ScriptPath);
         var optionFlags = GetServiceContentRootOptionFlags(command);
-        if (string.IsNullOrWhiteSpace(command.ServiceContentRoot))
+        if (!TryClassifyServiceContentRoot(command.ServiceContentRoot, out _, out var contentRootUri, out var fullContentRoot))
         {
             return TryResolveServiceScriptWithoutContentRoot(requestedScriptPath, optionFlags, out scriptSource, out error);
         }
 
-        var contentRootInput = command.ServiceContentRoot.Trim();
-        if (TryParseServiceContentRootHttpUri(contentRootInput, out var contentRootUri))
+        return TryResolveServiceScriptFromContentRoot(
+            command,
+            requestedScriptPath,
+            contentRootUri,
+            fullContentRoot,
+            optionFlags,
+            out scriptSource,
+            out error);
+    }
+
+    /// <summary>
+    /// Classifies service content-root input into normalized local path or HTTP(S) URI forms.
+    /// </summary>
+    /// <param name="rawContentRoot">Raw content-root token from CLI arguments.</param>
+    /// <param name="normalizedContentRoot">Trimmed content-root token.</param>
+    /// <param name="contentRootUri">Parsed HTTP(S) URI when the content root is remote; otherwise null.</param>
+    /// <param name="fullContentRoot">Normalized absolute local path when the content root is local; otherwise empty.</param>
+    /// <returns>True when a content-root value exists; false when no content-root was supplied.</returns>
+    private static bool TryClassifyServiceContentRoot(
+        string? rawContentRoot,
+        out string normalizedContentRoot,
+        out Uri? contentRootUri,
+        out string fullContentRoot)
+    {
+        normalizedContentRoot = string.Empty;
+        contentRootUri = null;
+        fullContentRoot = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(rawContentRoot))
+        {
+            return false;
+        }
+
+        normalizedContentRoot = rawContentRoot.Trim();
+        if (TryParseServiceContentRootHttpUri(normalizedContentRoot, out var parsedUri))
+        {
+            contentRootUri = parsedUri;
+            return true;
+        }
+
+        fullContentRoot = Path.GetFullPath(normalizedContentRoot);
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves service script source for a classified content-root input.
+    /// </summary>
+    /// <param name="command">Parsed service command.</param>
+    /// <param name="requestedScriptPath">Requested script path argument.</param>
+    /// <param name="contentRootUri">Parsed HTTP(S) content-root URI when applicable.</param>
+    /// <param name="fullContentRoot">Absolute local content-root path when applicable.</param>
+    /// <param name="optionFlags">Content-root related option usage flags.</param>
+    /// <param name="scriptSource">Resolved script source details.</param>
+    /// <param name="error">Error details when resolution fails.</param>
+    /// <returns>True when script source resolution succeeds.</returns>
+    private static bool TryResolveServiceScriptFromContentRoot(
+        ParsedCommand command,
+        string requestedScriptPath,
+        Uri? contentRootUri,
+        string fullContentRoot,
+        ServiceContentRootOptionFlags optionFlags,
+        out ResolvedServiceScriptSource scriptSource,
+        out string error)
+    {
+        if (contentRootUri is not null)
         {
             return TryResolveServiceScriptFromHttpContentRoot(command, requestedScriptPath, contentRootUri, out scriptSource, out error);
         }
 
-        var fullContentRoot = Path.GetFullPath(contentRootInput);
-        return Directory.Exists(fullContentRoot)
-            ? TryResolveServiceScriptFromDirectoryContentRoot(requestedScriptPath, fullContentRoot, optionFlags, out scriptSource, out error)
-            : TryResolveServiceScriptFromArchiveContentRoot(command, requestedScriptPath, fullContentRoot, optionFlags, out scriptSource, out error);
+        if (Directory.Exists(fullContentRoot))
+        {
+            return TryResolveServiceScriptFromDirectoryContentRoot(requestedScriptPath, fullContentRoot, optionFlags, out scriptSource, out error);
+        }
+
+        return TryResolveServiceScriptFromArchiveContentRoot(command, requestedScriptPath, fullContentRoot, optionFlags, out scriptSource, out error);
     }
 
     /// <summary>

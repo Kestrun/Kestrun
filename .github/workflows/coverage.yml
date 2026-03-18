@@ -204,7 +204,7 @@ jobs:
               shell: pwsh
               run: |
                   dotnet kestrun module info
-            
+
             - name: 🧪 Test (Pester) with coverage (JaCoCo, Pester 5)
               shell: pwsh
               run: |
@@ -336,7 +336,11 @@ jobs:
                   ./Utility/Build-Coverage.ps1 `
                     -Framework "net8.0" `
                     -Configuration "Release" `
-                    -TestProject ".\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj" `
+                    -TestProjects @(
+                        ".\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj",
+                        ".\tests\CSharp.Tests\Kestrun.Tool.Tests\Kestrun.Tool.Tests.csproj",
+                        ".\tests\CSharp.Tests\Kestrun.ServiceHost.Tests\Kestrun.ServiceHost.Tests.csproj"
+                    ) `
                     -CoverageDir ".\coverage" `
                     -PesterPath ".\tests\PowerShell.Tests\Kestrun.Tests" `
                     -ReportGenerator `

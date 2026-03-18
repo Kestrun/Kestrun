@@ -2,7 +2,7 @@
 using System.Reflection;
 using Xunit;
 
-namespace KestrunTests.Tooling;
+namespace Kestrun.ServiceHost.Tests.ServiceHost;
 
 public class ServiceHostArgumentParsingTests
 {
@@ -65,6 +65,48 @@ public class ServiceHostArgumentParsingTests
         Assert.True(GetParsedOptionsBool(parsedOptions, "DirectRunMode"));
         Assert.True(GetParsedOptionsBool(parsedOptions, "DiscoverPowerShellHome"));
         Assert.Equal(["--port", "5000"], GetParsedOptionsScriptArguments(parsedOptions));
+    }
+
+    [Fact]
+    [Trait("Category", "ServiceHost")]
+    public void TryParseArguments_WithScriptAndNoName_UsesScriptStemAsDefaultServiceName()
+    {
+        var scriptPath = Path.Combine(Path.GetTempPath(), "museum-api.ps1");
+        var moduleManifestPath = Path.Combine(Path.GetTempPath(), "Kestrun.psd1");
+
+        var (success, parsedOptions, error) = InvokeTryParseArguments([
+            "--script", scriptPath,
+            "--kestrun-manifest", moduleManifestPath,
+        ]);
+
+        Assert.True(success);
+        Assert.Equal(string.Empty, error);
+        Assert.NotNull(parsedOptions);
+
+        Assert.Equal("museum-api", GetParsedOptionsString(parsedOptions, "ServiceName"));
+        Assert.False(GetParsedOptionsBool(parsedOptions, "DirectRunMode"));
+    }
+
+    [Fact]
+    [Trait("Category", "ServiceHost")]
+    public void TryParseArguments_WithRunAndRootPath_UsesDirectFallbackServiceName()
+    {
+        var rootPath = Path.GetPathRoot(Path.GetTempPath());
+        Assert.False(string.IsNullOrWhiteSpace(rootPath));
+
+        var moduleManifestPath = Path.Combine(Path.GetTempPath(), "Kestrun.psd1");
+
+        var (success, parsedOptions, error) = InvokeTryParseArguments([
+            "--run", rootPath,
+            "--kestrun-manifest", moduleManifestPath,
+        ]);
+
+        Assert.True(success);
+        Assert.Equal(string.Empty, error);
+        Assert.NotNull(parsedOptions);
+
+        Assert.Equal("kestrun-direct", GetParsedOptionsString(parsedOptions, "ServiceName"));
+        Assert.True(GetParsedOptionsBool(parsedOptions, "DirectRunMode"));
     }
 
     private static Type ResolveProgramType()

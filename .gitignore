@@ -101,3 +101,4 @@ src/PowerShell/Kestrun/kestrun.ps1
 src/PowerShell/Kestrun/kestrun.sh
 /pws
 /src/CSharp/Kestrun.Tool/kestrun-service
+/coverage-site-local

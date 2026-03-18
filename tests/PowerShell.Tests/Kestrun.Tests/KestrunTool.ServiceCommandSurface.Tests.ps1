@@ -63,7 +63,7 @@ Describe 'KestrunTool service command surface' {
         $result.Output | Should -Match 'service-log-path <path-to-log-file>'
         $result.Output | Should -Match 'service-user <account>'
         $result.Output | Should -Match 'service-password <secret>'
-        $result.Output | Should -Match 'content-root <folder>'
+        $result.Output | Should -Match 'content-root <folder(?:-or-archive)?>'
         $result.Output | Should -Match 'deployment-root <folder>'
         $result.Output | Should -Match 'shows progress bars during bundle staging'
     }

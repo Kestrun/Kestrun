@@ -152,6 +152,13 @@ $KestrunProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestr
 $KestrunAnnotationsProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Annotations/Kestrun.Annotations.csproj'
 $KestrunToolProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
 $KestrunServiceHostProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.ServiceHost/Kestrun.ServiceHost.csproj'
+$KestrunCoreTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Tests/KestrunTests.csproj'
+$KestrunToolTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Tool.Tests/Kestrun.Tool.Tests.csproj'
+$KestrunServiceHostTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.ServiceHost.Tests/Kestrun.ServiceHost.Tests.csproj'
+$KestrunDedicatedNet10TestProjects = @(
+    $KestrunToolTestProjectPath,
+    $KestrunServiceHostTestProjectPath
+)
 $KestrunToolRuntimeIdentifiers = @('win-x64', 'win-arm64', 'linux-x64', 'linux-arm64', 'osx-x64', 'osx-arm64')
 $ExamplesSolutionFilter = Join-Path -Path $PSScriptRoot -ChildPath 'Examples.slnf'
 $KestrunToolPowerShellCacheRoot = Join-Path -Path $PSScriptRoot -ChildPath '.package' -AdditionalChildPath 'powershell-cache'
@@ -471,16 +478,33 @@ Add-BuildTask 'Nuget-CodeAnalysis' {
 Add-BuildTask 'Test-xUnit' {
     Write-Host '🧪 Running Kestrun DLL tests...'
     $failures = @()
+
+    # Run the shared Kestrun core test suite for each requested framework.
     foreach ($framework in $Frameworks) {
-        Write-Host "▶️ Running tests for $framework"
-        dotnet test "$SolutionPath" -c $Configuration -f $framework -v:$DotNetVerbosity
+        Write-Host "▶️ Running Kestrun core tests for $framework"
+        dotnet test "$KestrunCoreTestProjectPath" -c $Configuration -f $framework -v:$DotNetVerbosity
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "❌ Tests failed for $framework" -ForegroundColor Red
-            $failures += $framework
+            Write-Host "❌ Core tests failed for $framework" -ForegroundColor Red
+            $failures += "KestrunTests ($framework)"
         }
     }
+
+    if ($Frameworks -contains 'net10.0') {
+        foreach ($dedicatedTestProject in $KestrunDedicatedNet10TestProjects) {
+            $testProjectName = [System.IO.Path]::GetFileNameWithoutExtension($dedicatedTestProject)
+            Write-Host "▶️ Running dedicated tests for $testProjectName (net10.0)"
+            dotnet test "$dedicatedTestProject" -c $Configuration -f net10.0 -v:$DotNetVerbosity
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "❌ Dedicated tests failed for $testProjectName (net10.0)" -ForegroundColor Red
+                $failures += "$testProjectName (net10.0)"
+            }
+        }
+    } else {
+        Write-Host "ℹ️ Skipping dedicated Tool/ServiceHost tests because net10.0 is not in -Frameworks." -ForegroundColor Yellow
+    }
+
     if ($failures.Count -gt 0) {
-        throw "Test-xUnit failed for frameworks: $($failures -join ', ')"
+        throw "Test-xUnit failed for targets: $($failures -join ', ')"
     }
 }
 
@@ -626,7 +650,11 @@ Add-BuildTask 'Clean_CSharp_Help' {
 # Code Coverage
 Add-BuildTask 'Coverage' {
     Write-Host '📊 Creating coverage report...'
-    & .\Utility\Build-Coverage.ps1
+    & .\Utility\Build-Coverage.ps1 -TestProjects @(
+        $KestrunCoreTestProjectPath,
+        $KestrunToolTestProjectPath,
+        $KestrunServiceHostTestProjectPath
+    )
     if ($LASTEXITCODE -ne 0) {
         Write-Host '❌ Coverage generation failed' -ForegroundColor Red
         throw 'Coverage generation failed'
@@ -636,7 +664,11 @@ Add-BuildTask 'Coverage' {
 # Report coverage
 Add-BuildTask 'Report-Coverage' {
     Write-Host '🌐 Creating coverage report webpage...'
-    & .\Utility\Build-Coverage.ps1 -ReportGenerator
+    & .\Utility\Build-Coverage.ps1 -ReportGenerator -TestProjects @(
+        $KestrunCoreTestProjectPath,
+        $KestrunToolTestProjectPath,
+        $KestrunServiceHostTestProjectPath
+    )
     if ($LASTEXITCODE -ne 0) {
         Write-Host '❌ Coverage Report generation failed' -ForegroundColor Red
         throw 'Coverage Report generation failed'

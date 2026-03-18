@@ -1908,7 +1908,7 @@ internal static partial class Program
             }
 
             var isDirectory = string.IsNullOrEmpty(entry.Name)
-                || entry.FullName.EndsWith("/", StringComparison.Ordinal)
+                || entry.FullName.EndsWith('/')
                 || entry.FullName.EndsWith("\\", StringComparison.Ordinal);
             if (isDirectory)
             {

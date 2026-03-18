@@ -71,16 +71,28 @@ internal static partial class Program
             return false;
         }
 
-        var locatedModuleManifestPath = LocateModuleManifest(command.KestrunManifestPath, command.KestrunFolder);
-        if (locatedModuleManifestPath is null)
+        var cleanupScriptSourceOnFailure = true;
+        try
         {
-            WriteModuleNotFoundMessage(command.KestrunManifestPath, command.KestrunFolder, Console.Error.WriteLine);
-            exitCode = 3;
-            return false;
-        }
+            var locatedModuleManifestPath = LocateModuleManifest(command.KestrunManifestPath, command.KestrunFolder);
+            if (locatedModuleManifestPath is null)
+            {
+                WriteModuleNotFoundMessage(command.KestrunManifestPath, command.KestrunFolder, Console.Error.WriteLine);
+                exitCode = 3;
+                return false;
+            }
 
-        moduleManifestPath = locatedModuleManifestPath;
-        return true;
+            moduleManifestPath = locatedModuleManifestPath;
+            cleanupScriptSourceOnFailure = false;
+            return true;
+        }
+        finally
+        {
+            if (cleanupScriptSourceOnFailure)
+            {
+                TryCleanupTemporaryServiceContentRoot(scriptSource.TemporaryContentRootPath);
+            }
+        }
     }
 
     /// <summary>

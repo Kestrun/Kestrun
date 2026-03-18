@@ -1885,24 +1885,194 @@ internal static partial class Program
         error = string.Empty;
 
         var resolvedFileName = TryResolveServiceContentRootArchiveFileName(uri, response)
-            ?? "content-root.zip";
+            ?? "content-root";
         resolvedFileName = Path.GetFileName(resolvedFileName);
         if (string.IsNullOrWhiteSpace(resolvedFileName))
         {
-            resolvedFileName = "content-root.zip";
+            resolvedFileName = "content-root";
         }
 
-        if (!IsSupportedServiceContentRootArchive(resolvedFileName))
+        var provisionalArchivePath = Path.Combine(temporaryRoot, resolvedFileName);
+        using (var sourceStream = response.Content.ReadAsStreamAsync().GetAwaiter().GetResult())
+        using (var destinationStream = File.Create(provisionalArchivePath))
         {
-            error = $"Downloaded content root from '{uri}' is not a supported archive (.zip, .tar, .tgz, .tar.gz).";
+            sourceStream.CopyTo(destinationStream);
+        }
+
+        if (!TryResolveDownloadedServiceContentRootArchiveFileName(
+                uri,
+                resolvedFileName,
+                provisionalArchivePath,
+                response,
+                out var finalizedFileName,
+                out error))
+        {
+            try
+            {
+                if (File.Exists(provisionalArchivePath))
+                {
+                    File.Delete(provisionalArchivePath);
+                }
+            }
+            catch
+            {
+                // Ignore cleanup errors because the original archive-validation error is more actionable.
+            }
             return false;
         }
 
-        archivePath = Path.Combine(temporaryRoot, resolvedFileName);
-        using var sourceStream = response.Content.ReadAsStreamAsync().GetAwaiter().GetResult();
-        using var destinationStream = File.Create(archivePath);
-        sourceStream.CopyTo(destinationStream);
+        archivePath = provisionalArchivePath;
+        if (!string.Equals(finalizedFileName, resolvedFileName, StringComparison.OrdinalIgnoreCase))
+        {
+            var finalizedArchivePath = Path.Combine(temporaryRoot, finalizedFileName);
+            File.Move(provisionalArchivePath, finalizedArchivePath, overwrite: true);
+            archivePath = finalizedArchivePath;
+        }
+
         return true;
+    }
+
+    /// <summary>
+    /// Resolves a supported archive file name for a downloaded content-root payload.
+    /// </summary>
+    /// <param name="uri">Source URI.</param>
+    /// <param name="resolvedFileName">Initially resolved file name candidate.</param>
+    /// <param name="downloadedArchivePath">Downloaded archive payload path.</param>
+    /// <param name="response">HTTP response metadata.</param>
+    /// <param name="finalizedFileName">Finalized archive file name with supported extension.</param>
+    /// <param name="error">Validation error details when archive type cannot be resolved.</param>
+    /// <returns>True when a supported archive file name is resolved.</returns>
+    private static bool TryResolveDownloadedServiceContentRootArchiveFileName(
+        Uri uri,
+        string resolvedFileName,
+        string downloadedArchivePath,
+        HttpResponseMessage response,
+        out string finalizedFileName,
+        out string error)
+    {
+        finalizedFileName = resolvedFileName;
+        error = string.Empty;
+
+        if (IsSupportedServiceContentRootArchive(finalizedFileName))
+        {
+            return true;
+        }
+
+        var mediaType = response.Content.Headers.ContentType?.MediaType;
+        if (TryGetServiceContentRootArchiveExtensionFromMediaType(mediaType, out var archiveExtension)
+            || TryDetectServiceContentRootArchiveExtensionFromSignature(downloadedArchivePath, out archiveExtension))
+        {
+            finalizedFileName = BuildServiceContentRootArchiveFileName(resolvedFileName, archiveExtension);
+            return true;
+        }
+
+        error = $"Downloaded content root from '{uri}' is not a supported archive (.zip, .tar, .tgz, .tar.gz).";
+        return false;
+    }
+
+    /// <summary>
+    /// Maps content-type metadata to a preferred service content-root archive extension.
+    /// </summary>
+    /// <param name="mediaType">HTTP response media type.</param>
+    /// <param name="archiveExtension">Resolved archive extension when available.</param>
+    /// <returns>True when the media type maps to a supported archive extension.</returns>
+    private static bool TryGetServiceContentRootArchiveExtensionFromMediaType(string? mediaType, out string archiveExtension)
+    {
+        switch (mediaType?.ToLowerInvariant())
+        {
+            case "application/zip":
+            case "application/x-zip-compressed":
+                archiveExtension = ".zip";
+                return true;
+            case "application/x-tar":
+                archiveExtension = ".tar";
+                return true;
+            case "application/gzip":
+            case "application/x-gzip":
+                archiveExtension = ".tgz";
+                return true;
+            default:
+                archiveExtension = string.Empty;
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Detects archive extension from file signature when metadata does not provide a usable file name.
+    /// </summary>
+    /// <param name="archivePath">Downloaded archive payload path.</param>
+    /// <param name="archiveExtension">Detected archive extension.</param>
+    /// <returns>True when a supported archive signature is recognized.</returns>
+    private static bool TryDetectServiceContentRootArchiveExtensionFromSignature(string archivePath, out string archiveExtension)
+    {
+        archiveExtension = string.Empty;
+        try
+        {
+            Span<byte> signature = stackalloc byte[512];
+            using var stream = File.OpenRead(archivePath);
+            var bytesRead = stream.Read(signature);
+            if (bytesRead <= 0)
+            {
+                return false;
+            }
+
+            if (bytesRead >= 4
+                && signature[0] == 0x50
+                && signature[1] == 0x4B
+                && ((signature[2] == 0x03 && signature[3] == 0x04)
+                    || (signature[2] == 0x05 && signature[3] == 0x06)
+                    || (signature[2] == 0x07 && signature[3] == 0x08)))
+            {
+                archiveExtension = ".zip";
+                return true;
+            }
+
+            if (bytesRead >= 2 && signature[0] == 0x1F && signature[1] == 0x8B)
+            {
+                archiveExtension = ".tgz";
+                return true;
+            }
+
+            if (bytesRead >= 262
+                && signature[257] == (byte)'u'
+                && signature[258] == (byte)'s'
+                && signature[259] == (byte)'t'
+                && signature[260] == (byte)'a'
+                && signature[261] == (byte)'r')
+            {
+                archiveExtension = ".tar";
+                return true;
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Builds a normalized archive file name using the detected archive extension.
+    /// </summary>
+    /// <param name="resolvedFileName">Initially resolved file name candidate.</param>
+    /// <param name="archiveExtension">Detected archive extension.</param>
+    /// <returns>Normalized file name with archive extension.</returns>
+    private static string BuildServiceContentRootArchiveFileName(string resolvedFileName, string archiveExtension)
+    {
+        var baseName = Path.GetFileNameWithoutExtension(resolvedFileName);
+        if (archiveExtension.Equals(".tar.gz", StringComparison.OrdinalIgnoreCase)
+            && resolvedFileName.EndsWith(".tar", StringComparison.OrdinalIgnoreCase))
+        {
+            baseName = Path.GetFileNameWithoutExtension(baseName);
+        }
+
+        if (string.IsNullOrWhiteSpace(baseName))
+        {
+            baseName = "content-root";
+        }
+
+        return $"{baseName}{archiveExtension}";
     }
 
     /// <summary>
@@ -1930,14 +2100,11 @@ internal static partial class Program
             return uriFileName;
         }
 
-        var mediaType = response.Content.Headers.ContentType?.MediaType?.ToLowerInvariant();
-        return mediaType switch
-        {
-            "application/zip" or "application/x-zip-compressed" => "content-root.zip",
-            "application/x-tar" => "content-root.tar",
-            "application/gzip" or "application/x-gzip" => "content-root.tgz",
-            _ => null,
-        };
+        return TryGetServiceContentRootArchiveExtensionFromMediaType(
+            response.Content.Headers.ContentType?.MediaType,
+            out var archiveExtension)
+            ? BuildServiceContentRootArchiveFileName("content-root", archiveExtension)
+            : null;
     }
 
     /// <summary>

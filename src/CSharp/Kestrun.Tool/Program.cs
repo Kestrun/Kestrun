@@ -1266,194 +1266,209 @@ internal static partial class Program
     /// <returns>True when script source is valid and exists.</returns>
     private static bool TryResolveServiceScriptSource(ParsedCommand command, out ResolvedServiceScriptSource scriptSource, out string error)
     {
-        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
-        error = string.Empty;
-
-        var requestedScriptPath = string.IsNullOrWhiteSpace(command.ScriptPath)
-            ? DefaultScriptFileName
-            : command.ScriptPath;
-
-        var hasArchiveChecksum = !string.IsNullOrWhiteSpace(command.ServiceContentRootChecksum);
-        var hasContentRootBearerToken = !string.IsNullOrWhiteSpace(command.ServiceContentRootBearerToken);
-        var ignoreContentRootCertificate = command.ServiceContentRootIgnoreCertificate;
-        var hasContentRootHeaders = command.ServiceContentRootHeaders.Length > 0;
-
+        _ = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
+        var requestedScriptPath = ResolveRequestedServiceScriptPath(command.ScriptPath);
+        var optionFlags = GetServiceContentRootOptionFlags(command);
         if (string.IsNullOrWhiteSpace(command.ServiceContentRoot))
         {
-            if (hasArchiveChecksum)
-            {
-                error = "--content-root-checksum requires --content-root to be an archive file path.";
-                return false;
-            }
-
-            if (hasContentRootBearerToken)
-            {
-                error = "--content-root-bearer-token requires --content-root to be an HTTP(S) archive URL.";
-                return false;
-            }
-
-            if (ignoreContentRootCertificate)
-            {
-                error = "--content-root-ignore-certificate requires --content-root to be an HTTPS archive URL.";
-                return false;
-            }
-
-            if (hasContentRootHeaders)
-            {
-                error = "--content-root-header requires --content-root to be an HTTP(S) archive URL.";
-                return false;
-            }
-
-            var fullScriptPath = Path.GetFullPath(requestedScriptPath);
-            if (!File.Exists(fullScriptPath))
-            {
-                error = $"Script file not found: {fullScriptPath}";
-                return false;
-            }
-
-            scriptSource = new ResolvedServiceScriptSource(fullScriptPath, null, Path.GetFileName(fullScriptPath), null);
-            return true;
+            return TryResolveServiceScriptWithoutContentRoot(requestedScriptPath, optionFlags, out scriptSource, out error);
         }
 
         var contentRootInput = command.ServiceContentRoot.Trim();
         if (TryParseServiceContentRootHttpUri(contentRootInput, out var contentRootUri))
         {
-            if (Path.IsPathRooted(requestedScriptPath))
-            {
-                error = "When --content-root is a URL archive, --script must be a relative path inside the archive.";
-                return false;
-            }
-
-            var temporaryRoot = CreateServiceContentRootExtractionDirectory(command.ServiceName);
-            var downloadedContentRoot = Path.Combine(temporaryRoot, "content");
-            _ = Directory.CreateDirectory(downloadedContentRoot);
-
-            try
-            {
-                if (!TryDownloadServiceContentRootArchive(
-                        contentRootUri,
-                        temporaryRoot,
-                        command.ServiceContentRootBearerToken,
-                    command.ServiceContentRootHeaders,
-                        command.ServiceContentRootIgnoreCertificate,
-                        out var downloadedArchivePath,
-                        out error))
-                {
-                    TryDeleteDirectoryWithRetry(temporaryRoot, maxAttempts: 5, initialDelayMs: 50);
-                    return false;
-                }
-
-                if (!TryValidateServiceContentRootArchiveChecksum(command, downloadedArchivePath, out error))
-                {
-                    TryDeleteDirectoryWithRetry(temporaryRoot, maxAttempts: 5, initialDelayMs: 50);
-                    return false;
-                }
-
-                if (!TryExtractServiceContentRootArchive(downloadedArchivePath, downloadedContentRoot, out error))
-                {
-                    TryDeleteDirectoryWithRetry(temporaryRoot, maxAttempts: 5, initialDelayMs: 50);
-                    return false;
-                }
-
-                var fullScriptPathFromArchive = Path.GetFullPath(Path.Combine(downloadedContentRoot, requestedScriptPath));
-                if (!IsPathWithinDirectory(fullScriptPathFromArchive, downloadedContentRoot))
-                {
-                    error = $"Script path '{requestedScriptPath}' escapes the extracted archive content root.";
-                    TryDeleteDirectoryWithRetry(temporaryRoot, maxAttempts: 5, initialDelayMs: 50);
-                    return false;
-                }
-
-                if (!File.Exists(fullScriptPathFromArchive))
-                {
-                    error = $"Script file '{requestedScriptPath}' was not found inside extracted archive downloaded from '{contentRootUri}'.";
-                    TryDeleteDirectoryWithRetry(temporaryRoot, maxAttempts: 5, initialDelayMs: 50);
-                    return false;
-                }
-
-                var relativeScriptPath = Path.GetRelativePath(downloadedContentRoot, fullScriptPathFromArchive);
-                scriptSource = new ResolvedServiceScriptSource(fullScriptPathFromArchive, downloadedContentRoot, relativeScriptPath, temporaryRoot);
-                return true;
-            }
-            catch
-            {
-                TryDeleteDirectoryWithRetry(temporaryRoot, maxAttempts: 5, initialDelayMs: 50);
-                throw;
-            }
+            return TryResolveServiceScriptFromHttpContentRoot(command, requestedScriptPath, contentRootUri, out scriptSource, out error);
         }
 
         var fullContentRoot = Path.GetFullPath(contentRootInput);
+        return Directory.Exists(fullContentRoot)
+            ? TryResolveServiceScriptFromDirectoryContentRoot(requestedScriptPath, fullContentRoot, optionFlags, out scriptSource, out error)
+            : TryResolveServiceScriptFromArchiveContentRoot(command, requestedScriptPath, fullContentRoot, optionFlags, out scriptSource, out error);
+    }
 
-        if (Directory.Exists(fullContentRoot))
+    /// <summary>
+    /// Represents parsed option usage for content-root related arguments.
+    /// </summary>
+    private readonly record struct ServiceContentRootOptionFlags(
+        bool HasArchiveChecksum,
+        bool HasBearerToken,
+        bool IgnoreCertificate,
+        bool HasHeaders);
+
+    /// <summary>
+    /// Resolves the script path value for service install commands, applying default script fallback.
+    /// </summary>
+    /// <param name="scriptPath">Requested script path argument.</param>
+    /// <returns>Resolved script path token.</returns>
+    private static string ResolveRequestedServiceScriptPath(string scriptPath)
+        => string.IsNullOrWhiteSpace(scriptPath) ? DefaultScriptFileName : scriptPath;
+
+    /// <summary>
+    /// Captures which content-root related options were supplied on the command line.
+    /// </summary>
+    /// <param name="command">Parsed service command.</param>
+    /// <returns>Normalized option usage flags.</returns>
+    private static ServiceContentRootOptionFlags GetServiceContentRootOptionFlags(ParsedCommand command)
+        => new(
+            !string.IsNullOrWhiteSpace(command.ServiceContentRootChecksum),
+            !string.IsNullOrWhiteSpace(command.ServiceContentRootBearerToken),
+            command.ServiceContentRootIgnoreCertificate,
+            command.ServiceContentRootHeaders.Length > 0);
+
+    /// <summary>
+    /// Resolves script source when no content-root argument is provided.
+    /// </summary>
+    /// <param name="requestedScriptPath">Requested script path.</param>
+    /// <param name="optionFlags">Content-root related option flags.</param>
+    /// <param name="scriptSource">Resolved script source details.</param>
+    /// <param name="error">Error details when validation fails.</param>
+    /// <returns>True when script resolution succeeds.</returns>
+    private static bool TryResolveServiceScriptWithoutContentRoot(
+        string requestedScriptPath,
+        ServiceContentRootOptionFlags optionFlags,
+        out ResolvedServiceScriptSource scriptSource,
+        out string error)
+    {
+        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
+        if (!TryValidateOptionsForMissingContentRoot(optionFlags, out error))
         {
-            if (hasArchiveChecksum)
-            {
-                error = "--content-root-checksum is only supported when --content-root points to an archive file.";
-                return false;
-            }
-
-            if (hasContentRootBearerToken)
-            {
-                error = "--content-root-bearer-token is only supported when --content-root points to an HTTP(S) archive URL.";
-                return false;
-            }
-
-            if (ignoreContentRootCertificate)
-            {
-                error = "--content-root-ignore-certificate is only supported when --content-root points to an HTTPS archive URL.";
-                return false;
-            }
-
-            if (hasContentRootHeaders)
-            {
-                error = "--content-root-header is only supported when --content-root points to an HTTP(S) archive URL.";
-                return false;
-            }
-
-            if (Path.IsPathRooted(requestedScriptPath))
-            {
-                error = "When --content-root is specified, --script must be a relative path within that folder.";
-                return false;
-            }
-
-            var fullScriptPathFromRoot = Path.GetFullPath(Path.Combine(fullContentRoot, requestedScriptPath));
-            if (!IsPathWithinDirectory(fullScriptPathFromRoot, fullContentRoot))
-            {
-                error = $"Script path '{requestedScriptPath}' escapes the service content root '{fullContentRoot}'.";
-                return false;
-            }
-
-            if (!File.Exists(fullScriptPathFromRoot))
-            {
-                error = $"Script file '{requestedScriptPath}' was not found under service content root '{fullContentRoot}'.";
-                return false;
-            }
-
-            var relativeScriptPath = Path.GetRelativePath(fullContentRoot, fullScriptPathFromRoot);
-            scriptSource = new ResolvedServiceScriptSource(fullScriptPathFromRoot, fullContentRoot, relativeScriptPath, null);
-            return true;
+            return false;
         }
 
+        var fullScriptPath = Path.GetFullPath(requestedScriptPath);
+        if (!File.Exists(fullScriptPath))
+        {
+            error = $"Script file not found: {fullScriptPath}";
+            return false;
+        }
+
+        scriptSource = new ResolvedServiceScriptSource(fullScriptPath, null, Path.GetFileName(fullScriptPath), null);
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves script source when content-root points to an HTTP(S) archive.
+    /// </summary>
+    /// <param name="command">Parsed service command.</param>
+    /// <param name="requestedScriptPath">Requested script path.</param>
+    /// <param name="contentRootUri">HTTP(S) archive URI.</param>
+    /// <param name="optionFlags">Content-root related option flags.</param>
+    /// <param name="scriptSource">Resolved script source details.</param>
+    /// <param name="error">Error details when validation fails.</param>
+    /// <returns>True when script resolution succeeds.</returns>
+    private static bool TryResolveServiceScriptFromHttpContentRoot(
+        ParsedCommand command,
+        string requestedScriptPath,
+        Uri contentRootUri,
+        out ResolvedServiceScriptSource scriptSource,
+        out string error)
+    {
+        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
+        if (!TryValidateHttpContentRootScriptPath(requestedScriptPath, out error))
+        {
+            return false;
+        }
+
+        var temporaryRoot = CreateServiceContentRootExtractionDirectory(command.ServiceName);
+        var downloadedContentRoot = Path.Combine(temporaryRoot, "content");
+        _ = Directory.CreateDirectory(downloadedContentRoot);
+
+        try
+        {
+            if (!TryDownloadAndExtractHttpContentRoot(command, contentRootUri, temporaryRoot, downloadedContentRoot, out error))
+            {
+                TryDeleteDirectoryWithRetry(temporaryRoot, maxAttempts: 5, initialDelayMs: 50);
+                return false;
+            }
+
+            if (!TryResolveScriptFromResolvedContentRoot(
+                    requestedScriptPath,
+                    downloadedContentRoot,
+                    $"Script path '{requestedScriptPath}' escapes the extracted archive content root.",
+                    $"Script file '{requestedScriptPath}' was not found inside extracted archive downloaded from '{contentRootUri}'.",
+                    temporaryRoot,
+                    out scriptSource,
+                    out error))
+            {
+                TryDeleteDirectoryWithRetry(temporaryRoot, maxAttempts: 5, initialDelayMs: 50);
+                return false;
+            }
+
+            return true;
+        }
+        catch
+        {
+            TryDeleteDirectoryWithRetry(temporaryRoot, maxAttempts: 5, initialDelayMs: 50);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Resolves script source when content-root points to a local directory.
+    /// </summary>
+    /// <param name="requestedScriptPath">Requested script path.</param>
+    /// <param name="fullContentRoot">Absolute content-root directory path.</param>
+    /// <param name="optionFlags">Content-root related option flags.</param>
+    /// <param name="scriptSource">Resolved script source details.</param>
+    /// <param name="error">Error details when validation fails.</param>
+    /// <returns>True when script resolution succeeds.</returns>
+    private static bool TryResolveServiceScriptFromDirectoryContentRoot(
+        string requestedScriptPath,
+        string fullContentRoot,
+        ServiceContentRootOptionFlags optionFlags,
+        out ResolvedServiceScriptSource scriptSource,
+        out string error)
+    {
+        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
+        if (!TryValidateDirectoryContentRootOptions(optionFlags, out error))
+        {
+            return false;
+        }
+
+        if (Path.IsPathRooted(requestedScriptPath))
+        {
+            error = "When --content-root is specified, --script must be a relative path within that folder.";
+            return false;
+        }
+
+        return TryResolveScriptFromResolvedContentRoot(
+            requestedScriptPath,
+            fullContentRoot,
+            $"Script path '{requestedScriptPath}' escapes the service content root '{fullContentRoot}'.",
+            $"Script file '{requestedScriptPath}' was not found under service content root '{fullContentRoot}'.",
+            null,
+            out scriptSource,
+            out error);
+    }
+
+    /// <summary>
+    /// Resolves script source when content-root points to a local archive file.
+    /// </summary>
+    /// <param name="command">Parsed service command.</param>
+    /// <param name="requestedScriptPath">Requested script path.</param>
+    /// <param name="fullContentRoot">Absolute archive path.</param>
+    /// <param name="optionFlags">Content-root related option flags.</param>
+    /// <param name="scriptSource">Resolved script source details.</param>
+    /// <param name="error">Error details when validation fails.</param>
+    /// <returns>True when script resolution succeeds.</returns>
+    private static bool TryResolveServiceScriptFromArchiveContentRoot(
+        ParsedCommand command,
+        string requestedScriptPath,
+        string fullContentRoot,
+        ServiceContentRootOptionFlags optionFlags,
+        out ResolvedServiceScriptSource scriptSource,
+        out string error)
+    {
+        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
         if (!File.Exists(fullContentRoot))
         {
             error = $"Service content root path was not found: {fullContentRoot}";
             return false;
         }
 
-        if (hasContentRootBearerToken)
+        if (!TryValidateLocalArchiveContentRootOptions(optionFlags, out error))
         {
-            error = "--content-root-bearer-token is only supported when --content-root points to an HTTP(S) archive URL.";
-            return false;
-        }
-
-        if (ignoreContentRootCertificate)
-        {
-            error = "--content-root-ignore-certificate is only supported when --content-root points to an HTTPS archive URL.";
-            return false;
-        }
-
-        if (hasContentRootHeaders)
-        {
-            error = "--content-root-header is only supported when --content-root points to an HTTP(S) archive URL.";
             return false;
         }
 
@@ -1483,23 +1498,19 @@ internal static partial class Program
                 return false;
             }
 
-            var fullScriptPathFromArchive = Path.GetFullPath(Path.Combine(extractedContentRoot, requestedScriptPath));
-            if (!IsPathWithinDirectory(fullScriptPathFromArchive, extractedContentRoot))
+            if (!TryResolveScriptFromResolvedContentRoot(
+                    requestedScriptPath,
+                    extractedContentRoot,
+                    $"Script path '{requestedScriptPath}' escapes the extracted archive content root.",
+                    $"Script file '{requestedScriptPath}' was not found inside extracted archive '{fullContentRoot}'.",
+                    extractedContentRoot,
+                    out scriptSource,
+                    out error))
             {
-                error = $"Script path '{requestedScriptPath}' escapes the extracted archive content root.";
                 TryDeleteDirectoryWithRetry(extractedContentRoot, maxAttempts: 5, initialDelayMs: 50);
                 return false;
             }
 
-            if (!File.Exists(fullScriptPathFromArchive))
-            {
-                error = $"Script file '{requestedScriptPath}' was not found inside extracted archive '{fullContentRoot}'.";
-                TryDeleteDirectoryWithRetry(extractedContentRoot, maxAttempts: 5, initialDelayMs: 50);
-                return false;
-            }
-
-            var relativeScriptPath = Path.GetRelativePath(extractedContentRoot, fullScriptPathFromArchive);
-            scriptSource = new ResolvedServiceScriptSource(fullScriptPathFromArchive, extractedContentRoot, relativeScriptPath, extractedContentRoot);
             return true;
         }
         catch
@@ -1507,6 +1518,190 @@ internal static partial class Program
             TryDeleteDirectoryWithRetry(extractedContentRoot, maxAttempts: 5, initialDelayMs: 50);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Validates content-root options when no content-root argument was supplied.
+    /// </summary>
+    /// <param name="optionFlags">Content-root related option flags.</param>
+    /// <param name="error">Validation error message when invalid combinations are detected.</param>
+    /// <returns>True when the option combination is valid.</returns>
+    private static bool TryValidateOptionsForMissingContentRoot(ServiceContentRootOptionFlags optionFlags, out string error)
+    {
+        if (optionFlags.HasArchiveChecksum)
+        {
+            error = "--content-root-checksum requires --content-root to be an archive file path.";
+            return false;
+        }
+
+        if (optionFlags.HasBearerToken)
+        {
+            error = "--content-root-bearer-token requires --content-root to be an HTTP(S) archive URL.";
+            return false;
+        }
+
+        if (optionFlags.IgnoreCertificate)
+        {
+            error = "--content-root-ignore-certificate requires --content-root to be an HTTPS archive URL.";
+            return false;
+        }
+
+        if (optionFlags.HasHeaders)
+        {
+            error = "--content-root-header requires --content-root to be an HTTP(S) archive URL.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates URL-only options for non-URL content roots.
+    /// </summary>
+    /// <param name="optionFlags">Content-root related option flags.</param>
+    /// <param name="error">Validation error message when invalid combinations are detected.</param>
+    /// <returns>True when URL-only options were not supplied.</returns>
+    private static bool TryValidateUrlOnlyContentRootOptions(ServiceContentRootOptionFlags optionFlags, out string error)
+    {
+        if (optionFlags.HasBearerToken)
+        {
+            error = "--content-root-bearer-token is only supported when --content-root points to an HTTP(S) archive URL.";
+            return false;
+        }
+
+        if (optionFlags.IgnoreCertificate)
+        {
+            error = "--content-root-ignore-certificate is only supported when --content-root points to an HTTPS archive URL.";
+            return false;
+        }
+
+        if (optionFlags.HasHeaders)
+        {
+            error = "--content-root-header is only supported when --content-root points to an HTTP(S) archive URL.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates option combinations for directory-based content roots.
+    /// </summary>
+    /// <param name="optionFlags">Content-root related option flags.</param>
+    /// <param name="error">Validation error message when invalid combinations are detected.</param>
+    /// <returns>True when the option combination is valid.</returns>
+    private static bool TryValidateDirectoryContentRootOptions(ServiceContentRootOptionFlags optionFlags, out string error)
+    {
+        if (optionFlags.HasArchiveChecksum)
+        {
+            error = "--content-root-checksum is only supported when --content-root points to an archive file.";
+            return false;
+        }
+
+        return TryValidateUrlOnlyContentRootOptions(optionFlags, out error);
+    }
+
+    /// <summary>
+    /// Validates option combinations for local archive content roots.
+    /// </summary>
+    /// <param name="optionFlags">Content-root related option flags.</param>
+    /// <param name="error">Validation error message when invalid combinations are detected.</param>
+    /// <returns>True when the option combination is valid.</returns>
+    private static bool TryValidateLocalArchiveContentRootOptions(ServiceContentRootOptionFlags optionFlags, out string error)
+        => TryValidateUrlOnlyContentRootOptions(optionFlags, out error);
+
+    /// <summary>
+    /// Validates script path shape for HTTP archive content roots.
+    /// </summary>
+    /// <param name="requestedScriptPath">Requested script path.</param>
+    /// <param name="error">Validation error text.</param>
+    /// <returns>True when the script path is valid for URL archive usage.</returns>
+    private static bool TryValidateHttpContentRootScriptPath(string requestedScriptPath, out string error)
+    {
+        if (Path.IsPathRooted(requestedScriptPath))
+        {
+            error = "When --content-root is a URL archive, --script must be a relative path inside the archive.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Downloads and extracts an HTTP content-root archive into the supplied directory.
+    /// </summary>
+    /// <param name="command">Parsed service command.</param>
+    /// <param name="contentRootUri">HTTP(S) archive URI.</param>
+    /// <param name="temporaryRoot">Temporary root folder used for download output.</param>
+    /// <param name="downloadedContentRoot">Folder where the archive should be extracted.</param>
+    /// <param name="error">Error details when any stage fails.</param>
+    /// <returns>True when download, checksum, and extraction all succeed.</returns>
+    private static bool TryDownloadAndExtractHttpContentRoot(
+        ParsedCommand command,
+        Uri contentRootUri,
+        string temporaryRoot,
+        string downloadedContentRoot,
+        out string error)
+    {
+        if (!TryDownloadServiceContentRootArchive(
+                contentRootUri,
+                temporaryRoot,
+                command.ServiceContentRootBearerToken,
+                command.ServiceContentRootHeaders,
+                command.ServiceContentRootIgnoreCertificate,
+                out var downloadedArchivePath,
+                out error))
+        {
+            return false;
+        }
+
+        // Ensure the downloaded file is deleted after extraction attempt, regardless of success or failure, to avoid littering temp folders with failed downloads or extraction leftovers.
+        return
+            TryValidateServiceContentRootArchiveChecksum(command, downloadedArchivePath, out error) &&
+            TryExtractServiceContentRootArchive(downloadedArchivePath, downloadedContentRoot, out error);
+    }
+
+    /// <summary>
+    /// Resolves a relative script path from an already materialized content-root directory.
+    /// </summary>
+    /// <param name="requestedScriptPath">Requested relative script path.</param>
+    /// <param name="fullContentRoot">Absolute content-root path.</param>
+    /// <param name="escapedPathError">Error message used when the script path escapes the content root.</param>
+    /// <param name="missingScriptError">Error message used when the script file does not exist.</param>
+    /// <param name="temporaryContentRootPath">Optional temporary content-root path for cleanup ownership.</param>
+    /// <param name="scriptSource">Resolved script source details.</param>
+    /// <param name="error">Error details when validation fails.</param>
+    /// <returns>True when the script path resolves and exists inside the root.</returns>
+    private static bool TryResolveScriptFromResolvedContentRoot(
+        string requestedScriptPath,
+        string fullContentRoot,
+        string escapedPathError,
+        string missingScriptError,
+        string? temporaryContentRootPath,
+        out ResolvedServiceScriptSource scriptSource,
+        out string error)
+    {
+        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
+        var fullScriptPathFromRoot = Path.GetFullPath(Path.Combine(fullContentRoot, requestedScriptPath));
+        if (!IsPathWithinDirectory(fullScriptPathFromRoot, fullContentRoot))
+        {
+            error = escapedPathError;
+            return false;
+        }
+
+        if (!File.Exists(fullScriptPathFromRoot))
+        {
+            error = missingScriptError;
+            return false;
+        }
+
+        var relativeScriptPath = Path.GetRelativePath(fullContentRoot, fullScriptPathFromRoot);
+        scriptSource = new ResolvedServiceScriptSource(fullScriptPathFromRoot, fullContentRoot, relativeScriptPath, temporaryContentRootPath);
+        error = string.Empty;
+        return true;
     }
 
     /// <summary>

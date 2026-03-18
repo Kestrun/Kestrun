@@ -683,19 +683,56 @@ internal static partial class Program
     /// <returns>True when validation succeeds.</returns>
     private static bool TryValidateServiceParseState(CommandMode mode, ServiceParseState state, out string error)
     {
-        error = string.Empty;
+        if (!TryValidateServiceName(state, out error))
+        {
+            return false;
+        }
 
+        ApplyDefaultServiceInstallScript(mode, state);
+
+        return TryValidateServiceCredentialOptions(mode, state, out error) && TryValidateServiceContentRootDependentOptions(mode, state, out error);
+    }
+
+    /// <summary>
+    /// Validates that the service name option was provided.
+    /// </summary>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="error">Error text when validation fails.</param>
+    /// <returns>True when the service name is valid.</returns>
+    private static bool TryValidateServiceName(ServiceParseState state, out string error)
+    {
         if (string.IsNullOrWhiteSpace(state.ServiceName))
         {
             error = "Service name is required. Use --name <value>.";
             return false;
         }
 
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Applies the default script path for service install when script is omitted.
+    /// </summary>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    private static void ApplyDefaultServiceInstallScript(CommandMode mode, ServiceParseState state)
+    {
         if (mode == CommandMode.ServiceInstall && !state.ScriptPathSet)
         {
             state.ScriptPath = DefaultScriptFileName;
         }
+    }
 
+    /// <summary>
+    /// Validates credential-related service install options.
+    /// </summary>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="error">Error text when validation fails.</param>
+    /// <returns>True when credential options are valid.</returns>
+    private static bool TryValidateServiceCredentialOptions(CommandMode mode, ServiceParseState state, out string error)
+    {
         if (mode != CommandMode.ServiceInstall && (!string.IsNullOrWhiteSpace(state.ServiceUser) || !string.IsNullOrWhiteSpace(state.ServicePassword)))
         {
             error = "Service user credentials are only supported for service install.";
@@ -708,39 +745,59 @@ internal static partial class Program
             return false;
         }
 
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates content-root dependent options for service install mode.
+    /// </summary>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="error">Error text when validation fails.</param>
+    /// <returns>True when content-root dependent options are valid.</returns>
+    private static bool TryValidateServiceContentRootDependentOptions(CommandMode mode, ServiceParseState state, out string error)
+    {
+        if (mode != CommandMode.ServiceInstall)
+        {
+            error = string.Empty;
+            return true;
+        }
+
         var hasChecksum = !string.IsNullOrWhiteSpace(state.ServiceContentRootChecksum);
         var hasChecksumAlgorithm = !string.IsNullOrWhiteSpace(state.ServiceContentRootChecksumAlgorithm);
-        if (mode == CommandMode.ServiceInstall && hasChecksumAlgorithm && !hasChecksum)
+        if (hasChecksumAlgorithm && !hasChecksum)
         {
             error = "--content-root-checksum-algorithm requires --content-root-checksum.";
             return false;
         }
 
-        if (mode == CommandMode.ServiceInstall && hasChecksum && string.IsNullOrWhiteSpace(state.ServiceContentRoot))
+        if (hasChecksum && string.IsNullOrWhiteSpace(state.ServiceContentRoot))
         {
             error = "--content-root-checksum requires --content-root.";
             return false;
         }
 
         var hasBearerToken = !string.IsNullOrWhiteSpace(state.ServiceContentRootBearerToken);
-        if (mode == CommandMode.ServiceInstall && hasBearerToken && string.IsNullOrWhiteSpace(state.ServiceContentRoot))
+        if (hasBearerToken && string.IsNullOrWhiteSpace(state.ServiceContentRoot))
         {
             error = "--content-root-bearer-token requires --content-root.";
             return false;
         }
 
-        if (mode == CommandMode.ServiceInstall && state.ServiceContentRootIgnoreCertificate && string.IsNullOrWhiteSpace(state.ServiceContentRoot))
+        if (state.ServiceContentRootIgnoreCertificate && string.IsNullOrWhiteSpace(state.ServiceContentRoot))
         {
             error = "--content-root-ignore-certificate requires --content-root.";
             return false;
         }
 
-        if (mode == CommandMode.ServiceInstall && state.ServiceContentRootHeaders.Count > 0 && string.IsNullOrWhiteSpace(state.ServiceContentRoot))
+        if (state.ServiceContentRootHeaders.Count > 0 && string.IsNullOrWhiteSpace(state.ServiceContentRoot))
         {
             error = "--content-root-header requires --content-root.";
             return false;
         }
 
+        error = string.Empty;
         return true;
     }
 

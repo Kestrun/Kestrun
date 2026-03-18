@@ -787,6 +787,172 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryClassifyServiceContentRoot_WithWhitespace_ReturnsFalseAndEmptyOutputs()
+    {
+        var (Success, NormalizedContentRoot, ContentRootUri, FullContentRoot) = InvokeTryClassifyServiceContentRoot("   ");
+
+        Assert.False(Success);
+        Assert.Equal(string.Empty, NormalizedContentRoot);
+        Assert.Null(ContentRootUri);
+        Assert.Equal(string.Empty, FullContentRoot);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryClassifyServiceContentRoot_WithHttpUrl_ReturnsUriClassification()
+    {
+        var (Success, NormalizedContentRoot, ContentRootUri, FullContentRoot) =
+            InvokeTryClassifyServiceContentRoot("https://example.test/content/app.zip");
+
+        Assert.True(Success);
+        Assert.Equal("https://example.test/content/app.zip", NormalizedContentRoot);
+        Assert.NotNull(ContentRootUri);
+        Assert.Equal("https", ContentRootUri.Scheme);
+        Assert.Equal(string.Empty, FullContentRoot);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithoutContentRoot_UsesRequestedScriptPath()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        var originalDirectory = Environment.CurrentDirectory;
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            Environment.CurrentDirectory = tempRoot;
+
+            var scriptPath = Path.Combine(tempRoot, "server.ps1");
+            File.WriteAllText(scriptPath, "Write-Output 'hello'", Encoding.UTF8);
+
+            var (Success, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--script",
+                "server.ps1",
+            ]);
+
+            Assert.True(Success);
+            Assert.True(string.IsNullOrWhiteSpace(parseError));
+
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.True(result.Success, result.Error);
+            Assert.Equal(Path.GetFullPath(scriptPath), Path.GetFullPath(result.FullScriptPath));
+            Assert.Equal("server.ps1", result.RelativeScriptPath);
+            Assert.True(string.IsNullOrWhiteSpace(result.FullContentRoot));
+        }
+        finally
+        {
+            Environment.CurrentDirectory = originalDirectory;
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithoutContentRootAndBearerToken_Fails()
+    {
+        var (Success, _, Error) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--script",
+            "server.ps1",
+            "--content-root-bearer-token",
+            "token-value",
+        ]);
+
+        Assert.False(Success);
+        Assert.Contains("--content-root-bearer-token requires --content-root", Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithDirectoryContentRoot_ResolvesRelativeScript()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            var contentRoot = Path.Combine(tempRoot, "content");
+            var scriptRelativePath = Path.Combine("scripts", "start.ps1");
+            var scriptFullPath = Path.Combine(contentRoot, scriptRelativePath);
+
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(scriptFullPath)!);
+            File.WriteAllText(scriptFullPath, "Write-Output 'hello-directory-root'", Encoding.UTF8);
+
+            var (Success, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--content-root",
+                contentRoot,
+                "--script",
+                scriptRelativePath,
+            ]);
+
+            Assert.True(Success);
+            Assert.True(string.IsNullOrWhiteSpace(parseError));
+
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.True(result.Success, result.Error);
+            Assert.Equal(Path.GetFullPath(scriptFullPath), Path.GetFullPath(result.FullScriptPath));
+            Assert.Equal(Path.GetFullPath(contentRoot), Path.GetFullPath(result.FullContentRoot));
+            Assert.Equal(scriptRelativePath, result.RelativeScriptPath);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithMissingLocalContentRoot_FailsPathNotFound()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            var missingContentRoot = Path.Combine(tempRoot, "missing", "app.zip");
+
+            var (Success, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--content-root",
+                missingContentRoot,
+                "--script",
+                "scripts/start.ps1",
+            ]);
+
+            Assert.True(Success);
+            Assert.True(string.IsNullOrWhiteSpace(parseError));
+
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.False(result.Success);
+            Assert.Contains("Service content root path was not found", result.Error, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void TryResolveServiceScriptSource_WithContentRootAndAbsoluteScript_Fails()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
@@ -1834,6 +2000,20 @@ public class KestrunToolCommandSurfaceTests
             fullContentRoot,
             relativeScriptPath,
             error);
+    }
+
+    private static (bool Success, string NormalizedContentRoot, Uri? ContentRootUri, string FullContentRoot)
+        InvokeTryClassifyServiceContentRoot(string? contentRoot)
+    {
+        var method = GetRequiredProgramMethod("TryClassifyServiceContentRoot");
+
+        var values = new object?[] { contentRoot, null, null, null };
+        var success = InvokeRequiredBool(method, values);
+        var normalizedContentRoot = values[1]?.ToString() ?? string.Empty;
+        var contentRootUri = values[2] as Uri;
+        var fullContentRoot = values[3]?.ToString() ?? string.Empty;
+
+        return (success, normalizedContentRoot, contentRootUri, fullContentRoot);
     }
 
     private static (bool Success, string ServiceName, string FullScriptPath, string RelativeScriptPath, string TemporaryContentRootPath, string ModuleManifestPath, int ExitCode)

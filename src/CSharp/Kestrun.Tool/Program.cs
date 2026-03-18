@@ -1272,7 +1272,8 @@ internal static partial class Program
         {
             return TryResolveServiceScriptWithoutContentRoot(requestedScriptPath, optionFlags, out scriptSource, out error);
         }
-
+        // When a content-root value is supplied, attempt to resolve the script source from the content root, even if the script path argument is not provided,
+        // since some content-root scenarios imply a default script name.
         return TryResolveServiceScriptFromContentRoot(
             command,
             requestedScriptPath,
@@ -1346,7 +1347,8 @@ internal static partial class Program
         {
             return TryResolveServiceScriptFromDirectoryContentRoot(requestedScriptPath, fullContentRoot, optionFlags, out scriptSource, out error);
         }
-
+        // When content-root is supplied but does not exist as a local directory, attempt to treat it as an archive path for better UX in common scenarios where users point content-root
+        // to a file without realizing that only directories are supported for local content roots.
         return TryResolveServiceScriptFromArchiveContentRoot(command, requestedScriptPath, fullContentRoot, optionFlags, out scriptSource, out error);
     }
 

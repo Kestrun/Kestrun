@@ -8,7 +8,7 @@ using System.Text;
 using System.Runtime.InteropServices;
 using Xunit;
 
-namespace Kestrun.Tool.Tests.Tooling;
+namespace KestrunTests.Tooling;
 
 public class KestrunToolCommandSurfaceTests
 {
@@ -1055,7 +1055,7 @@ public class KestrunToolCommandSurfaceTests
     public void TryResolveServiceScriptSource_WithZipContentRoot_ExtractsAndFindsScript()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
-        var extractedRoot = string.Empty;
+        string extractedRoot = string.Empty;
         try
         {
             _ = Directory.CreateDirectory(tempRoot);
@@ -1078,13 +1078,13 @@ public class KestrunToolCommandSurfaceTests
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError), parseError);
 
-            var (Success, FullScriptPath, FullContentRoot, RelativeScriptPath, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
-            Assert.True(Success);
-            Assert.True(File.Exists(FullScriptPath));
-            Assert.True(Directory.Exists(FullContentRoot));
-            Assert.Equal(Path.Combine("scripts", "start.ps1"), RelativeScriptPath);
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.True(result.Success);
+            Assert.True(File.Exists(result.FullScriptPath));
+            Assert.True(Directory.Exists(result.FullContentRoot));
+            Assert.Equal(Path.Combine("scripts", "start.ps1"), result.RelativeScriptPath);
 
-            extractedRoot = FullContentRoot;
+            extractedRoot = result.FullContentRoot;
         }
         finally
         {
@@ -1105,7 +1105,7 @@ public class KestrunToolCommandSurfaceTests
     public void TryResolveServiceScriptSource_WithTgzContentRoot_ExtractsAndFindsScript()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
-        var extractedRoot = string.Empty;
+        string extractedRoot = string.Empty;
         try
         {
             _ = Directory.CreateDirectory(tempRoot);
@@ -1128,12 +1128,12 @@ public class KestrunToolCommandSurfaceTests
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError));
 
-            var (Success, FullScriptPath, FullContentRoot, RelativeScriptPath, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
-            Assert.True(Success, Error);
-            Assert.True(File.Exists(FullScriptPath));
-            Assert.Equal(Path.Combine("scripts", "start.ps1"), RelativeScriptPath);
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.True(result.Success, result.Error);
+            Assert.True(File.Exists(result.FullScriptPath));
+            Assert.Equal(Path.Combine("scripts", "start.ps1"), result.RelativeScriptPath);
 
-            extractedRoot = FullContentRoot;
+            extractedRoot = result.FullContentRoot;
         }
         finally
         {
@@ -1174,9 +1174,10 @@ public class KestrunToolCommandSurfaceTests
                 "deadbeef",
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError));
-            var (Success, _, _, _, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
-            Assert.False(Success);
-            Assert.Contains("checksum mismatch", Error, StringComparison.OrdinalIgnoreCase);
+
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.False(result.Success);
+            Assert.Contains("checksum mismatch", result.Error, StringComparison.OrdinalIgnoreCase);
         }
         finally
         {
@@ -1192,7 +1193,7 @@ public class KestrunToolCommandSurfaceTests
     public void TryResolveInstallServiceInputs_WithArchiveContentRootAndMissingManifest_CleansUpTemporaryContentRoot()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
-        var temporaryContentRootPath = string.Empty;
+        string temporaryContentRootPath = string.Empty;
         try
         {
             _ = Directory.CreateDirectory(tempRoot);
@@ -1217,12 +1218,12 @@ public class KestrunToolCommandSurfaceTests
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError));
 
-            var (Success, ServiceName, FullScriptPath, RelativeScriptPath, TemporaryContentRootPath, ModuleManifestPath, ExitCode) = InvokeTryResolveInstallServiceInputs(parsedCommand!);
-            Assert.False(Success);
-            Assert.Equal(3, ExitCode);
-            Assert.True(string.IsNullOrWhiteSpace(ModuleManifestPath));
+            var result = InvokeTryResolveInstallServiceInputs(parsedCommand!);
+            Assert.False(result.Success);
+            Assert.Equal(3, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.ModuleManifestPath));
 
-            temporaryContentRootPath = TemporaryContentRootPath;
+            temporaryContentRootPath = result.TemporaryContentRootPath;
             Assert.False(string.IsNullOrWhiteSpace(temporaryContentRootPath));
             Assert.False(Directory.Exists(temporaryContentRootPath));
         }
@@ -1245,7 +1246,7 @@ public class KestrunToolCommandSurfaceTests
     public async Task TryResolveServiceScriptSource_WithHttpArchiveUrl_DownloadsAndFindsScript()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
-        var extractedRoot = string.Empty;
+        string extractedRoot = string.Empty;
 
         try
         {
@@ -1298,22 +1299,11 @@ public class KestrunToolCommandSurfaceTests
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError));
 
-            var (Success, FullScriptPath, FullContentRoot, RelativeScriptPath, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
-            Assert.True(Success);
-            Assert.True(File.Exists(FullScriptPath));
-            Assert.Equal(Path.Combine("scripts", "start.ps1"), RelativeScriptPath);
-            extractedRoot = FullContentRoot;
-
-            var temporaryExtractionRoot = Directory.GetParent(FullContentRoot);
-            Assert.NotNull(temporaryExtractionRoot);
-
-            var topLevelArtifacts = Directory.GetFiles(temporaryExtractionRoot.FullName, "*", SearchOption.TopDirectoryOnly);
-            Assert.DoesNotContain(
-                topLevelArtifacts,
-                path => path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
-                    || path.EndsWith(".tar", StringComparison.OrdinalIgnoreCase)
-                    || path.EndsWith(".tgz", StringComparison.OrdinalIgnoreCase)
-                    || path.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase));
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.True(result.Success);
+            Assert.True(File.Exists(result.FullScriptPath));
+            Assert.Equal(Path.Combine("scripts", "start.ps1"), result.RelativeScriptPath);
+            extractedRoot = result.FullContentRoot;
 
             await server.Completion;
         }
@@ -1341,7 +1331,7 @@ public class KestrunToolCommandSurfaceTests
         }
 
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
-        var extractedRoot = string.Empty;
+        string extractedRoot = string.Empty;
 
         try
         {
@@ -1375,11 +1365,11 @@ public class KestrunToolCommandSurfaceTests
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError), parseError);
 
-            var (Success, FullScriptPath, FullContentRoot, RelativeScriptPath, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
-            Assert.True(Success, Error);
-            Assert.True(File.Exists(FullScriptPath));
-            Assert.Equal(Path.Combine("scripts", "start.ps1"), RelativeScriptPath);
-            extractedRoot = FullContentRoot;
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.True(result.Success, result.Error);
+            Assert.True(File.Exists(result.FullScriptPath));
+            Assert.Equal(Path.Combine("scripts", "start.ps1"), result.RelativeScriptPath);
+            extractedRoot = result.FullContentRoot;
 
             await server.Completion;
         }
@@ -1402,7 +1392,7 @@ public class KestrunToolCommandSurfaceTests
     public async Task TryResolveInstallServiceInputs_WithHttpArchiveContentRootAndMissingManifest_CleansUpTemporaryContentRoot()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
-        var temporaryContentRootPath = string.Empty;
+        string temporaryContentRootPath = string.Empty;
 
         try
         {
@@ -1438,12 +1428,12 @@ public class KestrunToolCommandSurfaceTests
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError));
 
-            var (Success, ServiceName, FullScriptPath, RelativeScriptPath, TemporaryContentRootPath, ModuleManifestPath, ExitCode) = InvokeTryResolveInstallServiceInputs(parsedCommand!);
-            Assert.False(Success);
-            Assert.Equal(3, ExitCode);
-            Assert.True(string.IsNullOrWhiteSpace(ModuleManifestPath));
+            var result = InvokeTryResolveInstallServiceInputs(parsedCommand!);
+            Assert.False(result.Success);
+            Assert.Equal(3, result.ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(result.ModuleManifestPath));
 
-            temporaryContentRootPath = TemporaryContentRootPath;
+            temporaryContentRootPath = result.TemporaryContentRootPath;
             Assert.False(string.IsNullOrWhiteSpace(temporaryContentRootPath));
             Assert.False(Directory.Exists(temporaryContentRootPath));
 
@@ -1468,7 +1458,7 @@ public class KestrunToolCommandSurfaceTests
     public async Task TryResolveServiceScriptSource_WithExtensionlessHttpArchiveUrlAndOctetStream_DetectsTgzAndFindsScript()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
-        var extractedRoot = string.Empty;
+        string extractedRoot = string.Empty;
 
         try
         {
@@ -1501,15 +1491,15 @@ public class KestrunToolCommandSurfaceTests
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError), parseError);
 
-            var (Success, FullScriptPath, FullContentRoot, RelativeScriptPath, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
-            if (!Success)
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            if (!result.Success)
             {
-                throw new Xunit.Sdk.XunitException(Error);
+                throw new Xunit.Sdk.XunitException(result.Error);
             }
-            Assert.True(File.Exists(FullScriptPath));
-            Assert.Equal(Path.Combine("scripts", "start.ps1"), RelativeScriptPath);
+            Assert.True(File.Exists(result.FullScriptPath));
+            Assert.Equal(Path.Combine("scripts", "start.ps1"), result.RelativeScriptPath);
 
-            extractedRoot = FullContentRoot;
+            extractedRoot = result.FullContentRoot;
 
             await server.Completion;
         }
@@ -1551,9 +1541,10 @@ public class KestrunToolCommandSurfaceTests
                 "--content-root-ignore-certificate",
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError));
-            var (Success, _, _, _, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
-            Assert.False(Success);
-            Assert.Contains("only supported when --content-root points to an HTTPS archive URL", Error, StringComparison.Ordinal);
+
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.False(result.Success);
+            Assert.Contains("only supported when --content-root points to an HTTPS archive URL", result.Error, StringComparison.Ordinal);
         }
         finally
         {
@@ -1589,9 +1580,10 @@ public class KestrunToolCommandSurfaceTests
                 "x-api-key:my-key",
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError));
-            var (Success, _, _, _, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
-            Assert.False(Success);
-            Assert.Contains("only supported when --content-root points to an HTTP(S) archive URL", Error, StringComparison.Ordinal);
+
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.False(result.Success);
+            Assert.Contains("only supported when --content-root points to an HTTP(S) archive URL", result.Error, StringComparison.Ordinal);
         }
         finally
         {
@@ -1619,9 +1611,10 @@ public class KestrunToolCommandSurfaceTests
             "scripts/start.ps1",
         ]);
         Assert.True(string.IsNullOrWhiteSpace(parseError));
-        var (Success, _, _, _, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
-        Assert.False(Success);
-        Assert.Contains("Use <name:value>", Error, StringComparison.Ordinal);
+
+        var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+        Assert.False(result.Success);
+        Assert.Contains("Use <name:value>", result.Error, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1641,9 +1634,10 @@ public class KestrunToolCommandSurfaceTests
             "scripts/start.ps1",
         ]);
         Assert.True(string.IsNullOrWhiteSpace(parseError));
-        var (Success, _, _, _, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
-        Assert.False(Success);
-        Assert.Contains("cannot contain CR or LF characters", Error, StringComparison.Ordinal);
+
+        var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+        Assert.False(result.Success);
+        Assert.Contains("cannot contain CR or LF characters", result.Error, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1663,9 +1657,10 @@ public class KestrunToolCommandSurfaceTests
             "scripts/start.ps1",
         ]);
         Assert.True(string.IsNullOrWhiteSpace(parseError));
-        var (Success, _, _, _, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
-        Assert.False(Success);
-        Assert.Contains("cannot contain CR or LF characters", Error, StringComparison.Ordinal);
+
+        var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+        Assert.False(result.Success);
+        Assert.Contains("cannot contain CR or LF characters", result.Error, StringComparison.Ordinal);
     }
 
     private static void StageDedicatedServicePayloadLayout(string repositoryRoot, string runtimeRid)

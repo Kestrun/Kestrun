@@ -1928,6 +1928,18 @@ internal static partial class Program
                 return false;
             }
 
+            if (headerName.Contains('\r') || headerName.Contains('\n'))
+            {
+                error = $"Invalid --content-root-header value '{headerToken}'. Header name cannot contain CR or LF characters.";
+                return false;
+            }
+
+            if (headerValue.Contains('\r') || headerValue.Contains('\n'))
+            {
+                error = $"Invalid --content-root-header value '{headerToken}'. Header value cannot contain CR or LF characters.";
+                return false;
+            }
+
             if (!request.Headers.TryAddWithoutValidation(headerName, headerValue))
             {
                 error = $"Invalid --content-root-header value '{headerToken}'.";

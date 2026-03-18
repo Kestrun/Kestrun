@@ -110,23 +110,26 @@ jobs:
               shell: pwsh
               run: Invoke-Build Build -DotNetVerbosity $Env:DOTNET_VERBOSITY
 
+            - name: 🔧 Build KestrunTool
+              shell: pwsh
+              run: Invoke-Build Build-KestrunTool -DotNetVerbosity $Env:DOTNET_VERBOSITY
+
             - name: 🧪 Test (.NET) with coverage (Cobertura, Debug)
               shell: pwsh
               run: |
                   # If your Coverage task accepts a framework parameter, pass it explicitly:
-                  # Invoke-Build Coverage -Framework net8.0
-                  Invoke-Build Coverage
+                  Invoke-Build Coverage -Framework net10.0
 
             - name: 🔍 Sanity check Cobertura (C#)
               run: |
-                  test -s coverage/csharp.net8.0.cobertura.xml || (echo "Cobertura is empty"; exit 1)
-                  grep -Eo '<class name="[^"]+"' coverage/csharp.net8.0.cobertura.xml | head -5 || true
+                  test -s coverage/csharp.net10.0.cobertura.xml || (echo "Cobertura is empty"; exit 1)
+                  grep -Eo '<class name="[^"]+"' coverage/csharp.net10.0.cobertura.xml | head -5 || true
 
             - name: ☁️ Upload C# to Coveralls (parallel)
               uses: coverallsapp/github-action@v2
               with:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
-                  file: coverage/csharp.net8.0.cobertura.xml
+                  file: coverage/csharp.net10.0.cobertura.xml
                   format: cobertura
                   parallel: true
                   flag-name: csharp

@@ -1,6 +1,6 @@
 [CmdletBinding(DefaultParameterSetName = 'Default')]
 param(
-    [Parameter()] [string]$Framework = 'net8.0',
+    [Parameter()] [string]$Framework = 'net10.0',
     [Parameter()] [string]$Configuration = 'Release',
     [Parameter()] [string]$TestProject,
     [Parameter()]

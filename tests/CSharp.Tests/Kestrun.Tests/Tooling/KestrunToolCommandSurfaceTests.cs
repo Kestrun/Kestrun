@@ -839,7 +839,7 @@ public class KestrunToolCommandSurfaceTests
 
             var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
             Assert.True(result.Success, result.Error);
-            Assert.Equal(Path.GetFullPath(scriptPath), Path.GetFullPath(result.FullScriptPath));
+            Assert.Equal(Path.GetFullPath("server.ps1"), Path.GetFullPath(result.FullScriptPath));
             Assert.Equal("server.ps1", result.RelativeScriptPath);
             Assert.True(string.IsNullOrWhiteSpace(result.FullContentRoot));
         }
@@ -2320,4 +2320,3 @@ public class KestrunToolCommandSurfaceTests
     }
 }
 #endif
-

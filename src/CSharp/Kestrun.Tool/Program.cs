@@ -1724,10 +1724,17 @@ internal static partial class Program
             return false;
         }
 
-        // Ensure the downloaded file is deleted after extraction attempt, regardless of success or failure, to avoid littering temp folders with failed downloads or extraction leftovers.
-        return
-            TryValidateServiceContentRootArchiveChecksum(command, downloadedArchivePath, out error) &&
-            TryExtractServiceContentRootArchive(downloadedArchivePath, downloadedContentRoot, out error);
+        try
+        {
+            return
+                TryValidateServiceContentRootArchiveChecksum(command, downloadedArchivePath, out error) &&
+                TryExtractServiceContentRootArchive(downloadedArchivePath, downloadedContentRoot, out error);
+        }
+        finally
+        {
+            // Best-effort cleanup to avoid retaining large downloaded archives after extraction attempts.
+            TryDeleteFileQuietly(downloadedArchivePath);
+        }
     }
 
     /// <summary>
@@ -2242,9 +2249,8 @@ internal static partial class Program
             ? "sha256"
             : command.ServiceContentRootChecksumAlgorithm.Trim();
 
-        if (!TryCreateChecksumAlgorithm(algorithmName, out var algorithm, out var normalizedAlgorithmName))
+        if (!TryCreateChecksumAlgorithm(algorithmName, out var algorithm, out var normalizedAlgorithmName, out error))
         {
-            error = "Unsupported --content-root-checksum-algorithm. Supported values: md5, sha1, sha256, sha384, sha512.";
             return false;
         }
 
@@ -2268,38 +2274,50 @@ internal static partial class Program
     /// <param name="algorithmToken">Algorithm token from CLI.</param>
     /// <param name="algorithm">Created hash algorithm instance.</param>
     /// <param name="normalizedName">Normalized algorithm name.</param>
-    /// <returns>True when the algorithm token is supported.</returns>
-    private static bool TryCreateChecksumAlgorithm(string algorithmToken, out HashAlgorithm algorithm, out string normalizedName)
+    /// <param name="error">Validation error text when algorithm creation fails.</param>
+    /// <returns>True when the algorithm token is supported and can be created.</returns>
+    private static bool TryCreateChecksumAlgorithm(string algorithmToken, out HashAlgorithm algorithm, out string normalizedName, out string error)
     {
+        algorithm = null!;
+        normalizedName = string.Empty;
+        error = string.Empty;
+
         var compact = algorithmToken.Replace("-", string.Empty, StringComparison.Ordinal).Trim().ToLowerInvariant();
-        switch (compact)
+
+        Func<HashAlgorithm>? algorithmFactory = compact switch
         {
-            case "md5":
-                algorithm = MD5.Create();
-                normalizedName = "md5";
-                return true;
-            case "sha1":
-            case "sha":
-                algorithm = SHA1.Create();
-                normalizedName = "sha1";
-                return true;
-            case "sha2":
-            case "sha256":
-                algorithm = SHA256.Create();
-                normalizedName = "sha256";
-                return true;
-            case "sha384":
-                algorithm = SHA384.Create();
-                normalizedName = "sha384";
-                return true;
-            case "sha512":
-                algorithm = SHA512.Create();
-                normalizedName = "sha512";
-                return true;
-            default:
-                algorithm = null!;
-                normalizedName = string.Empty;
-                return false;
+            "md5" => MD5.Create,
+            "sha1" or "sha" => SHA1.Create,
+            "sha2" or "sha256" => SHA256.Create,
+            "sha384" => SHA384.Create,
+            "sha512" => SHA512.Create,
+            _ => null,
+        };
+
+        if (algorithmFactory is null)
+        {
+            error = "Unsupported --content-root-checksum-algorithm. Supported values: md5, sha1, sha256, sha384, sha512.";
+            return false;
+        }
+
+        normalizedName = compact switch
+        {
+            "sha" => "sha1",
+            "sha2" => "sha256",
+            _ => compact,
+        };
+
+        try
+        {
+            algorithm = algorithmFactory();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = $"Unable to create checksum algorithm '{normalizedName}'. The algorithm may be disabled by system policy: {ex.Message}";
+            algorithm = null!;
+            normalizedName = string.Empty;
+            return false;
         }
     }
 

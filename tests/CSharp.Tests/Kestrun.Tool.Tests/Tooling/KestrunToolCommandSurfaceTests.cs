@@ -1304,6 +1304,17 @@ public class KestrunToolCommandSurfaceTests
             Assert.Equal(Path.Combine("scripts", "start.ps1"), RelativeScriptPath);
             extractedRoot = FullContentRoot;
 
+            var temporaryExtractionRoot = Directory.GetParent(FullContentRoot);
+            Assert.NotNull(temporaryExtractionRoot);
+
+            var topLevelArtifacts = Directory.GetFiles(temporaryExtractionRoot.FullName, "*", SearchOption.TopDirectoryOnly);
+            Assert.DoesNotContain(
+                topLevelArtifacts,
+                path => path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
+                    || path.EndsWith(".tar", StringComparison.OrdinalIgnoreCase)
+                    || path.EndsWith(".tgz", StringComparison.OrdinalIgnoreCase)
+                    || path.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase));
+
             await server.Completion;
         }
         finally

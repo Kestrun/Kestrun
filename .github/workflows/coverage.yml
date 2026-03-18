@@ -337,7 +337,7 @@ jobs:
                   New-Item -ItemType Directory -Force -Path $env:SITE_DIR,$env:HISTORY_DIR | Out-Null
 
                   ./Utility/Build-Coverage.ps1 `
-                    -Framework "net8.0" `
+                    -Framework "net10.0" `
                     -Configuration "Release" `
                     -TestProjects @(
                         ".\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj",

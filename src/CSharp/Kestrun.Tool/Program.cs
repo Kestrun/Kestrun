@@ -1886,14 +1886,10 @@ internal static partial class Program
 
         var resolvedFileName = TryResolveServiceContentRootArchiveFileName(uri, response)
             ?? "content-root";
-        resolvedFileName = Path.GetFileName(resolvedFileName);
-        if (string.IsNullOrWhiteSpace(resolvedFileName))
-        {
-            resolvedFileName = "content-root";
-        }
+        resolvedFileName = GetSafeServiceContentRootArchiveFileName(resolvedFileName, "content-root");
 
         var provisionalArchivePath = Path.Combine(temporaryRoot, resolvedFileName);
-        using (var sourceStream = response.Content.ReadAsStreamAsync().GetAwaiter().GetResult())
+        using (var sourceStream = response.Content.ReadAsStream())
         using (var destinationStream = File.Create(provisionalArchivePath))
         {
             sourceStream.CopyTo(destinationStream);
@@ -1930,6 +1926,37 @@ internal static partial class Program
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Converts an archive file name candidate to a filesystem-safe file name.
+    /// </summary>
+    /// <param name="candidate">Raw file name candidate from headers or URI metadata.</param>
+    /// <param name="fallbackFileName">Fallback file name when the candidate is empty or invalid.</param>
+    /// <returns>Filesystem-safe file name.</returns>
+    private static string GetSafeServiceContentRootArchiveFileName(string? candidate, string fallbackFileName)
+    {
+        var fileName = Path.GetFileName(candidate ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return fallbackFileName;
+        }
+
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var builder = new StringBuilder(fileName.Length);
+        foreach (var ch in fileName)
+        {
+            if (char.IsControl(ch) || ch == Path.DirectorySeparatorChar || ch == Path.AltDirectorySeparatorChar || invalidChars.Contains(ch))
+            {
+                _ = builder.Append('-');
+                continue;
+            }
+
+            _ = builder.Append(ch);
+        }
+
+        var sanitized = builder.ToString().Trim().Trim('.');
+        return string.IsNullOrWhiteSpace(sanitized) ? fallbackFileName : sanitized;
     }
 
     /// <summary>
@@ -2100,6 +2127,8 @@ internal static partial class Program
             return uriFileName;
         }
 
+        // Fall back to media-type-based extension inference when no usable file name metadata is available,
+        // to at least get a correct extension for archive type detection and validation even if the base name is generic.
         return TryGetServiceContentRootArchiveExtensionFromMediaType(
             response.Content.Headers.ContentType?.MediaType,
             out var archiveExtension)

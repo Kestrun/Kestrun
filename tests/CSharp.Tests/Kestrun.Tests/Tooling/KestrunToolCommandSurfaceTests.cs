@@ -1081,8 +1081,6 @@ public class KestrunToolCommandSurfaceTests
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
         string extractedRoot = string.Empty;
-        HttpListener? listener = null;
-        Task? serverTask = null;
 
         try
         {
@@ -1092,15 +1090,8 @@ public class KestrunToolCommandSurfaceTests
                 ["scripts/start.ps1"] = "Write-Output 'hello-url'",
             });
 
-            var port = FindAvailablePort();
-            var prefix = $"http://127.0.0.1:{port}/";
-            listener = new HttpListener();
-            listener.Prefixes.Add(prefix);
-            listener.Start();
-
-            serverTask = Task.Run(async () =>
+            await using var server = StartSingleRequestHttpServer(async context =>
             {
-                var context = await listener.GetContextAsync().ConfigureAwait(false);
                 var auth = context.Request.Headers["Authorization"];
                 var apiKey = context.Request.Headers["x-api-key"];
                 if (!string.Equals(auth, "Bearer my-token", StringComparison.Ordinal))
@@ -1125,7 +1116,7 @@ public class KestrunToolCommandSurfaceTests
                 context.Response.Close();
             });
 
-            var archiveUrl = $"{prefix}app.zip";
+            var archiveUrl = $"{server.Prefix}app.zip";
             var (_, parsedCommand, parseError) = InvokeTryParseArguments([
                 "service",
                 "install",
@@ -1148,16 +1139,76 @@ public class KestrunToolCommandSurfaceTests
             Assert.Equal(Path.Combine("scripts", "start.ps1"), result.RelativeScriptPath);
             extractedRoot = result.FullContentRoot;
 
-            if (serverTask is not null)
-            {
-                await serverTask;
-            }
+            await server.Completion;
         }
         finally
         {
-            listener?.Stop();
-            listener?.Close();
+            if (!string.IsNullOrWhiteSpace(extractedRoot) && Directory.Exists(extractedRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(extractedRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
 
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public async Task TryResolveServiceScriptSource_WithHttpArchiveUrlAndInvalidDispositionFileName_DownloadsAndFindsScript()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        string extractedRoot = string.Empty;
+
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var zipBytes = CreateZipArchiveBytes(new Dictionary<string, string>
+            {
+                ["scripts/start.ps1"] = "Write-Output 'hello-url-invalid-filename'",
+            });
+
+            await using var server = StartSingleRequestHttpServer(async context =>
+            {
+                context.Response.StatusCode = 200;
+                context.Response.ContentType = "application/zip";
+                context.Response.Headers["Content-Disposition"] = "attachment; filename=\"app:artifact.zip\"";
+                context.Response.ContentLength64 = zipBytes.Length;
+                await context.Response.OutputStream.WriteAsync(zipBytes).ConfigureAwait(false);
+                context.Response.OutputStream.Close();
+                context.Response.Close();
+            });
+
+            var archiveUrl = $"{server.Prefix}download";
+            var (_, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--content-root",
+                archiveUrl,
+                "--script",
+                "scripts/start.ps1",
+            ]);
+            Assert.True(string.IsNullOrWhiteSpace(parseError), parseError);
+
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.True(result.Success, result.Error);
+            Assert.True(File.Exists(result.FullScriptPath));
+            Assert.Equal(Path.Combine("scripts", "start.ps1"), result.RelativeScriptPath);
+            extractedRoot = result.FullContentRoot;
+
+            await server.Completion;
+        }
+        finally
+        {
             if (!string.IsNullOrWhiteSpace(extractedRoot) && Directory.Exists(extractedRoot))
             {
                 _ = InvokeTryDeleteDirectoryWithRetry(extractedRoot, maxAttempts: 20, initialDelayMs: 50);
@@ -1176,8 +1227,6 @@ public class KestrunToolCommandSurfaceTests
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
         string temporaryContentRootPath = string.Empty;
-        HttpListener? listener = null;
-        Task? serverTask = null;
 
         try
         {
@@ -1187,15 +1236,8 @@ public class KestrunToolCommandSurfaceTests
                 ["scripts/start.ps1"] = "Write-Output 'hello-url'",
             });
 
-            var port = FindAvailablePort();
-            var prefix = $"http://127.0.0.1:{port}/";
-            listener = new HttpListener();
-            listener.Prefixes.Add(prefix);
-            listener.Start();
-
-            serverTask = Task.Run(async () =>
+            await using var server = StartSingleRequestHttpServer(async context =>
             {
-                var context = await listener.GetContextAsync().ConfigureAwait(false);
                 context.Response.StatusCode = 200;
                 context.Response.ContentType = "application/zip";
                 context.Response.ContentLength64 = zipBytes.Length;
@@ -1204,7 +1246,7 @@ public class KestrunToolCommandSurfaceTests
                 context.Response.Close();
             });
 
-            var archiveUrl = $"{prefix}app.zip";
+            var archiveUrl = $"{server.Prefix}app.zip";
             var missingManifestPath = Path.Combine(tempRoot, "missing", "Kestrun.psd1");
             var (_, parsedCommand, parseError) = InvokeTryParseArguments([
                 "service",
@@ -1229,16 +1271,10 @@ public class KestrunToolCommandSurfaceTests
             Assert.False(string.IsNullOrWhiteSpace(temporaryContentRootPath));
             Assert.False(Directory.Exists(temporaryContentRootPath));
 
-            if (serverTask is not null)
-            {
-                await serverTask;
-            }
+            await server.Completion;
         }
         finally
         {
-            listener?.Stop();
-            listener?.Close();
-
             if (!string.IsNullOrWhiteSpace(temporaryContentRootPath) && Directory.Exists(temporaryContentRootPath))
             {
                 _ = InvokeTryDeleteDirectoryWithRetry(temporaryContentRootPath, maxAttempts: 20, initialDelayMs: 50);
@@ -1257,8 +1293,6 @@ public class KestrunToolCommandSurfaceTests
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
         string extractedRoot = string.Empty;
-        HttpListener? listener = null;
-        Task? serverTask = null;
 
         try
         {
@@ -1268,15 +1302,8 @@ public class KestrunToolCommandSurfaceTests
                 ["scripts/start.ps1"] = "Write-Output 'hello-url-tgz'",
             });
 
-            var port = FindAvailablePort();
-            var prefix = $"http://127.0.0.1:{port}/";
-            listener = new HttpListener();
-            listener.Prefixes.Add(prefix);
-            listener.Start();
-
-            serverTask = Task.Run(async () =>
+            await using var server = StartSingleRequestHttpServer(async context =>
             {
-                var context = await listener.GetContextAsync().ConfigureAwait(false);
                 context.Response.StatusCode = 200;
                 context.Response.ContentType = "application/octet-stream";
                 context.Response.ContentLength64 = tgzBytes.Length;
@@ -1285,7 +1312,7 @@ public class KestrunToolCommandSurfaceTests
                 context.Response.Close();
             });
 
-            var archiveUrl = $"{prefix}download?sig=abc123";
+            var archiveUrl = $"{server.Prefix}download?sig=abc123";
             var (_, parsedCommand, parseError) = InvokeTryParseArguments([
                 "service",
                 "install",
@@ -1308,16 +1335,10 @@ public class KestrunToolCommandSurfaceTests
 
             extractedRoot = result.FullContentRoot;
 
-            if (serverTask is not null)
-            {
-                await serverTask;
-            }
+            await server.Completion;
         }
         finally
         {
-            listener?.Stop();
-            listener?.Close();
-
             if (!string.IsNullOrWhiteSpace(extractedRoot) && Directory.Exists(extractedRoot))
             {
                 _ = InvokeTryDeleteDirectoryWithRetry(extractedRoot, maxAttempts: 20, initialDelayMs: 50);
@@ -1989,6 +2010,75 @@ public class KestrunToolCommandSurfaceTests
         }
 
         return memory.ToArray();
+    }
+
+    private static SingleRequestHttpServer StartSingleRequestHttpServer(Func<HttpListenerContext, Task> requestHandler)
+    {
+        var (listener, prefix) = StartHttpListenerWithRetry();
+        var completion = Task.Run(async () =>
+        {
+            var context = await listener.GetContextAsync().ConfigureAwait(false);
+            await requestHandler(context).ConfigureAwait(false);
+        });
+
+        return new SingleRequestHttpServer(listener, prefix, completion);
+    }
+
+    private sealed class SingleRequestHttpServer(HttpListener listener, string prefix, Task completion) : IAsyncDisposable
+    {
+        public string Prefix { get; } = prefix;
+
+        public Task Completion { get; } = completion;
+
+        public async ValueTask DisposeAsync()
+        {
+            listener.Stop();
+            listener.Close();
+
+            try
+            {
+                await Completion.ConfigureAwait(false);
+            }
+            catch (HttpListenerException)
+            {
+                // Listener shutdown can race with GetContextAsync() during cleanup.
+            }
+            catch (ObjectDisposedException)
+            {
+                // Listener shutdown can race with GetContextAsync() during cleanup.
+            }
+        }
+    }
+
+    private static (HttpListener Listener, string Prefix) StartHttpListenerWithRetry(int maxAttempts = 8)
+    {
+        HttpListenerException? lastException = null;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            var prefix = $"http://127.0.0.1:{FindAvailablePort()}/";
+            var listener = new HttpListener();
+            listener.Prefixes.Add(prefix);
+
+            try
+            {
+                listener.Start();
+                return (listener, prefix);
+            }
+            catch (HttpListenerException ex)
+            {
+                listener.Close();
+                lastException = ex;
+            }
+            catch
+            {
+                listener.Close();
+                throw;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Failed to start test HttpListener after {maxAttempts} attempts.",
+            lastException);
     }
 
     private static int FindAvailablePort()

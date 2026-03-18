@@ -1909,7 +1909,7 @@ internal static partial class Program
 
             var isDirectory = string.IsNullOrEmpty(entry.Name)
                 || entry.FullName.EndsWith('/')
-                || entry.FullName.EndsWith("\\", StringComparison.Ordinal);
+                || entry.FullName.EndsWith('\\');
             if (isDirectory)
             {
                 _ = Directory.CreateDirectory(fullDestinationPath);

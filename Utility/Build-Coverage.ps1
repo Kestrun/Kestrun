@@ -67,23 +67,27 @@ function Get-TestProjectTargetFrameworks {
         [string]$ProjectPath
     )
 
-    [xml]$projectXml = Get-Content -LiteralPath $ProjectPath -Raw
+    $msbuildOutput = & dotnet msbuild $ProjectPath -nologo -v:q -getProperty:TargetFramework -getProperty:TargetFrameworks 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to evaluate TargetFramework/TargetFrameworks using MSBuild for project '$ProjectPath'. Output: $($msbuildOutput -join [Environment]::NewLine)"
+    }
+
+    $msbuildJson = $msbuildOutput | Out-String
+    try {
+        $properties = ($msbuildJson | ConvertFrom-Json -Depth 10).Properties
+    } catch {
+        throw "Failed to parse MSBuild property output for '$ProjectPath'. Output: $msbuildJson"
+    }
+
     $frameworks = [System.Collections.Generic.List[string]]::new()
+    if (-not [string]::IsNullOrWhiteSpace([string]$properties.TargetFramework)) {
+        $frameworks.Add([string]$properties.TargetFramework)
+    }
 
-    foreach ($propertyGroup in @($projectXml.Project.PropertyGroup)) {
-        if ($null -eq $propertyGroup) {
-            continue
-        }
-
-        if (-not [string]::IsNullOrWhiteSpace([string]$propertyGroup.TargetFramework)) {
-            $frameworks.Add([string]$propertyGroup.TargetFramework)
-        }
-
-        if (-not [string]::IsNullOrWhiteSpace([string]$propertyGroup.TargetFrameworks)) {
-            foreach ($tfm in ([string]$propertyGroup.TargetFrameworks -split ';')) {
-                if (-not [string]::IsNullOrWhiteSpace($tfm)) {
-                    $frameworks.Add($tfm)
-                }
+    if (-not [string]::IsNullOrWhiteSpace([string]$properties.TargetFrameworks)) {
+        foreach ($tfm in ([string]$properties.TargetFrameworks -split ';')) {
+            if (-not [string]::IsNullOrWhiteSpace($tfm)) {
+                $frameworks.Add($tfm)
             }
         }
     }

@@ -35,10 +35,10 @@ public class CallbackWorkerTests
                 idempotencyKey: "idk",
                 timeout: TimeSpan.FromSeconds(1));
 
-            await queue.Channel.Writer.WriteAsync(req);
+            await queue.Channel.Writer.WriteAsync(req, TestContext.Current.CancellationToken);
 
             // Wait until MarkSucceededAsync runs.
-            _ = await store.Succeeded.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            _ = await store.Succeeded.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
             Assert.Equal(1, sender.Calls);
             Assert.Equal(1, store.InFlightCalls);

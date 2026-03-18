@@ -33,7 +33,7 @@ public class InMemorySseBroadcasterTests
         var sub1 = broadcaster.Subscribe(CancellationToken.None);
         var sub2 = broadcaster.Subscribe(CancellationToken.None);
 
-        await broadcaster.BroadcastAsync(eventName: "message", data: "hello", id: "42", retryMs: 1000);
+        await broadcaster.BroadcastAsync(eventName: "message", data: "hello", id: "42", retryMs: 1000, TestContext.Current.CancellationToken);
 
         var expected = Kestrun.Sse.SseEventFormatter.Format("message", "hello", "42", 1000);
         var p1 = await ReadWithTimeoutAsync(sub1.Reader, TimeSpan.FromSeconds(2));
@@ -49,7 +49,7 @@ public class InMemorySseBroadcasterTests
     {
         var broadcaster = new Kestrun.Sse.InMemorySseBroadcaster(CreateNullLogger());
 
-        await broadcaster.BroadcastAsync(eventName: "message", data: "hello");
+        await broadcaster.BroadcastAsync(eventName: "message", data: "hello", cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(0, broadcaster.ConnectedCount);
     }
@@ -101,7 +101,7 @@ public class InMemorySseBroadcasterTests
         Assert.True(clients.TryGetValue(sub.ClientId, out var channel));
         _ = channel.Writer.TryComplete();
 
-        await broadcaster.BroadcastAsync(eventName: "x", data: "y");
+        await broadcaster.BroadcastAsync(eventName: "x", data: "y", cancellationToken: TestContext.Current.CancellationToken);
 
         var removed = await WaitForAsync(() => broadcaster.ConnectedCount == 0, TimeSpan.FromSeconds(2));
         Assert.True(removed);

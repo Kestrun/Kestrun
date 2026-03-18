@@ -35,11 +35,11 @@ public class CallbackWorkerRetryTests
                 idempotencyKey: "idk",
                 timeout: TimeSpan.FromSeconds(1));
 
-            await queue.Channel.Writer.WriteAsync(req);
+            await queue.Channel.Writer.WriteAsync(req, TestContext.Current.CancellationToken);
 
             // Wait until the retry is scheduled and then the second attempt is observed.
-            _ = await store.RetryScheduled.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            _ = await sender.SecondAttempt.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            _ = await store.RetryScheduled.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+            _ = await sender.SecondAttempt.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
             Assert.Equal(2, sender.Calls);
             Assert.Equal(1, store.RetryScheduledCalls);

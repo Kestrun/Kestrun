@@ -52,7 +52,7 @@ public class KestrunHostStaticFilesExtensionsIntegrationTests
     {
         // Create a tiny dummy favicon file (not a real ICO but sufficient for byte length test)
         var tmp = Path.GetTempFileName();
-        await File.WriteAllBytesAsync(tmp, [0, 1, 2, 3, 4]);
+        await File.WriteAllBytesAsync(tmp, [0, 1, 2, 3, 4], TestContext.Current.CancellationToken);
         try
         {
             var host = CreateBuiltHost(h => h.AddFavicon(tmp));
@@ -84,7 +84,7 @@ public class KestrunHostStaticFilesExtensionsIntegrationTests
     {
         var tmpDir = Directory.CreateTempSubdirectory();
         var filePath = Path.Combine(tmpDir.FullName, "test.txt");
-        await File.WriteAllTextAsync(filePath, "hello static");
+        await File.WriteAllTextAsync(filePath, "hello static", TestContext.Current.CancellationToken);
         var provider = new PhysicalFileProvider(tmpDir.FullName);
 
         var host = CreateBuiltHost(h => h.AddFileServer(o =>
@@ -114,7 +114,7 @@ public class KestrunHostStaticFilesExtensionsIntegrationTests
     {
         var tmpDir = Directory.CreateTempSubdirectory();
         var filePath = Path.Combine(tmpDir.FullName, "data.xyz");
-        await File.WriteAllTextAsync(filePath, "xyz content");
+        await File.WriteAllTextAsync(filePath, "xyz content", TestContext.Current.CancellationToken);
         var provider = new PhysicalFileProvider(tmpDir.FullName);
         var ctp = new FileExtensionContentTypeProvider();
         ctp.Mappings[".xyz"] = "application/xyz";
@@ -147,7 +147,7 @@ public class KestrunHostStaticFilesExtensionsIntegrationTests
     {
         var tmpDir = Directory.CreateTempSubdirectory();
         var homePath = Path.Combine(tmpDir.FullName, "home.html");
-        await File.WriteAllTextAsync(homePath, "<h1>Hello Home</h1>");
+        await File.WriteAllTextAsync(homePath, "<h1>Hello Home</h1>", TestContext.Current.CancellationToken);
         var provider = new PhysicalFileProvider(tmpDir.FullName);
 
         var host = CreateBuiltHost(h =>
@@ -186,7 +186,7 @@ public class KestrunHostStaticFilesExtensionsIntegrationTests
     {
         var tmpDir = Directory.CreateTempSubdirectory();
         var filePath = Path.Combine(tmpDir.FullName, "listme.txt");
-        await File.WriteAllTextAsync(filePath, "browse me");
+        await File.WriteAllTextAsync(filePath, "browse me", TestContext.Current.CancellationToken);
         var provider = new PhysicalFileProvider(tmpDir.FullName);
 
         var host = CreateBuiltHost(h => h.AddFileServer(o =>
@@ -217,7 +217,7 @@ public class KestrunHostStaticFilesExtensionsIntegrationTests
     {
         var tmpDir = Directory.CreateTempSubdirectory();
         var filePath = Path.Combine(tmpDir.FullName, "file.unknownext");
-        await File.WriteAllTextAsync(filePath, "mystery");
+        await File.WriteAllTextAsync(filePath, "mystery", TestContext.Current.CancellationToken);
         var provider = new PhysicalFileProvider(tmpDir.FullName);
 
         var host = CreateBuiltHost(h => h.AddStaticFiles(o =>

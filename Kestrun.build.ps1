@@ -155,9 +155,11 @@ $KestrunServiceHostProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/C
 $KestrunCoreTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Tests/KestrunTests.csproj'
 $KestrunToolTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Tool.Tests/Kestrun.Tool.Tests.csproj'
 $KestrunServiceHostTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.ServiceHost.Tests/Kestrun.ServiceHost.Tests.csproj'
+$KestrunRunnerTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Runner.Tests/Kestrun.Runner.Tests.csproj'
 $KestrunDedicatedNet10TestProjects = @(
     $KestrunToolTestProjectPath,
-    $KestrunServiceHostTestProjectPath
+    $KestrunServiceHostTestProjectPath,
+    $KestrunRunnerTestProjectPath
 )
 $KestrunToolRuntimeIdentifiers = @('win-x64', 'win-arm64', 'linux-x64', 'linux-arm64', 'osx-x64', 'osx-arm64')
 $ExamplesSolutionFilter = Join-Path -Path $PSScriptRoot -ChildPath 'Examples.slnf'
@@ -500,7 +502,7 @@ Add-BuildTask 'Test-xUnit' {
             }
         }
     } else {
-        Write-Host "ℹ️ Skipping dedicated Tool/ServiceHost tests because net10.0 is not in -Frameworks." -ForegroundColor Yellow
+        Write-Host "ℹ️ Skipping dedicated Tool/ServiceHost/Runner tests because net10.0 is not in -Frameworks." -ForegroundColor Yellow
     }
 
     if ($failures.Count -gt 0) {

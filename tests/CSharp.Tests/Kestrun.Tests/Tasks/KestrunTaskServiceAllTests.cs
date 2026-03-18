@@ -41,7 +41,7 @@ public class KestrunTaskServiceAllTests
             var start = DateTime.UtcNow;
             while (svc.GetState(id) != TaskState.Completed && DateTime.UtcNow - start < TimeSpan.FromSeconds(2))
             {
-                await Task.Delay(10);
+                await Task.Delay(10, TestContext.Current.CancellationToken);
             }
             Assert.Equal(TaskState.Completed, svc.GetState(id));
 
@@ -152,7 +152,7 @@ public class KestrunTaskServiceAllTests
             var start = DateTime.UtcNow;
             while (svc.GetState(id) == TaskState.NotStarted && DateTime.UtcNow - start < TimeSpan.FromSeconds(2))
             {
-                await Task.Delay(20);
+                await Task.Delay(20, TestContext.Current.CancellationToken);
             }
 
             Assert.True(svc.Cancel(id));
@@ -161,7 +161,7 @@ public class KestrunTaskServiceAllTests
             start = DateTime.UtcNow;
             while (svc.GetState(id) != TaskState.Stopped && DateTime.UtcNow - start < TimeSpan.FromSeconds(3))
             {
-                await Task.Delay(20);
+                await Task.Delay(20, TestContext.Current.CancellationToken);
             }
             Assert.Equal(TaskState.Stopped, svc.GetState(id));
             var kr = svc.Get(id)!;
@@ -193,7 +193,7 @@ public class KestrunTaskServiceAllTests
             var spin = DateTime.UtcNow;
             while (svc.GetState(id) != TaskState.Running && DateTime.UtcNow - spin < TimeSpan.FromSeconds(3))
             {
-                await Task.Delay(25);
+                await Task.Delay(25, TestContext.Current.CancellationToken);
             }
 
             var stateWhenRemoving = svc.GetState(id);
@@ -204,7 +204,7 @@ public class KestrunTaskServiceAllTests
             var start = DateTime.UtcNow;
             while (svc.GetState(id) != TaskState.Completed && DateTime.UtcNow - start < TimeSpan.FromSeconds(6))
             {
-                await Task.Delay(25);
+                await Task.Delay(25, TestContext.Current.CancellationToken);
             }
             // If still not completed, surface state for debugging
             var finalState = svc.GetState(id);
@@ -231,7 +231,7 @@ public class KestrunTaskServiceAllTests
             var start = DateTime.UtcNow;
             while (svc.GetState(id) != TaskState.Completed && DateTime.UtcNow - start < TimeSpan.FromSeconds(3))
             {
-                await Task.Delay(25);
+                await Task.Delay(25, TestContext.Current.CancellationToken);
             }
             Assert.Equal(TaskState.Completed, svc.GetState(id));
             Assert.Equal(42, svc.GetResult(id));
@@ -289,14 +289,14 @@ public class KestrunTaskServiceAllTests
             var childSpin = DateTime.UtcNow;
             while (svc.GetState(childId) == TaskState.NotStarted && DateTime.UtcNow - childSpin < TimeSpan.FromSeconds(3))
             {
-                await Task.Delay(30);
+                await Task.Delay(30, TestContext.Current.CancellationToken);
             }
 
             // Wait parent to complete
             var start = DateTime.UtcNow;
             while (svc.GetState(parentId) != TaskState.Completed && DateTime.UtcNow - start < TimeSpan.FromSeconds(3))
             {
-                await Task.Delay(10);
+                await Task.Delay(10, TestContext.Current.CancellationToken);
             }
             Assert.Equal(TaskState.Completed, svc.GetState(parentId));
 
@@ -304,7 +304,7 @@ public class KestrunTaskServiceAllTests
             var ensureRunning = DateTime.UtcNow;
             while (svc.GetState(childId) == TaskState.NotStarted && DateTime.UtcNow - ensureRunning < TimeSpan.FromSeconds(3))
             {
-                await Task.Delay(25);
+                await Task.Delay(25, TestContext.Current.CancellationToken);
             }
             // Parent removal should fail because child still running
             Assert.False(svc.Remove(parentId));
@@ -314,7 +314,7 @@ public class KestrunTaskServiceAllTests
             start = DateTime.UtcNow;
             while (svc.GetState(childId) != TaskState.Stopped && DateTime.UtcNow - start < TimeSpan.FromSeconds(8))
             {
-                await Task.Delay(25);
+                await Task.Delay(25, TestContext.Current.CancellationToken);
             }
             var childFinal = svc.GetState(childId);
             Assert.True(childFinal == TaskState.Stopped, $"Expected Stopped after cancellation, got {childFinal}");
@@ -345,7 +345,7 @@ Return 777";
             var start = DateTime.UtcNow;
             while (svc.GetState(id) != TaskState.Completed && DateTime.UtcNow - start < TimeSpan.FromSeconds(3))
             {
-                await Task.Delay(25);
+                await Task.Delay(25, TestContext.Current.CancellationToken);
             }
             Assert.Equal(TaskState.Completed, svc.GetState(id));
             Assert.Equal(777, svc.GetResult(id));

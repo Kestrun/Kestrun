@@ -34,7 +34,7 @@ public class KrRequestDecompressionExtensionsTests
             return Results.Text(text);
         });
 
-        await app.StartAsync();
+        await app.StartAsync(TestContext.Current.CancellationToken);
         try
         {
             var client = app.GetTestClient();
@@ -46,15 +46,15 @@ public class KrRequestDecompressionExtensionsTests
             req.Content.Headers.ContentEncoding.Add("br");
             req.Content.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
 
-            using var resp = await client.SendAsync(req);
+            using var resp = await client.SendAsync(req, TestContext.Current.CancellationToken);
 
             Assert.Equal(HttpStatusCode.UnsupportedMediaType, resp.StatusCode);
-            var body = await resp.Content.ReadAsStringAsync();
+            var body = await resp.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
             Assert.Equal("Unsupported Content-Encoding.", body);
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
         }
     }
 
@@ -78,7 +78,7 @@ public class KrRequestDecompressionExtensionsTests
             return Results.Text(text);
         });
 
-        await app.StartAsync();
+        await app.StartAsync(TestContext.Current.CancellationToken);
         try
         {
             var client = app.GetTestClient();
@@ -93,15 +93,15 @@ public class KrRequestDecompressionExtensionsTests
             req.Content.Headers.ContentEncoding.Add("gzip");
             req.Content.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
 
-            using var resp = await client.SendAsync(req);
+            using var resp = await client.SendAsync(req, TestContext.Current.CancellationToken);
             _ = resp.EnsureSuccessStatusCode();
 
-            var body = await resp.Content.ReadAsStringAsync();
+            var body = await resp.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
             Assert.Equal(message, body);
         }
         finally
         {
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
         }
     }
 
@@ -116,3 +116,4 @@ public class KrRequestDecompressionExtensionsTests
         return output.ToArray();
     }
 }
+

@@ -23,7 +23,7 @@ public class KrDiskPartSinkTests
             Assert.True(File.Exists(result.TempPath));
             Assert.Equal(payload.Length, result.Length);
 
-            var onDisk = await File.ReadAllTextAsync(result.TempPath, Encoding.UTF8);
+            var onDisk = await File.ReadAllTextAsync(result.TempPath, Encoding.UTF8, TestContext.Current.CancellationToken);
             Assert.Equal(payload, onDisk);
 
             var expectedHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();

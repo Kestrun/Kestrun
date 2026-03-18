@@ -309,7 +309,7 @@ public class KestrunHostTest
         var sw = System.Diagnostics.Stopwatch.StartNew();
         while (!host.IsRunning && sw.Elapsed < TimeSpan.FromSeconds(5))
         {
-            await Task.Delay(50);
+            await Task.Delay(50, TestContext.Current.CancellationToken);
         }
         Assert.True(host.IsRunning);
 
@@ -321,7 +321,7 @@ public class KestrunHostTest
         sw.Restart();
         while (host.IsRunning && sw.Elapsed < TimeSpan.FromSeconds(2))
         {
-            await Task.Delay(25);
+            await Task.Delay(25, TestContext.Current.CancellationToken);
         }
         Assert.False(host.IsRunning);
     }

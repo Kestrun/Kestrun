@@ -110,7 +110,7 @@ public class KestrunHostSignalRExtensionsTests
         using var host = new KestrunHost("TestApp", Log.Logger);
 
         // Act
-        var result = await host.BroadcastLogAsync("Information", "Test message");
+        var result = await host.BroadcastLogAsync("Information", "Test message", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(result);
@@ -128,7 +128,7 @@ public class KestrunHostSignalRExtensionsTests
         _ = host.Build();
 
         // Act
-        var result = await host.BroadcastLogAsync("Information", "Test message");
+        var result = await host.BroadcastLogAsync("Information", "Test message", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(result);
@@ -149,7 +149,7 @@ public class KestrunHostSignalRExtensionsTests
         _ = host.Build();
 
         // Act
-        var result = await host.BroadcastLogAsync("Warning", "Test warning");
+        var result = await host.BroadcastLogAsync("Warning", "Test warning", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(result);
@@ -171,7 +171,7 @@ public class KestrunHostSignalRExtensionsTests
         _ = host.Build();
 
         // Act
-        var result = await host.BroadcastLogAsync("Error", "Test error");
+        var result = await host.BroadcastLogAsync("Error", "Test error", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(result);
@@ -196,7 +196,7 @@ public class KestrunHostSignalRExtensionsTests
         _ = host.Build();
 
         // Act
-        var result = await host.BroadcastLogAsync(level, "Test message");
+        var result = await host.BroadcastLogAsync(level, "Test message", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(result);
@@ -213,7 +213,7 @@ public class KestrunHostSignalRExtensionsTests
         using var host = new KestrunHost("TestApp", Log.Logger);
 
         // Act
-        var result = await host.BroadcastEventAsync("TestEvent", new { data = "test" });
+        var result = await host.BroadcastEventAsync("TestEvent", new { data = "test" }, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(result);
@@ -231,7 +231,7 @@ public class KestrunHostSignalRExtensionsTests
         _ = host.Build();
 
         // Act
-        var result = await host.BroadcastEventAsync("TestEvent");
+        var result = await host.BroadcastEventAsync("TestEvent", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(result);
@@ -254,7 +254,7 @@ public class KestrunHostSignalRExtensionsTests
         _ = host.Build();
 
         // Act
-        var result = await host.BroadcastEventAsync("CustomEvent", eventData);
+        var result = await host.BroadcastEventAsync("CustomEvent", eventData, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(result);
@@ -276,7 +276,7 @@ public class KestrunHostSignalRExtensionsTests
         _ = host.Build();
 
         // Act
-        var result = await host.BroadcastEventAsync("SimpleEvent");
+        var result = await host.BroadcastEventAsync("SimpleEvent", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(result);
@@ -298,7 +298,7 @@ public class KestrunHostSignalRExtensionsTests
         _ = host.Build();
 
         // Act
-        var result = await host.BroadcastEventAsync("FailingEvent");
+        var result = await host.BroadcastEventAsync("FailingEvent", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(result);
@@ -315,7 +315,7 @@ public class KestrunHostSignalRExtensionsTests
         using var host = new KestrunHost("TestApp", Log.Logger);
 
         // Act
-        var result = await host.BroadcastToGroupAsync("TestGroup", "Method", "data");
+        var result = await host.BroadcastToGroupAsync("TestGroup", "Method", "data", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(result);
@@ -333,7 +333,7 @@ public class KestrunHostSignalRExtensionsTests
         _ = host.Build();
 
         // Act
-        var result = await host.BroadcastToGroupAsync("TestGroup", "Method", null);
+        var result = await host.BroadcastToGroupAsync("TestGroup", "Method", null, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(result);
@@ -356,7 +356,7 @@ public class KestrunHostSignalRExtensionsTests
         var adminData = new { userId = 789 };
 
         // Act
-        var result = await host.BroadcastToGroupAsync("AdminGroup", "UpdateUsers", adminData);
+        var result = await host.BroadcastToGroupAsync("AdminGroup", "UpdateUsers", adminData, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(result);
@@ -378,7 +378,7 @@ public class KestrunHostSignalRExtensionsTests
         _ = host.Build();
 
         // Act
-        var result = await host.BroadcastToGroupAsync("NotifyGroup", "OnNotify", null);
+        var result = await host.BroadcastToGroupAsync("NotifyGroup", "OnNotify", null, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(result);
@@ -400,7 +400,7 @@ public class KestrunHostSignalRExtensionsTests
         _ = host.Build();
 
         // Act
-        var result = await host.BroadcastToGroupAsync("FailingGroup", "Method", "data");
+        var result = await host.BroadcastToGroupAsync("FailingGroup", "Method", "data", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(result);
@@ -424,7 +424,7 @@ public class KestrunHostSignalRExtensionsTests
         _ = host.Build();
 
         // Act
-        var result = await host.BroadcastToGroupAsync(groupName, "Notify", "message");
+        var result = await host.BroadcastToGroupAsync(groupName, "Notify", "message", cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(result);

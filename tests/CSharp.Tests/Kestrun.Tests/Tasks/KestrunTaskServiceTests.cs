@@ -78,7 +78,7 @@ public class KestrunTaskServiceTests
         var start = DateTime.UtcNow;
         while (svc.GetState(id) == TaskState.NotStarted && DateTime.UtcNow - start < TimeSpan.FromSeconds(3))
         {
-            await Task.Delay(25);
+            await Task.Delay(25, TestContext.Current.CancellationToken);
         }
 
         _ = svc.Cancel(id); // idempotent if already cancelled
@@ -96,7 +96,7 @@ public class KestrunTaskServiceTests
             // Still waiting for cancellation to propagate.
             if (state is TaskState.Running or TaskState.Stopping or TaskState.NotStarted)
             {
-                await Task.Delay(60);
+                await Task.Delay(60, TestContext.Current.CancellationToken);
                 continue;
             }
 

@@ -22,9 +22,10 @@ public class InMemoryCallbackQueueTests
             idempotencyKey: "idk",
             timeout: TimeSpan.FromSeconds(1));
 
-        await queue.Channel.Writer.WriteAsync(req);
+        await queue.Channel.Writer.WriteAsync(req, TestContext.Current.CancellationToken);
 
-        var got = await queue.Channel.Reader.ReadAsync();
+        var got = await queue.Channel.Reader.ReadAsync(TestContext.Current.CancellationToken);
         Assert.Same(req, got);
     }
 }
+

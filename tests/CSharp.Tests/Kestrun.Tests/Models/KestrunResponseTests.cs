@@ -838,7 +838,7 @@ public partial class KestrunResponseTests
     {
         var temp = Path.Combine(Path.GetTempPath(), $"kestr_file_{Guid.NewGuid():N}.txt");
         var content = "hello world";
-        await File.WriteAllBytesAsync(temp, Encoding.UTF8.GetBytes(content));
+        await File.WriteAllBytesAsync(temp, Encoding.UTF8.GetBytes(content), TestContext.Current.CancellationToken);
 
         try
         {
@@ -1118,7 +1118,7 @@ public partial class KestrunResponseTests
         var temp = Path.Combine(Path.GetTempPath(), $"kestr_{Guid.NewGuid():N}.html");
         try
         {
-            await File.WriteAllTextAsync(temp, "<h1>{{title}}</h1> <div>{{user.name}}</div>");
+            await File.WriteAllTextAsync(temp, "<h1>{{title}}</h1> <div>{{user.name}}</div>", TestContext.Current.CancellationToken);
 
             var res = NewRes();
             var vars = new Dictionary<string, object?>

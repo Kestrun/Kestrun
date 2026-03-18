@@ -44,7 +44,7 @@ public class FaviconMiddlewareExtensionsTests
         {
             // tiny fake .ico bytes
             var bytes = new byte[] { 0x00, 0x00, 0x01, 0x00 };
-            await File.WriteAllBytesAsync(tmp, bytes);
+            await File.WriteAllBytesAsync(tmp, bytes, TestContext.Current.CancellationToken);
 
             var services = new ServiceCollection().BuildServiceProvider();
             var app = new ApplicationBuilder(services);

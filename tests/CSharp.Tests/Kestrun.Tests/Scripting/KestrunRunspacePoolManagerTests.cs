@@ -188,7 +188,7 @@ public class KestrunRunspacePoolManagerTests : IDisposable
         using var manager = new KestrunRunspacePoolManager(_host, 1, 3);
 
         // Act
-        var runspace = await manager.AcquireAsync();
+        var runspace = await manager.AcquireAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotNull(runspace);
@@ -224,7 +224,7 @@ public class KestrunRunspacePoolManagerTests : IDisposable
 
         // Act - Start async acquire that should wait
         var acquireTask = Task.Run(async () => await manager.AcquireAsync());
-        await Task.Delay(100); // Let it start waiting
+        await Task.Delay(100, TestContext.Current.CancellationToken);// Let it start waiting
 
         // Release the runspace to unblock
         manager.Release(rs1);
@@ -337,18 +337,18 @@ public class KestrunRunspacePoolManagerTests : IDisposable
         {
             tasks.Add(Task.Run(async () =>
             {
-                await semaphore.WaitAsync(); // Ensure we don't exceed pool limit
+                await semaphore.WaitAsync(TestContext.Current.CancellationToken); // Ensure we don't exceed pool limit
                 try
                 {
                     var rs = manager.Acquire();
-                    await Task.Delay(5); // Simulate work
+                    await Task.Delay(5, TestContext.Current.CancellationToken); // Simulate work
                     manager.Release(rs);
                 }
                 finally
                 {
                     _ = semaphore.Release();
                 }
-            }));
+            }, TestContext.Current.CancellationToken));
         }
 
         await Task.WhenAll(tasks);

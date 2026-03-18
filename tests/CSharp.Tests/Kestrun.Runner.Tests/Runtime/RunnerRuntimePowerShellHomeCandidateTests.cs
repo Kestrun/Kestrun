@@ -1,10 +1,9 @@
 #if NET10_0_OR_GREATER
 using System.Reflection;
-using Kestrun.Runner;
 using Xunit;
 #endif
 
-namespace KestrunTests.Runtime;
+namespace Kestrun.Runner.Tests.Runtime;
 
 #if NET10_0_OR_GREATER
 public class RunnerRuntimePowerShellHomeCandidateTests

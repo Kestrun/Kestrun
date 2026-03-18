@@ -35,7 +35,7 @@ public class SchedulerServiceTests
         var start = DateTime.UtcNow;
         while (ran < 2 && DateTime.UtcNow - start < TimeSpan.FromSeconds(3))
         {
-            await Task.Delay(50);
+            await Task.Delay(50, TestContext.Current.CancellationToken);
         }
 
         var snap = svc.GetSnapshot();
@@ -60,14 +60,14 @@ public class SchedulerServiceTests
         var start = DateTime.UtcNow;
         while (ran == 0 && (DateTime.UtcNow - start) < TimeSpan.FromSeconds(2))
         {
-            await Task.Delay(10);
+            await Task.Delay(10, TestContext.Current.CancellationToken);
         }
 
         // Pause and allow any in-flight execution to drain before taking baseline
         Assert.True(svc.Pause("p"));
 
         // Allow any in-flight execution already scheduled (pending Task.Delay) to complete.
-        await Task.Delay(interval + TimeSpan.FromMilliseconds(50));
+        await Task.Delay(interval + TimeSpan.FromMilliseconds(50), TestContext.Current.CancellationToken);
 
         // Stabilization phase: wait until the counter stops changing for at least one full interval
         // (up to a max timeout). This avoids flakiness from the scheduler potentially catching up
@@ -78,7 +78,7 @@ public class SchedulerServiceTests
         var maxStabilize = TimeSpan.FromSeconds(4); // generous for slow CI
         while (DateTime.UtcNow - stabilizeStart < maxStabilize)
         {
-            await Task.Delay(25);
+            await Task.Delay(25, TestContext.Current.CancellationToken);
             var current = ran;
             if (current != lastObserved)
             {
@@ -100,7 +100,7 @@ public class SchedulerServiceTests
         while (!resumed && DateTime.UtcNow - resumeStart < TimeSpan.FromSeconds(5))
         {
             if (ran > pausedBaseline) { resumed = true; break; }
-            await Task.Delay(25);
+            await Task.Delay(25, TestContext.Current.CancellationToken);
         }
         Assert.True(resumed, "Job did not resume and increment after pause within timeout");
     }
@@ -120,7 +120,7 @@ public class SchedulerServiceTests
         var start = DateTime.UtcNow;
         while (ran == 0 && DateTime.UtcNow - start < TimeSpan.FromSeconds(3))
         {
-            await Task.Delay(25);
+            await Task.Delay(25, TestContext.Current.CancellationToken);
         }
         Assert.True(ran > 0, "Scheduled job 'c' never executed before cancel attempt");
 
@@ -134,13 +134,13 @@ public class SchedulerServiceTests
             cancelled = svc.Cancel("c");
             if (!cancelled)
             {
-                await Task.Delay(50); // tiny backoff in pathological race (should be rare)
+                await Task.Delay(50, TestContext.Current.CancellationToken);// tiny backoff in pathological race (should be rare)
             }
         }
         Assert.True(cancelled, "Failed to cancel job 'c' after retries");
-        await Task.Delay(250);
+        await Task.Delay(250, TestContext.Current.CancellationToken);
         var afterCancel = ran;
-        await Task.Delay(250);
+        await Task.Delay(250, TestContext.Current.CancellationToken);
         Assert.Equal(afterCancel, ran);
     }
 
@@ -184,7 +184,7 @@ public class SchedulerServiceTests
         var tmp = Path.GetTempFileName();
         try
         {
-            await File.WriteAllTextAsync(tmp, "$x=1; $x | Out-Null");
+            await File.WriteAllTextAsync(tmp, "$x=1; $x | Out-Null", TestContext.Current.CancellationToken);
             svc.Schedule("ps-file", TimeSpan.FromMilliseconds(100), new FileInfo(tmp), ScriptLanguage.PowerShell);
             var start = DateTime.UtcNow;
             var seenInline = false; var seenFile = false;
@@ -204,7 +204,7 @@ public class SchedulerServiceTests
 
                 if (!(seenInline && seenFile))
                 {
-                    await Task.Delay(50);
+                    await Task.Delay(50, TestContext.Current.CancellationToken);
                 }
             }
             Assert.True(seenInline, "ps-inline job not visible in snapshot within timeout");
@@ -231,7 +231,7 @@ public class SchedulerServiceTests
         var start = DateTime.UtcNow;
         while (ran == 0 && DateTime.UtcNow - start < TimeSpan.FromSeconds(2))
         {
-            await Task.Delay(25);
+            await Task.Delay(25, TestContext.Current.CancellationToken);
         }
         Assert.True(ran > 0);
         var job = Assert.Single(svc.GetSnapshot(), j => j.Name == "immediate-int");
@@ -253,7 +253,7 @@ public class SchedulerServiceTests
         var start = DateTime.UtcNow;
         while (ran == 0 && DateTime.UtcNow - start < TimeSpan.FromSeconds(2))
         {
-            await Task.Delay(25);
+            await Task.Delay(25, TestContext.Current.CancellationToken);
         }
         Assert.True(ran > 0);
         var job = Assert.Single(svc.GetSnapshot(), j => j.Name == "cron-cs");
@@ -285,7 +285,7 @@ public class SchedulerServiceTests
                 ranFlag.Set();
                 break;
             }
-            await Task.Delay(50);
+            await Task.Delay(50, TestContext.Current.CancellationToken);
         }
         Assert.True(ranFlag.IsSet, "PowerShell cron job did not run immediately");
     }
@@ -308,7 +308,7 @@ public class SchedulerServiceTests
             seen = svc.GetSnapshot().Any(j => j.Name == "ps-code-cron" && j.LastRunAt != null);
             if (!seen)
             {
-                await Task.Delay(50);
+                await Task.Delay(50, TestContext.Current.CancellationToken);
             }
         }
         Assert.True(seen);
@@ -326,7 +326,7 @@ public class SchedulerServiceTests
         var tmp = Path.GetTempFileName();
         try
         {
-            await File.WriteAllTextAsync(tmp, "$x=42 # cron file");
+            await File.WriteAllTextAsync(tmp, "$x=42 # cron file", TestContext.Current.CancellationToken);
             svc.Schedule("ps-file-cron", "* * * * * *", new FileInfo(tmp), ScriptLanguage.PowerShell, runImmediately: true);
 
             var start = DateTime.UtcNow;
@@ -336,7 +336,7 @@ public class SchedulerServiceTests
                 seen = svc.GetSnapshot().Any(j => j.Name == "ps-file-cron" && j.LastRunAt != null);
                 if (!seen)
                 {
-                    await Task.Delay(50);
+                    await Task.Delay(50, TestContext.Current.CancellationToken);
                 }
             }
             Assert.True(seen);
@@ -366,17 +366,17 @@ public class SchedulerServiceTests
         while (!warmed && DateTime.UtcNow - warmStart < TimeSpan.FromSeconds(5))
         {
             warmed = svc.GetSnapshot().Any(j => j.Name == "warm" && j.LastRunAt != null);
-            if (!warmed) { await Task.Delay(50); }
+            if (!warmed) { await Task.Delay(50, TestContext.Current.CancellationToken); }
         }
 
         var tmp1 = Path.GetTempFileName();
         var tmp2 = Path.GetTempFileName();
         try
         {
-            await File.WriteAllTextAsync(tmp1, "$null | Out-Null # interval async");
-            await File.WriteAllTextAsync(tmp2, "$null | Out-Null # cron async");
-            await svc.ScheduleAsync("ps-file-int-async", TimeSpan.FromMinutes(10), new FileInfo(tmp1), ScriptLanguage.PowerShell, runImmediately: true);
-            await svc.ScheduleAsync("ps-file-cron-async", "* * * * * *", new FileInfo(tmp2), ScriptLanguage.PowerShell, runImmediately: true);
+            await File.WriteAllTextAsync(tmp1, "$null | Out-Null # interval async", TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(tmp2, "$null | Out-Null # cron async", TestContext.Current.CancellationToken);
+            await svc.ScheduleAsync("ps-file-int-async", TimeSpan.FromMinutes(10), new FileInfo(tmp1), ScriptLanguage.PowerShell, runImmediately: true, TestContext.Current.CancellationToken);
+            await svc.ScheduleAsync("ps-file-cron-async", "* * * * * *", new FileInfo(tmp2), ScriptLanguage.PowerShell, runImmediately: true, TestContext.Current.CancellationToken);
 
             var start = DateTime.UtcNow;
             var seen1 = false; var seen2 = false;
@@ -394,7 +394,7 @@ public class SchedulerServiceTests
                 }
                 if (!(seen1 && seen2))
                 {
-                    await Task.Delay(100); // slightly larger interval reduces snapshot churn
+                    await Task.Delay(100, TestContext.Current.CancellationToken);// slightly larger interval reduces snapshot churn
                 }
             }
             Assert.True(seen1, "Interval file job did not execute its immediate run within 20s");
@@ -492,7 +492,7 @@ public class SchedulerServiceTests
         // Wait until at least 2 interval executions (immediate + one scheduled) or timeout.
         while (intervalRuns < 2 && DateTime.UtcNow - start < TimeSpan.FromSeconds(5))
         {
-            await Task.Delay(50);
+            await Task.Delay(50, TestContext.Current.CancellationToken);
         }
 
         // Take several snapshots over a short window to look for transient ordering issues.
@@ -506,7 +506,7 @@ public class SchedulerServiceTests
                     Assert.True(job.NextRunAt >= job.LastRunAt, $"Invariant violated for {job.Name}: NextRunAt {job.NextRunAt:o} < LastRunAt {job.LastRunAt:o}");
                 }
             }
-            await Task.Delay(50);
+            await Task.Delay(50, TestContext.Current.CancellationToken);
         }
     }
 }

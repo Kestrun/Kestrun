@@ -38,7 +38,7 @@ public class CSharpDelegateBuilderTests
 
         ctx.Response.Body.Position = 0;
         using var sr = new StreamReader(ctx.Response.Body, Encoding.UTF8);
-        var body = await sr.ReadToEndAsync();
+        var body = await sr.ReadToEndAsync(TestContext.Current.CancellationToken);
         Assert.Equal("ok", body);
         Assert.Equal("text/plain; charset=utf-8", ctx.Response.ContentType);
     }
@@ -96,3 +96,4 @@ public class CSharpDelegateBuilderTests
         _ = Assert.IsType<NotImplementedException>(ex);
     }
 }
+

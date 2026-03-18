@@ -21,6 +21,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="../../../src/CSharp/Kestrun.ServiceHost/Kestrun.ServiceHost.csproj" />
+        <ProjectReference Include="../../../src/CSharp/Kestrun.Runner/Kestrun.Runner.csproj" />
+        <ProjectReference Include="../../../src/CSharp/Kestrun/Kestrun.csproj" />
     </ItemGroup>
 </Project>

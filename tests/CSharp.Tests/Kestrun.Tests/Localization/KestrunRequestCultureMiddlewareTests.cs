@@ -46,14 +46,14 @@ public class KestrunRequestCultureMiddlewareTests
                 return Results.Text($"{culture}:{hello}");
             });
 
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var client = app.GetTestClient();
             _ = client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "it-IT");
 
-            var response = await client.GetStringAsync("/hello");
+            var response = await client.GetStringAsync("/hello", TestContext.Current.CancellationToken);
             Assert.Equal("it-IT:Ciao", response);
 
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
         }
         finally
         {
@@ -97,14 +97,14 @@ public class KestrunRequestCultureMiddlewareTests
                 return Results.Text($"{culture}:{hello}");
             });
 
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var client = app.GetTestClient();
             _ = client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "en-US;q=0.1, fr-FR;q=0.9");
 
-            var response = await client.GetStringAsync("/hello");
+            var response = await client.GetStringAsync("/hello", TestContext.Current.CancellationToken);
             Assert.Equal("fr-FR:Bonjour", response);
 
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
         }
         finally
         {
@@ -147,13 +147,13 @@ public class KestrunRequestCultureMiddlewareTests
                 return Results.Text($"{culture}:{hello}");
             });
 
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var client = app.GetTestClient();
 
-            var response = await client.GetStringAsync("/hello?lang=not-a-culture");
+            var response = await client.GetStringAsync("/hello?lang=not-a-culture", TestContext.Current.CancellationToken);
             Assert.Equal("en-US:Hello", response);
 
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
         }
         finally
         {
@@ -197,15 +197,15 @@ public class KestrunRequestCultureMiddlewareTests
                 return Results.Text(culture ?? string.Empty);
             });
 
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var client = app.GetTestClient();
             _ = client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "es-ES");
             _ = client.DefaultRequestHeaders.TryAddWithoutValidation("Cookie", "lang=fr-FR");
 
-            var response = await client.GetStringAsync("/hello?lang=it-IT");
+            var response = await client.GetStringAsync("/hello?lang=it-IT", TestContext.Current.CancellationToken);
             Assert.Equal("it-IT", response);
 
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
         }
         finally
         {
@@ -247,14 +247,14 @@ public class KestrunRequestCultureMiddlewareTests
                 return Results.Text(culture ?? string.Empty);
             });
 
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var client = app.GetTestClient();
             _ = client.DefaultRequestHeaders.TryAddWithoutValidation("Cookie", "lang=fr-FR");
 
-            var response = await client.GetStringAsync("/hello?lang=it-IT");
+            var response = await client.GetStringAsync("/hello?lang=it-IT", TestContext.Current.CancellationToken);
             Assert.Equal("fr-FR", response);
 
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
         }
         finally
         {
@@ -295,14 +295,14 @@ public class KestrunRequestCultureMiddlewareTests
                 return Results.Text(culture ?? string.Empty);
             });
 
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var client = app.GetTestClient();
             _ = client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "fr-FR");
 
-            var response = await client.GetStringAsync("/hello");
+            var response = await client.GetStringAsync("/hello", TestContext.Current.CancellationToken);
             Assert.Equal("en-US", response);
 
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
         }
         finally
         {
@@ -342,14 +342,14 @@ public class KestrunRequestCultureMiddlewareTests
                 return Results.Text(culture ?? string.Empty);
             });
 
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var client = app.GetTestClient();
             _ = client.DefaultRequestHeaders.TryAddWithoutValidation("Accept-Language", "*;q=0.9, fr-FR;q=2.0, en-US;q=0.3");
 
-            var response = await client.GetStringAsync("/hello");
+            var response = await client.GetStringAsync("/hello", TestContext.Current.CancellationToken);
             Assert.Equal("en-US", response);
 
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
         }
         finally
         {
@@ -391,15 +391,15 @@ public class KestrunRequestCultureMiddlewareTests
 
             _ = app.MapGet("/hello", () => Results.Text(CultureInfo.CurrentCulture.Name));
 
-            await app.StartAsync();
+            await app.StartAsync(TestContext.Current.CancellationToken);
             var client = app.GetTestClient();
 
-            _ = await client.GetStringAsync("/hello?lang=it-IT");
+            _ = await client.GetStringAsync("/hello?lang=it-IT", TestContext.Current.CancellationToken);
 
             Assert.Equal("en-US", CultureInfo.CurrentCulture.Name);
             Assert.Equal("en-US", CultureInfo.CurrentUICulture.Name);
 
-            await app.StopAsync();
+            await app.StopAsync(TestContext.Current.CancellationToken);
         }
         finally
         {
@@ -454,3 +454,4 @@ public class KestrunRequestCultureMiddlewareTests
         }
     }
 }
+

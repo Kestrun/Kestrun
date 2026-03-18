@@ -37,7 +37,7 @@ public sealed class KestrunContextBroadcastTests
     public async Task BroadcastLogAsync_NoServiceProvider_ReturnsFalse()
     {
         var ctx = NewContext(services: null);
-        var ok = await ctx.BroadcastLogAsync("Information", "hello");
+        var ok = await ctx.BroadcastLogAsync("Information", "hello", TestContext.Current.CancellationToken);
         Assert.False(ok);
     }
 
@@ -47,7 +47,7 @@ public sealed class KestrunContextBroadcastTests
         var sp = new ServiceCollection().BuildServiceProvider();
         var ctx = NewContext(sp);
 
-        var ok = await ctx.BroadcastLogAsync("Information", "hello");
+        var ok = await ctx.BroadcastLogAsync("Information", "hello", TestContext.Current.CancellationToken);
         Assert.False(ok);
     }
 
@@ -64,7 +64,7 @@ public sealed class KestrunContextBroadcastTests
 
         var ctx = NewContext(sp);
 
-        var ok = await ctx.BroadcastLogAsync("Information", "hello");
+        var ok = await ctx.BroadcastLogAsync("Information", "hello", TestContext.Current.CancellationToken);
         Assert.True(ok);
 
         mock.VerifyAll();
@@ -83,7 +83,7 @@ public sealed class KestrunContextBroadcastTests
 
         var ctx = NewContext(sp);
 
-        var ok = await ctx.BroadcastLogAsync("Information", "boom");
+        var ok = await ctx.BroadcastLogAsync("Information", "boom", TestContext.Current.CancellationToken);
         Assert.False(ok);
 
         mock.VerifyAll();
@@ -104,7 +104,7 @@ public sealed class KestrunContextBroadcastTests
 
         var ctx = NewContext(sp);
 
-        var ok = await ctx.BroadcastEventAsync("evt", payload);
+        var ok = await ctx.BroadcastEventAsync("evt", payload, TestContext.Current.CancellationToken);
         Assert.True(ok);
 
         mock.VerifyAll();
@@ -125,7 +125,7 @@ public sealed class KestrunContextBroadcastTests
 
         var ctx = NewContext(sp);
 
-        var ok = await ctx.BroadcastToGroupAsync("group", "method", payload);
+        var ok = await ctx.BroadcastToGroupAsync("group", "method", payload, TestContext.Current.CancellationToken);
         Assert.True(ok);
 
         mock.VerifyAll();

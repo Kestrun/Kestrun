@@ -65,7 +65,8 @@ public class CSharpDelegateBuilderPreambleTests
         // Assert
         ctx.Response.Body.Position = 0;
         using var sr = new StreamReader(ctx.Response.Body);
-        var body = await sr.ReadToEndAsync();
+        var body = await sr.ReadToEndAsync(TestContext.Current.CancellationToken);
         Assert.Equal("42", body);
     }
 }
+

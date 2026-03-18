@@ -78,7 +78,7 @@ public class PowerShellDelegateBuilderTests
         Assert.Contains("application/json", http.Response.ContentType, StringComparison.OrdinalIgnoreCase);
 
         ms.Position = 0;
-        var body = await new StreamReader(ms, Encoding.UTF8).ReadToEndAsync();
+        var body = await new StreamReader(ms, Encoding.UTF8).ReadToEndAsync(TestContext.Current.CancellationToken);
         Assert.Contains("\"custom\": true", body, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("internal server error", body, StringComparison.OrdinalIgnoreCase);
     }
@@ -111,7 +111,8 @@ public class PowerShellDelegateBuilderTests
         Assert.NotNull(http.Response.ContentType);
 
         ms.Position = 0;
-        var body = await new StreamReader(ms, Encoding.UTF8).ReadToEndAsync();
+        var body = await new StreamReader(ms, Encoding.UTF8).ReadToEndAsync(TestContext.Current.CancellationToken);
         Assert.Contains("internal server error", body, StringComparison.OrdinalIgnoreCase);
     }
 }
+

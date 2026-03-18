@@ -1,10 +1,9 @@
 #if NET10_0_OR_GREATER
 using System.Reflection;
-using Kestrun.Runner;
 using Xunit;
 #endif
 
-namespace KestrunTests.Runtime;
+namespace Kestrun.Runner.Tests.Runtime;
 
 #if NET10_0_OR_GREATER
 public class RunnerRuntimeProcessCaptureTests
@@ -26,7 +25,7 @@ public class RunnerRuntimeProcessCaptureTests
 
         // If stream consumption regresses to a deadlock-prone pattern, this invocation will not complete.
         var invocationTask = Task.Run(() => InvokeRunProcessCapture(fileName, arguments));
-        var completedTask = await Task.WhenAny(invocationTask, Task.Delay(TimeSpan.FromSeconds(30)));
+        var completedTask = await Task.WhenAny(invocationTask, Task.Delay(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
         Assert.True(ReferenceEquals(completedTask, invocationTask), "RunProcessCapture timed out, indicating potential stdout/stderr deadlock.");
 
         var (ExitCode, Output, Error) = await invocationTask;

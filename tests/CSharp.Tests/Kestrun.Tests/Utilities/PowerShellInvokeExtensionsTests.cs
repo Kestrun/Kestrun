@@ -138,7 +138,7 @@ public class PowerShellInvokeExtensionsTests
         _ = ps.AddScript("'hello'");
 
         // Act
-        var result = await ps.InvokeWithRequestAbortAsync(default);
+        var result = await ps.InvokeWithRequestAbortAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotNull(result);

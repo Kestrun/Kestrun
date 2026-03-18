@@ -7,7 +7,8 @@ param(
     [string[]]$TestProjects = @(
         '.\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj',
         '.\tests\CSharp.Tests\Kestrun.Tool.Tests\Kestrun.Tool.Tests.csproj',
-        '.\tests\CSharp.Tests\Kestrun.ServiceHost.Tests\Kestrun.ServiceHost.Tests.csproj'
+        '.\tests\CSharp.Tests\Kestrun.ServiceHost.Tests\Kestrun.ServiceHost.Tests.csproj',
+        '.\tests\CSharp.Tests\Kestrun.Runner.Tests\Kestrun.Runner.Tests.csproj'
     ),
     [Parameter()] [string]$CoverageDir = '.\coverage',
     [Parameter()] [string]$PesterPath = '.\tests\PowerShell.Tests\Kestrun.Tests',

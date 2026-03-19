@@ -201,7 +201,8 @@ For `service install`:
 - if `--content-root` is provided and `--script` is omitted, default script is `./server.ps1` under that folder.
 - if the selected script does not exist inside `--content-root`, install fails with an error.
 - if `--content-root` points to an archive, Kestrun extracts it to a temporary folder before bundling.
-- if `--content-root-checksum` is provided, `--content-root` must be an archive file path.
+- if `--content-root-checksum` is provided, `--content-root` must point to a supported archive source: either a local archive file path or an HTTP(S) archive URL
+(folder paths are not valid with checksum verification).
 - when `--deployment-root` is provided, install writes the service bundle under that root instead of OS defaults.
 - install creates a per-service bundle containing runtime, module, script, and dedicated service-host assets before registration.
 - dedicated `kestrun-service-host` is sourced from the `Kestrun.Tool` package's internal `kestrun-service` folder under the dotnet tool install location,

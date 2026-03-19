@@ -2482,10 +2482,13 @@ internal static partial class Program
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         var fullDirectory = Path.GetFullPath(directoryPath)
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
 
-        return fullCandidate.Equals(fullDirectory, StringComparison.OrdinalIgnoreCase)
-            || fullCandidate.StartsWith(fullDirectory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-            || fullCandidate.StartsWith(fullDirectory + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        return fullCandidate.Equals(fullDirectory, comparison)
+            || fullCandidate.StartsWith(fullDirectory + Path.DirectorySeparatorChar, comparison)
+            || fullCandidate.StartsWith(fullDirectory + Path.AltDirectorySeparatorChar, comparison);
     }
 
     /// <summary>

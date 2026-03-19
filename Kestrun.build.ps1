@@ -477,7 +477,7 @@ Add-BuildTask 'Nuget-CodeAnalysis' {
 }
 
 # XUnit tests
-Add-BuildTask 'Test-xUnit' {
+Add-BuildTask 'Test-xUnit' 'Build', {
     Write-Host '🧪 Running Kestrun DLL tests...'
     $failures = @()
 
@@ -502,7 +502,7 @@ Add-BuildTask 'Test-xUnit' {
             }
         }
     } else {
-        Write-Host "ℹ️ Skipping dedicated Tool/ServiceHost/Runner tests because net10.0 is not in -Frameworks." -ForegroundColor Yellow
+        Write-Host 'ℹ️ Skipping dedicated Tool/ServiceHost/Runner tests because net10.0 is not in -Frameworks.' -ForegroundColor Yellow
     }
 
     if ($failures.Count -gt 0) {
@@ -655,7 +655,8 @@ Add-BuildTask 'Coverage' {
     & .\Utility\Build-Coverage.ps1 -TestProjects @(
         $KestrunCoreTestProjectPath,
         $KestrunToolTestProjectPath,
-        $KestrunServiceHostTestProjectPath
+        $KestrunServiceHostTestProjectPath,
+        $KestrunRunnerTestProjectPath
     )
     if ($LASTEXITCODE -ne 0) {
         Write-Host '❌ Coverage generation failed' -ForegroundColor Red
@@ -669,7 +670,8 @@ Add-BuildTask 'Report-Coverage' {
     & .\Utility\Build-Coverage.ps1 -ReportGenerator -TestProjects @(
         $KestrunCoreTestProjectPath,
         $KestrunToolTestProjectPath,
-        $KestrunServiceHostTestProjectPath
+        $KestrunServiceHostTestProjectPath,
+        $KestrunRunnerTestProjectPath
     )
     if ($LASTEXITCODE -ne 0) {
         Write-Host '❌ Coverage Report generation failed' -ForegroundColor Red

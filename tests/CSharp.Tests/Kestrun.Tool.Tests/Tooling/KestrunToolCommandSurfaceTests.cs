@@ -1846,7 +1846,7 @@ public class KestrunToolCommandSurfaceTests
             lockedFileHandle = new FileStream(lockedFilePath, FileMode.Open, FileAccess.Read, FileShare.None);
             releaseTask = Task.Run(async () =>
             {
-                await Task.Delay(300);
+                await Task.Delay(300, TestContext.Current.CancellationToken);
                 lockedFileHandle.Dispose();
             });
 

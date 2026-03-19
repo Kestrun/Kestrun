@@ -118,7 +118,7 @@ jobs:
               shell: pwsh
               run: |
                   # If your Coverage task accepts a framework parameter, pass it explicitly:
-                  Invoke-Build Coverage -Framework net10.0
+                  Invoke-Build Coverage -Frameworks net10.0
 
             - name: 🔍 Sanity check Cobertura (C#)
               run: |
@@ -342,7 +342,8 @@ jobs:
                     -TestProjects @(
                         ".\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj",
                         ".\tests\CSharp.Tests\Kestrun.Tool.Tests\Kestrun.Tool.Tests.csproj",
-                        ".\tests\CSharp.Tests\Kestrun.ServiceHost.Tests\Kestrun.ServiceHost.Tests.csproj"
+                        ".\tests\CSharp.Tests\Kestrun.ServiceHost.Tests\Kestrun.ServiceHost.Tests.csproj",
+                        ".\tests\CSharp.Tests\Kestrun.Runner.Tests\Kestrun.Runner.Tests.csproj"
                     ) `
                     -CoverageDir ".\coverage" `
                     -PesterPath ".\tests\PowerShell.Tests\Kestrun.Tests" `

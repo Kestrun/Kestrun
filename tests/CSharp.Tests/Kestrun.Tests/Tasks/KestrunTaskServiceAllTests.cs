@@ -354,7 +354,7 @@ Return 777";
 
     [Fact]
     [Trait("Category", "Tasks")]
-    public void List_Reflects_Created_And_Removed_Tasks()
+    public async Task List_Reflects_Created_And_Removed_Tasks()
     {
         var (svc, host, pool) = CreateService();
         using (host) using (pool)
@@ -367,15 +367,26 @@ Return 777";
             Assert.Contains(list, t => t.Id == id1);
             Assert.Contains(list, t => t.Id == id2);
 
-            // Remove one (mark completed via StartAsync quick code)
-            // Since our quick code completes instantly, start then remove
+            // Remove one after it reaches a terminal state.
             Assert.True(svc.Start(id1));
-            // Busy-wait briefly for completion
+
+            // CI runners can be slower; wait up to 5s before attempting removal.
             var start = DateTime.UtcNow;
-            while (svc.GetState(id1) != TaskState.Completed && DateTime.UtcNow - start < TimeSpan.FromSeconds(1))
+            while (DateTime.UtcNow - start < TimeSpan.FromSeconds(5))
             {
-                Thread.Sleep(10);
+                var state = svc.GetState(id1);
+                if (state is TaskState.Completed or TaskState.Failed or TaskState.Stopped)
+                {
+                    break;
+                }
+                await Task.Delay(20, TestContext.Current.CancellationToken);
             }
+
+            var finalState = svc.GetState(id1);
+            Assert.True(
+                finalState is TaskState.Completed or TaskState.Failed or TaskState.Stopped,
+                $"Expected task to be terminal before removal, got {finalState}");
+
             Assert.True(svc.Remove(id1));
             list = svc.List();
             Assert.DoesNotContain(list, t => t.Id == id1);

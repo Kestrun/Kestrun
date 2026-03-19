@@ -63,9 +63,9 @@ public sealed class LanguageRuntimePipelineTests
 
         Assert.NotNull(endpoint);
 
-        var attr = endpoint!.Metadata.GetMetadata<ScriptLanguageAttribute>();
+        var attr = endpoint.Metadata.GetMetadata<ScriptLanguageAttribute>();
         Assert.NotNull(attr);
-        Assert.Equal(ScriptLanguage.PowerShell, attr!.Language);
+        Assert.Equal(ScriptLanguage.PowerShell, attr.Language);
 
         await app.StopAsync(TestContext.Current.CancellationToken);
     }

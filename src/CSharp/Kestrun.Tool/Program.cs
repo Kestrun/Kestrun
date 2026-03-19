@@ -1270,21 +1270,21 @@ internal static partial class Program
         var optionFlags = GetServiceContentRootOptionFlags(command);
         if (!TryClassifyServiceContentRoot(command.ServiceContentRoot, out _, out var contentRootUri, out var fullContentRoot))
         {
-            var requestedScriptPathWithoutContentRoot = ResolveRequestedServiceScriptPath(command.ScriptPath, useDefaultWhenMissing: true);
-            return TryResolveServiceScriptWithoutContentRoot(requestedScriptPathWithoutContentRoot, optionFlags, out scriptSource, out error);
+            var fallbackScriptPath = ResolveRequestedServiceScriptPath(command.ScriptPath, useDefaultWhenMissing: true);
+            return TryResolveServiceScriptWithoutContentRoot(fallbackScriptPath, optionFlags, out scriptSource, out error);
         }
 
         if (command.ServiceNameProvided)
         {
             scriptSource = CreateEmptyResolvedServiceScriptSource();
-            error = "--name is not supported when --content-root is used. Define Name in Service.psd1.";
+            error = "--name is no longer supported for service install. Define Name in Service.psd1 inside the package.";
             return false;
         }
 
         if (command.ScriptPathProvided)
         {
             scriptSource = CreateEmptyResolvedServiceScriptSource();
-            error = "--script (or positional script path) is not supported when --content-root is used. Define Script in Service.psd1.";
+            error = "--script (or positional script path) is not supported when --package/--content-root is used. Define Script in Service.psd1 (EntryPoint in format 1.0).";
             return false;
         }
 
@@ -1584,7 +1584,7 @@ internal static partial class Program
 
         if (!IsSupportedServiceContentRootArchive(fullContentRoot))
         {
-            error = "Service content root file must be a supported archive (.zip, .tar, .tgz, .tar.gz).";
+            error = $"Unsupported package format. Supported extensions: {ServicePackageExtension}, .zip, .tar, .tgz, .tar.gz.";
             return false;
         }
 
@@ -1648,25 +1648,25 @@ internal static partial class Program
     {
         if (optionFlags.HasArchiveChecksum)
         {
-            error = "--content-root-checksum requires --content-root to be an archive file path.";
+            error = "--content-root-checksum requires --content-root.";
             return false;
         }
 
         if (optionFlags.HasBearerToken)
         {
-            error = "--content-root-bearer-token requires --content-root to be an HTTP(S) archive URL.";
+            error = "--content-root-bearer-token requires --content-root.";
             return false;
         }
 
         if (optionFlags.IgnoreCertificate)
         {
-            error = "--content-root-ignore-certificate requires --content-root to be an HTTPS archive URL.";
+            error = "--content-root-ignore-certificate requires --content-root.";
             return false;
         }
 
         if (optionFlags.HasHeaders)
         {
-            error = "--content-root-header requires --content-root to be an HTTP(S) archive URL.";
+            error = "--content-root-header requires --content-root.";
             return false;
         }
 
@@ -1757,7 +1757,7 @@ internal static partial class Program
     /// <returns>True when descriptor exists and mandatory metadata is valid.</returns>
     private static bool TryResolveServiceInstallDescriptor(string fullContentRoot, out ServiceInstallDescriptor descriptor, out string error)
     {
-        descriptor = new ServiceInstallDescriptor(string.Empty, string.Empty, string.Empty, null, null);
+        descriptor = new ServiceInstallDescriptor(string.Empty, string.Empty, string.Empty, string.Empty, null, null);
         var descriptorPath = Path.Combine(fullContentRoot, ServiceDescriptorFileName);
         if (!File.Exists(descriptorPath))
         {
@@ -1781,26 +1781,61 @@ internal static partial class Program
         descriptorText = NormalizeServiceDescriptorText(descriptorText);
 
         if (!TryGetServiceDescriptorStringValue(descriptorText, "Name", required: true, out var name, out error)
-            || !TryGetServiceDescriptorStringValue(descriptorText, "Description", required: true, out var description, out error)
-            || !TryGetServiceDescriptorStringValue(descriptorText, "Version", required: true, out var versionToken, out error))
+            || !TryGetServiceDescriptorStringValue(descriptorText, "Description", required: true, out var description, out error))
         {
             return false;
         }
 
-        if (!Version.TryParse(versionToken, out var parsedVersion) || parsedVersion is null)
+        _ = TryGetServiceDescriptorStringValue(descriptorText, "FormatVersion", required: false, out var formatVersion, out _);
+
+        string entryPoint;
+        string? version = null;
+        if (string.IsNullOrWhiteSpace(formatVersion))
         {
-            error = "Service descriptor Version must be compatible with System.Version (for example: '1.2.0').";
-            return false;
+            if (!TryGetServiceDescriptorStringValue(descriptorText, "Script", required: false, out entryPoint, out error))
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(entryPoint))
+            {
+                entryPoint = DefaultScriptFileName;
+            }
+
+            _ = TryGetServiceDescriptorStringValue(descriptorText, "Version", required: false, out var rawVersion, out _);
+            if (!string.IsNullOrWhiteSpace(rawVersion))
+            {
+                if (!Version.TryParse(rawVersion.Trim(), out _))
+                {
+                    error = $"Service descriptor '{ServiceDescriptorFileName}' key 'Version' must be compatible with System.Version.";
+                    return false;
+                }
+
+                version = rawVersion.Trim();
+            }
+        }
+        else
+        {
+            if (!string.Equals(formatVersion.Trim(), "1.0", StringComparison.Ordinal))
+            {
+                error = "Service descriptor FormatVersion must be '1.0'.";
+                return false;
+            }
+
+            if (!TryGetServiceDescriptorStringValue(descriptorText, "EntryPoint", required: true, out entryPoint, out error))
+            {
+                return false;
+            }
         }
 
-        _ = TryGetServiceDescriptorStringValue(descriptorText, "Script", required: false, out var scriptPath, out _);
         _ = TryGetServiceDescriptorStringValue(descriptorText, "ServiceLogPath", required: false, out var serviceLogPath, out _);
 
         descriptor = new ServiceInstallDescriptor(
+            string.IsNullOrWhiteSpace(formatVersion) ? "legacy" : formatVersion.Trim(),
             name,
+            entryPoint,
             description,
-            parsedVersion.ToString(),
-            string.IsNullOrWhiteSpace(scriptPath) ? null : scriptPath,
+            version,
             string.IsNullOrWhiteSpace(serviceLogPath) ? null : serviceLogPath);
         return true;
     }
@@ -1865,17 +1900,15 @@ internal static partial class Program
         if (!string.IsNullOrWhiteSpace(requestedScriptPath))
         {
             resolvedScriptPath = string.Empty;
-            error = "--script (or positional script path) is not supported when --content-root is used. Define Script in Service.psd1.";
+            error = "--script (or positional script path) is not supported when --package/--content-root is used. Define Script in Service.psd1 (EntryPoint in format 1.0).";
             return false;
         }
 
-        resolvedScriptPath = string.IsNullOrWhiteSpace(descriptor.ScriptPath)
-            ? DefaultScriptFileName
-            : descriptor.ScriptPath;
+        resolvedScriptPath = descriptor.EntryPoint;
 
         if (Path.IsPathRooted(resolvedScriptPath))
         {
-            error = $"Service descriptor '{ServiceDescriptorFileName}' Script must be a relative path within the content root.";
+            error = $"Service descriptor '{ServiceDescriptorFileName}' EntryPoint/Script must be a relative path within the package root.";
             return false;
         }
 
@@ -2289,7 +2322,7 @@ internal static partial class Program
             return true;
         }
 
-        error = $"Downloaded content root from '{uri}' is not a supported archive (.zip, .tar, .tgz, .tar.gz).";
+        error = $"Downloaded package from '{uri}' is not a supported archive. Supported extensions: {ServicePackageExtension}, .zip, .tar, .tgz, .tar.gz.";
         return false;
     }
 
@@ -2433,14 +2466,15 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Returns true when the content-root archive path uses a supported extension.
+    /// Returns true when the package archive path uses the supported extension.
     /// </summary>
     /// <param name="archivePath">Archive file path.</param>
     /// <returns>True when archive extension is supported.</returns>
     private static bool IsSupportedServiceContentRootArchive(string archivePath)
     {
         var lowerPath = archivePath.ToLowerInvariant();
-        return lowerPath.EndsWith(".zip", StringComparison.Ordinal)
+        return lowerPath.EndsWith(ServicePackageExtension, StringComparison.Ordinal)
+            || lowerPath.EndsWith(".zip", StringComparison.Ordinal)
             || lowerPath.EndsWith(".tar", StringComparison.Ordinal)
             || lowerPath.EndsWith(".tar.gz", StringComparison.Ordinal)
             || lowerPath.EndsWith(".tgz", StringComparison.Ordinal);
@@ -2558,7 +2592,8 @@ internal static partial class Program
         try
         {
             var lowerPath = archivePath.ToLowerInvariant();
-            if (lowerPath.EndsWith(".zip", StringComparison.Ordinal))
+            if (lowerPath.EndsWith(ServicePackageExtension, StringComparison.Ordinal)
+                || lowerPath.EndsWith(".zip", StringComparison.Ordinal))
             {
                 return TryExtractZipArchiveSafely(archivePath, destinationDirectory, out error);
             }
@@ -2575,7 +2610,7 @@ internal static partial class Program
                 return TryExtractTarArchiveSafely(gzipStream, destinationDirectory, out error);
             }
 
-            error = "Unsupported archive format. Supported: .zip, .tar, .tgz, .tar.gz.";
+            error = $"Unsupported package format. Supported extension: {ServicePackageExtension} (zip payload).";
             return false;
         }
         catch (Exception ex)
@@ -4709,20 +4744,19 @@ internal static partial class Program
 
             case "service":
                 Console.WriteLine("Usage:");
-                Console.WriteLine("  kestrun [--nocheck] [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --name <service-name> [--service-log-path <path-to-log-file>] [--service-user <account>] [--service-password <password>] [--deployment-root <folder>] [--content-root <folder-or-archive>] [--content-root-checksum <hex>] [--content-root-checksum-algorithm <name>] [--content-root-bearer-token <token>] [--content-root-header <name:value> ...] [--content-root-ignore-certificate] [--script <main.ps1> | <main.ps1>] [--arguments <script arguments...>]");
+                Console.WriteLine("  kestrun [--nocheck] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --package <path-or-url-to-.krpack> [--service-log-path <path-to-log-file>] [--service-user <account>] [--service-password <password>] [--deployment-root <folder>] [--content-root-checksum <hex>] [--content-root-checksum-algorithm <name>] [--content-root-bearer-token <token>] [--content-root-header <name:value> ...] [--content-root-ignore-certificate] [--arguments <script arguments...>]");
                 Console.WriteLine("  kestrun service remove --name <service-name>");
                 Console.WriteLine("  kestrun service start --name <service-name>");
                 Console.WriteLine("  kestrun service stop --name <service-name>");
                 Console.WriteLine("  kestrun service query --name <service-name>");
                 Console.WriteLine();
                 Console.WriteLine("Options (service install):");
-                Console.WriteLine("  --script <path>             Optional named script path (alternative to positional <main.ps1>).");
-                Console.WriteLine("  --content-root <path>       Copy folder content, extract local archive, or download/extract HTTP(S) archive (.zip/.tar/.tgz/.tar.gz); --script is resolved relative to it.");
-                Console.WriteLine("  --content-root-checksum <h> Verify archive checksum before extraction (hex string). Requires archive content-root.");
+                Console.WriteLine("  --package <path-or-url>     Required .krpack (zip) package containing Service.psd1 and app files.");
+                Console.WriteLine("  --content-root-checksum <h> Verify package checksum before extraction (hex string).");
                 Console.WriteLine("  --content-root-checksum-algorithm <name>  Hash algorithm: md5, sha1, sha256, sha384, sha512 (default: sha256).");
-                Console.WriteLine("  --content-root-bearer-token <token>  Add Authorization: Bearer <token> for HTTP(S) archive download.");
-                Console.WriteLine("  --content-root-header <name:value>  Add custom HTTP request header for HTTP(S) archive download. Repeatable.");
-                Console.WriteLine("  --content-root-ignore-certificate  Ignore HTTPS certificate validation for archive download (insecure).");
+                Console.WriteLine("  --content-root-bearer-token <token>  Add Authorization: Bearer <token> for HTTP(S) package download.");
+                Console.WriteLine("  --content-root-header <name:value>  Add custom HTTP request header for HTTP(S) package download. Repeatable.");
+                Console.WriteLine("  --content-root-ignore-certificate  Ignore HTTPS certificate validation for package download (insecure).");
                 Console.WriteLine("  --deployment-root <folder>  Override where per-service bundles are created (default is OS-specific).");
                 Console.WriteLine("  --kestrun-manifest <path>   Use an explicit Kestrun.psd1 manifest for the service runtime.");
                 Console.WriteLine("  --service-log-path <path>   Set service bootstrap/operation log file path.");
@@ -4732,14 +4766,13 @@ internal static partial class Program
                 Console.WriteLine();
                 Console.WriteLine("Notes:");
                 Console.WriteLine("  - install registers the service/daemon but does not auto-start it.");
-                Console.WriteLine("  - If no script is provided, ./server.ps1 is used.");
-                Console.WriteLine("  - When --content-root is provided, the script path must be relative to that root and must exist inside it.");
-                Console.WriteLine("  - Supported archive content roots: .zip, .tar, .tgz, .tar.gz.");
-                Console.WriteLine("  - --content-root may be an HTTP(S) URL to a supported archive file.");
-                Console.WriteLine("  - --content-root-checksum is validated against the archive file before extraction.");
-                Console.WriteLine("  - --content-root-bearer-token is only used for HTTP(S) URL content roots.");
-                Console.WriteLine("  - --content-root-header is only used for HTTP(S) URL content roots and can be supplied multiple times.");
-                Console.WriteLine("  - --content-root-ignore-certificate applies only to HTTPS URL content roots and is insecure.");
+                Console.WriteLine("  - Service name and entry point are read from Service.psd1 in the package.");
+                Console.WriteLine("  - Service.psd1 requires FormatVersion='1.0', Name, EntryPoint, and Description.");
+                Console.WriteLine("  - Package file must use .krpack extension and contain zip content.");
+                Console.WriteLine("  - --content-root-checksum is validated against the package file before extraction.");
+                Console.WriteLine("  - --content-root-bearer-token is only used for HTTP(S) package URLs.");
+                Console.WriteLine("  - --content-root-header is only used for HTTP(S) package URLs and can be supplied multiple times.");
+                Console.WriteLine("  - --content-root-ignore-certificate applies only to HTTPS package URLs and is insecure.");
                 Console.WriteLine("  - --deployment-root overrides the OS default bundle root used during install and remove cleanup.");
                 Console.WriteLine("  - --service-user enables platform account mapping: Windows service account, Linux systemd User=, macOS LaunchDaemon UserName.");
                 Console.WriteLine("  - install snapshots runtime/module/script plus dedicated service-host from Kestrun.Tool payload into a per-service bundle before registration.");

@@ -1,0 +1,100 @@
+﻿param()
+
+BeforeAll {
+    . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+}
+
+Describe 'Service package cmdlet' {
+    It 'New-KrServicePackage packages a folder that contains a valid Service.psd1 (format 1.0)' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-package-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $sourceFolder = Join-Path $tempRoot 'source'
+        $scriptPath = Join-Path $sourceFolder 'server.ps1'
+        $descriptorPath = Join-Path $sourceFolder 'Service.psd1'
+        $packagePath = Join-Path $tempRoot 'from-folder.krpack'
+
+        try {
+            $null = New-Item -ItemType Directory -Path $sourceFolder -Force
+            Set-Content -LiteralPath $scriptPath -Value "Write-Output 'hello-folder'" -Encoding utf8NoBOM
+
+            $descriptor = @(
+                '@{',
+                "    FormatVersion = '1.0'",
+                "    Name = 'demo-folder'",
+                "    Description = 'Demo folder service'",
+                "    EntryPoint = 'server.ps1'",
+                '}'
+            ) -join [Environment]::NewLine
+            Set-Content -LiteralPath $descriptorPath -Value $descriptor -Encoding utf8NoBOM
+
+            $result = New-KrServicePackage -SourceFolder $sourceFolder -OutputPath $packagePath
+
+            Test-Path -LiteralPath $packagePath | Should -BeTrue
+            $result.Name | Should -Be 'demo-folder'
+            $result.EntryPoint | Should -Be 'server.ps1'
+            $result.FormatVersion | Should -Be '1.0'
+
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($packagePath)
+            try {
+                $entries = $zip.Entries | ForEach-Object { $_.FullName }
+                $entries | Should -Contain 'Service.psd1'
+                $entries | Should -Contain 'server.ps1'
+            } finally {
+                $zip.Dispose()
+            }
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'New-KrServicePackage can create package from script and generates Service.psd1 with EntryPoint' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-package-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $scriptPath = Join-Path $tempRoot 'app.ps1'
+        $packagePath = Join-Path $tempRoot 'from-script.krpack'
+        $extractPath = Join-Path $tempRoot 'extracted'
+
+        try {
+            $null = New-Item -ItemType Directory -Path $tempRoot -Force
+            Set-Content -LiteralPath $scriptPath -Value "Write-Output 'hello-script'" -Encoding utf8NoBOM
+
+            $result = New-KrServicePackage -ScriptPath $scriptPath -Name 'demo-script' -Version ([Version]'2.4.0') -OutputPath $packagePath
+
+            Test-Path -LiteralPath $packagePath | Should -BeTrue
+            $result.Name | Should -Be 'demo-script'
+            $result.EntryPoint | Should -Be 'app.ps1'
+            $result.Version | Should -Be '2.4.0'
+
+            Expand-Archive -LiteralPath $packagePath -DestinationPath $extractPath -Force
+            $descriptor = Import-PowerShellDataFile -LiteralPath (Join-Path $extractPath 'Service.psd1')
+
+            $descriptor['FormatVersion'] | Should -Be '1.0'
+            $descriptor['Name'] | Should -Be 'demo-script'
+            $descriptor['EntryPoint'] | Should -Be 'app.ps1'
+            $descriptor['Version'] | Should -Be '2.4.0'
+            Test-Path -LiteralPath (Join-Path $extractPath 'app.ps1') | Should -BeTrue
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'New-KrServicePackage fails for folder input when Service.psd1 is missing' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-package-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $sourceFolder = Join-Path $tempRoot 'source'
+
+        try {
+            $null = New-Item -ItemType Directory -Path $sourceFolder -Force
+            Set-Content -LiteralPath (Join-Path $sourceFolder 'server.ps1') -Value "Write-Output 'hello'" -Encoding utf8NoBOM
+
+            { New-KrServicePackage -SourceFolder $sourceFolder } | Should -Throw '*Service descriptor not found*'
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+}

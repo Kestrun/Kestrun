@@ -81,7 +81,7 @@ internal static partial class Program
 
         if (string.IsNullOrWhiteSpace(resolvedServiceName))
         {
-            Console.Error.WriteLine("Service name is required. Use --name <value> (or set Name in Service.psd1 when using --content-root).");
+            Console.Error.WriteLine("Service name is required in Service.psd1 (Name) when using --package.");
             exitCode = 2;
             return false;
         }

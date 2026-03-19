@@ -6,7 +6,7 @@ BeforeAll {
 
 Describe 'Service descriptor cmdlets' {
     It 'New-KrServiceDescriptor creates a descriptor and Get-KrServiceDescriptor reads it' {
-        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("kestrun-service-descriptor-{0}" -f [Guid]::NewGuid().ToString('N'))
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-descriptor-{0}' -f [Guid]::NewGuid().ToString('N'))
         $descriptorPath = Join-Path $tempRoot 'Service.psd1'
 
         try {
@@ -23,8 +23,7 @@ Describe 'Service descriptor cmdlets' {
             $read.Name | Should -Be 'demo'
             $read.Description | Should -Be 'Demo service'
             $read.Version | Should -Be '1.2.0'
-        }
-        finally {
+        } finally {
             if (Test-Path -LiteralPath $tempRoot) {
                 Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
             }
@@ -32,7 +31,7 @@ Describe 'Service descriptor cmdlets' {
     }
 
     It 'Set-KrServiceDescriptor updates allowed fields and keeps Name unchanged' {
-        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("kestrun-service-descriptor-{0}" -f [Guid]::NewGuid().ToString('N'))
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-descriptor-{0}' -f [Guid]::NewGuid().ToString('N'))
         $descriptorPath = Join-Path $tempRoot 'Service.psd1'
 
         try {
@@ -47,8 +46,7 @@ Describe 'Service descriptor cmdlets' {
             $cleared = Set-KrServiceDescriptor -Path $descriptorPath -ClearScript
             $cleared.Name | Should -Be 'demo'
             [string]::IsNullOrWhiteSpace($cleared.Script) | Should -BeTrue
-        }
-        finally {
+        } finally {
             if (Test-Path -LiteralPath $tempRoot) {
                 Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
             }

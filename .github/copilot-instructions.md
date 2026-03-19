@@ -35,7 +35,8 @@ server.AddMapRoute("/route", HttpVerb.Get, "Context.Response.WriteJsonResponse(n
 ```powershell
 # Primary build workflow
 Invoke-Build All                    # Clean, Restore, Build, Test
-Invoke-Build Build                  # Build only - REQUIRED after any C# code changes
+Invoke-Build Build                  # Full C# + module build workflow
+Invoke-Build Build-KestrunTool      # Tool-only build workflow (src/CSharp/Kestrun.Tool)
 Invoke-Build Test                   # Run both C# (xUnit) and PowerShell (Pester) tests
 Invoke-Build Package               # Release build with NuGet packaging
 
@@ -44,6 +45,12 @@ Invoke-Build SyncPowerShellDll     # Copies from bin/ to src/PowerShell/Kestrun/
 ```
 
 **CRITICAL**: Always use `Invoke-Build Build` (not `dotnet build`) when C# code changes. This ensures proper DLL synchronization between the C# library and PowerShell module.
+
+**Tool workflow**: For changes scoped to `Kestrun.Tool` only, use `Invoke-Build Build-KestrunTool` for faster validation. Use `Invoke-Build Build` when changes affect the core library/module sync path.
+
+To create a usable tool package, run `Invoke-Build Pack-KestrunTool`.
+Then install from local artifacts with:
+`dotnet tool install --global Kestrun.Tool --add-source <projectHome>\artifacts\nuget --prerelease`
 
 ### Task System Integration
 - VS Code tasks available for building individual example projects

@@ -264,22 +264,16 @@ internal static partial class Program
     /// Performs non-admin checks before elevating a Windows service install request.
     /// </summary>
     /// <param name="command">Parsed service command.</param>
+    /// <param name="serviceName">Resolved service name.</param>
     /// <param name="exitCode">Exit code when preflight fails.</param>
     /// <returns>True when install should proceed with elevation.</returns>
     [SupportedOSPlatform("windows")]
-    private static bool TryPreflightWindowsServiceInstall(ParsedCommand command, out int exitCode)
+    private static bool TryPreflightWindowsServiceInstall(ParsedCommand command, string serviceName, out int exitCode)
     {
         exitCode = 0;
-        if (string.IsNullOrWhiteSpace(command.ServiceName))
+        if (string.IsNullOrWhiteSpace(serviceName))
         {
             Console.Error.WriteLine("Service name is required. Use --name <value>.");
-            exitCode = 2;
-            return false;
-        }
-
-        if (!TryResolveServiceScriptSource(command, out var scriptSource, out var scriptError))
-        {
-            Console.Error.WriteLine(scriptError);
             exitCode = 2;
             return false;
         }
@@ -303,9 +297,9 @@ internal static partial class Program
         // Elevated relaunch can run under a different working-directory/layout context,
         // so definitive payload validation is performed during actual bundle preparation.
 
-        if (WindowsServiceExists(command.ServiceName))
+        if (WindowsServiceExists(serviceName))
         {
-            Console.Error.WriteLine($"Windows service '{command.ServiceName}' already exists.");
+            Console.Error.WriteLine($"Windows service '{serviceName}' already exists.");
             exitCode = 2;
             return false;
         }
@@ -613,6 +607,8 @@ internal static partial class Program
     /// Installs a Windows service using sc.exe.
     /// </summary>
     /// <param name="command">Parsed service command.</param>
+    /// <param name="serviceName">Resolved service name.</param>
+    /// <param name="serviceLogPath">Effective service log path.</param>
     /// <param name="serviceHostExecutablePath">Service host executable path.</param>
     /// <param name="runnerExecutablePath">Runner executable path.</param>
     /// <param name="scriptPath">Bundled script path.</param>
@@ -621,15 +617,16 @@ internal static partial class Program
     [SupportedOSPlatform("windows")]
     private static int InstallWindowsService(
         ParsedCommand command,
+        string serviceName,
+        string? serviceLogPath,
         string serviceHostExecutablePath,
         string runnerExecutablePath,
         string scriptPath,
         string moduleManifestPath)
     {
-        var serviceName = command.ServiceName!;
         if (!IsWindowsAdministrator())
         {
-            var relaunchArgs = BuildWindowsServiceRegisterArguments(command, serviceHostExecutablePath, runnerExecutablePath, scriptPath, moduleManifestPath);
+            var relaunchArgs = BuildWindowsServiceRegisterArguments(command, serviceName, serviceLogPath, serviceHostExecutablePath, runnerExecutablePath, scriptPath, moduleManifestPath);
             return RelaunchElevatedOnWindows(relaunchArgs);
         }
 
@@ -640,7 +637,7 @@ internal static partial class Program
             Path.GetFullPath(scriptPath),
             Path.GetFullPath(moduleManifestPath),
             command.ScriptArguments,
-            command.ServiceLogPath,
+            serviceLogPath,
             command.ServiceUser,
             command.ServicePassword);
 
@@ -650,7 +647,7 @@ internal static partial class Program
             return createResult.ExitCode;
         }
 
-        WriteServiceOperationLog($"Service '{serviceName}' install operation completed.", command.ServiceLogPath, serviceName);
+        WriteServiceOperationLog($"Service '{serviceName}' install operation completed.", serviceLogPath, serviceName);
 
         Console.WriteLine($"Installed Windows service '{serviceName}' (not started).");
         return 0;
@@ -796,12 +793,16 @@ internal static partial class Program
     /// Builds elevated relaunch arguments for internal Windows service registration.
     /// </summary>
     /// <param name="command">Parsed service command.</param>
+    /// <param name="serviceName">Resolved service name.</param>
+    /// <param name="serviceLogPath">Effective service log path.</param>
     /// <param name="executablePath">Executable path.</param>
     /// <param name="scriptPath">Absolute script path.</param>
     /// <param name="moduleManifestPath">Manifest path staged for service runtime.</param>
     /// <returns>Ordered argument tokens.</returns>
     private static IReadOnlyList<string> BuildWindowsServiceRegisterArguments(
         ParsedCommand command,
+        string serviceName,
+        string? serviceLogPath,
         string serviceHostExecutablePath,
         string runnerExecutablePath,
         string scriptPath,
@@ -811,7 +812,7 @@ internal static partial class Program
         {
             "--service-register",
             "--name",
-            command.ServiceName!,
+            serviceName,
             "--service-host-exe",
             Path.GetFullPath(serviceHostExecutablePath),
             "--runner-exe",
@@ -822,10 +823,10 @@ internal static partial class Program
             Path.GetFullPath(moduleManifestPath),
         };
 
-        if (!string.IsNullOrWhiteSpace(command.ServiceLogPath))
+        if (!string.IsNullOrWhiteSpace(serviceLogPath))
         {
             arguments.Add("--service-log-path");
-            arguments.Add(Path.GetFullPath(command.ServiceLogPath));
+            arguments.Add(Path.GetFullPath(serviceLogPath));
         }
 
         if (!string.IsNullOrWhiteSpace(command.ServiceUser))
@@ -1266,12 +1267,28 @@ internal static partial class Program
     /// <returns>True when script source is valid and exists.</returns>
     private static bool TryResolveServiceScriptSource(ParsedCommand command, out ResolvedServiceScriptSource scriptSource, out string error)
     {
-        var requestedScriptPath = ResolveRequestedServiceScriptPath(command.ScriptPath);
         var optionFlags = GetServiceContentRootOptionFlags(command);
         if (!TryClassifyServiceContentRoot(command.ServiceContentRoot, out _, out var contentRootUri, out var fullContentRoot))
         {
-            return TryResolveServiceScriptWithoutContentRoot(requestedScriptPath, optionFlags, out scriptSource, out error);
+            var requestedScriptPathWithoutContentRoot = ResolveRequestedServiceScriptPath(command.ScriptPath, useDefaultWhenMissing: true);
+            return TryResolveServiceScriptWithoutContentRoot(requestedScriptPathWithoutContentRoot, optionFlags, out scriptSource, out error);
         }
+
+        if (command.ServiceNameProvided)
+        {
+            scriptSource = CreateEmptyResolvedServiceScriptSource();
+            error = "--name is not supported when --content-root is used. Define Name in Service.psd1.";
+            return false;
+        }
+
+        if (command.ScriptPathProvided)
+        {
+            scriptSource = CreateEmptyResolvedServiceScriptSource();
+            error = "--script (or positional script path) is not supported when --content-root is used. Define Script in Service.psd1.";
+            return false;
+        }
+
+        var requestedScriptPath = ResolveRequestedServiceScriptPath(command.ScriptPath, useDefaultWhenMissing: false);
         // When a content-root value is supplied, attempt to resolve the script source from the content root, even if the script path argument is not provided,
         // since some content-root scenarios imply a default script name.
         return TryResolveServiceScriptFromContentRoot(
@@ -1365,9 +1382,12 @@ internal static partial class Program
     /// Resolves the script path value for service install commands, applying default script fallback.
     /// </summary>
     /// <param name="scriptPath">Requested script path argument.</param>
+    /// <param name="useDefaultWhenMissing">True to apply the default script file name when no script path was provided.</param>
     /// <returns>Resolved script path token.</returns>
-    private static string ResolveRequestedServiceScriptPath(string scriptPath)
-        => string.IsNullOrWhiteSpace(scriptPath) ? DefaultScriptFileName : scriptPath;
+    private static string ResolveRequestedServiceScriptPath(string scriptPath, bool useDefaultWhenMissing)
+        => string.IsNullOrWhiteSpace(scriptPath)
+            ? (useDefaultWhenMissing ? DefaultScriptFileName : string.Empty)
+            : scriptPath;
 
     /// <summary>
     /// Captures which content-root related options were supplied on the command line.
@@ -1395,7 +1415,7 @@ internal static partial class Program
         out ResolvedServiceScriptSource scriptSource,
         out string error)
     {
-        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
+        scriptSource = CreateEmptyResolvedServiceScriptSource();
         if (!TryValidateOptionsForMissingContentRoot(optionFlags, out error))
         {
             return false;
@@ -1408,7 +1428,7 @@ internal static partial class Program
             return false;
         }
 
-        scriptSource = new ResolvedServiceScriptSource(fullScriptPath, null, Path.GetFileName(fullScriptPath), null);
+        scriptSource = new ResolvedServiceScriptSource(fullScriptPath, null, Path.GetFileName(fullScriptPath), null, null, null, null, null);
         error = string.Empty;
         return true;
     }
@@ -1430,7 +1450,7 @@ internal static partial class Program
         out ResolvedServiceScriptSource scriptSource,
         out string error)
     {
-        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
+        scriptSource = CreateEmptyResolvedServiceScriptSource();
         if (!TryValidateHttpContentRootScriptPath(requestedScriptPath, out error))
         {
             return false;
@@ -1448,11 +1468,23 @@ internal static partial class Program
                 return false;
             }
 
+            if (!TryResolveServiceInstallDescriptor(downloadedContentRoot, out var descriptor, out error))
+            {
+                TryDeleteDirectoryWithRetry(temporaryRoot, maxAttempts: 5, initialDelayMs: 50);
+                return false;
+            }
+
+            if (!TryResolveServiceDescriptorScriptPath(requestedScriptPath, descriptor, out var resolvedScriptPath, out error))
+            {
+                TryDeleteDirectoryWithRetry(temporaryRoot, maxAttempts: 5, initialDelayMs: 50);
+                return false;
+            }
+
             if (!TryResolveScriptFromResolvedContentRoot(
-                    requestedScriptPath,
+                    resolvedScriptPath,
                     downloadedContentRoot,
-                    $"Script path '{requestedScriptPath}' escapes the extracted archive content root.",
-                    $"Script file '{requestedScriptPath}' was not found inside extracted archive downloaded from '{contentRootUri}'.",
+                    $"Script path '{resolvedScriptPath}' escapes the extracted archive content root.",
+                    $"Script file '{resolvedScriptPath}' was not found inside extracted archive downloaded from '{contentRootUri}'.",
                     temporaryRoot,
                     out scriptSource,
                     out error))
@@ -1460,6 +1492,8 @@ internal static partial class Program
                 TryDeleteDirectoryWithRetry(temporaryRoot, maxAttempts: 5, initialDelayMs: 50);
                 return false;
             }
+
+            scriptSource = ApplyDescriptorMetadata(scriptSource, descriptor);
 
             return true;
         }
@@ -1486,26 +1520,36 @@ internal static partial class Program
         out ResolvedServiceScriptSource scriptSource,
         out string error)
     {
-        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
+        scriptSource = CreateEmptyResolvedServiceScriptSource();
         if (!TryValidateDirectoryContentRootOptions(optionFlags, out error))
         {
             return false;
         }
 
-        if (Path.IsPathRooted(requestedScriptPath))
+        if (!TryResolveServiceInstallDescriptor(fullContentRoot, out var descriptor, out error))
         {
-            error = "When --content-root is specified, --script must be a relative path within that folder.";
             return false;
         }
 
-        return TryResolveScriptFromResolvedContentRoot(
-            requestedScriptPath,
+        if (!TryResolveServiceDescriptorScriptPath(requestedScriptPath, descriptor, out var resolvedScriptPath, out error))
+        {
+            return false;
+        }
+
+        if (!TryResolveScriptFromResolvedContentRoot(
+            resolvedScriptPath,
             fullContentRoot,
-            $"Script path '{requestedScriptPath}' escapes the service content root '{fullContentRoot}'.",
-            $"Script file '{requestedScriptPath}' was not found under service content root '{fullContentRoot}'.",
+            $"Script path '{resolvedScriptPath}' escapes the service content root '{fullContentRoot}'.",
+            $"Script file '{resolvedScriptPath}' was not found under service content root '{fullContentRoot}'.",
             null,
             out scriptSource,
-            out error);
+            out error))
+        {
+            return false;
+        }
+
+        scriptSource = ApplyDescriptorMetadata(scriptSource, descriptor);
+        return true;
     }
 
     /// <summary>
@@ -1526,7 +1570,7 @@ internal static partial class Program
         out ResolvedServiceScriptSource scriptSource,
         out string error)
     {
-        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
+        scriptSource = CreateEmptyResolvedServiceScriptSource();
         if (!File.Exists(fullContentRoot))
         {
             error = $"Service content root path was not found: {fullContentRoot}";
@@ -1544,12 +1588,6 @@ internal static partial class Program
             return false;
         }
 
-        if (Path.IsPathRooted(requestedScriptPath))
-        {
-            error = "When --content-root is an archive, --script must be a relative path inside the archive.";
-            return false;
-        }
-
         if (!TryValidateServiceContentRootArchiveChecksum(command, fullContentRoot, out error))
         {
             return false;
@@ -1564,11 +1602,23 @@ internal static partial class Program
                 return false;
             }
 
+            if (!TryResolveServiceInstallDescriptor(extractedContentRoot, out var descriptor, out error))
+            {
+                TryDeleteDirectoryWithRetry(extractedContentRoot, maxAttempts: 5, initialDelayMs: 50);
+                return false;
+            }
+
+            if (!TryResolveServiceDescriptorScriptPath(requestedScriptPath, descriptor, out var resolvedScriptPath, out error))
+            {
+                TryDeleteDirectoryWithRetry(extractedContentRoot, maxAttempts: 5, initialDelayMs: 50);
+                return false;
+            }
+
             if (!TryResolveScriptFromResolvedContentRoot(
-                    requestedScriptPath,
+                    resolvedScriptPath,
                     extractedContentRoot,
-                    $"Script path '{requestedScriptPath}' escapes the extracted archive content root.",
-                    $"Script file '{requestedScriptPath}' was not found inside extracted archive '{fullContentRoot}'.",
+                    $"Script path '{resolvedScriptPath}' escapes the extracted archive content root.",
+                    $"Script file '{resolvedScriptPath}' was not found inside extracted archive '{fullContentRoot}'.",
                     extractedContentRoot,
                     out scriptSource,
                     out error))
@@ -1576,6 +1626,8 @@ internal static partial class Program
                 TryDeleteDirectoryWithRetry(extractedContentRoot, maxAttempts: 5, initialDelayMs: 50);
                 return false;
             }
+
+            scriptSource = ApplyDescriptorMetadata(scriptSource, descriptor);
 
             return true;
         }
@@ -1686,7 +1738,7 @@ internal static partial class Program
     /// <returns>True when the script path is valid for URL archive usage.</returns>
     private static bool TryValidateHttpContentRootScriptPath(string requestedScriptPath, out string error)
     {
-        if (Path.IsPathRooted(requestedScriptPath))
+        if (!string.IsNullOrWhiteSpace(requestedScriptPath) && Path.IsPathRooted(requestedScriptPath))
         {
             error = "When --content-root is a URL archive, --script must be a relative path inside the archive.";
             return false;
@@ -1695,6 +1747,158 @@ internal static partial class Program
         error = string.Empty;
         return true;
     }
+
+    /// <summary>
+    /// Reads and validates Service.psd1 from a resolved service content-root folder.
+    /// </summary>
+    /// <param name="fullContentRoot">Absolute content-root directory path.</param>
+    /// <param name="descriptor">Resolved and validated descriptor metadata.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when descriptor exists and mandatory metadata is valid.</returns>
+    private static bool TryResolveServiceInstallDescriptor(string fullContentRoot, out ServiceInstallDescriptor descriptor, out string error)
+    {
+        descriptor = new ServiceInstallDescriptor(string.Empty, string.Empty, string.Empty, null, null);
+        var descriptorPath = Path.Combine(fullContentRoot, ServiceDescriptorFileName);
+        if (!File.Exists(descriptorPath))
+        {
+            error = $"Service descriptor file '{ServiceDescriptorFileName}' was not found at content-root '{fullContentRoot}'.";
+            return false;
+        }
+
+        string descriptorText;
+        try
+        {
+            descriptorText = File.ReadAllText(descriptorPath, Encoding.UTF8);
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to read service descriptor '{descriptorPath}': {ex.Message}";
+            return false;
+        }
+
+        // Some tests and generated fixtures write PowerShell escaped newlines (`n / `r`n) as literal text.
+        // Normalize those sequences so key parsing behaves like a regular multi-line psd1 document.
+        descriptorText = NormalizeServiceDescriptorText(descriptorText);
+
+        if (!TryGetServiceDescriptorStringValue(descriptorText, "Name", required: true, out var name, out error)
+            || !TryGetServiceDescriptorStringValue(descriptorText, "Description", required: true, out var description, out error)
+            || !TryGetServiceDescriptorStringValue(descriptorText, "Version", required: true, out var versionToken, out error))
+        {
+            return false;
+        }
+
+        if (!Version.TryParse(versionToken, out var parsedVersion) || parsedVersion is null)
+        {
+            error = "Service descriptor Version must be compatible with System.Version (for example: '1.2.0').";
+            return false;
+        }
+
+        _ = TryGetServiceDescriptorStringValue(descriptorText, "Script", required: false, out var scriptPath, out _);
+        _ = TryGetServiceDescriptorStringValue(descriptorText, "ServiceLogPath", required: false, out var serviceLogPath, out _);
+
+        descriptor = new ServiceInstallDescriptor(
+            name,
+            description,
+            parsedVersion.ToString(),
+            string.IsNullOrWhiteSpace(scriptPath) ? null : scriptPath,
+            string.IsNullOrWhiteSpace(serviceLogPath) ? null : serviceLogPath);
+        return true;
+    }
+
+    /// <summary>
+    /// Normalizes service descriptor text for regex parsing.
+    /// </summary>
+    /// <param name="descriptorText">Raw descriptor text.</param>
+    /// <returns>Descriptor text with PowerShell escaped newline sequences expanded.</returns>
+    private static string NormalizeServiceDescriptorText(string descriptorText)
+        => descriptorText
+            .Replace("`r`n", "\n", StringComparison.Ordinal)
+            .Replace("`n", "\n", StringComparison.Ordinal)
+            .Replace("`r", "\n", StringComparison.Ordinal);
+
+    /// <summary>
+    /// Reads a string-valued key from Service.psd1.
+    /// </summary>
+    /// <param name="descriptorText">Raw descriptor content.</param>
+    /// <param name="key">Descriptor key name.</param>
+    /// <param name="required">True when a missing key should fail validation.</param>
+    /// <param name="value">Resolved string value.</param>
+    /// <param name="error">Validation error details when required values are missing.</param>
+    /// <returns>True when key resolution succeeded for the required/optional mode.</returns>
+    private static bool TryGetServiceDescriptorStringValue(string descriptorText, string key, bool required, out string value, out string error)
+    {
+        var match = Regex.Match(
+            descriptorText,
+            $@"(?mi)(?:^|[;{{\r\n])\s*{Regex.Escape(key)}\s*=\s*(?:'(?<single>[^']*)'|""(?<double>[^""]*)"")",
+            RegexOptions.CultureInvariant);
+
+        if (!match.Success)
+        {
+            value = string.Empty;
+            error = required
+                ? $"Service descriptor '{ServiceDescriptorFileName}' is missing required key '{key}'."
+                : string.Empty;
+            return !required;
+        }
+
+        value = (match.Groups["single"].Success ? match.Groups["single"].Value : match.Groups["double"].Value).Trim();
+        if (required && string.IsNullOrWhiteSpace(value))
+        {
+            error = $"Service descriptor '{ServiceDescriptorFileName}' key '{key}' must not be empty.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves the script path for descriptor-driven service installs.
+    /// </summary>
+    /// <param name="requestedScriptPath">Script path requested on the command line.</param>
+    /// <param name="descriptor">Resolved service descriptor.</param>
+    /// <param name="resolvedScriptPath">Final script path relative to content root.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when the resolved script path is valid.</returns>
+    private static bool TryResolveServiceDescriptorScriptPath(string requestedScriptPath, ServiceInstallDescriptor descriptor, out string resolvedScriptPath, out string error)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedScriptPath))
+        {
+            resolvedScriptPath = string.Empty;
+            error = "--script (or positional script path) is not supported when --content-root is used. Define Script in Service.psd1.";
+            return false;
+        }
+
+        resolvedScriptPath = string.IsNullOrWhiteSpace(descriptor.ScriptPath)
+            ? DefaultScriptFileName
+            : descriptor.ScriptPath;
+
+        if (Path.IsPathRooted(resolvedScriptPath))
+        {
+            error = $"Service descriptor '{ServiceDescriptorFileName}' Script must be a relative path within the content root.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Applies descriptor metadata to a resolved service script source.
+    /// </summary>
+    /// <param name="scriptSource">Resolved script source.</param>
+    /// <param name="descriptor">Descriptor metadata.</param>
+    /// <returns>Script source enriched with descriptor metadata.</returns>
+    private static ResolvedServiceScriptSource ApplyDescriptorMetadata(ResolvedServiceScriptSource scriptSource, ServiceInstallDescriptor descriptor)
+        => new(
+            scriptSource.FullScriptPath,
+            scriptSource.FullContentRoot,
+            scriptSource.RelativeScriptPath,
+            scriptSource.TemporaryContentRootPath,
+            descriptor.Name,
+            descriptor.Description,
+            descriptor.Version,
+            descriptor.ServiceLogPath);
 
     /// <summary>
     /// Downloads and extracts an HTTP content-root archive into the supplied directory.
@@ -1757,7 +1961,7 @@ internal static partial class Program
         out ResolvedServiceScriptSource scriptSource,
         out string error)
     {
-        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
+        scriptSource = CreateEmptyResolvedServiceScriptSource();
         var fullScriptPathFromRoot = Path.GetFullPath(Path.Combine(fullContentRoot, requestedScriptPath));
         if (!IsPathWithinDirectory(fullScriptPathFromRoot, fullContentRoot))
         {
@@ -1772,10 +1976,17 @@ internal static partial class Program
         }
 
         var relativeScriptPath = Path.GetRelativePath(fullContentRoot, fullScriptPathFromRoot);
-        scriptSource = new ResolvedServiceScriptSource(fullScriptPathFromRoot, fullContentRoot, relativeScriptPath, temporaryContentRootPath);
+        scriptSource = new ResolvedServiceScriptSource(fullScriptPathFromRoot, fullContentRoot, relativeScriptPath, temporaryContentRootPath, null, null, null, null);
         error = string.Empty;
         return true;
     }
+
+    /// <summary>
+    /// Creates an empty service-script-source placeholder.
+    /// </summary>
+    /// <returns>Empty resolved service script source value.</returns>
+    private static ResolvedServiceScriptSource CreateEmptyResolvedServiceScriptSource()
+        => new(string.Empty, null, string.Empty, null, null, null, null, null);
 
     /// <summary>
     /// Creates a temporary extraction directory for archive-based service content roots.
@@ -4186,7 +4397,7 @@ internal static partial class Program
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseArguments(string[] args, out ParsedCommand parsedCommand, out string error)
     {
-        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], null, null, null, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
+        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, false, [], null, null, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
         if (args.Length == 0)
         {
             error = $"No command provided. Use '{ProductName} help' to list commands.";
@@ -4317,7 +4528,7 @@ internal static partial class Program
             return TryParseModuleArguments(args, commandTokenIndex + 1, out parsedCommand, out error);
         }
 
-        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], null, null, null, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
+        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, false, [], null, null, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
         error = $"Unknown command: {commandToken}. Use '{ProductName} help' to list commands.";
         return false;
     }

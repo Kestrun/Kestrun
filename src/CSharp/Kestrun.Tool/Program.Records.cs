@@ -5,6 +5,7 @@ namespace Kestrun.Tool;
 internal static partial class Program
 {
     private const string ModuleManifestFileName = "Kestrun.psd1";
+    private const string ServiceDescriptorFileName = "Service.psd1";
     private const string ModuleName = "Kestrun";
     private const string DefaultScriptFileName = "server.ps1";
     private const string ProductName = "kestrun";
@@ -63,10 +64,12 @@ internal static partial class Program
     private sealed record ParsedCommand(
         CommandMode Mode,
         string ScriptPath,
+        bool ScriptPathProvided,
         string[] ScriptArguments,
         string? KestrunFolder,
         string? KestrunManifestPath,
         string? ServiceName,
+        bool ServiceNameProvided,
         string? ServiceLogPath,
         string? ServiceUser,
         string? ServicePassword,
@@ -111,7 +114,18 @@ internal static partial class Program
         string FullScriptPath,
         string? FullContentRoot,
         string RelativeScriptPath,
-        string? TemporaryContentRootPath);
+        string? TemporaryContentRootPath,
+        string? DescriptorServiceName,
+        string? DescriptorServiceDescription,
+        string? DescriptorServiceVersion,
+        string? DescriptorServiceLogPath);
+
+    private sealed record ServiceInstallDescriptor(
+        string Name,
+        string Description,
+        string Version,
+        string? ScriptPath,
+        string? ServiceLogPath);
 
     [GeneratedRegex("--service-log-path\\s+(\\\"(?<quoted>[^\\\"]+)\\\"|(?<plain>\\S+))", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ServiceLogPathRegex();

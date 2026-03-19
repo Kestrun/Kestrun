@@ -70,6 +70,26 @@ Invoke-Build Restore
 Invoke-Build Build
 ```
 
+Tool-only workflow (changes limited to `src/CSharp/Kestrun.Tool`):
+
+```powershell
+Invoke-Build Build-KestrunTool
+```
+
+Use `Invoke-Build Build` for full framework/module synchronization and `Build-KestrunTool` for focused tool validation.
+
+Create a usable tool package:
+
+```powershell
+Invoke-Build Pack-KestrunTool
+```
+
+Install the packaged tool from local artifacts:
+
+```powershell
+dotnet tool install --global Kestrun.Tool --add-source <projectHome>\artifacts\nuget --prerelease
+```
+
 Optional parameters (see `Kestrun.build.ps1`):
 
 | Parameter | Purpose | Example |

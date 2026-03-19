@@ -6,6 +6,8 @@ internal static partial class Program
     {
         public string ServiceName { get; set; } = string.Empty;
 
+        public bool ServiceNameSet { get; set; }
+
         public string ScriptPath { get; set; } = string.Empty;
 
         public bool ScriptPathSet { get; set; }
@@ -94,7 +96,7 @@ internal static partial class Program
     /// <param name="kestrunManifestPath">Optional explicit path to Kestrun.psd1.</param>
     /// <returns>Default parsed command for service mode.</returns>
     private static ParsedCommand CreateDefaultServiceParsedCommand(string? kestrunFolder, string? kestrunManifestPath)
-        => new(CommandMode.ServiceInstall, string.Empty, [], kestrunFolder, kestrunManifestPath, null, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
+        => new(CommandMode.ServiceInstall, string.Empty, false, [], kestrunFolder, kestrunManifestPath, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
 
     /// <summary>
     /// Validates service token bounds and resolves command mode.
@@ -185,10 +187,12 @@ internal static partial class Program
         => new(
             mode,
             state.ScriptPath,
+            state.ScriptPathSet,
             state.ScriptArguments,
             kestrunFolder,
             kestrunManifestPath,
             state.ServiceName,
+            state.ServiceNameSet,
             state.ServiceLogPath,
             state.ServiceUser,
             state.ServicePassword,
@@ -324,6 +328,7 @@ internal static partial class Program
         }
 
         state.ServiceName = value;
+        state.ServiceNameSet = true;
         return true;
     }
 
@@ -683,7 +688,7 @@ internal static partial class Program
     /// <returns>True when validation succeeds.</returns>
     private static bool TryValidateServiceParseState(CommandMode mode, ServiceParseState state, out string error)
     {
-        if (!TryValidateServiceName(state, out error))
+        if (!TryValidateServiceName(mode, state, out error))
         {
             return false;
         }
@@ -696,14 +701,27 @@ internal static partial class Program
     /// <summary>
     /// Validates that the service name option was provided.
     /// </summary>
+    /// <param name="mode">Current service mode.</param>
     /// <param name="state">Mutable service parse state.</param>
     /// <param name="error">Error text when validation fails.</param>
     /// <returns>True when the service name is valid.</returns>
-    private static bool TryValidateServiceName(ServiceParseState state, out string error)
+    private static bool TryValidateServiceName(CommandMode mode, ServiceParseState state, out string error)
     {
-        if (string.IsNullOrWhiteSpace(state.ServiceName))
+        if (mode != CommandMode.ServiceInstall || string.IsNullOrWhiteSpace(state.ServiceContentRoot))
         {
-            error = "Service name is required. Use --name <value>.";
+            if (string.IsNullOrWhiteSpace(state.ServiceName))
+            {
+                error = "Service name is required. Use --name <value>.";
+                return false;
+            }
+
+            error = string.Empty;
+            return true;
+        }
+
+        if (state.ServiceNameSet)
+        {
+            error = "--name is not supported when --content-root is used. Define Name in Service.psd1.";
             return false;
         }
 
@@ -718,7 +736,9 @@ internal static partial class Program
     /// <param name="state">Mutable service parse state.</param>
     private static void ApplyDefaultServiceInstallScript(CommandMode mode, ServiceParseState state)
     {
-        if (mode == CommandMode.ServiceInstall && !state.ScriptPathSet)
+        if (mode == CommandMode.ServiceInstall
+            && string.IsNullOrWhiteSpace(state.ServiceContentRoot)
+            && !state.ScriptPathSet)
         {
             state.ScriptPath = DefaultScriptFileName;
         }
@@ -762,6 +782,12 @@ internal static partial class Program
         {
             error = string.Empty;
             return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(state.ServiceContentRoot) && state.ScriptPathSet)
+        {
+            error = "--script (or positional script path) is not supported when --content-root is used. Define Script in Service.psd1.";
+            return false;
         }
 
         var hasChecksum = !string.IsNullOrWhiteSpace(state.ServiceContentRootChecksum);

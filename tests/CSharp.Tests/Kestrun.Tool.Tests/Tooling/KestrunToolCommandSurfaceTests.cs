@@ -626,28 +626,24 @@ public class KestrunToolCommandSurfaceTests
         var (Success, ParsedCommand, _) = InvokeTryParseArguments([
             "service",
             "install",
-            "--name",
-            "demo",
             "--content-root",
             ".\\app",
             "--deployment-root",
             "D:\\KestrunServices",
-            "--script",
-            ".\\scripts\\start.ps1",
         ]);
 
         Assert.True(Success);
         Assert.Equal("ServiceInstall", GetParsedCommandMode(ParsedCommand!));
         Assert.Equal(@".\app", GetParsedCommandField(ParsedCommand!, "ServiceContentRoot"));
         Assert.Equal(@"D:\KestrunServices", GetParsedCommandField(ParsedCommand!, "ServiceDeploymentRoot"));
-        Assert.Equal(@".\scripts\start.ps1", GetParsedCommandField(ParsedCommand!, "ScriptPath"));
+        Assert.Equal(string.Empty, GetParsedCommandField(ParsedCommand!, "ScriptPath"));
     }
 
     [Fact]
     [Trait("Category", "Tooling")]
-    public void TryParseArguments_ServiceInstall_WithContentRootAndNoScript_UsesDefaultServerScript()
+    public void TryParseArguments_ServiceInstall_WithContentRootAndName_Fails()
     {
-        var (Success, ParsedCommand, _) = InvokeTryParseArguments([
+        var (Success, _, Error) = InvokeTryParseArguments([
             "service",
             "install",
             "--name",
@@ -656,9 +652,25 @@ public class KestrunToolCommandSurfaceTests
             ".\\app",
         ]);
 
-        Assert.True(Success);
-        Assert.Equal("ServiceInstall", GetParsedCommandMode(ParsedCommand!));
-        Assert.Equal("server.ps1", GetParsedCommandField(ParsedCommand!, "ScriptPath"));
+        Assert.False(Success);
+        Assert.Contains("Define Name in Service.psd1", Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithContentRootAndScript_Fails()
+    {
+        var (Success, _, Error) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--content-root",
+            ".\\app",
+            "--script",
+            ".\\scripts\\start.ps1",
+        ]);
+
+        Assert.False(Success);
+        Assert.Contains("Define Script in Service.psd1", Error, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -668,8 +680,6 @@ public class KestrunToolCommandSurfaceTests
         var (Success, ParsedCommand, _) = InvokeTryParseArguments([
             "service",
             "install",
-            "--name",
-            "demo",
             "--content-root",
             ".\\app.zip",
             "--content-root-checksum",
@@ -691,8 +701,6 @@ public class KestrunToolCommandSurfaceTests
         var (Success, _, Error) = InvokeTryParseArguments([
             "service",
             "install",
-            "--name",
-            "demo",
             "--content-root",
             ".\\app.zip",
             "--content-root-checksum-algorithm",
@@ -710,8 +718,6 @@ public class KestrunToolCommandSurfaceTests
         var (Success, ParsedCommand, _) = InvokeTryParseArguments([
             "service",
             "install",
-            "--name",
-            "demo",
             "--content-root",
             "https://example.test/app.zip",
             "--content-root-bearer-token",
@@ -731,8 +737,6 @@ public class KestrunToolCommandSurfaceTests
         var (Success, ParsedCommand, _) = InvokeTryParseArguments([
             "service",
             "install",
-            "--name",
-            "demo",
             "--content-root",
             "https://example.test/app.zip",
             "--content-root-header",
@@ -885,16 +889,16 @@ public class KestrunToolCommandSurfaceTests
 
             _ = Directory.CreateDirectory(Path.GetDirectoryName(scriptFullPath)!);
             File.WriteAllText(scriptFullPath, "Write-Output 'hello-directory-root'", Encoding.UTF8);
+            File.WriteAllText(
+                Path.Combine(contentRoot, "Service.psd1"),
+                "@{`n    Name = 'demo'`n    Description = 'Demo service'`n    Version = '1.2.0'`n    Script = 'scripts/start.ps1'`n}",
+                Encoding.UTF8);
 
             var (Success, parsedCommand, parseError) = InvokeTryParseArguments([
                 "service",
                 "install",
-                "--name",
-                "demo",
                 "--content-root",
                 contentRoot,
-                "--script",
-                scriptRelativePath,
             ]);
 
             Assert.True(Success);
@@ -917,6 +921,143 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithDescriptorMissingRequiredFields_Fails()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            var contentRoot = Path.Combine(tempRoot, "content");
+            _ = Directory.CreateDirectory(contentRoot);
+            File.WriteAllText(Path.Combine(contentRoot, "server.ps1"), "Write-Output 'hello'", Encoding.UTF8);
+            File.WriteAllText(
+                Path.Combine(contentRoot, "Service.psd1"),
+                "@{`n    Name = 'demo'`n    Version = '1.2.0'`n}",
+                Encoding.UTF8);
+
+            var (Success, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--content-root",
+                contentRoot,
+            ]);
+
+            Assert.True(Success);
+            Assert.True(string.IsNullOrWhiteSpace(parseError));
+
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.False(result.Success);
+            Assert.Contains("missing required key 'Description'", result.Error, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithDescriptorInvalidVersion_Fails()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            var contentRoot = Path.Combine(tempRoot, "content");
+            _ = Directory.CreateDirectory(contentRoot);
+            File.WriteAllText(Path.Combine(contentRoot, "server.ps1"), "Write-Output 'hello'", Encoding.UTF8);
+            File.WriteAllText(
+                Path.Combine(contentRoot, "Service.psd1"),
+                "@{`n    Name = 'demo'`n    Description = 'Demo service'`n    Version = '1.2.0-beta1'`n}",
+                Encoding.UTF8);
+
+            var (Success, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--content-root",
+                contentRoot,
+            ]);
+
+            Assert.True(Success);
+            Assert.True(string.IsNullOrWhiteSpace(parseError));
+
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.False(result.Success);
+            Assert.Contains("compatible with System.Version", result.Error, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveInstallServiceInputs_WithDescriptorServiceLogPath_UsesDescriptorAndAllowsOverride()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            var contentRoot = Path.Combine(tempRoot, "content");
+            _ = Directory.CreateDirectory(contentRoot);
+            File.WriteAllText(Path.Combine(contentRoot, "server.ps1"), "Write-Output 'hello'", Encoding.UTF8);
+            File.WriteAllText(
+                Path.Combine(contentRoot, "Service.psd1"),
+                "@{`n    Name = 'demo'`n    Description = 'Demo service'`n    Version = '1.2.0'`n    ServiceLogPath = './logs/service.log'`n}",
+                Encoding.UTF8);
+
+            var missingManifestPath = Path.Combine(tempRoot, "missing", "Kestrun.psd1");
+            var (Success, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--content-root",
+                contentRoot,
+                "--kestrun-manifest",
+                missingManifestPath,
+            ]);
+
+            Assert.True(Success);
+            Assert.True(string.IsNullOrWhiteSpace(parseError));
+
+            var result = InvokeTryResolveInstallServiceInputs(parsedCommand!);
+            Assert.False(result.Success);
+            Assert.Equal("demo", result.ServiceName);
+            Assert.Equal("1.2.0", result.ServiceVersion);
+            Assert.Equal("./logs/service.log", result.EffectiveServiceLogPath);
+
+            var (overrideSuccess, overrideParsedCommand, overrideParseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--content-root",
+                contentRoot,
+                "--service-log-path",
+                "./logs/override.log",
+                "--kestrun-manifest",
+                missingManifestPath,
+            ]);
+
+            Assert.True(overrideSuccess);
+            Assert.True(string.IsNullOrWhiteSpace(overrideParseError));
+
+            var overrideResult = InvokeTryResolveInstallServiceInputs(overrideParsedCommand!);
+            Assert.False(overrideResult.Success);
+            Assert.Equal("./logs/override.log", overrideResult.EffectiveServiceLogPath);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void TryResolveServiceScriptSource_WithMissingLocalContentRoot_FailsPathNotFound()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
@@ -927,12 +1068,8 @@ public class KestrunToolCommandSurfaceTests
             var (Success, parsedCommand, parseError) = InvokeTryParseArguments([
                 "service",
                 "install",
-                "--name",
-                "demo",
                 "--content-root",
                 missingContentRoot,
-                "--script",
-                "scripts/start.ps1",
             ]);
 
             Assert.True(Success);
@@ -960,16 +1097,16 @@ public class KestrunToolCommandSurfaceTests
         {
             var contentRoot = Path.Combine(tempRoot, "content");
             _ = Directory.CreateDirectory(contentRoot);
+            File.WriteAllText(
+                Path.Combine(contentRoot, "Service.psd1"),
+                $"@{{`n    Name = 'demo'`n    Description = 'Demo service'`n    Version = '1.2.0'`n    Script = '{Path.Combine(contentRoot, "server.ps1")}'`n}}",
+                Encoding.UTF8);
 
             var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
                 "service",
                 "install",
-                "--name",
-                "demo",
                 "--content-root",
                 contentRoot,
-                "--script",
-                Path.Combine(contentRoot, "server.ps1"),
             ]);
 
             Assert.True(Success);
@@ -1052,6 +1189,53 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryPrepareServiceBundle_WithServiceVersion_UsesVersionedDeploymentSubfolder()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        var originalDirectory = Environment.CurrentDirectory;
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            Environment.CurrentDirectory = tempRoot;
+
+            var moduleRoot = Path.Combine(tempRoot, "module-src");
+            _ = Directory.CreateDirectory(moduleRoot);
+            var manifestPath = Path.Combine(moduleRoot, "Kestrun.psd1");
+            File.WriteAllText(manifestPath, "@{`n    ModuleVersion = '1.0.0'`n}", Encoding.UTF8);
+
+            var runtimeRid = GetRuntimeRidForCurrentProcess();
+            var runtimeBinaryName = OperatingSystem.IsWindows() ? "kestrun.exe" : "kestrun";
+            var runtimeSourcePath = Path.Combine(moduleRoot, "runtimes", runtimeRid, runtimeBinaryName);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(runtimeSourcePath)!);
+            File.WriteAllText(runtimeSourcePath, "runtime-binary", Encoding.UTF8);
+            StageDedicatedServicePayloadLayout(tempRoot, runtimeRid);
+
+            var scriptPath = Path.Combine(tempRoot, "server.ps1");
+            File.WriteAllText(scriptPath, "Write-Output 'hello'", Encoding.UTF8);
+
+            var bundleRoot = Path.Combine(tempRoot, "bundle-root");
+            var (Success, _, BundleRootPath, _, _, _, Error) = InvokeTryPrepareServiceBundle(
+                "MyApp",
+                scriptPath,
+                manifestPath,
+                bundleRoot,
+                serviceVersion: "1.2.0");
+
+            Assert.True(Success, Error);
+            Assert.EndsWith(Path.Combine("MyApp", "1.2.0"), BundleRootPath, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        }
+        finally
+        {
+            Environment.CurrentDirectory = originalDirectory;
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void TryResolveServiceScriptSource_WithZipContentRoot_ExtractsAndFindsScript()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
@@ -1062,6 +1246,7 @@ public class KestrunToolCommandSurfaceTests
             var zipPath = Path.Combine(tempRoot, "app.zip");
             CreateZipArchive(zipPath, new Dictionary<string, string>
             {
+                ["Service.psd1"] = "@{ Name = 'demo'; Description = 'Demo service'; Version = '1.2.0'; Script = 'scripts/start.ps1' }",
                 ["scripts/start.ps1"] = "Write-Output 'hello'",
                 ["config/settings.json"] = "{}",
             });
@@ -1069,12 +1254,8 @@ public class KestrunToolCommandSurfaceTests
             var (_, parsedCommand, parseError) = InvokeTryParseArguments([
                 "service",
                 "install",
-                "--name",
-                "demo",
                 "--content-root",
                 zipPath,
-                "--script",
-                "scripts/start.ps1",
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError), parseError);
 
@@ -1112,6 +1293,7 @@ public class KestrunToolCommandSurfaceTests
             var tgzPath = Path.Combine(tempRoot, "app.tgz");
             CreateTarGzArchive(tgzPath, new Dictionary<string, string>
             {
+                ["Service.psd1"] = "@{ Name = 'demo'; Description = 'Demo service'; Version = '1.2.0'; Script = 'scripts/start.ps1' }",
                 ["scripts/start.ps1"] = "Write-Output 'hello from tgz'",
                 ["assets/readme.txt"] = "hello",
             });
@@ -1119,12 +1301,8 @@ public class KestrunToolCommandSurfaceTests
             var (_, parsedCommand, parseError) = InvokeTryParseArguments([
                 "service",
                 "install",
-                "--name",
-                "demo",
                 "--content-root",
                 tgzPath,
-                "--script",
-                "scripts/start.ps1",
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError));
 
@@ -1166,8 +1344,6 @@ public class KestrunToolCommandSurfaceTests
             var (_, parsedCommand, parseError) = InvokeTryParseArguments([
                 "service",
                 "install",
-                "--name",
-                "demo",
                 "--content-root",
                 zipPath,
                 "--content-root-checksum",
@@ -1199,6 +1375,7 @@ public class KestrunToolCommandSurfaceTests
             var zipPath = Path.Combine(tempRoot, "app.zip");
             CreateZipArchive(zipPath, new Dictionary<string, string>
             {
+                ["Service.psd1"] = "@{ Name = 'demo'; Description = 'Demo service'; Version = '1.2.0'; Script = 'scripts/start.ps1' }",
                 ["scripts/start.ps1"] = "Write-Output 'hello'",
             });
 
@@ -1206,18 +1383,14 @@ public class KestrunToolCommandSurfaceTests
             var (_, parsedCommand, parseError) = InvokeTryParseArguments([
                 "service",
                 "install",
-                "--name",
-                "demo",
                 "--content-root",
                 zipPath,
-                "--script",
-                "scripts/start.ps1",
                 "--kestrun-manifest",
                 missingManifestPath,
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError));
 
-            var (Success, ServiceName, FullScriptPath, RelativeScriptPath, TemporaryContentRootPath, ModuleManifestPath, ExitCode) = InvokeTryResolveInstallServiceInputs(parsedCommand!);
+            var (Success, ServiceName, ServiceVersion, EffectiveServiceLogPath, FullScriptPath, RelativeScriptPath, TemporaryContentRootPath, ModuleManifestPath, ExitCode) = InvokeTryResolveInstallServiceInputs(parsedCommand!);
             Assert.False(Success);
             Assert.Equal(3, ExitCode);
             Assert.True(string.IsNullOrWhiteSpace(ModuleManifestPath));
@@ -1252,6 +1425,7 @@ public class KestrunToolCommandSurfaceTests
             _ = Directory.CreateDirectory(tempRoot);
             var zipBytes = CreateZipArchiveBytes(new Dictionary<string, string>
             {
+                ["Service.psd1"] = "@{ Name = 'demo'; Description = 'Demo service'; Version = '1.2.0'; Script = 'scripts/start.ps1' }",
                 ["scripts/start.ps1"] = "Write-Output 'hello-url'",
             });
 
@@ -1285,16 +1459,12 @@ public class KestrunToolCommandSurfaceTests
             var (_, parsedCommand, parseError) = InvokeTryParseArguments([
                 "service",
                 "install",
-                "--name",
-                "demo",
                 "--content-root",
                 archiveUrl,
                 "--content-root-bearer-token",
                 "my-token",
                 "--content-root-header",
                 "x-api-key:my-key",
-                "--script",
-                "scripts/start.ps1",
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError));
 
@@ -1348,6 +1518,7 @@ public class KestrunToolCommandSurfaceTests
             _ = Directory.CreateDirectory(tempRoot);
             var zipBytes = CreateZipArchiveBytes(new Dictionary<string, string>
             {
+                ["Service.psd1"] = "@{ Name = 'demo'; Description = 'Demo service'; Version = '1.2.0'; Script = 'scripts/start.ps1' }",
                 ["scripts/start.ps1"] = "Write-Output 'hello-url-invalid-filename'",
             });
 
@@ -1366,12 +1537,8 @@ public class KestrunToolCommandSurfaceTests
             var (_, parsedCommand, parseError) = InvokeTryParseArguments([
                 "service",
                 "install",
-                "--name",
-                "demo",
                 "--content-root",
                 archiveUrl,
-                "--script",
-                "scripts/start.ps1",
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError), parseError);
 
@@ -1409,6 +1576,7 @@ public class KestrunToolCommandSurfaceTests
             _ = Directory.CreateDirectory(tempRoot);
             var zipBytes = CreateZipArchiveBytes(new Dictionary<string, string>
             {
+                ["Service.psd1"] = "@{ Name = 'demo'; Description = 'Demo service'; Version = '1.2.0'; Script = 'scripts/start.ps1' }",
                 ["scripts/start.ps1"] = "Write-Output 'hello-url'",
             });
 
@@ -1427,18 +1595,14 @@ public class KestrunToolCommandSurfaceTests
             var (_, parsedCommand, parseError) = InvokeTryParseArguments([
                 "service",
                 "install",
-                "--name",
-                "demo",
                 "--content-root",
                 archiveUrl,
-                "--script",
-                "scripts/start.ps1",
                 "--kestrun-manifest",
                 missingManifestPath,
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError));
 
-            var (Success, ServiceName, FullScriptPath, RelativeScriptPath, TemporaryContentRootPath, ModuleManifestPath, ExitCode) = InvokeTryResolveInstallServiceInputs(parsedCommand!);
+            var (Success, ServiceName, ServiceVersion, EffectiveServiceLogPath, FullScriptPath, RelativeScriptPath, TemporaryContentRootPath, ModuleManifestPath, ExitCode) = InvokeTryResolveInstallServiceInputs(parsedCommand!);
             Assert.False(Success);
             Assert.Equal(3, ExitCode);
             Assert.True(string.IsNullOrWhiteSpace(ModuleManifestPath));
@@ -1475,6 +1639,7 @@ public class KestrunToolCommandSurfaceTests
             _ = Directory.CreateDirectory(tempRoot);
             var tgzBytes = CreateTarGzArchiveBytes(new Dictionary<string, string>
             {
+                ["Service.psd1"] = "@{ Name = 'demo'; Description = 'Demo service'; Version = '1.2.0'; Script = 'scripts/start.ps1' }",
                 ["scripts/start.ps1"] = "Write-Output 'hello-url-tgz'",
             });
 
@@ -1492,12 +1657,8 @@ public class KestrunToolCommandSurfaceTests
             var (_, parsedCommand, parseError) = InvokeTryParseArguments([
                 "service",
                 "install",
-                "--name",
-                "demo",
                 "--content-root",
                 archiveUrl,
-                "--script",
-                "scripts/start.ps1",
             ]);
             Assert.True(string.IsNullOrWhiteSpace(parseError), parseError);
 
@@ -1544,8 +1705,6 @@ public class KestrunToolCommandSurfaceTests
             var (_, parsedCommand, parseError) = InvokeTryParseArguments([
                 "service",
                 "install",
-                "--name",
-                "demo",
                 "--content-root",
                 zipPath,
                 "--content-root-ignore-certificate",
@@ -1581,8 +1740,6 @@ public class KestrunToolCommandSurfaceTests
             var (_, parsedCommand, parseError) = InvokeTryParseArguments([
                 "service",
                 "install",
-                "--name",
-                "demo",
                 "--content-root",
                 zipPath,
                 "--content-root-header",
@@ -1609,14 +1766,10 @@ public class KestrunToolCommandSurfaceTests
         var (_, parsedCommand, parseError) = InvokeTryParseArguments([
             "service",
             "install",
-            "--name",
-            "demo",
             "--content-root",
             "http://example.test/app.zip",
             "--content-root-header",
             "invalid-header-value",
-            "--script",
-            "scripts/start.ps1",
         ]);
         Assert.True(string.IsNullOrWhiteSpace(parseError));
         var (Success, _, _, _, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
@@ -1631,14 +1784,10 @@ public class KestrunToolCommandSurfaceTests
         var (_, parsedCommand, parseError) = InvokeTryParseArguments([
             "service",
             "install",
-            "--name",
-            "demo",
             "--content-root",
             "http://example.test/app.zip",
             "--content-root-header",
             $"x-api{Environment.NewLine}key:value",
-            "--script",
-            "scripts/start.ps1",
         ]);
         Assert.True(string.IsNullOrWhiteSpace(parseError));
         var (Success, _, _, _, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
@@ -1653,14 +1802,10 @@ public class KestrunToolCommandSurfaceTests
         var (_, parsedCommand, parseError) = InvokeTryParseArguments([
             "service",
             "install",
-            "--name",
-            "demo",
             "--content-root",
             "http://example.test/app.zip",
             "--content-root-header",
             $"x-api-key:my{Environment.NewLine}key",
-            "--script",
-            "scripts/start.ps1",
         ]);
         Assert.True(string.IsNullOrWhiteSpace(parseError));
         var (Success, _, _, _, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
@@ -1848,7 +1993,7 @@ public class KestrunToolCommandSurfaceTests
             {
                 await Task.Delay(300, TestContext.Current.CancellationToken);
                 lockedFileHandle.Dispose();
-            });
+            }, TestContext.Current.CancellationToken);
 
             var error = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 10, initialDelayMs: 50);
             Assert.Null(error);
@@ -1996,7 +2141,8 @@ public class KestrunToolCommandSurfaceTests
             string manifestPath,
             string bundleRoot,
             string? contentRoot = null,
-            string? relativeScriptPath = null)
+            string? relativeScriptPath = null,
+            string? serviceVersion = null)
     {
         var method = GetRequiredProgramMethod("TryPrepareServiceBundle");
 
@@ -2010,6 +2156,7 @@ public class KestrunToolCommandSurfaceTests
             null,
             null,
             bundleRoot,
+            serviceVersion,
         };
         var success = InvokeRequiredBool(method, values);
         var bundle = values[5];
@@ -2067,22 +2214,24 @@ public class KestrunToolCommandSurfaceTests
         return (success, normalizedContentRoot, contentRootUri, fullContentRoot);
     }
 
-    private static (bool Success, string ServiceName, string FullScriptPath, string RelativeScriptPath, string TemporaryContentRootPath, string ModuleManifestPath, int ExitCode)
+    private static (bool Success, string ServiceName, string ServiceVersion, string EffectiveServiceLogPath, string FullScriptPath, string RelativeScriptPath, string TemporaryContentRootPath, string ModuleManifestPath, int ExitCode)
         InvokeTryResolveInstallServiceInputs(object parsedCommand)
     {
         var method = GetRequiredProgramMethod("TryResolveInstallServiceInputs");
 
-        var values = new object?[] { parsedCommand, null, null, null, 0 };
+        var values = new object?[] { parsedCommand, null, null, null, null, null, 0 };
         var success = InvokeRequiredBool(method, values);
 
         var serviceName = values[1]?.ToString() ?? string.Empty;
-        var moduleManifestPath = values[3]?.ToString() ?? string.Empty;
-        var exitCode = values[4] is int intExitCode ? intExitCode : 0;
+        var serviceVersion = values[2]?.ToString() ?? string.Empty;
+        var effectiveServiceLogPath = values[3]?.ToString() ?? string.Empty;
+        var moduleManifestPath = values[5]?.ToString() ?? string.Empty;
+        var exitCode = values[6] is int intExitCode ? intExitCode : 0;
 
         var fullScriptPath = string.Empty;
         var relativeScriptPath = string.Empty;
         var temporaryContentRootPath = string.Empty;
-        var scriptSource = values[2];
+        var scriptSource = values[4];
         if (scriptSource is not null)
         {
             fullScriptPath = GetRecordField(scriptSource, "FullScriptPath") ?? string.Empty;
@@ -2090,7 +2239,7 @@ public class KestrunToolCommandSurfaceTests
             temporaryContentRootPath = GetRecordField(scriptSource, "TemporaryContentRootPath") ?? string.Empty;
         }
 
-        return (success, serviceName, fullScriptPath, relativeScriptPath, temporaryContentRootPath, moduleManifestPath, exitCode);
+        return (success, serviceName, serviceVersion, effectiveServiceLogPath, fullScriptPath, relativeScriptPath, temporaryContentRootPath, moduleManifestPath, exitCode);
     }
 
     private static IReadOnlyList<string> InvokeBuildElevatedRelaunchArguments(string executablePath, IReadOnlyList<string> args) => Assert.IsAssignableFrom<IReadOnlyList<string>>(InvokeRaw("BuildElevatedRelaunchArguments", [executablePath, args]));

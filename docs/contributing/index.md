@@ -21,6 +21,13 @@ Install-PSResource -Name 'InvokeBuild','Pester' -Scope CurrentUser
 Invoke-Build Restore
 Invoke-Build Build
 Invoke-Build Test
+
+# Tool-only changes (src/CSharp/Kestrun.Tool)
+Invoke-Build Build-KestrunTool
+
+# Create and install local tool package
+Invoke-Build Pack-KestrunTool
+dotnet tool install --global Kestrun.Tool --add-source <projectHome>\artifacts\nuget --prerelease
 ```
 
 ## Sections

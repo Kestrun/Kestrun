@@ -125,32 +125,30 @@ dotnet kestrun run --script .\server.ps1
 dotnet kestrun service install --name MyService .\server.ps1
 dotnet kestrun service install --name MyService --script .\server.ps1
 
-# Install from a script folder (copies full folder recursively)
-dotnet kestrun service install --name MyService --content-root .\MyServiceApp
-
-# Script is resolved relative to --content-root
-dotnet kestrun service install --name MyService --content-root .\MyServiceApp --script .\scripts\start.ps1
+# Install from a script folder/archive/url content root.
+# Service.psd1 is required at the content-root root and defines Name/Description/Version.
+dotnet kestrun service install --content-root .\MyServiceApp
 
 # Install from an archive payload (.zip/.tar/.tgz/.tar.gz)
-dotnet kestrun service install --name MyService --content-root .\MyServiceApp.zip --script .\scripts\start.ps1
+dotnet kestrun service install --content-root .\MyServiceApp.zip
 
 # Install from a remote archive URL
-dotnet kestrun service install --name MyService --content-root https://downloads.example.com/MyServiceApp.tgz --script .\scripts\start.ps1
+dotnet kestrun service install --content-root https://downloads.example.com/MyServiceApp.tgz
 
 # Install from a remote archive URL with bearer token auth
-dotnet kestrun service install --name MyService --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-bearer-token <token> --script .\scripts\start.ps1
+dotnet kestrun service install --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-bearer-token <token>
 
 # Install from a remote archive URL with custom request headers
-dotnet kestrun service install --name MyService --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-header x-api-key:<key> --content-root-header x-env:prod --script .\scripts\start.ps1
+dotnet kestrun service install --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-header x-api-key:<key> --content-root-header x-env:prod
 
 # Ignore HTTPS certificate validation for remote archive download (insecure)
-dotnet kestrun service install --name MyService --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-ignore-certificate --script .\scripts\start.ps1
+dotnet kestrun service install --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-ignore-certificate
 
 # Verify archive checksum before extraction (default algorithm: sha256)
-dotnet kestrun service install --name MyService --content-root .\MyServiceApp.tgz --content-root-checksum <hex>
+dotnet kestrun service install --content-root .\MyServiceApp.tgz --content-root-checksum <hex>
 
 # Explicit checksum algorithm
-dotnet kestrun service install --name MyService --content-root .\MyServiceApp.tar.gz --content-root-checksum <hex> --content-root-checksum-algorithm sha512
+dotnet kestrun service install --content-root .\MyServiceApp.tar.gz --content-root-checksum <hex> --content-root-checksum-algorithm sha512
 
 # Override default per-OS service bundle root
 dotnet kestrun service install --name MyService --deployment-root D:\KestrunServices --script .\server.ps1
@@ -191,14 +189,20 @@ For `service install`:
 - `--deployment-root <folder>`: override where per-service bundles are created.
 - `--content-root <path>`: copy the full folder or extract a supported archive (`.zip`, `.tar`, `.tgz`, `.tar.gz`) into the service bundle.
 - `--content-root` also accepts an HTTP(S) URL that points to one of the supported archive formats.
+- when `--content-root` is provided, `Service.psd1` must exist at the content root (or archive root).
+- `Service.psd1` required keys: `Name`, `Description`, `Version`.
+- `Service.psd1` optional keys: `Script`, `ServiceLogPath`.
+- `Version` in `Service.psd1` must be compatible with `System.Version` parsing.
+- when `--content-root` is provided, `--name` and `--script` (including positional script path) are not supported.
+- if `Service.psd1` omits `Script`, default script is `./server.ps1` under the content root.
+- if both `Service.psd1` and CLI provide a service log path, `--service-log-path` overrides descriptor `ServiceLogPath`.
+- content-root installs create versioned bundles: `<deployment-root>/<Name>/<Version>/`.
 - `--content-root-checksum <hex>`: verify archive checksum before extraction.
 - `--content-root-checksum-algorithm <name>`: checksum algorithm (`md5`, `sha1`, `sha256`, `sha384`, `sha512`). Defaults to `sha256`.
 - `--content-root-bearer-token <token>`: sends `Authorization: Bearer <token>` for HTTP(S) archive downloads.
 - `--content-root-header <name:value>`: adds custom request headers for HTTP(S) archive downloads. Repeat to send multiple headers.
 - `--content-root-ignore-certificate`: skips HTTPS certificate validation for archive downloads (insecure; use only when necessary).
 - `--arguments <args...>`: script arguments for installed service execution.
-- if `--content-root` is provided and `--script` is also provided, `--script` must be relative to that folder.
-- if `--content-root` is provided and `--script` is omitted, default script is `./server.ps1` under that folder.
 - if the selected script does not exist inside `--content-root`, install fails with an error.
 - if `--content-root` points to an archive, Kestrun extracts it to a temporary folder before bundling.
 - if `--content-root-checksum` is provided, `--content-root` must point to a supported archive source: either a local archive file path or an HTTP(S) archive URL
@@ -250,7 +254,7 @@ Direct-run defaults:
 
 ```powershell
 dotnet kestrun service install --name demo --script .\server.ps1 --service-log-path C:\ProgramData\Kestrun\logs\demo.log
-dotnet kestrun service install --name demo --content-root .\examples\PowerShell\MultiRoutes --script .\MultiRoutes.ps1
+dotnet kestrun service install --content-root .\examples\PowerShell\MultiRoutes
 dotnet kestrun service install --name demo --deployment-root D:\KestrunServices --script .\server.ps1
 dotnet kestrun service start --name demo
 dotnet kestrun service query --name demo

@@ -75,7 +75,7 @@ internal static partial class Program
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseRunArguments(string[] args, int startIndex, string? kestrunFolder, string? kestrunManifestPath, out ParsedCommand parsedCommand, out string error)
     {
-        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], kestrunFolder, kestrunManifestPath, null, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
+        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, false, [], kestrunFolder, kestrunManifestPath, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
         error = string.Empty;
 
         var state = new RunParseState(startIndex, kestrunFolder, kestrunManifestPath);
@@ -120,7 +120,7 @@ internal static partial class Program
             state.ScriptPath = DefaultScriptFileName;
         }
 
-        parsedCommand = new ParsedCommand(CommandMode.Run, state.ScriptPath, state.ScriptArguments, state.KestrunFolder, state.KestrunManifestPath, null, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
+        parsedCommand = new ParsedCommand(CommandMode.Run, state.ScriptPath, state.ScriptPathSet, state.ScriptArguments, state.KestrunFolder, state.KestrunManifestPath, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
 
         return true;
     }

@@ -9,24 +9,31 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int InstallService(ParsedCommand command, bool skipGalleryCheck)
     {
-        if (!TryResolveInstallServiceInputs(command, out var serviceName, out var scriptSource, out var moduleManifestPath, out var inputExitCode))
+        if (!TryResolveInstallServiceInputs(
+                command,
+                out var serviceName,
+                out var serviceVersion,
+                out var effectiveServiceLogPath,
+                out var scriptSource,
+                out var moduleManifestPath,
+                out var inputExitCode))
         {
             return inputExitCode;
         }
 
         try
         {
-            if (!TryRunInstallServicePreflight(command, moduleManifestPath, skipGalleryCheck, out var preflightExitCode))
+            if (!TryRunInstallServicePreflight(command, serviceName, moduleManifestPath, effectiveServiceLogPath, skipGalleryCheck, out var preflightExitCode))
             {
                 return preflightExitCode;
             }
 
-            if (!TryPrepareInstallServiceBundle(command, serviceName, scriptSource, moduleManifestPath, out var serviceBundle, out var bundleExitCode))
+            if (!TryPrepareInstallServiceBundle(command, serviceName, serviceVersion, scriptSource, moduleManifestPath, out var serviceBundle, out var bundleExitCode))
             {
                 return bundleExitCode;
             }
             // Service bundle preparation should not fail silently, but check for null just in case.
-            return InstallPreparedServiceForCurrentPlatform(command, serviceName, serviceBundle);
+            return InstallPreparedServiceForCurrentPlatform(command, serviceName, effectiveServiceLogPath, serviceBundle);
         }
         finally
         {
@@ -39,6 +46,8 @@ internal static partial class Program
     /// </summary>
     /// <param name="command">Parsed command information.</param>
     /// <param name="serviceName">Resolved service name.</param>
+    /// <param name="serviceVersion">Resolved service descriptor version when provided.</param>
+    /// <param name="effectiveServiceLogPath">Effective service log path (CLI override or descriptor value).</param>
     /// <param name="scriptSource">Resolved service script source.</param>
     /// <param name="moduleManifestPath">Resolved module manifest path.</param>
     /// <param name="exitCode">Exit code when validation fails.</param>
@@ -46,23 +55,18 @@ internal static partial class Program
     private static bool TryResolveInstallServiceInputs(
         ParsedCommand command,
         out string serviceName,
+        out string? serviceVersion,
+        out string? effectiveServiceLogPath,
         out ResolvedServiceScriptSource scriptSource,
         out string moduleManifestPath,
         out int exitCode)
     {
         serviceName = string.Empty;
-        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
+        serviceVersion = null;
+        effectiveServiceLogPath = null;
+        scriptSource = CreateEmptyResolvedServiceScriptSource();
         moduleManifestPath = string.Empty;
         exitCode = 0;
-
-        if (string.IsNullOrWhiteSpace(command.ServiceName))
-        {
-            Console.Error.WriteLine("Service name is required. Use --name <value>.");
-            exitCode = 2;
-            return false;
-        }
-
-        serviceName = command.ServiceName;
 
         if (!TryResolveServiceScriptSource(command, out scriptSource, out var scriptError))
         {
@@ -70,6 +74,23 @@ internal static partial class Program
             exitCode = 2;
             return false;
         }
+
+        var resolvedServiceName = string.IsNullOrWhiteSpace(scriptSource.DescriptorServiceName)
+            ? command.ServiceName
+            : scriptSource.DescriptorServiceName;
+
+        if (string.IsNullOrWhiteSpace(resolvedServiceName))
+        {
+            Console.Error.WriteLine("Service name is required. Use --name <value> (or set Name in Service.psd1 when using --content-root).");
+            exitCode = 2;
+            return false;
+        }
+
+        serviceName = resolvedServiceName;
+        serviceVersion = scriptSource.DescriptorServiceVersion;
+        effectiveServiceLogPath = !string.IsNullOrWhiteSpace(command.ServiceLogPath)
+            ? command.ServiceLogPath
+            : scriptSource.DescriptorServiceLogPath;
 
         var cleanupScriptSourceOnFailure = true;
         try
@@ -120,19 +141,23 @@ internal static partial class Program
     /// Performs install-service preflight checks such as Windows elevation checks, gallery warnings, and privileged-user validation.
     /// </summary>
     /// <param name="command">Parsed command information.</param>
+    /// <param name="serviceName">Resolved service name.</param>
     /// <param name="moduleManifestPath">Resolved module manifest path.</param>
+    /// <param name="serviceLogPath">Effective service log path.</param>
     /// <param name="skipGalleryCheck">True when gallery checks should be skipped.</param>
     /// <param name="exitCode">Exit code when a preflight check fails.</param>
     /// <returns>True when preflight checks pass.</returns>
     private static bool TryRunInstallServicePreflight(
         ParsedCommand command,
+        string serviceName,
         string moduleManifestPath,
+        string? serviceLogPath,
         bool skipGalleryCheck,
         out int exitCode)
     {
         exitCode = 0;
 
-        if (OperatingSystem.IsWindows() && !TryPreflightWindowsServiceInstall(command, out var preflightExitCode))
+        if (OperatingSystem.IsWindows() && !TryPreflightWindowsServiceInstall(command, serviceName, out var preflightExitCode))
         {
             exitCode = preflightExitCode;
             return false;
@@ -140,7 +165,7 @@ internal static partial class Program
 
         if (!skipGalleryCheck)
         {
-            WarnIfNewerGalleryVersionExists(moduleManifestPath, command.ServiceLogPath);
+            WarnIfNewerGalleryVersionExists(moduleManifestPath, serviceLogPath);
         }
 
         if (OperatingSystem.IsLinux() && !string.IsNullOrWhiteSpace(command.ServiceUser) && !IsLikelyRunningAsRootOnLinux())
@@ -165,6 +190,7 @@ internal static partial class Program
     /// </summary>
     /// <param name="command">Parsed command information.</param>
     /// <param name="serviceName">Resolved service name.</param>
+    /// <param name="serviceVersion">Optional resolved service version.</param>
     /// <param name="scriptSource">Resolved service script source.</param>
     /// <param name="moduleManifestPath">Resolved module manifest path.</param>
     /// <param name="serviceBundle">Prepared service bundle.</param>
@@ -173,6 +199,7 @@ internal static partial class Program
     private static bool TryPrepareInstallServiceBundle(
         ParsedCommand command,
         string serviceName,
+        string? serviceVersion,
         ResolvedServiceScriptSource scriptSource,
         string moduleManifestPath,
         out ServiceBundleLayout serviceBundle,
@@ -189,7 +216,8 @@ internal static partial class Program
                 scriptSource.RelativeScriptPath,
                 out var preparedServiceBundle,
                 out var bundleError,
-                command.ServiceDeploymentRoot))
+                command.ServiceDeploymentRoot,
+                serviceVersion))
         {
             Console.Error.WriteLine(bundleError);
             exitCode = 1;
@@ -212,9 +240,10 @@ internal static partial class Program
     /// </summary>
     /// <param name="command">Parsed command information.</param>
     /// <param name="serviceName">Resolved service name.</param>
+    /// <param name="serviceLogPath">Effective service log path.</param>
     /// <param name="serviceBundle">Prepared service bundle.</param>
     /// <returns>Process exit code.</returns>
-    private static int InstallPreparedServiceForCurrentPlatform(ParsedCommand command, string serviceName, ServiceBundleLayout serviceBundle)
+    private static int InstallPreparedServiceForCurrentPlatform(ParsedCommand command, string serviceName, string? serviceLogPath, ServiceBundleLayout serviceBundle)
     {
         var daemonArgs = BuildDaemonHostArgumentsForService(
             serviceName,
@@ -223,13 +252,15 @@ internal static partial class Program
             serviceBundle.ScriptPath,
             serviceBundle.ModuleManifestPath,
             command.ScriptArguments,
-            command.ServiceLogPath);
+            serviceLogPath);
         var workingDirectory = Path.GetDirectoryName(serviceBundle.ScriptPath) ?? Environment.CurrentDirectory;
 
         if (OperatingSystem.IsWindows())
         {
             return InstallWindowsService(
                 command,
+                serviceName,
+                serviceLogPath,
                 serviceBundle.ServiceHostExecutablePath,
                 serviceBundle.RuntimeExecutablePath,
                 serviceBundle.ScriptPath,
@@ -239,14 +270,14 @@ internal static partial class Program
         if (OperatingSystem.IsLinux())
         {
             var result = InstallLinuxUserDaemon(serviceName, serviceBundle.ServiceHostExecutablePath, daemonArgs, workingDirectory, command.ServiceUser);
-            WriteServiceOperationResult("install", "linux", serviceName, result, command.ServiceLogPath);
+            WriteServiceOperationResult("install", "linux", serviceName, result, serviceLogPath);
             return result;
         }
 
         if (OperatingSystem.IsMacOS())
         {
             var result = InstallMacLaunchAgent(serviceName, serviceBundle.ServiceHostExecutablePath, daemonArgs, workingDirectory, command.ServiceUser);
-            WriteServiceOperationResult("install", "macos", serviceName, result, command.ServiceLogPath);
+            WriteServiceOperationResult("install", "macos", serviceName, result, serviceLogPath);
             return result;
         }
 
@@ -949,6 +980,7 @@ internal static partial class Program
     /// <param name="serviceName">Service name.</param>
     /// <param name="sourceScriptPath">Source script path.</param>
     /// <param name="sourceModuleManifestPath">Source module manifest path.</param>
+    /// <param name="serviceVersion">Optional service version used to create a versioned deployment subfolder.</param>
     /// <param name="serviceBundle">Created service bundle paths.</param>
     /// <param name="error">Error details when bundling fails.</param>
     /// <param name="deploymentRootOverride">Optional deployment root override for tests.</param>
@@ -961,7 +993,8 @@ internal static partial class Program
         string relativeScriptPath,
         out ServiceBundleLayout? serviceBundle,
         out string error,
-        string? deploymentRootOverride = null)
+        string? deploymentRootOverride = null,
+        string? serviceVersion = null)
     {
         serviceBundle = null;
         error = string.Empty;
@@ -971,6 +1004,7 @@ internal static partial class Program
                 sourceScriptPath,
                 sourceModuleManifestPath,
                 deploymentRootOverride,
+                serviceVersion,
                 out var context,
                 out error))
         {
@@ -1048,6 +1082,7 @@ internal static partial class Program
     /// <param name="sourceScriptPath">Source script path.</param>
     /// <param name="sourceModuleManifestPath">Source module manifest path.</param>
     /// <param name="deploymentRootOverride">Optional deployment root override for tests.</param>
+    /// <param name="serviceVersion">Optional service version used to create a versioned deployment subfolder.</param>
     /// <param name="context">Resolved bundle path context.</param>
     /// <param name="error">Error details when resolution fails.</param>
     /// <returns>True when context resolution succeeds.</returns>
@@ -1056,6 +1091,7 @@ internal static partial class Program
         string sourceScriptPath,
         string sourceModuleManifestPath,
         string? deploymentRootOverride,
+        string? serviceVersion,
         out ServiceBundleContext context,
         out string error)
     {
@@ -1089,7 +1125,9 @@ internal static partial class Program
         }
 
         var serviceDirectoryName = GetServiceDeploymentDirectoryName(serviceName);
-        var serviceRoot = Path.Combine(deploymentRoot, serviceDirectoryName);
+        var serviceRoot = string.IsNullOrWhiteSpace(serviceVersion)
+            ? Path.Combine(deploymentRoot, serviceDirectoryName)
+            : Path.Combine(deploymentRoot, serviceDirectoryName, serviceVersion);
         var runtimeDirectory = Path.Combine(serviceRoot, ServiceBundleRuntimeDirectoryName);
         var modulesDirectory = Path.Combine(serviceRoot, ServiceBundleModulesDirectoryName);
         var moduleDirectory = Path.Combine(modulesDirectory, ModuleName);

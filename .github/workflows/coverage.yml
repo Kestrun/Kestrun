@@ -110,23 +110,26 @@ jobs:
               shell: pwsh
               run: Invoke-Build Build -DotNetVerbosity $Env:DOTNET_VERBOSITY
 
+            - name: 🔧 Build KestrunTool
+              shell: pwsh
+              run: Invoke-Build Build-KestrunTool -DotNetVerbosity $Env:DOTNET_VERBOSITY
+
             - name: 🧪 Test (.NET) with coverage (Cobertura, Debug)
               shell: pwsh
               run: |
                   # If your Coverage task accepts a framework parameter, pass it explicitly:
-                  # Invoke-Build Coverage -Framework net8.0
-                  Invoke-Build Coverage
+                  Invoke-Build Coverage -Frameworks net10.0
 
             - name: 🔍 Sanity check Cobertura (C#)
               run: |
-                  test -s coverage/csharp.net8.0.cobertura.xml || (echo "Cobertura is empty"; exit 1)
-                  grep -Eo '<class name="[^"]+"' coverage/csharp.net8.0.cobertura.xml | head -5 || true
+                  test -s coverage/csharp.net10.0.cobertura.xml || (echo "Cobertura is empty"; exit 1)
+                  grep -Eo '<class name="[^"]+"' coverage/csharp.net10.0.cobertura.xml | head -5 || true
 
             - name: ☁️ Upload C# to Coveralls (parallel)
               uses: coverallsapp/github-action@v2
               with:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
-                  file: coverage/csharp.net8.0.cobertura.xml
+                  file: coverage/csharp.net10.0.cobertura.xml
                   format: cobertura
                   parallel: true
                   flag-name: csharp
@@ -204,7 +207,7 @@ jobs:
               shell: pwsh
               run: |
                   dotnet kestrun module info
-            
+
             - name: 🧪 Test (Pester) with coverage (JaCoCo, Pester 5)
               shell: pwsh
               run: |
@@ -334,9 +337,14 @@ jobs:
                   New-Item -ItemType Directory -Force -Path $env:SITE_DIR,$env:HISTORY_DIR | Out-Null
 
                   ./Utility/Build-Coverage.ps1 `
-                    -Framework "net8.0" `
+                    -Framework "net10.0" `
                     -Configuration "Release" `
-                    -TestProject ".\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj" `
+                    -TestProjects @(
+                        ".\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj",
+                        ".\tests\CSharp.Tests\Kestrun.Tool.Tests\Kestrun.Tool.Tests.csproj",
+                        ".\tests\CSharp.Tests\Kestrun.ServiceHost.Tests\Kestrun.ServiceHost.Tests.csproj",
+                        ".\tests\CSharp.Tests\Kestrun.Runner.Tests\Kestrun.Runner.Tests.csproj"
+                    ) `
                     -CoverageDir ".\coverage" `
                     -PesterPath ".\tests\PowerShell.Tests\Kestrun.Tests" `
                     -ReportGenerator `

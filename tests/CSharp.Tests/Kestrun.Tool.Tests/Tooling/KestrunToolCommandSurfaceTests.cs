@@ -1,11 +1,14 @@
 #if NET10_0_OR_GREATER
 using System.IO.Compression;
+using System.Formats.Tar;
+using System.Net;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 using System.Runtime.InteropServices;
 using Xunit;
 
-namespace KestrunTests.Tooling;
+namespace Kestrun.Tool.Tests.Tooling;
 
 public class KestrunToolCommandSurfaceTests
 {
@@ -660,6 +663,90 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithArchiveChecksumOptions_Succeeds()
+    {
+        var (Success, ParsedCommand, _) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--content-root",
+            ".\\app.zip",
+            "--content-root-checksum",
+            "abcdef0123456789",
+            "--content-root-checksum-algorithm",
+            "sha256",
+        ]);
+
+        Assert.True(Success);
+        Assert.Equal("ServiceInstall", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal("abcdef0123456789", GetParsedCommandField(ParsedCommand!, "ServiceContentRootChecksum"));
+        Assert.Equal("sha256", GetParsedCommandField(ParsedCommand!, "ServiceContentRootChecksumAlgorithm"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithChecksumAlgorithmOnly_Fails()
+    {
+        var (Success, _, Error) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--content-root",
+            ".\\app.zip",
+            "--content-root-checksum-algorithm",
+            "sha256",
+        ]);
+
+        Assert.False(Success);
+        Assert.Contains("requires --content-root-checksum", Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithUrlAuthOptions_Succeeds()
+    {
+        var (Success, ParsedCommand, _) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--content-root",
+            "https://example.test/app.zip",
+            "--content-root-bearer-token",
+            "my-token",
+            "--content-root-ignore-certificate",
+        ]);
+
+        Assert.True(Success);
+        Assert.Equal("my-token", GetParsedCommandField(ParsedCommand!, "ServiceContentRootBearerToken"));
+        Assert.Equal("True", GetParsedCommandField(ParsedCommand!, "ServiceContentRootIgnoreCertificate"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithCustomUrlHeaders_Succeeds()
+    {
+        var (Success, ParsedCommand, _) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--content-root",
+            "https://example.test/app.zip",
+            "--content-root-header",
+            "x-api-key:my-key",
+            "--content-root-header",
+            "x-env:prod",
+        ]);
+
+        Assert.True(Success);
+        Assert.Equal(["x-api-key:my-key", "x-env:prod"], GetParsedCommandStringArrayField(ParsedCommand!, "ServiceContentRootHeaders"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void TryParseArguments_ServiceInstall_WithServiceUserAndPassword_Succeeds()
     {
         var (Success, ParsedCommand, _) = InvokeTryParseArguments([
@@ -696,6 +783,172 @@ public class KestrunToolCommandSurfaceTests
 
         Assert.False(Success);
         Assert.Contains("does not accept --deployment-root", Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryClassifyServiceContentRoot_WithWhitespace_ReturnsFalseAndEmptyOutputs()
+    {
+        var (Success, NormalizedContentRoot, ContentRootUri, FullContentRoot) = InvokeTryClassifyServiceContentRoot("   ");
+
+        Assert.False(Success);
+        Assert.Equal(string.Empty, NormalizedContentRoot);
+        Assert.Null(ContentRootUri);
+        Assert.Equal(string.Empty, FullContentRoot);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryClassifyServiceContentRoot_WithHttpUrl_ReturnsUriClassification()
+    {
+        var (Success, NormalizedContentRoot, ContentRootUri, FullContentRoot) =
+            InvokeTryClassifyServiceContentRoot("https://example.test/content/app.zip");
+
+        Assert.True(Success);
+        Assert.Equal("https://example.test/content/app.zip", NormalizedContentRoot);
+        Assert.NotNull(ContentRootUri);
+        Assert.Equal("https", ContentRootUri.Scheme);
+        Assert.Equal(string.Empty, FullContentRoot);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithoutContentRoot_UsesRequestedScriptPath()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        var originalDirectory = Environment.CurrentDirectory;
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            Environment.CurrentDirectory = tempRoot;
+
+            var scriptPath = Path.Combine(tempRoot, "server.ps1");
+            File.WriteAllText(scriptPath, "Write-Output 'hello'", Encoding.UTF8);
+
+            var (Success, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--script",
+                "server.ps1",
+            ]);
+
+            Assert.True(Success);
+            Assert.True(string.IsNullOrWhiteSpace(parseError));
+
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.True(result.Success, result.Error);
+            Assert.Equal(Path.GetFullPath("server.ps1"), Path.GetFullPath(result.FullScriptPath));
+            Assert.Equal("server.ps1", result.RelativeScriptPath);
+            Assert.True(string.IsNullOrWhiteSpace(result.FullContentRoot));
+        }
+        finally
+        {
+            Environment.CurrentDirectory = originalDirectory;
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithoutContentRootAndBearerToken_Fails()
+    {
+        var (Success, _, Error) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--script",
+            "server.ps1",
+            "--content-root-bearer-token",
+            "token-value",
+        ]);
+
+        Assert.False(Success);
+        Assert.Contains("--content-root-bearer-token requires --content-root", Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithDirectoryContentRoot_ResolvesRelativeScript()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            var contentRoot = Path.Combine(tempRoot, "content");
+            var scriptRelativePath = Path.Combine("scripts", "start.ps1");
+            var scriptFullPath = Path.Combine(contentRoot, scriptRelativePath);
+
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(scriptFullPath)!);
+            File.WriteAllText(scriptFullPath, "Write-Output 'hello-directory-root'", Encoding.UTF8);
+
+            var (Success, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--content-root",
+                contentRoot,
+                "--script",
+                scriptRelativePath,
+            ]);
+
+            Assert.True(Success);
+            Assert.True(string.IsNullOrWhiteSpace(parseError));
+
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.True(result.Success, result.Error);
+            Assert.Equal(Path.GetFullPath(scriptFullPath), Path.GetFullPath(result.FullScriptPath));
+            Assert.Equal(Path.GetFullPath(contentRoot), Path.GetFullPath(result.FullContentRoot));
+            Assert.Equal(scriptRelativePath, result.RelativeScriptPath);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithMissingLocalContentRoot_FailsPathNotFound()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            var missingContentRoot = Path.Combine(tempRoot, "missing", "app.zip");
+
+            var (Success, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--content-root",
+                missingContentRoot,
+                "--script",
+                "scripts/start.ps1",
+            ]);
+
+            Assert.True(Success);
+            Assert.True(string.IsNullOrWhiteSpace(parseError));
+
+            var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.False(result.Success);
+            Assert.Contains("Service content root path was not found", result.Error, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
     }
 
     [Fact]
@@ -795,6 +1048,624 @@ public class KestrunToolCommandSurfaceTests
                 _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithZipContentRoot_ExtractsAndFindsScript()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        var extractedRoot = string.Empty;
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var zipPath = Path.Combine(tempRoot, "app.zip");
+            CreateZipArchive(zipPath, new Dictionary<string, string>
+            {
+                ["scripts/start.ps1"] = "Write-Output 'hello'",
+                ["config/settings.json"] = "{}",
+            });
+
+            var (_, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--content-root",
+                zipPath,
+                "--script",
+                "scripts/start.ps1",
+            ]);
+            Assert.True(string.IsNullOrWhiteSpace(parseError), parseError);
+
+            var (Success, FullScriptPath, FullContentRoot, RelativeScriptPath, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.True(Success);
+            Assert.True(File.Exists(FullScriptPath));
+            Assert.True(Directory.Exists(FullContentRoot));
+            Assert.Equal(Path.Combine("scripts", "start.ps1"), RelativeScriptPath);
+
+            extractedRoot = FullContentRoot;
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(extractedRoot) && Directory.Exists(extractedRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(extractedRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithTgzContentRoot_ExtractsAndFindsScript()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        var extractedRoot = string.Empty;
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var tgzPath = Path.Combine(tempRoot, "app.tgz");
+            CreateTarGzArchive(tgzPath, new Dictionary<string, string>
+            {
+                ["scripts/start.ps1"] = "Write-Output 'hello from tgz'",
+                ["assets/readme.txt"] = "hello",
+            });
+
+            var (_, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--content-root",
+                tgzPath,
+                "--script",
+                "scripts/start.ps1",
+            ]);
+            Assert.True(string.IsNullOrWhiteSpace(parseError));
+
+            var (Success, FullScriptPath, FullContentRoot, RelativeScriptPath, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.True(Success, Error);
+            Assert.True(File.Exists(FullScriptPath));
+            Assert.Equal(Path.Combine("scripts", "start.ps1"), RelativeScriptPath);
+
+            extractedRoot = FullContentRoot;
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(extractedRoot) && Directory.Exists(extractedRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(extractedRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithArchiveChecksumMismatch_Fails()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var zipPath = Path.Combine(tempRoot, "app.zip");
+            CreateZipArchive(zipPath, new Dictionary<string, string>
+            {
+                ["server.ps1"] = "Write-Output 'hello'",
+            });
+
+            var (_, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--content-root",
+                zipPath,
+                "--content-root-checksum",
+                "deadbeef",
+            ]);
+            Assert.True(string.IsNullOrWhiteSpace(parseError));
+            var (Success, _, _, _, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.False(Success);
+            Assert.Contains("checksum mismatch", Error, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveInstallServiceInputs_WithArchiveContentRootAndMissingManifest_CleansUpTemporaryContentRoot()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        var temporaryContentRootPath = string.Empty;
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var zipPath = Path.Combine(tempRoot, "app.zip");
+            CreateZipArchive(zipPath, new Dictionary<string, string>
+            {
+                ["scripts/start.ps1"] = "Write-Output 'hello'",
+            });
+
+            var missingManifestPath = Path.Combine(tempRoot, "missing", "Kestrun.psd1");
+            var (_, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--content-root",
+                zipPath,
+                "--script",
+                "scripts/start.ps1",
+                "--kestrun-manifest",
+                missingManifestPath,
+            ]);
+            Assert.True(string.IsNullOrWhiteSpace(parseError));
+
+            var (Success, ServiceName, FullScriptPath, RelativeScriptPath, TemporaryContentRootPath, ModuleManifestPath, ExitCode) = InvokeTryResolveInstallServiceInputs(parsedCommand!);
+            Assert.False(Success);
+            Assert.Equal(3, ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(ModuleManifestPath));
+
+            temporaryContentRootPath = TemporaryContentRootPath;
+            Assert.False(string.IsNullOrWhiteSpace(temporaryContentRootPath));
+            Assert.False(Directory.Exists(temporaryContentRootPath));
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(temporaryContentRootPath) && Directory.Exists(temporaryContentRootPath))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(temporaryContentRootPath, maxAttempts: 20, initialDelayMs: 50);
+            }
+
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public async Task TryResolveServiceScriptSource_WithHttpArchiveUrl_DownloadsAndFindsScript()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        var extractedRoot = string.Empty;
+
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var zipBytes = CreateZipArchiveBytes(new Dictionary<string, string>
+            {
+                ["scripts/start.ps1"] = "Write-Output 'hello-url'",
+            });
+
+            await using var server = StartSingleRequestHttpServer(async context =>
+            {
+                var auth = context.Request.Headers["Authorization"];
+                var apiKey = context.Request.Headers["x-api-key"];
+                if (!string.Equals(auth, "Bearer my-token", StringComparison.Ordinal))
+                {
+                    context.Response.StatusCode = 401;
+                    context.Response.Close();
+                    return;
+                }
+
+                if (!string.Equals(apiKey, "my-key", StringComparison.Ordinal))
+                {
+                    context.Response.StatusCode = 401;
+                    context.Response.Close();
+                    return;
+                }
+
+                context.Response.StatusCode = 200;
+                context.Response.ContentType = "application/zip";
+                context.Response.ContentLength64 = zipBytes.Length;
+                await context.Response.OutputStream.WriteAsync(zipBytes).ConfigureAwait(false);
+                context.Response.OutputStream.Close();
+                context.Response.Close();
+            });
+
+            var archiveUrl = $"{server.Prefix}app.zip";
+            var (_, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--content-root",
+                archiveUrl,
+                "--content-root-bearer-token",
+                "my-token",
+                "--content-root-header",
+                "x-api-key:my-key",
+                "--script",
+                "scripts/start.ps1",
+            ]);
+            Assert.True(string.IsNullOrWhiteSpace(parseError));
+
+            var (Success, FullScriptPath, FullContentRoot, RelativeScriptPath, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.True(Success);
+            Assert.True(File.Exists(FullScriptPath));
+            Assert.Equal(Path.Combine("scripts", "start.ps1"), RelativeScriptPath);
+            extractedRoot = FullContentRoot;
+
+            var temporaryExtractionRoot = Directory.GetParent(FullContentRoot);
+            Assert.NotNull(temporaryExtractionRoot);
+
+            var topLevelArtifacts = Directory.GetFiles(temporaryExtractionRoot.FullName, "*", SearchOption.TopDirectoryOnly);
+            Assert.DoesNotContain(
+                topLevelArtifacts,
+                path => path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
+                    || path.EndsWith(".tar", StringComparison.OrdinalIgnoreCase)
+                    || path.EndsWith(".tgz", StringComparison.OrdinalIgnoreCase)
+                    || path.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase));
+
+            await server.Completion;
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(extractedRoot) && Directory.Exists(extractedRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(extractedRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public async Task TryResolveServiceScriptSource_WithHttpArchiveUrlAndInvalidDispositionFileName_DownloadsAndFindsScript()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        var extractedRoot = string.Empty;
+
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var zipBytes = CreateZipArchiveBytes(new Dictionary<string, string>
+            {
+                ["scripts/start.ps1"] = "Write-Output 'hello-url-invalid-filename'",
+            });
+
+            await using var server = StartSingleRequestHttpServer(async context =>
+            {
+                context.Response.StatusCode = 200;
+                context.Response.ContentType = "application/zip";
+                context.Response.Headers["Content-Disposition"] = "attachment; filename=\"app:artifact.zip\"";
+                context.Response.ContentLength64 = zipBytes.Length;
+                await context.Response.OutputStream.WriteAsync(zipBytes).ConfigureAwait(false);
+                context.Response.OutputStream.Close();
+                context.Response.Close();
+            });
+
+            var archiveUrl = $"{server.Prefix}download";
+            var (_, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--content-root",
+                archiveUrl,
+                "--script",
+                "scripts/start.ps1",
+            ]);
+            Assert.True(string.IsNullOrWhiteSpace(parseError), parseError);
+
+            var (Success, FullScriptPath, FullContentRoot, RelativeScriptPath, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.True(Success, Error);
+            Assert.True(File.Exists(FullScriptPath));
+            Assert.Equal(Path.Combine("scripts", "start.ps1"), RelativeScriptPath);
+            extractedRoot = FullContentRoot;
+
+            await server.Completion;
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(extractedRoot) && Directory.Exists(extractedRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(extractedRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public async Task TryResolveInstallServiceInputs_WithHttpArchiveContentRootAndMissingManifest_CleansUpTemporaryContentRoot()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        var temporaryContentRootPath = string.Empty;
+
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var zipBytes = CreateZipArchiveBytes(new Dictionary<string, string>
+            {
+                ["scripts/start.ps1"] = "Write-Output 'hello-url'",
+            });
+
+            await using var server = StartSingleRequestHttpServer(async context =>
+            {
+                context.Response.StatusCode = 200;
+                context.Response.ContentType = "application/zip";
+                context.Response.ContentLength64 = zipBytes.Length;
+                await context.Response.OutputStream.WriteAsync(zipBytes).ConfigureAwait(false);
+                context.Response.OutputStream.Close();
+                context.Response.Close();
+            });
+
+            var archiveUrl = $"{server.Prefix}app.zip";
+            var missingManifestPath = Path.Combine(tempRoot, "missing", "Kestrun.psd1");
+            var (_, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--content-root",
+                archiveUrl,
+                "--script",
+                "scripts/start.ps1",
+                "--kestrun-manifest",
+                missingManifestPath,
+            ]);
+            Assert.True(string.IsNullOrWhiteSpace(parseError));
+
+            var (Success, ServiceName, FullScriptPath, RelativeScriptPath, TemporaryContentRootPath, ModuleManifestPath, ExitCode) = InvokeTryResolveInstallServiceInputs(parsedCommand!);
+            Assert.False(Success);
+            Assert.Equal(3, ExitCode);
+            Assert.True(string.IsNullOrWhiteSpace(ModuleManifestPath));
+
+            temporaryContentRootPath = TemporaryContentRootPath;
+            Assert.False(string.IsNullOrWhiteSpace(temporaryContentRootPath));
+            Assert.False(Directory.Exists(temporaryContentRootPath));
+
+            await server.Completion;
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(temporaryContentRootPath) && Directory.Exists(temporaryContentRootPath))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(temporaryContentRootPath, maxAttempts: 20, initialDelayMs: 50);
+            }
+
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public async Task TryResolveServiceScriptSource_WithExtensionlessHttpArchiveUrlAndOctetStream_DetectsTgzAndFindsScript()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        var extractedRoot = string.Empty;
+
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var tgzBytes = CreateTarGzArchiveBytes(new Dictionary<string, string>
+            {
+                ["scripts/start.ps1"] = "Write-Output 'hello-url-tgz'",
+            });
+
+            await using var server = StartSingleRequestHttpServer(async context =>
+            {
+                context.Response.StatusCode = 200;
+                context.Response.ContentType = "application/octet-stream";
+                context.Response.ContentLength64 = tgzBytes.Length;
+                await context.Response.OutputStream.WriteAsync(tgzBytes).ConfigureAwait(false);
+                context.Response.OutputStream.Close();
+                context.Response.Close();
+            });
+
+            var archiveUrl = $"{server.Prefix}download?sig=abc123";
+            var (_, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--content-root",
+                archiveUrl,
+                "--script",
+                "scripts/start.ps1",
+            ]);
+            Assert.True(string.IsNullOrWhiteSpace(parseError), parseError);
+
+            var (Success, FullScriptPath, FullContentRoot, RelativeScriptPath, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            if (!Success)
+            {
+                throw new Xunit.Sdk.XunitException(Error);
+            }
+            Assert.True(File.Exists(FullScriptPath));
+            Assert.Equal(Path.Combine("scripts", "start.ps1"), RelativeScriptPath);
+
+            extractedRoot = FullContentRoot;
+
+            await server.Completion;
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(extractedRoot) && Directory.Exists(extractedRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(extractedRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithIgnoreCertificateAndLocalArchive_Fails()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var zipPath = Path.Combine(tempRoot, "app.zip");
+            CreateZipArchive(zipPath, new Dictionary<string, string>
+            {
+                ["server.ps1"] = "Write-Output 'hello'",
+            });
+
+            var (_, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--content-root",
+                zipPath,
+                "--content-root-ignore-certificate",
+            ]);
+            Assert.True(string.IsNullOrWhiteSpace(parseError));
+            var (Success, _, _, _, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.False(Success);
+            Assert.Contains("only supported when --content-root points to an HTTPS archive URL", Error, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithCustomHeaderAndLocalArchive_Fails()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var zipPath = Path.Combine(tempRoot, "app.zip");
+            CreateZipArchive(zipPath, new Dictionary<string, string>
+            {
+                ["server.ps1"] = "Write-Output 'hello'",
+            });
+
+            var (_, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--name",
+                "demo",
+                "--content-root",
+                zipPath,
+                "--content-root-header",
+                "x-api-key:my-key",
+            ]);
+            Assert.True(string.IsNullOrWhiteSpace(parseError));
+            var (Success, _, _, _, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
+            Assert.False(Success);
+            Assert.Contains("only supported when --content-root points to an HTTP(S) archive URL", Error, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithInvalidCustomHeaderFormat_Fails()
+    {
+        var (_, parsedCommand, parseError) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--content-root",
+            "http://example.test/app.zip",
+            "--content-root-header",
+            "invalid-header-value",
+            "--script",
+            "scripts/start.ps1",
+        ]);
+        Assert.True(string.IsNullOrWhiteSpace(parseError));
+        var (Success, _, _, _, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
+        Assert.False(Success);
+        Assert.Contains("Use <name:value>", Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithCustomHeaderNameContainingNewline_Fails()
+    {
+        var (_, parsedCommand, parseError) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--content-root",
+            "http://example.test/app.zip",
+            "--content-root-header",
+            $"x-api{Environment.NewLine}key:value",
+            "--script",
+            "scripts/start.ps1",
+        ]);
+        Assert.True(string.IsNullOrWhiteSpace(parseError));
+        var (Success, _, _, _, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
+        Assert.False(Success);
+        Assert.Contains("cannot contain CR or LF characters", Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceScriptSource_WithCustomHeaderValueContainingNewline_Fails()
+    {
+        var (_, parsedCommand, parseError) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--content-root",
+            "http://example.test/app.zip",
+            "--content-root-header",
+            $"x-api-key:my{Environment.NewLine}key",
+            "--script",
+            "scripts/start.ps1",
+        ]);
+        Assert.True(string.IsNullOrWhiteSpace(parseError));
+        var (Success, _, _, _, Error) = InvokeTryResolveServiceScriptSource(parsedCommand!);
+        Assert.False(Success);
+        Assert.Contains("cannot contain CR or LF characters", Error, StringComparison.Ordinal);
     }
 
     private static void StageDedicatedServicePayloadLayout(string repositoryRoot, string runtimeRid)
@@ -975,7 +1846,7 @@ public class KestrunToolCommandSurfaceTests
             lockedFileHandle = new FileStream(lockedFilePath, FileMode.Open, FileAccess.Read, FileShare.None);
             releaseTask = Task.Run(async () =>
             {
-                await Task.Delay(300);
+                await Task.Delay(300, TestContext.Current.CancellationToken);
                 lockedFileHandle.Dispose();
             });
 
@@ -1182,6 +2053,46 @@ public class KestrunToolCommandSurfaceTests
             error);
     }
 
+    private static (bool Success, string NormalizedContentRoot, Uri? ContentRootUri, string FullContentRoot)
+        InvokeTryClassifyServiceContentRoot(string? contentRoot)
+    {
+        var method = GetRequiredProgramMethod("TryClassifyServiceContentRoot");
+
+        var values = new object?[] { contentRoot, null, null, null };
+        var success = InvokeRequiredBool(method, values);
+        var normalizedContentRoot = values[1]?.ToString() ?? string.Empty;
+        var contentRootUri = values[2] as Uri;
+        var fullContentRoot = values[3]?.ToString() ?? string.Empty;
+
+        return (success, normalizedContentRoot, contentRootUri, fullContentRoot);
+    }
+
+    private static (bool Success, string ServiceName, string FullScriptPath, string RelativeScriptPath, string TemporaryContentRootPath, string ModuleManifestPath, int ExitCode)
+        InvokeTryResolveInstallServiceInputs(object parsedCommand)
+    {
+        var method = GetRequiredProgramMethod("TryResolveInstallServiceInputs");
+
+        var values = new object?[] { parsedCommand, null, null, null, 0 };
+        var success = InvokeRequiredBool(method, values);
+
+        var serviceName = values[1]?.ToString() ?? string.Empty;
+        var moduleManifestPath = values[3]?.ToString() ?? string.Empty;
+        var exitCode = values[4] is int intExitCode ? intExitCode : 0;
+
+        var fullScriptPath = string.Empty;
+        var relativeScriptPath = string.Empty;
+        var temporaryContentRootPath = string.Empty;
+        var scriptSource = values[2];
+        if (scriptSource is not null)
+        {
+            fullScriptPath = GetRecordField(scriptSource, "FullScriptPath") ?? string.Empty;
+            relativeScriptPath = GetRecordField(scriptSource, "RelativeScriptPath") ?? string.Empty;
+            temporaryContentRootPath = GetRecordField(scriptSource, "TemporaryContentRootPath") ?? string.Empty;
+        }
+
+        return (success, serviceName, fullScriptPath, relativeScriptPath, temporaryContentRootPath, moduleManifestPath, exitCode);
+    }
+
     private static IReadOnlyList<string> InvokeBuildElevatedRelaunchArguments(string executablePath, IReadOnlyList<string> args) => Assert.IsAssignableFrom<IReadOnlyList<string>>(InvokeRaw("BuildElevatedRelaunchArguments", [executablePath, args]));
 
     private static string InvokeNormalizeWindowsServiceAccountName(string serviceUser) => Assert.IsType<string>(InvokeRaw("NormalizeWindowsServiceAccountName", [serviceUser]));
@@ -1262,6 +2173,152 @@ public class KestrunToolCommandSurfaceTests
         return stream.ToArray();
     }
 
+    private static void CreateZipArchive(string zipPath, IReadOnlyDictionary<string, string> entries)
+    {
+        using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create);
+        foreach (var entry in entries)
+        {
+            var zipEntry = archive.CreateEntry(entry.Key);
+            using var stream = zipEntry.Open();
+            using var writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: false);
+            writer.Write(entry.Value);
+        }
+    }
+
+    private static void CreateTarGzArchive(string tgzPath, IReadOnlyDictionary<string, string> entries)
+    {
+        using var outputFile = File.Create(tgzPath);
+        using var gzip = new GZipStream(outputFile, CompressionLevel.SmallestSize, leaveOpen: false);
+        using var tarWriter = new TarWriter(gzip, leaveOpen: false);
+
+        foreach (var entry in entries)
+        {
+            var bytes = Encoding.UTF8.GetBytes(entry.Value);
+            using var payload = new MemoryStream(bytes, writable: false);
+            var tarEntry = new PaxTarEntry(TarEntryType.RegularFile, entry.Key)
+            {
+                DataStream = payload,
+            };
+
+            tarWriter.WriteEntry(tarEntry);
+        }
+    }
+
+    private static byte[] CreateZipArchiveBytes(IReadOnlyDictionary<string, string> entries)
+    {
+        using var memory = new MemoryStream();
+        using (var archive = new ZipArchive(memory, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var entry in entries)
+            {
+                var zipEntry = archive.CreateEntry(entry.Key);
+                using var stream = zipEntry.Open();
+                using var writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: false);
+                writer.Write(entry.Value);
+            }
+        }
+
+        return memory.ToArray();
+    }
+
+    private static byte[] CreateTarGzArchiveBytes(IReadOnlyDictionary<string, string> entries)
+    {
+        using var memory = new MemoryStream();
+        using (var gzip = new GZipStream(memory, CompressionLevel.SmallestSize, leaveOpen: true))
+        using (var tarWriter = new TarWriter(gzip, leaveOpen: true))
+        {
+            foreach (var entry in entries)
+            {
+                var bytes = Encoding.UTF8.GetBytes(entry.Value);
+                using var payload = new MemoryStream(bytes, writable: false);
+                var tarEntry = new PaxTarEntry(TarEntryType.RegularFile, entry.Key)
+                {
+                    DataStream = payload,
+                };
+
+                tarWriter.WriteEntry(tarEntry);
+            }
+        }
+
+        return memory.ToArray();
+    }
+
+    private static SingleRequestHttpServer StartSingleRequestHttpServer(Func<HttpListenerContext, Task> requestHandler)
+    {
+        var (listener, prefix) = StartHttpListenerWithRetry();
+        var completion = Task.Run(async () =>
+        {
+            var context = await listener.GetContextAsync().ConfigureAwait(false);
+            await requestHandler(context).ConfigureAwait(false);
+        });
+
+        return new SingleRequestHttpServer(listener, prefix, completion);
+    }
+
+    private sealed class SingleRequestHttpServer(HttpListener listener, string prefix, Task completion) : IAsyncDisposable
+    {
+        public string Prefix { get; } = prefix;
+
+        public Task Completion { get; } = completion;
+
+        public async ValueTask DisposeAsync()
+        {
+            listener.Stop();
+            listener.Close();
+
+            try
+            {
+                await Completion.ConfigureAwait(false);
+            }
+            catch (HttpListenerException)
+            {
+                // Listener shutdown can race with GetContextAsync() during cleanup.
+            }
+            catch (ObjectDisposedException)
+            {
+                // Listener shutdown can race with GetContextAsync() during cleanup.
+            }
+        }
+    }
+
+    private static (HttpListener Listener, string Prefix) StartHttpListenerWithRetry(int maxAttempts = 8)
+    {
+        HttpListenerException? lastException = null;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            var prefix = $"http://127.0.0.1:{FindAvailablePort()}/";
+            var listener = new HttpListener();
+            listener.Prefixes.Add(prefix);
+
+            try
+            {
+                listener.Start();
+                return (listener, prefix);
+            }
+            catch (HttpListenerException ex)
+            {
+                listener.Close();
+                lastException = ex;
+            }
+            catch
+            {
+                listener.Close();
+                throw;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Failed to start test HttpListener after {maxAttempts} attempts.",
+            lastException);
+    }
+
+    private static int FindAvailablePort()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        return ((IPEndPoint)listener.LocalEndpoint).Port;
+    }
+
     private static string GetParsedCommandMode(object parsedCommand)
     {
         var mode = GetParsedCommandField(parsedCommand, "Mode");
@@ -1274,6 +2331,13 @@ public class KestrunToolCommandSurfaceTests
         var property = parsedCommand.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         Assert.NotNull(property);
         return property.GetValue(parsedCommand)?.ToString();
+    }
+
+    private static string[] GetParsedCommandStringArrayField(object parsedCommand, string propertyName)
+    {
+        var property = parsedCommand.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+        return Assert.IsType<string[]>(property.GetValue(parsedCommand));
     }
 
     private static string? GetRecordField(object record, string propertyName)
@@ -1307,4 +2371,3 @@ public class KestrunToolCommandSurfaceTests
     }
 }
 #endif
-

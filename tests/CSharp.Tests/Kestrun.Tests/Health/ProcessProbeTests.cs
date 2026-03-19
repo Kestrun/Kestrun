@@ -41,7 +41,7 @@ public class ProcessProbeTests
     {
         var (file, args) = CommandForExitCode(0);
         var probe = new ProcessProbe("proc0", ["live"], file, args);
-        var result = await probe.CheckAsync();
+        var result = await probe.CheckAsync(TestContext.Current.CancellationToken);
         Assert.Equal(ProbeStatus.Healthy, result.Status);
     }
 
@@ -50,7 +50,7 @@ public class ProcessProbeTests
     {
         var (file, args) = CommandForExitCode(1);
         var probe = new ProcessProbe("proc1", ["live"], file, args);
-        var result = await probe.CheckAsync();
+        var result = await probe.CheckAsync(TestContext.Current.CancellationToken);
         Assert.Equal(ProbeStatus.Degraded, result.Status);
     }
 
@@ -79,7 +79,7 @@ public class ProcessProbeTests
         }
 
         var probe = new ProcessProbe("proctimeout", ["live"], file, args, TimeSpan.FromMilliseconds(500));
-        var result = await probe.CheckAsync();
+        var result = await probe.CheckAsync(TestContext.Current.CancellationToken);
         Assert.Equal(ProbeStatus.Degraded, result.Status);
         if (result.Data is { } data && data.TryGetValue("stdout", out var captured) && captured is string s)
         {

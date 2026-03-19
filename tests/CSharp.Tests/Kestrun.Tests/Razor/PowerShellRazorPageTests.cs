@@ -50,9 +50,9 @@ public class PowerShellRazorPageTests
             // Create Foo.cshtml and Foo.cshtml.ps1
             var viewPath = Path.Combine(pagesDir, "Foo.cshtml");
             var psPath = viewPath + ".ps1";
-            await File.WriteAllTextAsync(viewPath, "<h1>Foo</h1>");
+            await File.WriteAllTextAsync(viewPath, "<h1>Foo</h1>", TestContext.Current.CancellationToken);
             // Set $Model and ensure it becomes HttpContext.Items["PageModel"]
-            await File.WriteAllTextAsync(psPath, "$Model = @{ Name = 'Bar' } | ConvertTo-Json | ConvertFrom-Json");
+            await File.WriteAllTextAsync(psPath, "$Model = @{ Name = 'Bar' } | ConvertTo-Json | ConvertFrom-Json", TestContext.Current.CancellationToken);
 
             var (app, host) = CreateAppWithRazorPages(tmpRoot.FullName);
             using var kesHost = new KestrunHost("Tests", Serilog.Log.Logger);
@@ -94,7 +94,7 @@ public class PowerShellRazorPageTests
 
             ctx.Response.Body.Position = 0;
             using var reader = new StreamReader(ctx.Response.Body);
-            var body = await reader.ReadToEndAsync();
+            var body = await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
             Assert.Equal("Bar", body);
         }
         finally
@@ -137,7 +137,7 @@ public class PowerShellRazorPageTests
             Assert.True(reachedTerminal);
             ctx.Response.Body.Position = 0;
             using var reader = new StreamReader(ctx.Response.Body);
-            var body = await reader.ReadToEndAsync();
+            var body = await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
             Assert.Equal("OK", body);
         }
         finally
@@ -162,7 +162,7 @@ public class PowerShellRazorPageTests
 
             // Create only the view; omit the .ps1 script
             var viewPath = Path.Combine(pagesDir, "OnlyView.cshtml");
-            await File.WriteAllTextAsync(viewPath, "<h1>OnlyView</h1>");
+            await File.WriteAllTextAsync(viewPath, "<h1>OnlyView</h1>", TestContext.Current.CancellationToken);
 
             var (app, _) = CreateAppWithRazorPages(tmpRoot.FullName);
             using var kesHost = new KestrunHost("Tests", Serilog.Log.Logger);
@@ -183,7 +183,7 @@ public class PowerShellRazorPageTests
 
             ctx.Response.Body.Position = 0;
             using var reader = new StreamReader(ctx.Response.Body);
-            var body = await reader.ReadToEndAsync();
+            var body = await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
             Assert.Equal("NEXT", body);
         }
         finally
@@ -209,9 +209,9 @@ public class PowerShellRazorPageTests
             var viewPath = Path.Combine(pagesDir, "HasCb.cshtml");
             var psPath = viewPath + ".ps1";
             var csPath = viewPath + ".cs";
-            await File.WriteAllTextAsync(viewPath, "<h1>HasCb</h1>");
-            await File.WriteAllTextAsync(psPath, "$Model = @{ Name = 'SHOULD_NOT_RUN' }");
-            await File.WriteAllTextAsync(csPath, "// code-behind exists");
+            await File.WriteAllTextAsync(viewPath, "<h1>HasCb</h1>", TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(psPath, "$Model = @{ Name = 'SHOULD_NOT_RUN' }", TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(csPath, "// code-behind exists", TestContext.Current.CancellationToken);
 
             var (app, _) = CreateAppWithRazorPages(tmpRoot.FullName);
             using var kesHost = new KestrunHost("Tests", Serilog.Log.Logger);
@@ -233,7 +233,7 @@ public class PowerShellRazorPageTests
 
             ctx.Response.Body.Position = 0;
             using var reader = new StreamReader(ctx.Response.Body);
-            var body = await reader.ReadToEndAsync();
+            var body = await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
             Assert.Equal("NO_MODEL", body);
         }
         finally
@@ -258,8 +258,8 @@ public class PowerShellRazorPageTests
 
             var viewPath = Path.Combine(customPagesDir, "Custom.cshtml");
             var psPath = viewPath + ".ps1";
-            await File.WriteAllTextAsync(viewPath, "<h1>Custom</h1>");
-            await File.WriteAllTextAsync(psPath, "$Model = @{ Name = 'FromCustomRoot' }");
+            await File.WriteAllTextAsync(viewPath, "<h1>Custom</h1>", TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(psPath, "$Model = @{ Name = 'FromCustomRoot' }", TestContext.Current.CancellationToken);
 
             var (app, _) = CreateAppWithRazorPages(tmpRoot.FullName);
             using var kesHost = new KestrunHost("Tests", Serilog.Log.Logger);
@@ -282,7 +282,7 @@ public class PowerShellRazorPageTests
 
             ctx.Response.Body.Position = 0;
             using var reader = new StreamReader(ctx.Response.Body);
-            var body = await reader.ReadToEndAsync();
+            var body = await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
             Assert.Equal("FromCustomRoot", body);
         }
         finally
@@ -307,8 +307,8 @@ public class PowerShellRazorPageTests
 
             var viewPath = Path.Combine(pagesDir, "Abort.cshtml");
             var psPath = viewPath + ".ps1";
-            await File.WriteAllTextAsync(viewPath, "<h1>Abort</h1>");
-            await File.WriteAllTextAsync(psPath, "$Model = @{ Name = 'ShouldNotMatter' }");
+            await File.WriteAllTextAsync(viewPath, "<h1>Abort</h1>", TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(psPath, "$Model = @{ Name = 'ShouldNotMatter' }", TestContext.Current.CancellationToken);
 
             var (app, _) = CreateAppWithRazorPages(tmpRoot.FullName);
             using var kesHost = new KestrunHost("Tests", Serilog.Log.Logger);
@@ -359,9 +359,9 @@ public class PowerShellRazorPageTests
 
             var viewPath = Path.Combine(pagesDir, "Err.cshtml");
             var psPath = viewPath + ".ps1";
-            await File.WriteAllTextAsync(viewPath, "<h1>Err</h1>");
+            await File.WriteAllTextAsync(viewPath, "<h1>Err</h1>", TestContext.Current.CancellationToken);
             // PowerShell script that writes to error stream
-            await File.WriteAllTextAsync(psPath, "Write-Error 'boom'");
+            await File.WriteAllTextAsync(psPath, "Write-Error 'boom'", TestContext.Current.CancellationToken);
 
             var (app, _) = CreateAppWithRazorPages(tmpRoot.FullName);
             using var kesHost = new KestrunHost("Tests", Serilog.Log.Logger);
@@ -388,3 +388,4 @@ public class PowerShellRazorPageTests
         }
     }
 }
+

@@ -26,6 +26,7 @@ internal static partial class Program
     private static readonly Regex ModuleVersionPatternRegex = ModuleVersionRegex();
     private static readonly Regex ModulePrereleasePatternRegex = ModulePrereleaseRegex();
     private static readonly HttpClient GalleryHttpClient = CreateGalleryHttpClient();
+    private static readonly HttpClient ServiceContentRootHttpClient = CreateServiceContentRootHttpClient();
     private static readonly string[] ServiceBundleModuleExclusionPatterns =
     [
         "lib/runtimes/*",
@@ -73,7 +74,12 @@ internal static partial class Program
         ModuleStorageScope ModuleScope,
         bool ModuleForce,
         string? ServiceContentRoot,
-        string? ServiceDeploymentRoot);
+        string? ServiceDeploymentRoot,
+        string? ServiceContentRootChecksum,
+        string? ServiceContentRootChecksumAlgorithm,
+        string? ServiceContentRootBearerToken,
+        bool ServiceContentRootIgnoreCertificate,
+        string[] ServiceContentRootHeaders);
 
     private sealed record ServiceRegisterOptions(
         string ServiceName,
@@ -104,7 +110,8 @@ internal static partial class Program
     private sealed record ResolvedServiceScriptSource(
         string FullScriptPath,
         string? FullContentRoot,
-        string RelativeScriptPath);
+        string RelativeScriptPath,
+        string? TemporaryContentRootPath);
 
     [GeneratedRegex("--service-log-path\\s+(\\\"(?<quoted>[^\\\"]+)\\\"|(?<plain>\\S+))", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ServiceLogPathRegex();

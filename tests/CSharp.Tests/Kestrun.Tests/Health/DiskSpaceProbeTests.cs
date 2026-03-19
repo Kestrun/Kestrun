@@ -26,7 +26,7 @@ public class DiskSpaceProbeTests
             hWarn = Math.Max(0.1, freePercent - 0.5);
         }
 
-        var healthy = await new DiskSpaceProbe("disk-h", ["live"], AppContext.BaseDirectory, hCritical, hWarn).CheckAsync();
+        var healthy = await new DiskSpaceProbe("disk-h", ["live"], AppContext.BaseDirectory, hCritical, hWarn).CheckAsync(TestContext.Current.CancellationToken);
         Assert.Equal(ProbeStatus.Healthy, healthy.Status);
 
         // Degraded: critical below free < warn > free
@@ -42,7 +42,7 @@ public class DiskSpaceProbeTests
             // If we cannot satisfy invariant (e.g., extremely low or high free%), just assert healthy case executed.
             return;
         }
-        var degraded = await new DiskSpaceProbe("disk-d", ["live"], AppContext.BaseDirectory, dCritical, dWarn).CheckAsync();
+        var degraded = await new DiskSpaceProbe("disk-d", ["live"], AppContext.BaseDirectory, dCritical, dWarn).CheckAsync(TestContext.Current.CancellationToken);
         Assert.Equal(ProbeStatus.Degraded, degraded.Status);
 
         // Unhealthy: critical above freePercent
@@ -53,7 +53,7 @@ public class DiskSpaceProbeTests
             return; // avoid invalid thresholds near 100
         }
 
-        var unhealthy = await new DiskSpaceProbe("disk-u", ["live"], AppContext.BaseDirectory, uCritical, uWarn).CheckAsync();
+        var unhealthy = await new DiskSpaceProbe("disk-u", ["live"], AppContext.BaseDirectory, uCritical, uWarn).CheckAsync(TestContext.Current.CancellationToken);
         Assert.Equal(ProbeStatus.Unhealthy, unhealthy.Status);
     }
 
@@ -104,7 +104,7 @@ public class DiskSpaceProbeTests
         var probe = new DiskSpaceProbe("disk-check", [], AppContext.BaseDirectory, 0.1, 1.0);
 
         // Act
-        var result = await probe.CheckAsync();
+        var result = await probe.CheckAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotNull(result.Data);
@@ -125,7 +125,7 @@ public class DiskSpaceProbeTests
         var probe = new DiskSpaceProbe("disk-check", [], AppContext.BaseDirectory);
 
         // Act
-        var result = await probe.CheckAsync();
+        var result = await probe.CheckAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotNull(result.Description);
@@ -142,7 +142,7 @@ public class DiskSpaceProbeTests
         var probe = new DiskSpaceProbe("disk-check", [], "\\invalid");
 
         // Act
-        var result = await probe.CheckAsync();
+        var result = await probe.CheckAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(ProbeStatus.Unhealthy, result.Status);
@@ -157,7 +157,7 @@ public class DiskSpaceProbeTests
         var probe = new DiskSpaceProbe("disk-check", [], AppContext.BaseDirectory);
 
         // Act
-        var result = await probe.CheckAsync();
+        var result = await probe.CheckAsync(TestContext.Current.CancellationToken);
 
         // Assert
         if (result.Data is not null)
@@ -180,7 +180,7 @@ public class DiskSpaceProbeTests
         var probe = new DiskSpaceProbe("disk-check", [], AppContext.BaseDirectory);
 
         // Act
-        var result = await probe.CheckAsync();
+        var result = await probe.CheckAsync(TestContext.Current.CancellationToken);
 
         // Assert
         if (result.Data is not null && result.Data.TryGetValue("freePercent", out var freePercentObj))
@@ -200,7 +200,7 @@ public class DiskSpaceProbeTests
         var probe = new DiskSpaceProbe("disk-check", [], AppContext.BaseDirectory, 3.0, 7.0);
 
         // Act
-        var result = await probe.CheckAsync();
+        var result = await probe.CheckAsync(TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotNull(result.Data);
@@ -208,3 +208,4 @@ public class DiskSpaceProbeTests
         Assert.Equal(7.0, (double)result.Data["warnPercent"]);
     }
 }
+

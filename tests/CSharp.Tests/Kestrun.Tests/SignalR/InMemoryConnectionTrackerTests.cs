@@ -240,7 +240,7 @@ public class InMemoryConnectionTrackerTests
         for (var i = 0; i < 100; i++)
         {
             var connId = $"conn{i}";
-            tasks.Add(Task.Run(() => tracker.OnConnected(connId)));
+            tasks.Add(Task.Run(() => tracker.OnConnected(connId), TestContext.Current.CancellationToken));
         }
 
         await Task.WhenAll([.. tasks]);
@@ -261,7 +261,7 @@ public class InMemoryConnectionTrackerTests
         for (var i = 0; i < 50; i++)
         {
             var connId = $"conn{i}";
-            connectTasks.Add(Task.Run(() => tracker.OnConnected(connId)));
+            connectTasks.Add(Task.Run(() => tracker.OnConnected(connId), TestContext.Current.CancellationToken));
         }
 
         // Wait for all connections to complete
@@ -271,7 +271,7 @@ public class InMemoryConnectionTrackerTests
         for (var i = 0; i < 25; i++)
         {
             var connId = $"conn{i}";
-            disconnectTasks.Add(Task.Run(() => tracker.OnDisconnected(connId)));
+            disconnectTasks.Add(Task.Run(() => tracker.OnDisconnected(connId), TestContext.Current.CancellationToken));
         }
 
         await Task.WhenAll([.. disconnectTasks]);

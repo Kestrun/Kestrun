@@ -1,8 +1,15 @@
 [CmdletBinding(DefaultParameterSetName = 'Default')]
 param(
-    [Parameter()] [string]$Framework = 'net8.0',
+    [Parameter()] [string]$Framework = 'net10.0',
     [Parameter()] [string]$Configuration = 'Release',
-    [Parameter()] [string]$TestProject = '.\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj',
+    [Parameter()] [string]$TestProject,
+    [Parameter()]
+    [string[]]$TestProjects = @(
+        '.\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj',
+        '.\tests\CSharp.Tests\Kestrun.Tool.Tests\Kestrun.Tool.Tests.csproj',
+        '.\tests\CSharp.Tests\Kestrun.ServiceHost.Tests\Kestrun.ServiceHost.Tests.csproj',
+        '.\tests\CSharp.Tests\Kestrun.Runner.Tests\Kestrun.Runner.Tests.csproj'
+    ),
     [Parameter()] [string]$CoverageDir = '.\coverage',
     [Parameter()] [string]$PesterPath = '.\tests\PowerShell.Tests\Kestrun.Tests',
 
@@ -55,15 +62,94 @@ if ($Clean) {
 }
 
 # Generate coverage reports
-Write-Host "🔎 Resolving ASP.NET runtime path for $Framework..."
-$aspnet = Get-AspNetSharedDir $Framework
-Write-Host "📦 Using ASP.NET runtime: $aspnet"
+function Get-TestProjectTargetFrameworks {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectPath
+    )
 
-$binDir = Join-Path (Split-Path $TestProject -Parent) "bin\$Configuration\$Framework"
-New-Item -ItemType Directory -Force -Path $binDir | Out-Null
+    $msbuildOutput = & dotnet msbuild $ProjectPath -nologo -v:q -getProperty:TargetFramework -getProperty:TargetFrameworks 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to evaluate TargetFramework/TargetFrameworks using MSBuild for project '$ProjectPath'. Output: $($msbuildOutput -join [Environment]::NewLine)"
+    }
 
-Write-Host '📂 Copying ASP.NET runtime assemblies...'
-Copy-Item -Path (Join-Path $aspnet '*') -Destination $binDir -Recurse -Force
+    $msbuildJson = $msbuildOutput | Out-String
+    try {
+        $properties = ($msbuildJson | ConvertFrom-Json -Depth 10).Properties
+    } catch {
+        throw "Failed to parse MSBuild property output for '$ProjectPath'. Output: $msbuildJson"
+    }
+
+    $frameworks = [System.Collections.Generic.List[string]]::new()
+    if (-not [string]::IsNullOrWhiteSpace([string]$properties.TargetFramework)) {
+        $frameworks.Add([string]$properties.TargetFramework)
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace([string]$properties.TargetFrameworks)) {
+        foreach ($tfm in ([string]$properties.TargetFrameworks -split ';')) {
+            if (-not [string]::IsNullOrWhiteSpace($tfm)) {
+                $frameworks.Add($tfm)
+            }
+        }
+    }
+
+    $uniqueFrameworks = $frameworks | Select-Object -Unique
+    if (-not $uniqueFrameworks) {
+        throw "Unable to resolve TargetFramework/TargetFrameworks from project: $ProjectPath"
+    }
+
+    return $uniqueFrameworks
+}
+
+function Resolve-TestProjectFramework {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectPath,
+        [Parameter(Mandatory = $true)]
+        [string]$PreferredFramework
+    )
+
+    $projectFrameworks = Get-TestProjectTargetFrameworks -ProjectPath $ProjectPath
+    if ($projectFrameworks -contains $PreferredFramework) {
+        return $PreferredFramework
+    }
+
+    if ($projectFrameworks -contains 'net10.0') {
+        return 'net10.0'
+    }
+
+    return $projectFrameworks[0]
+}
+
+$requestedTestProjects = @()
+if ($PSBoundParameters.ContainsKey('TestProjects') -and $null -ne $TestProjects -and $TestProjects.Count -gt 0) {
+    $requestedTestProjects = $TestProjects
+} elseif ($PSBoundParameters.ContainsKey('TestProject') -and -not [string]::IsNullOrWhiteSpace($TestProject)) {
+    $requestedTestProjects = @($TestProject)
+} else {
+    $requestedTestProjects = $TestProjects
+}
+
+if (-not $requestedTestProjects -or $requestedTestProjects.Count -eq 0) {
+    throw 'No C# test projects were provided for coverage generation.'
+}
+
+$resolvedTestRuns = @()
+foreach ($requestedTestProject in $requestedTestProjects) {
+    $resolvedProjectPathInfo = Resolve-Path -LiteralPath $requestedTestProject -ErrorAction Stop
+    $resolvedProjectPath = if ($resolvedProjectPathInfo -is [System.Management.Automation.PathInfo]) {
+        $resolvedProjectPathInfo.Path
+    } else {
+        [string]$resolvedProjectPathInfo
+    }
+
+    $frameworkForProject = Resolve-TestProjectFramework -ProjectPath $resolvedProjectPath -PreferredFramework $Framework
+    $resolvedTestRuns += [pscustomobject]@{
+        ProjectPath = $resolvedProjectPath
+        ProjectName = [System.IO.Path]::GetFileNameWithoutExtension($resolvedProjectPath)
+        Framework = $frameworkForProject
+    }
+}
 
 # Prepare coverage folders
 if (-not (Test-Path -Path $CoverageDir)) {
@@ -72,37 +158,91 @@ if (-not (Test-Path -Path $CoverageDir)) {
 $CoverageDir = Resolve-Path -Path $CoverageDir
 if ($CoverageDir -is [System.Management.Automation.PathInfo]) { $CoverageDir = $CoverageDir.Path }
 
-# Raw results by TFM (so multi-target runs can live side-by-side)
-$resultsDir = Join-Path $CoverageDir "raw\$Framework"
-New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
+$frameworksToBuild = $resolvedTestRuns | Select-Object -ExpandProperty Framework -Unique
+Write-Host "🚀 Building project(s) for frameworks: $($frameworksToBuild -join ', ')"
+Invoke-Build Build -Configuration $Configuration -Frameworks $frameworksToBuild
+
+$coverageFiles = @()
+foreach ($testRun in $resolvedTestRuns) {
+    Write-Host "🔎 Resolving ASP.NET runtime path for $($testRun.Framework) ($($testRun.ProjectName))..."
+    $aspnet = Get-AspNetSharedDir $testRun.Framework
+    Write-Host "📦 Using ASP.NET runtime: $aspnet"
+
+    $binDir = Join-Path (Split-Path $testRun.ProjectPath -Parent) "bin\$Configuration\$($testRun.Framework)"
+    New-Item -ItemType Directory -Force -Path $binDir | Out-Null
+
+    Write-Host '📂 Copying ASP.NET runtime assemblies...'
+    Copy-Item -Path (Join-Path $aspnet '*') -Destination $binDir -Recurse -Force
+
+    $resultsDir = Join-Path $CoverageDir "raw\$($testRun.ProjectName)\$($testRun.Framework)"
+    New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
+
+    Write-Host "🧹 Cleaning previous build output for $($testRun.ProjectName)..."
+    dotnet clean "$($testRun.ProjectPath)" --configuration $Configuration --framework $($testRun.Framework) | Out-Host
+
+    Write-Host "🧪 Running tests with XPlat DataCollector for $($testRun.ProjectName) ($($testRun.Framework))..."
+    dotnet test "$($testRun.ProjectPath)" `
+        --configuration $Configuration `
+        --framework $($testRun.Framework) `
+        --collect:"XPlat Code Coverage" `
+        --logger 'trx;LogFileName=test-results.trx' `
+        --results-directory "$resultsDir" | Out-Host
+
+    Write-Host "🗂️ Scanning for Cobertura files in $resultsDir..."
+    $foundCoverage = Get-ChildItem -Path $resultsDir -Recurse -Filter 'coverage.cobertura.xml' -File |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+
+    if (-not $foundCoverage) {
+        throw "❌ No 'coverage.cobertura.xml' found under $resultsDir"
+    }
+
+    $projectCoverageFile = Join-Path $CoverageDir ("csharp.{0}.{1}.cobertura.xml" -f $testRun.ProjectName, $testRun.Framework)
+    Copy-Item -LiteralPath $foundCoverage.FullName -Destination $projectCoverageFile -Force
+
+    if ((Get-Item $projectCoverageFile).Length -lt 400) {
+        throw "⚠️ Coverage file looks empty: $projectCoverageFile"
+    }
+
+    Write-Host "📊 Coverage (Cobertura) saved: $projectCoverageFile"
+    $coverageFiles += $projectCoverageFile
+}
+
 $coverageFile = Join-Path $CoverageDir "csharp.$Framework.cobertura.xml"
+if ($coverageFiles.Count -eq 1) {
+    Copy-Item -LiteralPath $coverageFiles[0] -Destination $coverageFile -Force
+} else {
+    $rg = Install-ReportGenerator
+    if (-not $rg) { throw '❌ ReportGenerator not found.' }
 
-Write-Host '🧹 Cleaning previous builds...'
-dotnet clean $TestProject --configuration $Configuration | Out-Host
+    $mergeOutputDirectory = Join-Path $CoverageDir '_merge'
+    if (Test-Path $mergeOutputDirectory) {
+        Remove-Item -LiteralPath $mergeOutputDirectory -Recurse -Force
+    }
 
-Write-Host '🚀 Building project...'
-Invoke-Build Build -Configuration $Configuration -Framework $Framework
+    New-Item -ItemType Directory -Force -Path $mergeOutputDirectory | Out-Null
+    $mergeReportsArg = '"' + ($coverageFiles -join ';') + '"'
+    $mergeFileFiltersArg = '"-**/obj/**;-**/*.g.cs"'
+    Write-Host '🧬 Merging Cobertura coverage files:'
+    $coverageFiles | ForEach-Object { Write-Host "  • $_" }
 
-Write-Host '🧪 Running tests with XPlat DataCollector...'
-dotnet test $TestProject `
-    --configuration $Configuration `
-    --framework $Framework `
-    --collect:"XPlat Code Coverage" `
-    --logger 'trx;LogFileName=test-results.trx' `
-    --results-directory "$resultsDir" | Out-Host
+    & $rg `
+        -reports:$mergeReportsArg `
+        -targetdir:$mergeOutputDirectory `
+        -reporttypes:Cobertura `
+        -filefilters:$mergeFileFiltersArg
 
-Write-Host "🗂️ Scanning for Cobertura files in $resultsDir..."
-$found = Get-ChildItem "$resultsDir" -Recurse -Filter 'coverage.cobertura.xml' -File |
-    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    $mergedCoverageFile = Join-Path $mergeOutputDirectory 'Cobertura.xml'
+    if (-not (Test-Path $mergedCoverageFile)) {
+        throw "❌ Failed to generate merged Cobertura report at $mergedCoverageFile"
+    }
 
-if (-not $found) { throw "❌ No 'coverage.cobertura.xml' found under $resultsDir" }
-
-Copy-Item -LiteralPath $found.FullName -Destination $coverageFile -Force
+    Copy-Item -LiteralPath $mergedCoverageFile -Destination $coverageFile -Force
+}
 
 if ((Get-Item $coverageFile).Length -lt 400) {
     throw "⚠️ Coverage file looks empty: $coverageFile"
 } else {
-    Write-Host "📊 Coverage (Cobertura) saved: $coverageFile"
+    Write-Host "📊 Combined coverage (Cobertura) saved: $coverageFile"
 }
 
 # ReportGenerator

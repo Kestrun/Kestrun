@@ -45,9 +45,9 @@ public class InMemoryCallbackDispatchWorkerTests
                 idempotencyKey: "idk",
                 timeout: TimeSpan.FromSeconds(5));
 
-            await queue.Channel.Writer.WriteAsync(callback);
+            await queue.Channel.Writer.WriteAsync(callback, TestContext.Current.CancellationToken);
 
-            var seen = await handler.SeenRequest.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var seen = await handler.SeenRequest.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
 
             Assert.Equal("POST", seen.Method.Method);
             Assert.Equal(callback.TargetUrl, seen.RequestUri);

@@ -33,16 +33,16 @@ public sealed class LanguageRuntimePipelineTests
         _ = app.MapGet("/cs", () => Results.Text("ok"))
             .WithLanguage(ScriptLanguage.CSharp);
 
-        await app.StartAsync();
+        await app.StartAsync(TestContext.Current.CancellationToken);
         var client = app.GetTestClient();
 
-        var ps = await client.GetAsync("/ps");
+        var ps = await client.GetAsync("/ps", TestContext.Current.CancellationToken);
         Assert.True(ps.Headers.Contains("X-Lang"));
 
-        var cs = await client.GetAsync("/cs");
+        var cs = await client.GetAsync("/cs", TestContext.Current.CancellationToken);
         Assert.False(cs.Headers.Contains("X-Lang"));
 
-        await app.StopAsync();
+        await app.StopAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -56,18 +56,18 @@ public sealed class LanguageRuntimePipelineTests
         _ = app.MapGet("/ps", () => Results.Text("ok"))
             .WithLanguage(ScriptLanguage.PowerShell);
 
-        await app.StartAsync();
+        await app.StartAsync(TestContext.Current.CancellationToken);
 
         var endpoints = ((IEndpointRouteBuilder)app).DataSources.SelectMany(ds => ds.Endpoints).OfType<RouteEndpoint>().ToList();
         var endpoint = endpoints.FirstOrDefault(e => string.Equals(e.RoutePattern.RawText, "/ps", StringComparison.Ordinal));
 
         Assert.NotNull(endpoint);
 
-        var attr = endpoint!.Metadata.GetMetadata<ScriptLanguageAttribute>();
+        var attr = endpoint.Metadata.GetMetadata<ScriptLanguageAttribute>();
         Assert.NotNull(attr);
-        Assert.Equal(ScriptLanguage.PowerShell, attr!.Language);
+        Assert.Equal(ScriptLanguage.PowerShell, attr.Language);
 
-        await app.StopAsync();
+        await app.StopAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -90,12 +90,13 @@ public sealed class LanguageRuntimePipelineTests
         // No WithLanguage metadata
         _ = app.MapGet("/plain", () => Results.Text("ok"));
 
-        await app.StartAsync();
+        await app.StartAsync(TestContext.Current.CancellationToken);
         var client = app.GetTestClient();
 
-        var resp = await client.GetAsync("/plain");
+        var resp = await client.GetAsync("/plain", TestContext.Current.CancellationToken);
         Assert.False(resp.Headers.Contains("X-Lang"));
 
-        await app.StopAsync();
+        await app.StopAsync(TestContext.Current.CancellationToken);
     }
 }
+

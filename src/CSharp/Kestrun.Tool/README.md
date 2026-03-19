@@ -53,6 +53,42 @@ Install a service:
 dotnet kestrun service install --name my-kestrun --script .\server.ps1
 ```
 
+Install a service from a packaged app archive:
+
+```powershell
+dotnet kestrun service install --name my-kestrun --content-root .\my-app.zip --script .\server.ps1
+```
+
+Install with archive checksum verification (default algorithm is SHA-256):
+
+```powershell
+dotnet kestrun service install --name my-kestrun --content-root .\my-app.tgz --content-root-checksum <hex>
+```
+
+Install from a remote archive URL:
+
+```powershell
+dotnet kestrun service install --name my-kestrun --content-root https://downloads.example.com/my-app.zip --script .\server.ps1
+```
+
+Install from an authenticated archive URL:
+
+```powershell
+dotnet kestrun service install --name my-kestrun --content-root https://downloads.example.com/my-app.zip --content-root-bearer-token <token> --script .\server.ps1
+```
+
+Install from an archive URL with custom request headers (repeat `--content-root-header` as needed):
+
+```powershell
+dotnet kestrun service install --name my-kestrun --content-root https://downloads.example.com/my-app.zip --content-root-header x-api-key:<key> --content-root-header x-env:prod --script .\server.ps1
+```
+
+Ignore HTTPS certificate validation for archive download (insecure):
+
+```powershell
+dotnet kestrun service install --name my-kestrun --content-root https://downloads.example.com/my-app.zip --content-root-ignore-certificate --script .\server.ps1
+```
+
 Query service status:
 
 ```powershell
@@ -63,6 +99,12 @@ dotnet kestrun service query --name my-kestrun
 
 - Use `dotnet kestrun module install` when the `Kestrun` PowerShell module is not available.
 - `service install` registers the service/daemon but does not auto-start it.
+- `service install --content-root` accepts folders and archives (`.zip`, `.tar`, `.tgz`, `.tar.gz`).
+- `service install --content-root` also accepts HTTP(S) URLs for supported archive formats.
+- `--content-root-bearer-token` sends bearer auth for HTTP(S) archive downloads.
+- `--content-root-header <name:value>` adds custom HTTP headers for HTTP(S) archive downloads and can be repeated.
+- `--content-root-ignore-certificate` skips HTTPS certificate validation for archive downloads.
+- `--content-root-checksum` is only used for archive inputs and verifies integrity before extraction.
 - On Windows, global module operations and some service operations may require elevation.
 
 ## Repository

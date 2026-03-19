@@ -26,7 +26,7 @@ public class VBNetAndPowerShellDelegateBuilderTests
 
         ctx.Response.Body.Position = 0;
         using var sr = new StreamReader(ctx.Response.Body);
-        var body = await sr.ReadToEndAsync();
+        var body = await sr.ReadToEndAsync(TestContext.Current.CancellationToken);
         Assert.Equal("vb-ok", body);
         Assert.Equal("text/plain; charset=utf-8", ctx.Response.ContentType);
     }
@@ -78,3 +78,4 @@ public class VBNetAndPowerShellDelegateBuilderTests
         _ = Assert.IsType<ArgumentNullException>(ex);
     }
 }
+

@@ -1,12 +1,9 @@
-
 #if NET10_0_OR_GREATER
-using Kestrun;
-using Kestrun.Runner;
 using System.Reflection;
 using Xunit;
 #endif
 
-namespace KestrunTests.Runtime;
+namespace Kestrun.Runner.Tests.Runtime;
 
 #if NET10_0_OR_GREATER
 public class RunnerRuntimeAssemblyPreloadTests
@@ -26,7 +23,7 @@ public class RunnerRuntimeAssemblyPreloadTests
 
         _ = Directory.CreateDirectory(libDirectory);
         File.WriteAllText(manifestPath, "@{}\n");
-        File.Copy(loadedPath!, copiedAssemblyPath, overwrite: true);
+        File.Copy(loadedPath, copiedAssemblyPath, overwrite: true);
 
         var originalModuleLibPath = GetResolverModuleLibPath();
         var sentinelPath = Path.Combine(tempRoot, "sentinel", "lib", "net10.0");
@@ -68,7 +65,7 @@ public class RunnerRuntimeAssemblyPreloadTests
 
         _ = Directory.CreateDirectory(libDirectory);
         File.WriteAllText(manifestPath, "@{}\n");
-        File.Copy(loadedPath!, copiedAssemblyPath, overwrite: true);
+        File.Copy(loadedPath, copiedAssemblyPath, overwrite: true);
 
         try
         {

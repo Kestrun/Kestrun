@@ -24,6 +24,7 @@ Common issues and their resolutions when building or contributing.
 | Pester not installed | Missing module | `Install-PSResource Pester -Scope CurrentUser` |
 | Intermittent network test | External dependency | Remove external calls / mock them |
 | Coverage file empty | No tests executed lines | Ensure routes/tests exercise code |
+| xUnit/tooling tests fail unexpectedly on local machine | Global `Kestrun.Tool` installation can interfere with local test host/process state | Run `dotnet tool uninstall --global Kestrun.Tool`, then rerun tests |
 
 ## Module Install Issues
 

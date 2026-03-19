@@ -22,7 +22,7 @@ public class HttpProbeTests
             Content = new StringContent(/*lang=json,strict*/ "{\"status\":\"healthy\",\"description\":\"ok\"}")
         }));
         var probe = new HttpProbe("http-h", ["live"], http, "http://unit-test/health");
-        var result = await probe.CheckAsync();
+        var result = await probe.CheckAsync(TestContext.Current.CancellationToken);
         Assert.Equal(ProbeStatus.Healthy, result.Status);
         Assert.Equal(ProbeStatusLabels.STATUS_OK, result.Description);
     }
@@ -35,7 +35,7 @@ public class HttpProbeTests
             Content = new StringContent("not json content")
         }));
         var probe = new HttpProbe("http-d", ["live"], http, "http://unit-test/health");
-        var result = await probe.CheckAsync();
+        var result = await probe.CheckAsync(TestContext.Current.CancellationToken);
         Assert.Equal(ProbeStatus.Degraded, result.Status);
         Assert.Contains("No contract", result.Description ?? string.Empty, StringComparison.OrdinalIgnoreCase);
     }
@@ -48,7 +48,7 @@ public class HttpProbeTests
             Content = new StringContent("oops")
         }));
         var probe = new HttpProbe("http-u", ["live"], http, "http://unit-test/health");
-        var result = await probe.CheckAsync();
+        var result = await probe.CheckAsync(TestContext.Current.CancellationToken);
         Assert.Equal(ProbeStatus.Unhealthy, result.Status);
         Assert.Equal("HTTP 500", result.Description);
     }
@@ -60,7 +60,7 @@ public class HttpProbeTests
         // Use a generous timeout here: this test is specifically about the exception path.
         // Very small timeouts can race into the timeout handler on loaded CI agents before the handler executes.
         var probe = new HttpProbe("http-x", ["live"], http, "http://unit-test/health", TimeSpan.FromSeconds(5));
-        var result = await probe.CheckAsync();
+        var result = await probe.CheckAsync(TestContext.Current.CancellationToken);
         Assert.Equal(ProbeStatus.Unhealthy, result.Status);
         Assert.Contains("Exception:", result.Description);
     }
@@ -70,7 +70,7 @@ public class HttpProbeTests
     {
         var http = new HttpClient(new SlowHandler());
         var probe = new HttpProbe("http-t", ["live"], http, "http://unit-test/health", TimeSpan.FromMilliseconds(50));
-        var result = await probe.CheckAsync();
+        var result = await probe.CheckAsync(TestContext.Current.CancellationToken);
         Assert.Equal(ProbeStatus.Degraded, result.Status);
         Assert.Contains("Timeout", result.Description);
     }
@@ -90,3 +90,4 @@ public class HttpProbeTests
         }
     }
 }
+

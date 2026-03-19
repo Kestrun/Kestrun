@@ -101,7 +101,7 @@ public class PowerShellRunspaceMiddlewareTests
         Assert.Equal("text/plain; charset=utf-8", http.Response.ContentType);
         http.Response.Body.Position = 0;
         using var reader = new StreamReader(http.Response.Body);
-        var body = await reader.ReadToEndAsync();
+        var body = await reader.ReadToEndAsync(TestContext.Current.CancellationToken);
         Assert.Contains("ok from ps", body);
     }
 
@@ -178,7 +178,7 @@ public class PowerShellRunspaceMiddlewareTests
                 e.MessageTemplate.Text.Contains("Error occurred in PowerShellRunspaceMiddleware"));
             if (!found)
             {
-                await Task.Delay(25);
+                await Task.Delay(25, TestContext.Current.CancellationToken);
             }
         }
         Assert.True(found, "Expected error log from PowerShellRunspaceMiddleware not found.");
@@ -229,3 +229,4 @@ public class PowerShellRunspaceMiddlewareTests
         }
     }
 }
+

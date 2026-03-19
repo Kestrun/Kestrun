@@ -6,7 +6,9 @@ using System.Security.Principal;
 using System.Runtime.Versioning;
 using System.Runtime.InteropServices;
 using System.IO.Compression;
+using System.Formats.Tar;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
@@ -1264,30 +1266,229 @@ internal static partial class Program
     /// <returns>True when script source is valid and exists.</returns>
     private static bool TryResolveServiceScriptSource(ParsedCommand command, out ResolvedServiceScriptSource scriptSource, out string error)
     {
-        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty);
-        error = string.Empty;
-
-        var requestedScriptPath = string.IsNullOrWhiteSpace(command.ScriptPath)
-            ? DefaultScriptFileName
-            : command.ScriptPath;
-
-        if (string.IsNullOrWhiteSpace(command.ServiceContentRoot))
+        var requestedScriptPath = ResolveRequestedServiceScriptPath(command.ScriptPath);
+        var optionFlags = GetServiceContentRootOptionFlags(command);
+        if (!TryClassifyServiceContentRoot(command.ServiceContentRoot, out _, out var contentRootUri, out var fullContentRoot))
         {
-            var fullScriptPath = Path.GetFullPath(requestedScriptPath);
-            if (!File.Exists(fullScriptPath))
-            {
-                error = $"Script file not found: {fullScriptPath}";
-                return false;
-            }
+            return TryResolveServiceScriptWithoutContentRoot(requestedScriptPath, optionFlags, out scriptSource, out error);
+        }
+        // When a content-root value is supplied, attempt to resolve the script source from the content root, even if the script path argument is not provided,
+        // since some content-root scenarios imply a default script name.
+        return TryResolveServiceScriptFromContentRoot(
+            command,
+            requestedScriptPath,
+            contentRootUri,
+            fullContentRoot,
+            optionFlags,
+            out scriptSource,
+            out error);
+    }
 
-            scriptSource = new ResolvedServiceScriptSource(fullScriptPath, null, Path.GetFileName(fullScriptPath));
+    /// <summary>
+    /// Classifies service content-root input into normalized local path or HTTP(S) URI forms.
+    /// </summary>
+    /// <param name="rawContentRoot">Raw content-root token from CLI arguments.</param>
+    /// <param name="normalizedContentRoot">Trimmed content-root token.</param>
+    /// <param name="contentRootUri">Parsed HTTP(S) URI when the content root is remote; otherwise null.</param>
+    /// <param name="fullContentRoot">Normalized absolute local path when the content root is local; otherwise empty.</param>
+    /// <returns>True when a content-root value exists; false when no content-root was supplied.</returns>
+    private static bool TryClassifyServiceContentRoot(
+        string? rawContentRoot,
+        out string normalizedContentRoot,
+        out Uri? contentRootUri,
+        out string fullContentRoot)
+    {
+        normalizedContentRoot = string.Empty;
+        contentRootUri = null;
+        fullContentRoot = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(rawContentRoot))
+        {
+            return false;
+        }
+
+        normalizedContentRoot = rawContentRoot.Trim();
+        if (TryParseServiceContentRootHttpUri(normalizedContentRoot, out var parsedUri))
+        {
+            contentRootUri = parsedUri;
             return true;
         }
 
-        var fullContentRoot = Path.GetFullPath(command.ServiceContentRoot);
-        if (!Directory.Exists(fullContentRoot))
+        fullContentRoot = Path.GetFullPath(normalizedContentRoot);
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves service script source for a classified content-root input.
+    /// </summary>
+    /// <param name="command">Parsed service command.</param>
+    /// <param name="requestedScriptPath">Requested script path argument.</param>
+    /// <param name="contentRootUri">Parsed HTTP(S) content-root URI when applicable.</param>
+    /// <param name="fullContentRoot">Absolute local content-root path when applicable.</param>
+    /// <param name="optionFlags">Content-root related option usage flags.</param>
+    /// <param name="scriptSource">Resolved script source details.</param>
+    /// <param name="error">Error details when resolution fails.</param>
+    /// <returns>True when script source resolution succeeds.</returns>
+    private static bool TryResolveServiceScriptFromContentRoot(
+        ParsedCommand command,
+        string requestedScriptPath,
+        Uri? contentRootUri,
+        string fullContentRoot,
+        ServiceContentRootOptionFlags optionFlags,
+        out ResolvedServiceScriptSource scriptSource,
+        out string error)
+    {
+        if (contentRootUri is not null)
         {
-            error = $"Service content root directory not found: {fullContentRoot}";
+            return TryResolveServiceScriptFromHttpContentRoot(command, requestedScriptPath, contentRootUri, out scriptSource, out error);
+        }
+
+        if (Directory.Exists(fullContentRoot))
+        {
+            return TryResolveServiceScriptFromDirectoryContentRoot(requestedScriptPath, fullContentRoot, optionFlags, out scriptSource, out error);
+        }
+        // When content-root is supplied but does not exist as a local directory, attempt to treat it as an archive path for better UX in common scenarios where users point content-root
+        // to a file without realizing that only directories are supported for local content roots.
+        return TryResolveServiceScriptFromArchiveContentRoot(command, requestedScriptPath, fullContentRoot, optionFlags, out scriptSource, out error);
+    }
+
+    /// <summary>
+    /// Represents parsed option usage for content-root related arguments.
+    /// </summary>
+    private readonly record struct ServiceContentRootOptionFlags(
+        bool HasArchiveChecksum,
+        bool HasBearerToken,
+        bool IgnoreCertificate,
+        bool HasHeaders);
+
+    /// <summary>
+    /// Resolves the script path value for service install commands, applying default script fallback.
+    /// </summary>
+    /// <param name="scriptPath">Requested script path argument.</param>
+    /// <returns>Resolved script path token.</returns>
+    private static string ResolveRequestedServiceScriptPath(string scriptPath)
+        => string.IsNullOrWhiteSpace(scriptPath) ? DefaultScriptFileName : scriptPath;
+
+    /// <summary>
+    /// Captures which content-root related options were supplied on the command line.
+    /// </summary>
+    /// <param name="command">Parsed service command.</param>
+    /// <returns>Normalized option usage flags.</returns>
+    private static ServiceContentRootOptionFlags GetServiceContentRootOptionFlags(ParsedCommand command)
+        => new(
+            !string.IsNullOrWhiteSpace(command.ServiceContentRootChecksum),
+            !string.IsNullOrWhiteSpace(command.ServiceContentRootBearerToken),
+            command.ServiceContentRootIgnoreCertificate,
+            command.ServiceContentRootHeaders.Length > 0);
+
+    /// <summary>
+    /// Resolves script source when no content-root argument is provided.
+    /// </summary>
+    /// <param name="requestedScriptPath">Requested script path.</param>
+    /// <param name="optionFlags">Content-root related option flags.</param>
+    /// <param name="scriptSource">Resolved script source details.</param>
+    /// <param name="error">Error details when validation fails.</param>
+    /// <returns>True when script resolution succeeds.</returns>
+    private static bool TryResolveServiceScriptWithoutContentRoot(
+        string requestedScriptPath,
+        ServiceContentRootOptionFlags optionFlags,
+        out ResolvedServiceScriptSource scriptSource,
+        out string error)
+    {
+        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
+        if (!TryValidateOptionsForMissingContentRoot(optionFlags, out error))
+        {
+            return false;
+        }
+
+        var fullScriptPath = Path.GetFullPath(requestedScriptPath);
+        if (!File.Exists(fullScriptPath))
+        {
+            error = $"Script file not found: {fullScriptPath}";
+            return false;
+        }
+
+        scriptSource = new ResolvedServiceScriptSource(fullScriptPath, null, Path.GetFileName(fullScriptPath), null);
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves script source when content-root points to an HTTP(S) archive.
+    /// </summary>
+    /// <param name="command">Parsed service command.</param>
+    /// <param name="requestedScriptPath">Requested script path.</param>
+    /// <param name="contentRootUri">HTTP(S) archive URI.</param>
+    /// <param name="optionFlags">Content-root related option flags.</param>
+    /// <param name="scriptSource">Resolved script source details.</param>
+    /// <param name="error">Error details when validation fails.</param>
+    /// <returns>True when script resolution succeeds.</returns>
+    private static bool TryResolveServiceScriptFromHttpContentRoot(
+        ParsedCommand command,
+        string requestedScriptPath,
+        Uri contentRootUri,
+        out ResolvedServiceScriptSource scriptSource,
+        out string error)
+    {
+        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
+        if (!TryValidateHttpContentRootScriptPath(requestedScriptPath, out error))
+        {
+            return false;
+        }
+
+        var temporaryRoot = CreateServiceContentRootExtractionDirectory(command.ServiceName);
+        var downloadedContentRoot = Path.Combine(temporaryRoot, "content");
+        _ = Directory.CreateDirectory(downloadedContentRoot);
+
+        try
+        {
+            if (!TryDownloadAndExtractHttpContentRoot(command, contentRootUri, temporaryRoot, downloadedContentRoot, out error))
+            {
+                TryDeleteDirectoryWithRetry(temporaryRoot, maxAttempts: 5, initialDelayMs: 50);
+                return false;
+            }
+
+            if (!TryResolveScriptFromResolvedContentRoot(
+                    requestedScriptPath,
+                    downloadedContentRoot,
+                    $"Script path '{requestedScriptPath}' escapes the extracted archive content root.",
+                    $"Script file '{requestedScriptPath}' was not found inside extracted archive downloaded from '{contentRootUri}'.",
+                    temporaryRoot,
+                    out scriptSource,
+                    out error))
+            {
+                TryDeleteDirectoryWithRetry(temporaryRoot, maxAttempts: 5, initialDelayMs: 50);
+                return false;
+            }
+
+            return true;
+        }
+        catch
+        {
+            TryDeleteDirectoryWithRetry(temporaryRoot, maxAttempts: 5, initialDelayMs: 50);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Resolves script source when content-root points to a local directory.
+    /// </summary>
+    /// <param name="requestedScriptPath">Requested script path.</param>
+    /// <param name="fullContentRoot">Absolute content-root directory path.</param>
+    /// <param name="optionFlags">Content-root related option flags.</param>
+    /// <param name="scriptSource">Resolved script source details.</param>
+    /// <param name="error">Error details when validation fails.</param>
+    /// <returns>True when script resolution succeeds.</returns>
+    private static bool TryResolveServiceScriptFromDirectoryContentRoot(
+        string requestedScriptPath,
+        string fullContentRoot,
+        ServiceContentRootOptionFlags optionFlags,
+        out ResolvedServiceScriptSource scriptSource,
+        out string error)
+    {
+        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
+        if (!TryValidateDirectoryContentRootOptions(optionFlags, out error))
+        {
             return false;
         }
 
@@ -1297,21 +1498,975 @@ internal static partial class Program
             return false;
         }
 
+        return TryResolveScriptFromResolvedContentRoot(
+            requestedScriptPath,
+            fullContentRoot,
+            $"Script path '{requestedScriptPath}' escapes the service content root '{fullContentRoot}'.",
+            $"Script file '{requestedScriptPath}' was not found under service content root '{fullContentRoot}'.",
+            null,
+            out scriptSource,
+            out error);
+    }
+
+    /// <summary>
+    /// Resolves script source when content-root points to a local archive file.
+    /// </summary>
+    /// <param name="command">Parsed service command.</param>
+    /// <param name="requestedScriptPath">Requested script path.</param>
+    /// <param name="fullContentRoot">Absolute archive path.</param>
+    /// <param name="optionFlags">Content-root related option flags.</param>
+    /// <param name="scriptSource">Resolved script source details.</param>
+    /// <param name="error">Error details when validation fails.</param>
+    /// <returns>True when script resolution succeeds.</returns>
+    private static bool TryResolveServiceScriptFromArchiveContentRoot(
+        ParsedCommand command,
+        string requestedScriptPath,
+        string fullContentRoot,
+        ServiceContentRootOptionFlags optionFlags,
+        out ResolvedServiceScriptSource scriptSource,
+        out string error)
+    {
+        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
+        if (!File.Exists(fullContentRoot))
+        {
+            error = $"Service content root path was not found: {fullContentRoot}";
+            return false;
+        }
+
+        if (!TryValidateLocalArchiveContentRootOptions(optionFlags, out error))
+        {
+            return false;
+        }
+
+        if (!IsSupportedServiceContentRootArchive(fullContentRoot))
+        {
+            error = "Service content root file must be a supported archive (.zip, .tar, .tgz, .tar.gz).";
+            return false;
+        }
+
+        if (Path.IsPathRooted(requestedScriptPath))
+        {
+            error = "When --content-root is an archive, --script must be a relative path inside the archive.";
+            return false;
+        }
+
+        if (!TryValidateServiceContentRootArchiveChecksum(command, fullContentRoot, out error))
+        {
+            return false;
+        }
+
+        var extractedContentRoot = CreateServiceContentRootExtractionDirectory(command.ServiceName);
+        try
+        {
+            if (!TryExtractServiceContentRootArchive(fullContentRoot, extractedContentRoot, out error))
+            {
+                TryDeleteDirectoryWithRetry(extractedContentRoot, maxAttempts: 5, initialDelayMs: 50);
+                return false;
+            }
+
+            if (!TryResolveScriptFromResolvedContentRoot(
+                    requestedScriptPath,
+                    extractedContentRoot,
+                    $"Script path '{requestedScriptPath}' escapes the extracted archive content root.",
+                    $"Script file '{requestedScriptPath}' was not found inside extracted archive '{fullContentRoot}'.",
+                    extractedContentRoot,
+                    out scriptSource,
+                    out error))
+            {
+                TryDeleteDirectoryWithRetry(extractedContentRoot, maxAttempts: 5, initialDelayMs: 50);
+                return false;
+            }
+
+            return true;
+        }
+        catch
+        {
+            TryDeleteDirectoryWithRetry(extractedContentRoot, maxAttempts: 5, initialDelayMs: 50);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Validates content-root options when no content-root argument was supplied.
+    /// </summary>
+    /// <param name="optionFlags">Content-root related option flags.</param>
+    /// <param name="error">Validation error message when invalid combinations are detected.</param>
+    /// <returns>True when the option combination is valid.</returns>
+    private static bool TryValidateOptionsForMissingContentRoot(ServiceContentRootOptionFlags optionFlags, out string error)
+    {
+        if (optionFlags.HasArchiveChecksum)
+        {
+            error = "--content-root-checksum requires --content-root to be an archive file path.";
+            return false;
+        }
+
+        if (optionFlags.HasBearerToken)
+        {
+            error = "--content-root-bearer-token requires --content-root to be an HTTP(S) archive URL.";
+            return false;
+        }
+
+        if (optionFlags.IgnoreCertificate)
+        {
+            error = "--content-root-ignore-certificate requires --content-root to be an HTTPS archive URL.";
+            return false;
+        }
+
+        if (optionFlags.HasHeaders)
+        {
+            error = "--content-root-header requires --content-root to be an HTTP(S) archive URL.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates URL-only options for non-URL content roots.
+    /// </summary>
+    /// <param name="optionFlags">Content-root related option flags.</param>
+    /// <param name="error">Validation error message when invalid combinations are detected.</param>
+    /// <returns>True when URL-only options were not supplied.</returns>
+    private static bool TryValidateUrlOnlyContentRootOptions(ServiceContentRootOptionFlags optionFlags, out string error)
+    {
+        if (optionFlags.HasBearerToken)
+        {
+            error = "--content-root-bearer-token is only supported when --content-root points to an HTTP(S) archive URL.";
+            return false;
+        }
+
+        if (optionFlags.IgnoreCertificate)
+        {
+            error = "--content-root-ignore-certificate is only supported when --content-root points to an HTTPS archive URL.";
+            return false;
+        }
+
+        if (optionFlags.HasHeaders)
+        {
+            error = "--content-root-header is only supported when --content-root points to an HTTP(S) archive URL.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates option combinations for directory-based content roots.
+    /// </summary>
+    /// <param name="optionFlags">Content-root related option flags.</param>
+    /// <param name="error">Validation error message when invalid combinations are detected.</param>
+    /// <returns>True when the option combination is valid.</returns>
+    private static bool TryValidateDirectoryContentRootOptions(ServiceContentRootOptionFlags optionFlags, out string error)
+    {
+        if (optionFlags.HasArchiveChecksum)
+        {
+            error = "--content-root-checksum is only supported when --content-root points to an archive file.";
+            return false;
+        }
+
+        return TryValidateUrlOnlyContentRootOptions(optionFlags, out error);
+    }
+
+    /// <summary>
+    /// Validates option combinations for local archive content roots.
+    /// </summary>
+    /// <param name="optionFlags">Content-root related option flags.</param>
+    /// <param name="error">Validation error message when invalid combinations are detected.</param>
+    /// <returns>True when the option combination is valid.</returns>
+    private static bool TryValidateLocalArchiveContentRootOptions(ServiceContentRootOptionFlags optionFlags, out string error)
+        => TryValidateUrlOnlyContentRootOptions(optionFlags, out error);
+
+    /// <summary>
+    /// Validates script path shape for HTTP archive content roots.
+    /// </summary>
+    /// <param name="requestedScriptPath">Requested script path.</param>
+    /// <param name="error">Validation error text.</param>
+    /// <returns>True when the script path is valid for URL archive usage.</returns>
+    private static bool TryValidateHttpContentRootScriptPath(string requestedScriptPath, out string error)
+    {
+        if (Path.IsPathRooted(requestedScriptPath))
+        {
+            error = "When --content-root is a URL archive, --script must be a relative path inside the archive.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Downloads and extracts an HTTP content-root archive into the supplied directory.
+    /// </summary>
+    /// <param name="command">Parsed service command.</param>
+    /// <param name="contentRootUri">HTTP(S) archive URI.</param>
+    /// <param name="temporaryRoot">Temporary root folder used for download output.</param>
+    /// <param name="downloadedContentRoot">Folder where the archive should be extracted.</param>
+    /// <param name="error">Error details when any stage fails.</param>
+    /// <returns>True when download, checksum, and extraction all succeed.</returns>
+    private static bool TryDownloadAndExtractHttpContentRoot(
+        ParsedCommand command,
+        Uri contentRootUri,
+        string temporaryRoot,
+        string downloadedContentRoot,
+        out string error)
+    {
+        if (!TryDownloadServiceContentRootArchive(
+                contentRootUri,
+                temporaryRoot,
+                command.ServiceContentRootBearerToken,
+                command.ServiceContentRootHeaders,
+                command.ServiceContentRootIgnoreCertificate,
+                out var downloadedArchivePath,
+                out error))
+        {
+            return false;
+        }
+
+        try
+        {
+            return
+                TryValidateServiceContentRootArchiveChecksum(command, downloadedArchivePath, out error) &&
+                TryExtractServiceContentRootArchive(downloadedArchivePath, downloadedContentRoot, out error);
+        }
+        finally
+        {
+            // Best-effort cleanup to avoid retaining large downloaded archives after extraction attempts.
+            TryDeleteFileQuietly(downloadedArchivePath);
+        }
+    }
+
+    /// <summary>
+    /// Resolves a relative script path from an already materialized content-root directory.
+    /// </summary>
+    /// <param name="requestedScriptPath">Requested relative script path.</param>
+    /// <param name="fullContentRoot">Absolute content-root path.</param>
+    /// <param name="escapedPathError">Error message used when the script path escapes the content root.</param>
+    /// <param name="missingScriptError">Error message used when the script file does not exist.</param>
+    /// <param name="temporaryContentRootPath">Optional temporary content-root path for cleanup ownership.</param>
+    /// <param name="scriptSource">Resolved script source details.</param>
+    /// <param name="error">Error details when validation fails.</param>
+    /// <returns>True when the script path resolves and exists inside the root.</returns>
+    private static bool TryResolveScriptFromResolvedContentRoot(
+        string requestedScriptPath,
+        string fullContentRoot,
+        string escapedPathError,
+        string missingScriptError,
+        string? temporaryContentRootPath,
+        out ResolvedServiceScriptSource scriptSource,
+        out string error)
+    {
+        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
         var fullScriptPathFromRoot = Path.GetFullPath(Path.Combine(fullContentRoot, requestedScriptPath));
         if (!IsPathWithinDirectory(fullScriptPathFromRoot, fullContentRoot))
         {
-            error = $"Script path '{requestedScriptPath}' escapes the service content root '{fullContentRoot}'.";
+            error = escapedPathError;
             return false;
         }
 
         if (!File.Exists(fullScriptPathFromRoot))
         {
-            error = $"Script file '{requestedScriptPath}' was not found under service content root '{fullContentRoot}'.";
+            error = missingScriptError;
             return false;
         }
 
         var relativeScriptPath = Path.GetRelativePath(fullContentRoot, fullScriptPathFromRoot);
-        scriptSource = new ResolvedServiceScriptSource(fullScriptPathFromRoot, fullContentRoot, relativeScriptPath);
+        scriptSource = new ResolvedServiceScriptSource(fullScriptPathFromRoot, fullContentRoot, relativeScriptPath, temporaryContentRootPath);
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Creates a temporary extraction directory for archive-based service content roots.
+    /// </summary>
+    /// <param name="serviceName">Optional service name for easier diagnostics.</param>
+    /// <returns>Newly created extraction directory path.</returns>
+    private static string CreateServiceContentRootExtractionDirectory(string? serviceName)
+    {
+        var safeServiceName = string.IsNullOrWhiteSpace(serviceName)
+            ? "service"
+            : string.Concat(serviceName.Where(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_'));
+
+        if (string.IsNullOrWhiteSpace(safeServiceName))
+        {
+            safeServiceName = "service";
+        }
+
+        var extractionRoot = Path.Combine(Path.GetTempPath(), "kestrun-content-root", safeServiceName, Guid.NewGuid().ToString("N"));
+        _ = Directory.CreateDirectory(extractionRoot);
+        return extractionRoot;
+    }
+
+    /// <summary>
+    /// Parses an HTTP(S) URI for service content-root input.
+    /// </summary>
+    /// <param name="contentRootInput">Raw content-root input token.</param>
+    /// <param name="uri">Parsed HTTP(S) URI.</param>
+    /// <returns>True when input is an absolute HTTP(S) URI.</returns>
+    private static bool TryParseServiceContentRootHttpUri(string contentRootInput, out Uri uri)
+    {
+        if (Uri.TryCreate(contentRootInput, UriKind.Absolute, out var parsed)
+            && parsed is not null
+            && (parsed.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+                || parsed.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
+        {
+            uri = parsed;
+            return true;
+        }
+
+        uri = null!;
+        return false;
+    }
+
+    /// <summary>
+    /// Downloads a service content-root archive from HTTP(S) into a temporary directory.
+    /// </summary>
+    /// <param name="uri">HTTP(S) source URI.</param>
+    /// <param name="temporaryRoot">Temporary root directory for download output.</param>
+    /// <param name="archivePath">Downloaded archive path.</param>
+    /// <param name="error">Error details when download fails.</param>
+    /// <returns>True when archive is downloaded and has a supported extension.</returns>
+    private static bool TryDownloadServiceContentRootArchive(
+        Uri uri,
+        string temporaryRoot,
+        string? bearerToken,
+        string[] customHeaders,
+        bool ignoreCertificate,
+        out string archivePath,
+        out string error)
+    {
+        archivePath = string.Empty;
+        error = string.Empty;
+
+        if (ignoreCertificate && !uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            error = "--content-root-ignore-certificate is only valid for HTTPS URLs.";
+            return false;
+        }
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+            if (!string.IsNullOrWhiteSpace(bearerToken))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+            }
+
+            if (!TryApplyServiceContentRootCustomHeaders(request, customHeaders, out error))
+            {
+                return false;
+            }
+
+            if (!ignoreCertificate)
+            {
+                using var response = ServiceContentRootHttpClient.Send(request, HttpCompletionOption.ResponseHeadersRead);
+                if (!response.IsSuccessStatusCode)
+                {
+                    error = $"Failed to download service content root from '{uri}'. HTTP {(int)response.StatusCode} {response.ReasonPhrase}.";
+                    return false;
+                }
+
+                return TryWriteDownloadedContentRootArchive(temporaryRoot, uri, response, out archivePath, out error);
+            }
+
+            using var insecureHandler = new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+            };
+            using var insecureClient = new HttpClient(insecureHandler)
+            {
+                Timeout = TimeSpan.FromMinutes(5),
+            };
+            insecureClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(ProductName, "1.0"));
+            using var insecureResponse = insecureClient.Send(request, HttpCompletionOption.ResponseHeadersRead);
+            if (!insecureResponse.IsSuccessStatusCode)
+            {
+                error = $"Failed to download service content root from '{uri}'. HTTP {(int)insecureResponse.StatusCode} {insecureResponse.ReasonPhrase}.";
+                return false;
+            }
+
+            return TryWriteDownloadedContentRootArchive(temporaryRoot, uri, insecureResponse, out archivePath, out error);
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to download service content root from '{uri}': {ex.Message}";
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Applies custom request headers used for service content-root URL downloads.
+    /// </summary>
+    /// <param name="request">HTTP request message to update.</param>
+    /// <param name="customHeaders">Custom header tokens in <c>name:value</c> format.</param>
+    /// <param name="error">Validation error when a header token cannot be applied.</param>
+    /// <returns>True when all headers are valid and applied to the request.</returns>
+    private static bool TryApplyServiceContentRootCustomHeaders(HttpRequestMessage request, IReadOnlyList<string> customHeaders, out string error)
+    {
+        error = string.Empty;
+        foreach (var headerToken in customHeaders)
+        {
+            if (string.IsNullOrWhiteSpace(headerToken))
+            {
+                error = "--content-root-header value cannot be empty. Use <name:value>.";
+                return false;
+            }
+
+            var separatorIndex = headerToken.IndexOf(':');
+            if (separatorIndex <= 0)
+            {
+                error = $"Invalid --content-root-header value '{headerToken}'. Use <name:value>.";
+                return false;
+            }
+
+            var headerName = headerToken[..separatorIndex].Trim();
+            var headerValue = headerToken[(separatorIndex + 1)..].Trim();
+            if (string.IsNullOrWhiteSpace(headerName))
+            {
+                error = $"Invalid --content-root-header value '{headerToken}'. Header name cannot be empty.";
+                return false;
+            }
+
+            if (headerName.Contains('\r') || headerName.Contains('\n'))
+            {
+                error = $"Invalid --content-root-header value '{headerToken}'. Header name cannot contain CR or LF characters.";
+                return false;
+            }
+
+            if (headerValue.Contains('\r') || headerValue.Contains('\n'))
+            {
+                error = $"Invalid --content-root-header value '{headerToken}'. Header value cannot contain CR or LF characters.";
+                return false;
+            }
+
+            if (!request.Headers.TryAddWithoutValidation(headerName, headerValue))
+            {
+                error = $"Invalid --content-root-header value '{headerToken}'.";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Writes a downloaded service content-root archive response to disk.
+    /// </summary>
+    /// <param name="temporaryRoot">Temporary root directory for archive output.</param>
+    /// <param name="uri">Source URI.</param>
+    /// <param name="response">HTTP response with archive payload.</param>
+    /// <param name="archivePath">Written archive path.</param>
+    /// <param name="error">Error details when write or validation fails.</param>
+    /// <returns>True when the archive is written and has a supported extension.</returns>
+    private static bool TryWriteDownloadedContentRootArchive(
+        string temporaryRoot,
+        Uri uri,
+        HttpResponseMessage response,
+        out string archivePath,
+        out string error)
+    {
+        archivePath = string.Empty;
+        error = string.Empty;
+
+        var resolvedFileName = TryResolveServiceContentRootArchiveFileName(uri, response)
+            ?? "content-root";
+        resolvedFileName = GetSafeServiceContentRootArchiveFileName(resolvedFileName, "content-root");
+
+        var provisionalArchivePath = Path.Combine(temporaryRoot, resolvedFileName);
+        using (var sourceStream = response.Content.ReadAsStream())
+        using (var destinationStream = File.Create(provisionalArchivePath))
+        {
+            sourceStream.CopyTo(destinationStream);
+        }
+
+        if (!TryResolveDownloadedServiceContentRootArchiveFileName(
+                uri,
+                resolvedFileName,
+                provisionalArchivePath,
+                response,
+                out var finalizedFileName,
+                out error))
+        {
+            try
+            {
+                if (File.Exists(provisionalArchivePath))
+                {
+                    File.Delete(provisionalArchivePath);
+                }
+            }
+            catch
+            {
+                // Ignore cleanup errors because the original archive-validation error is more actionable.
+            }
+            return false;
+        }
+
+        archivePath = provisionalArchivePath;
+        if (!string.Equals(finalizedFileName, resolvedFileName, StringComparison.OrdinalIgnoreCase))
+        {
+            var finalizedArchivePath = Path.Combine(temporaryRoot, finalizedFileName);
+            File.Move(provisionalArchivePath, finalizedArchivePath, overwrite: true);
+            archivePath = finalizedArchivePath;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Converts an archive file name candidate to a filesystem-safe file name.
+    /// </summary>
+    /// <param name="candidate">Raw file name candidate from headers or URI metadata.</param>
+    /// <param name="fallbackFileName">Fallback file name when the candidate is empty or invalid.</param>
+    /// <returns>Filesystem-safe file name.</returns>
+    private static string GetSafeServiceContentRootArchiveFileName(string? candidate, string fallbackFileName)
+    {
+        var fileName = Path.GetFileName(candidate ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            return fallbackFileName;
+        }
+
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var builder = new StringBuilder(fileName.Length);
+        foreach (var ch in fileName)
+        {
+            if (char.IsControl(ch) || ch == Path.DirectorySeparatorChar || ch == Path.AltDirectorySeparatorChar || invalidChars.Contains(ch))
+            {
+                _ = builder.Append('-');
+                continue;
+            }
+
+            _ = builder.Append(ch);
+        }
+
+        var sanitized = builder.ToString().Trim().Trim('.');
+        return string.IsNullOrWhiteSpace(sanitized) ? fallbackFileName : sanitized;
+    }
+
+    /// <summary>
+    /// Resolves a supported archive file name for a downloaded content-root payload.
+    /// </summary>
+    /// <param name="uri">Source URI.</param>
+    /// <param name="resolvedFileName">Initially resolved file name candidate.</param>
+    /// <param name="downloadedArchivePath">Downloaded archive payload path.</param>
+    /// <param name="response">HTTP response metadata.</param>
+    /// <param name="finalizedFileName">Finalized archive file name with supported extension.</param>
+    /// <param name="error">Validation error details when archive type cannot be resolved.</param>
+    /// <returns>True when a supported archive file name is resolved.</returns>
+    private static bool TryResolveDownloadedServiceContentRootArchiveFileName(
+        Uri uri,
+        string resolvedFileName,
+        string downloadedArchivePath,
+        HttpResponseMessage response,
+        out string finalizedFileName,
+        out string error)
+    {
+        finalizedFileName = resolvedFileName;
+        error = string.Empty;
+
+        if (IsSupportedServiceContentRootArchive(finalizedFileName))
+        {
+            return true;
+        }
+
+        var mediaType = response.Content.Headers.ContentType?.MediaType;
+        if (TryGetServiceContentRootArchiveExtensionFromMediaType(mediaType, out var archiveExtension)
+            || TryDetectServiceContentRootArchiveExtensionFromSignature(downloadedArchivePath, out archiveExtension))
+        {
+            finalizedFileName = BuildServiceContentRootArchiveFileName(resolvedFileName, archiveExtension);
+            return true;
+        }
+
+        error = $"Downloaded content root from '{uri}' is not a supported archive (.zip, .tar, .tgz, .tar.gz).";
+        return false;
+    }
+
+    /// <summary>
+    /// Maps content-type metadata to a preferred service content-root archive extension.
+    /// </summary>
+    /// <param name="mediaType">HTTP response media type.</param>
+    /// <param name="archiveExtension">Resolved archive extension when available.</param>
+    /// <returns>True when the media type maps to a supported archive extension.</returns>
+    private static bool TryGetServiceContentRootArchiveExtensionFromMediaType(string? mediaType, out string archiveExtension)
+    {
+        switch (mediaType?.ToLowerInvariant())
+        {
+            case "application/zip":
+            case "application/x-zip-compressed":
+                archiveExtension = ".zip";
+                return true;
+            case "application/x-tar":
+                archiveExtension = ".tar";
+                return true;
+            case "application/gzip":
+            case "application/x-gzip":
+                archiveExtension = ".tgz";
+                return true;
+            default:
+                archiveExtension = string.Empty;
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Detects archive extension from file signature when metadata does not provide a usable file name.
+    /// </summary>
+    /// <param name="archivePath">Downloaded archive payload path.</param>
+    /// <param name="archiveExtension">Detected archive extension.</param>
+    /// <returns>True when a supported archive signature is recognized.</returns>
+    private static bool TryDetectServiceContentRootArchiveExtensionFromSignature(string archivePath, out string archiveExtension)
+    {
+        archiveExtension = string.Empty;
+        try
+        {
+            Span<byte> signature = stackalloc byte[512];
+            using var stream = File.OpenRead(archivePath);
+            var bytesRead = stream.Read(signature);
+            if (bytesRead <= 0)
+            {
+                return false;
+            }
+
+            if (bytesRead >= 4
+                && signature[0] == 0x50
+                && signature[1] == 0x4B
+                && ((signature[2] == 0x03 && signature[3] == 0x04)
+                    || (signature[2] == 0x05 && signature[3] == 0x06)
+                    || (signature[2] == 0x07 && signature[3] == 0x08)))
+            {
+                archiveExtension = ".zip";
+                return true;
+            }
+
+            if (bytesRead >= 2 && signature[0] == 0x1F && signature[1] == 0x8B)
+            {
+                archiveExtension = ".tgz";
+                return true;
+            }
+
+            if (bytesRead >= 262
+                && signature[257] == (byte)'u'
+                && signature[258] == (byte)'s'
+                && signature[259] == (byte)'t'
+                && signature[260] == (byte)'a'
+                && signature[261] == (byte)'r')
+            {
+                archiveExtension = ".tar";
+                return true;
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Builds a normalized archive file name using the detected archive extension.
+    /// </summary>
+    /// <param name="resolvedFileName">Initially resolved file name candidate.</param>
+    /// <param name="archiveExtension">Detected archive extension.</param>
+    /// <returns>Normalized file name with archive extension.</returns>
+    private static string BuildServiceContentRootArchiveFileName(string resolvedFileName, string archiveExtension)
+    {
+        var baseName = Path.GetFileNameWithoutExtension(resolvedFileName);
+        if (archiveExtension.Equals(".tar.gz", StringComparison.OrdinalIgnoreCase)
+            && resolvedFileName.EndsWith(".tar", StringComparison.OrdinalIgnoreCase))
+        {
+            baseName = Path.GetFileNameWithoutExtension(baseName);
+        }
+
+        if (string.IsNullOrWhiteSpace(baseName))
+        {
+            baseName = "content-root";
+        }
+
+        return $"{baseName}{archiveExtension}";
+    }
+
+    /// <summary>
+    /// Resolves a best-effort archive file name from response headers and URI metadata.
+    /// </summary>
+    /// <param name="uri">Source URI.</param>
+    /// <param name="response">HTTP response.</param>
+    /// <returns>Resolved file name when available; otherwise null.</returns>
+    private static string? TryResolveServiceContentRootArchiveFileName(Uri uri, HttpResponseMessage response)
+    {
+        var contentDisposition = response.Content.Headers.ContentDisposition;
+        var dispositionFileName = contentDisposition?.FileNameStar ?? contentDisposition?.FileName;
+        if (!string.IsNullOrWhiteSpace(dispositionFileName))
+        {
+            var trimmed = dispositionFileName.Trim().Trim('"');
+            if (!string.IsNullOrWhiteSpace(trimmed))
+            {
+                return trimmed;
+            }
+        }
+
+        var uriFileName = Path.GetFileName(uri.AbsolutePath);
+        if (!string.IsNullOrWhiteSpace(uriFileName))
+        {
+            return uriFileName;
+        }
+
+        // Fall back to media-type-based extension inference when no usable file name metadata is available,
+        // to at least get a correct extension for archive type detection and validation even if the base name is generic.
+        return TryGetServiceContentRootArchiveExtensionFromMediaType(
+            response.Content.Headers.ContentType?.MediaType,
+            out var archiveExtension)
+            ? BuildServiceContentRootArchiveFileName("content-root", archiveExtension)
+            : null;
+    }
+
+    /// <summary>
+    /// Returns true when the content-root archive path uses a supported extension.
+    /// </summary>
+    /// <param name="archivePath">Archive file path.</param>
+    /// <returns>True when archive extension is supported.</returns>
+    private static bool IsSupportedServiceContentRootArchive(string archivePath)
+    {
+        var lowerPath = archivePath.ToLowerInvariant();
+        return lowerPath.EndsWith(".zip", StringComparison.Ordinal)
+            || lowerPath.EndsWith(".tar", StringComparison.Ordinal)
+            || lowerPath.EndsWith(".tar.gz", StringComparison.Ordinal)
+            || lowerPath.EndsWith(".tgz", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Validates a content-root archive checksum when a checksum was provided.
+    /// </summary>
+    /// <param name="command">Parsed service command.</param>
+    /// <param name="archivePath">Archive path to validate.</param>
+    /// <param name="error">Error details when checksum validation fails.</param>
+    /// <returns>True when checksum is valid or not requested.</returns>
+    private static bool TryValidateServiceContentRootArchiveChecksum(ParsedCommand command, string archivePath, out string error)
+    {
+        error = string.Empty;
+        if (string.IsNullOrWhiteSpace(command.ServiceContentRootChecksum))
+        {
+            return true;
+        }
+
+        var expectedHash = command.ServiceContentRootChecksum.Trim();
+        if (!Regex.IsMatch(expectedHash, "^[0-9a-fA-F]+$"))
+        {
+            error = "--content-root-checksum must be a hexadecimal hash string.";
+            return false;
+        }
+
+        var algorithmName = string.IsNullOrWhiteSpace(command.ServiceContentRootChecksumAlgorithm)
+            ? "sha256"
+            : command.ServiceContentRootChecksumAlgorithm.Trim();
+
+        if (!TryCreateChecksumAlgorithm(algorithmName, out var algorithm, out var normalizedAlgorithmName, out error))
+        {
+            return false;
+        }
+
+        using (algorithm)
+        using (var stream = File.OpenRead(archivePath))
+        {
+            var actualHash = Convert.ToHexString(algorithm.ComputeHash(stream));
+            if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+            {
+                error = $"Archive checksum mismatch for '{archivePath}'. Expected {normalizedAlgorithmName}:{expectedHash}, got {normalizedAlgorithmName}:{actualHash}.";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Creates a hash algorithm instance from a user-provided token.
+    /// </summary>
+    /// <param name="algorithmToken">Algorithm token from CLI.</param>
+    /// <param name="algorithm">Created hash algorithm instance.</param>
+    /// <param name="normalizedName">Normalized algorithm name.</param>
+    /// <param name="error">Validation error text when algorithm creation fails.</param>
+    /// <returns>True when the algorithm token is supported and can be created.</returns>
+    private static bool TryCreateChecksumAlgorithm(string algorithmToken, out HashAlgorithm algorithm, out string normalizedName, out string error)
+    {
+        algorithm = null!;
+        normalizedName = string.Empty;
+        error = string.Empty;
+
+        var compact = algorithmToken.Replace("-", string.Empty, StringComparison.Ordinal).Trim().ToLowerInvariant();
+
+        Func<HashAlgorithm>? algorithmFactory = compact switch
+        {
+            "md5" => MD5.Create,
+            "sha1" or "sha" => SHA1.Create,
+            "sha2" or "sha256" => SHA256.Create,
+            "sha384" => SHA384.Create,
+            "sha512" => SHA512.Create,
+            _ => null,
+        };
+
+        if (algorithmFactory is null)
+        {
+            error = "Unsupported --content-root-checksum-algorithm. Supported values: md5, sha1, sha256, sha384, sha512.";
+            return false;
+        }
+
+        normalizedName = compact switch
+        {
+            "sha" => "sha1",
+            "sha2" => "sha256",
+            _ => compact,
+        };
+
+        try
+        {
+            algorithm = algorithmFactory();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = $"Unable to create checksum algorithm '{normalizedName}'. The algorithm may be disabled by system policy: {ex.Message}";
+            algorithm = null!;
+            normalizedName = string.Empty;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Extracts a supported archive into the specified target directory.
+    /// </summary>
+    /// <param name="archivePath">Archive file path.</param>
+    /// <param name="destinationDirectory">Extraction destination directory.</param>
+    /// <param name="error">Error details when extraction fails.</param>
+    /// <returns>True when extraction succeeds.</returns>
+    private static bool TryExtractServiceContentRootArchive(string archivePath, string destinationDirectory, out string error)
+    {
+        error = string.Empty;
+
+        try
+        {
+            var lowerPath = archivePath.ToLowerInvariant();
+            if (lowerPath.EndsWith(".zip", StringComparison.Ordinal))
+            {
+                return TryExtractZipArchiveSafely(archivePath, destinationDirectory, out error);
+            }
+
+            if (lowerPath.EndsWith(".tar", StringComparison.Ordinal))
+            {
+                return TryExtractTarArchiveSafely(File.OpenRead(archivePath), destinationDirectory, out error);
+            }
+
+            if (lowerPath.EndsWith(".tar.gz", StringComparison.Ordinal) || lowerPath.EndsWith(".tgz", StringComparison.Ordinal))
+            {
+                using var archiveStream = File.OpenRead(archivePath);
+                using var gzipStream = new GZipStream(archiveStream, CompressionMode.Decompress);
+                return TryExtractTarArchiveSafely(gzipStream, destinationDirectory, out error);
+            }
+
+            error = "Unsupported archive format. Supported: .zip, .tar, .tgz, .tar.gz.";
+            return false;
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to extract service content archive '{archivePath}': {ex.Message}";
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Extracts a zip archive while enforcing destination path boundaries.
+    /// </summary>
+    /// <param name="archivePath">Archive file path.</param>
+    /// <param name="destinationDirectory">Extraction destination directory.</param>
+    /// <param name="error">Error details when extraction fails.</param>
+    /// <returns>True when extraction succeeds.</returns>
+    private static bool TryExtractZipArchiveSafely(string archivePath, string destinationDirectory, out string error)
+    {
+        error = string.Empty;
+        using var archive = ZipFile.OpenRead(archivePath);
+        foreach (var entry in archive.Entries)
+        {
+            var fullDestinationPath = Path.GetFullPath(Path.Combine(destinationDirectory, entry.FullName));
+            if (!IsPathWithinDirectory(fullDestinationPath, destinationDirectory))
+            {
+                error = $"Archive entry '{entry.FullName}' escapes extraction root.";
+                return false;
+            }
+
+            var isDirectory = string.IsNullOrEmpty(entry.Name)
+                || entry.FullName.EndsWith('/')
+                || entry.FullName.EndsWith('\\');
+            if (isDirectory)
+            {
+                _ = Directory.CreateDirectory(fullDestinationPath);
+                continue;
+            }
+
+            var parentDirectory = Path.GetDirectoryName(fullDestinationPath);
+            if (!string.IsNullOrWhiteSpace(parentDirectory))
+            {
+                _ = Directory.CreateDirectory(parentDirectory);
+            }
+
+            entry.ExtractToFile(fullDestinationPath, overwrite: true);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Extracts a tar stream while enforcing destination path boundaries.
+    /// </summary>
+    /// <param name="archiveStream">Tar-formatted stream.</param>
+    /// <param name="destinationDirectory">Extraction destination directory.</param>
+    /// <param name="error">Error details when extraction fails.</param>
+    /// <returns>True when extraction succeeds.</returns>
+    private static bool TryExtractTarArchiveSafely(Stream archiveStream, string destinationDirectory, out string error)
+    {
+        error = string.Empty;
+        using var reader = new TarReader(archiveStream, leaveOpen: false);
+        TarEntry? entry;
+        while ((entry = reader.GetNextEntry()) is not null)
+        {
+            if (string.IsNullOrWhiteSpace(entry.Name))
+            {
+                continue;
+            }
+
+            var fullDestinationPath = Path.GetFullPath(Path.Combine(destinationDirectory, entry.Name));
+            if (!IsPathWithinDirectory(fullDestinationPath, destinationDirectory))
+            {
+                error = $"Archive entry '{entry.Name}' escapes extraction root.";
+                return false;
+            }
+
+            if (entry.EntryType is TarEntryType.Directory)
+            {
+                _ = Directory.CreateDirectory(fullDestinationPath);
+                continue;
+            }
+
+            if (entry.EntryType is TarEntryType.RegularFile or TarEntryType.V7RegularFile)
+            {
+                var parentDirectory = Path.GetDirectoryName(fullDestinationPath);
+                if (!string.IsNullOrWhiteSpace(parentDirectory))
+                {
+                    _ = Directory.CreateDirectory(parentDirectory);
+                }
+
+                if (entry.DataStream is null)
+                {
+                    using var emptyFile = File.Create(fullDestinationPath);
+                    continue;
+                }
+
+                using var output = File.Create(fullDestinationPath);
+                entry.DataStream.CopyTo(output);
+                continue;
+            }
+        }
+
         return true;
     }
 
@@ -1327,10 +2482,13 @@ internal static partial class Program
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         var fullDirectory = Path.GetFullPath(directoryPath)
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
 
-        return fullCandidate.Equals(fullDirectory, StringComparison.OrdinalIgnoreCase)
-            || fullCandidate.StartsWith(fullDirectory + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-            || fullCandidate.StartsWith(fullDirectory + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        return fullCandidate.Equals(fullDirectory, comparison)
+            || fullCandidate.StartsWith(fullDirectory + Path.DirectorySeparatorChar, comparison)
+            || fullCandidate.StartsWith(fullDirectory + Path.AltDirectorySeparatorChar, comparison);
     }
 
     /// <summary>
@@ -2721,6 +3879,21 @@ internal static partial class Program
     }
 
     /// <summary>
+    /// Creates the shared HTTP client used for service content-root archive downloads.
+    /// </summary>
+    /// <returns>Configured HTTP client instance.</returns>
+    private static HttpClient CreateServiceContentRootHttpClient()
+    {
+        var client = new HttpClient
+        {
+            Timeout = TimeSpan.FromMinutes(5),
+        };
+
+        client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue(ProductName, "1.0"));
+        return client;
+    }
+
+    /// <summary>
     /// Parses a module version value into a comparable <see cref="Version"/> instance.
     /// </summary>
     /// <param name="rawValue">Raw version string.</param>
@@ -3013,7 +4186,7 @@ internal static partial class Program
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseArguments(string[] args, out ParsedCommand parsedCommand, out string error)
     {
-        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], null, null, null, null, null, null, null, ModuleStorageScope.Local, false, null, null);
+        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], null, null, null, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
         if (args.Length == 0)
         {
             error = $"No command provided. Use '{ProductName} help' to list commands.";
@@ -3144,7 +4317,7 @@ internal static partial class Program
             return TryParseModuleArguments(args, commandTokenIndex + 1, out parsedCommand, out error);
         }
 
-        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], null, null, null, null, null, null, null, ModuleStorageScope.Local, false, null, null);
+        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, [], null, null, null, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
         error = $"Unknown command: {commandToken}. Use '{ProductName} help' to list commands.";
         return false;
     }
@@ -3325,7 +4498,7 @@ internal static partial class Program
 
             case "service":
                 Console.WriteLine("Usage:");
-                Console.WriteLine("  kestrun [--nocheck] [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --name <service-name> [--service-log-path <path-to-log-file>] [--service-user <account>] [--service-password <password>] [--deployment-root <folder>] [--content-root <folder>] [--script <main.ps1> | <main.ps1>] [--arguments <script arguments...>]");
+                Console.WriteLine("  kestrun [--nocheck] [--kestrun-folder <folder>] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --name <service-name> [--service-log-path <path-to-log-file>] [--service-user <account>] [--service-password <password>] [--deployment-root <folder>] [--content-root <folder-or-archive>] [--content-root-checksum <hex>] [--content-root-checksum-algorithm <name>] [--content-root-bearer-token <token>] [--content-root-header <name:value> ...] [--content-root-ignore-certificate] [--script <main.ps1> | <main.ps1>] [--arguments <script arguments...>]");
                 Console.WriteLine("  kestrun service remove --name <service-name>");
                 Console.WriteLine("  kestrun service start --name <service-name>");
                 Console.WriteLine("  kestrun service stop --name <service-name>");
@@ -3333,7 +4506,12 @@ internal static partial class Program
                 Console.WriteLine();
                 Console.WriteLine("Options (service install):");
                 Console.WriteLine("  --script <path>             Optional named script path (alternative to positional <main.ps1>).");
-                Console.WriteLine("  --content-root <folder>     Copy the full folder into the service bundle; --script is resolved relative to this folder.");
+                Console.WriteLine("  --content-root <path>       Copy folder content, extract local archive, or download/extract HTTP(S) archive (.zip/.tar/.tgz/.tar.gz); --script is resolved relative to it.");
+                Console.WriteLine("  --content-root-checksum <h> Verify archive checksum before extraction (hex string). Requires archive content-root.");
+                Console.WriteLine("  --content-root-checksum-algorithm <name>  Hash algorithm: md5, sha1, sha256, sha384, sha512 (default: sha256).");
+                Console.WriteLine("  --content-root-bearer-token <token>  Add Authorization: Bearer <token> for HTTP(S) archive download.");
+                Console.WriteLine("  --content-root-header <name:value>  Add custom HTTP request header for HTTP(S) archive download. Repeatable.");
+                Console.WriteLine("  --content-root-ignore-certificate  Ignore HTTPS certificate validation for archive download (insecure).");
                 Console.WriteLine("  --deployment-root <folder>  Override where per-service bundles are created (default is OS-specific).");
                 Console.WriteLine("  --kestrun-manifest <path>   Use an explicit Kestrun.psd1 manifest for the service runtime.");
                 Console.WriteLine("  --service-log-path <path>   Set service bootstrap/operation log file path.");
@@ -3344,7 +4522,13 @@ internal static partial class Program
                 Console.WriteLine("Notes:");
                 Console.WriteLine("  - install registers the service/daemon but does not auto-start it.");
                 Console.WriteLine("  - If no script is provided, ./server.ps1 is used.");
-                Console.WriteLine("  - When --content-root is provided, the script path must be relative to that folder and must exist inside it.");
+                Console.WriteLine("  - When --content-root is provided, the script path must be relative to that root and must exist inside it.");
+                Console.WriteLine("  - Supported archive content roots: .zip, .tar, .tgz, .tar.gz.");
+                Console.WriteLine("  - --content-root may be an HTTP(S) URL to a supported archive file.");
+                Console.WriteLine("  - --content-root-checksum is validated against the archive file before extraction.");
+                Console.WriteLine("  - --content-root-bearer-token is only used for HTTP(S) URL content roots.");
+                Console.WriteLine("  - --content-root-header is only used for HTTP(S) URL content roots and can be supplied multiple times.");
+                Console.WriteLine("  - --content-root-ignore-certificate applies only to HTTPS URL content roots and is insecure.");
                 Console.WriteLine("  - --deployment-root overrides the OS default bundle root used during install and remove cleanup.");
                 Console.WriteLine("  - --service-user enables platform account mapping: Windows service account, Linux systemd User=, macOS LaunchDaemon UserName.");
                 Console.WriteLine("  - install snapshots runtime/module/script plus dedicated service-host from Kestrun.Tool payload into a per-service bundle before registration.");

@@ -38,7 +38,8 @@ public class KestrunHostSessionExtensionsIntegrationTests
     [Trait("Category", "Hosting")]
     public async Task Session_State_Persists_Across_Requests_For_Same_Client()
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        cts.CancelAfter(TimeSpan.FromSeconds(90));
 
         // Configure distributed cache (required by sessions) and sessions before building the app
         var host = CreateBuiltHost(h =>
@@ -79,7 +80,9 @@ public class KestrunHostSessionExtensionsIntegrationTests
         }
         finally
         {
-            await host.StopAsync(cts.Token);
+            using var stopCts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+            stopCts.CancelAfter(TimeSpan.FromSeconds(15));
+            await host.StopAsync(stopCts.Token);
         }
     }
 

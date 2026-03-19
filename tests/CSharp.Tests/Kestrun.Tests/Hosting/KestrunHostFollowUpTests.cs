@@ -153,7 +153,7 @@ public class KestrunHostFollowUpTests
         host.Dispose();
 
         // Host remains in manager; StopAsync should be a no-op and not throw
-        await KestrunHostManager.StopAsync(name);
+        await KestrunHostManager.StopAsync(name, TestContext.Current.CancellationToken);
     }
 
     [Fact]

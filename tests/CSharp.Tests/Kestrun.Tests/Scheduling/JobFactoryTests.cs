@@ -78,8 +78,8 @@ public class JobFactoryTests
         var tmp = Path.GetTempFileName();
         try
         {
-            await File.WriteAllTextAsync(tmp, "Write-Output 'abc'");
-            var job = await JobFactory.CreateAsync(cfg, new FileInfo(tmp));
+            await File.WriteAllTextAsync(tmp, "Write-Output 'abc'", TestContext.Current.CancellationToken);
+            var job = await JobFactory.CreateAsync(cfg, new FileInfo(tmp), TestContext.Current.CancellationToken);
             await job(CancellationToken.None);
         }
         finally

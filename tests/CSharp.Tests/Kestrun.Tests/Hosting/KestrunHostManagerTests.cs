@@ -137,8 +137,8 @@ public class KestrunHostManagerTests
         KestrunHostManager.Stop("nope");
 
         // StartAsync/StopAsync on missing names throw
-        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => KestrunHostManager.StartAsync("nope"));
-        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => KestrunHostManager.StopAsync("nope"));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => KestrunHostManager.StartAsync("nope", TestContext.Current.CancellationToken));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => KestrunHostManager.StopAsync("nope", TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public class KestrunHostManagerTests
         Reset();
         _ = KestrunHostManager.Create("x", EntryScriptPath, () => NewHost("x"));
         _ = KestrunHostManager.Create("y", EntryScriptPath, () => NewHost("y"));
-        await KestrunHostManager.StopAllAsync();
+        await KestrunHostManager.StopAllAsync(TestContext.Current.CancellationToken);
     }
 
     [Fact]

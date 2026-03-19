@@ -48,11 +48,11 @@ public class RealtimeBroadcasterTests
         var level = "Information";
         var message = "Test log message";
         _ = _mockClientProxy
-            .Setup(c => c.SendCoreAsync("ReceiveLog", It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync("ReceiveLog", It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act
-        await _broadcaster.BroadcastLogAsync(level, message);
+        await _broadcaster.BroadcastLogAsync(level, message, TestContext.Current.CancellationToken);
 
         // Assert
         _mockClientProxy.Verify(
@@ -61,7 +61,7 @@ public class RealtimeBroadcasterTests
                 It.Is<object?[]>(args =>
                     args.Length == 1 &&
                     args[0] != null),
-                default),
+                It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -74,12 +74,12 @@ public class RealtimeBroadcasterTests
         object? capturedPayload = null;
 
         _ = _mockClientProxy
-            .Setup(c => c.SendCoreAsync("ReceiveLog", It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync("ReceiveLog", It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .Callback<string, object?[], CancellationToken>((_, args, _) => capturedPayload = args[0])
             .Returns(Task.CompletedTask);
 
         // Act
-        await _broadcaster.BroadcastLogAsync(level, message);
+        await _broadcaster.BroadcastLogAsync(level, message, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotNull(capturedPayload);
@@ -116,11 +116,11 @@ public class RealtimeBroadcasterTests
         var message = "Test message";
         var exception = new Exception("Test exception");
         _ = _mockClientProxy
-            .Setup(c => c.SendCoreAsync("ReceiveLog", It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync("ReceiveLog", It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(exception);
 
         // Act
-        await _broadcaster.BroadcastLogAsync(level, message);
+        await _broadcaster.BroadcastLogAsync(level, message, TestContext.Current.CancellationToken);
 
         // Assert
         _mockLogger.Verify(
@@ -135,11 +135,11 @@ public class RealtimeBroadcasterTests
         var level = "Information";
         var message = "Test message";
         _ = _mockClientProxy
-            .Setup(c => c.SendCoreAsync("ReceiveLog", It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync("ReceiveLog", It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Test exception"));
 
         // Act & Assert (no exception thrown)
-        await _broadcaster.BroadcastLogAsync(level, message);
+        await _broadcaster.BroadcastLogAsync(level, message, TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -149,11 +149,11 @@ public class RealtimeBroadcasterTests
         var eventName = "TestEvent";
         var data = new { Value = 42 };
         _ = _mockClientProxy
-            .Setup(c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act
-        await _broadcaster.BroadcastEventAsync(eventName, data);
+        await _broadcaster.BroadcastEventAsync(eventName, data, TestContext.Current.CancellationToken);
 
         // Assert
         _mockClientProxy.Verify(
@@ -162,7 +162,7 @@ public class RealtimeBroadcasterTests
                 It.Is<object?[]>(args =>
                     args.Length == 1 &&
                     args[0] != null),
-                default),
+                It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -174,16 +174,16 @@ public class RealtimeBroadcasterTests
         object? capturedPayload = null;
 
         _ = _mockClientProxy
-            .Setup(c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .Callback<string, object?[], CancellationToken>((_, args, _) => capturedPayload = args[0])
             .Returns(Task.CompletedTask);
 
         // Act
-        await _broadcaster.BroadcastEventAsync(eventName, null);
+        await _broadcaster.BroadcastEventAsync(eventName, null, TestContext.Current.CancellationToken);
 
         // Assert
         _mockClientProxy.Verify(
-            c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), default),
+            c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), It.IsAny<CancellationToken>()),
             Times.Once);
 
         Assert.NotNull(capturedPayload);
@@ -200,12 +200,12 @@ public class RealtimeBroadcasterTests
         object? capturedPayload = null;
 
         _ = _mockClientProxy
-            .Setup(c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .Callback<string, object?[], CancellationToken>((_, args, _) => capturedPayload = args[0])
             .Returns(Task.CompletedTask);
 
         // Act
-        await _broadcaster.BroadcastEventAsync(eventName, data);
+        await _broadcaster.BroadcastEventAsync(eventName, data, TestContext.Current.CancellationToken);
 
         // Assert
         Assert.NotNull(capturedPayload);
@@ -222,11 +222,11 @@ public class RealtimeBroadcasterTests
         var data = "Test data";
         var exception = new Exception("Test exception");
         _ = _mockClientProxy
-            .Setup(c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(exception);
 
         // Act
-        await _broadcaster.BroadcastEventAsync(eventName, data);
+        await _broadcaster.BroadcastEventAsync(eventName, data, TestContext.Current.CancellationToken);
 
         // Assert
         _mockLogger.Verify(
@@ -241,11 +241,11 @@ public class RealtimeBroadcasterTests
         var eventName = "TestEvent";
         var data = "Test data";
         _ = _mockClientProxy
-            .Setup(c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Test exception"));
 
         // Act & Assert (no exception thrown)
-        await _broadcaster.BroadcastEventAsync(eventName, data);
+        await _broadcaster.BroadcastEventAsync(eventName, data, TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -259,18 +259,18 @@ public class RealtimeBroadcasterTests
 
         _ = _mockClients.Setup(c => c.Group(groupName)).Returns(mockGroupProxy.Object);
         _ = mockGroupProxy
-            .Setup(c => c.SendCoreAsync(method, It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync(method, It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act
-        await _broadcaster.BroadcastToGroupAsync(groupName, method, message);
+        await _broadcaster.BroadcastToGroupAsync(groupName, method, message, TestContext.Current.CancellationToken);
 
         // Assert
         mockGroupProxy.Verify(
             c => c.SendCoreAsync(
                 method,
                 It.Is<object?[]>(args => args.Length == 1),
-                default),
+                It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -284,15 +284,15 @@ public class RealtimeBroadcasterTests
 
         _ = _mockClients.Setup(c => c.Group(groupName)).Returns(mockGroupProxy.Object);
         _ = mockGroupProxy
-            .Setup(c => c.SendCoreAsync(method, It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync(method, It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act
-        await _broadcaster.BroadcastToGroupAsync(groupName, method, null);
+        await _broadcaster.BroadcastToGroupAsync(groupName, method, null, TestContext.Current.CancellationToken);
 
         // Assert
         mockGroupProxy.Verify(
-            c => c.SendCoreAsync(method, It.IsAny<object?[]>(), default),
+            c => c.SendCoreAsync(method, It.IsAny<object?[]>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -332,11 +332,11 @@ public class RealtimeBroadcasterTests
 
         _ = _mockClients.Setup(c => c.Group(groupName)).Returns(mockGroupProxy.Object);
         _ = mockGroupProxy
-            .Setup(c => c.SendCoreAsync(method, It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync(method, It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(exception);
 
         // Act
-        await _broadcaster.BroadcastToGroupAsync(groupName, method, message);
+        await _broadcaster.BroadcastToGroupAsync(groupName, method, message, TestContext.Current.CancellationToken);
 
         // Assert
         _mockLogger.Verify(
@@ -355,11 +355,11 @@ public class RealtimeBroadcasterTests
 
         _ = _mockClients.Setup(c => c.Group(groupName)).Returns(mockGroupProxy.Object);
         _ = mockGroupProxy
-            .Setup(c => c.SendCoreAsync(method, It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync(method, It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new Exception("Test exception"));
 
         // Act & Assert (no exception thrown)
-        await _broadcaster.BroadcastToGroupAsync(groupName, method, message);
+        await _broadcaster.BroadcastToGroupAsync(groupName, method, message, TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -368,17 +368,17 @@ public class RealtimeBroadcasterTests
         // Arrange
         var levels = new[] { "Debug", "Information", "Warning", "Error", "Fatal" };
         _ = _mockClientProxy
-            .Setup(c => c.SendCoreAsync("ReceiveLog", It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync("ReceiveLog", It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act & Assert
         foreach (var level in levels)
         {
-            await _broadcaster.BroadcastLogAsync(level, $"Test {level}");
+            await _broadcaster.BroadcastLogAsync(level, $"Test {level}", TestContext.Current.CancellationToken);
         }
 
         _mockClientProxy.Verify(
-            c => c.SendCoreAsync("ReceiveLog", It.IsAny<object?[]>(), default),
+            c => c.SendCoreAsync("ReceiveLog", It.IsAny<object?[]>(), It.IsAny<CancellationToken>()),
             Times.Exactly(5));
     }
 
@@ -395,15 +395,15 @@ public class RealtimeBroadcasterTests
             Array = new[] { 1, 2, 3 }
         };
         _ = _mockClientProxy
-            .Setup(c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act
-        await _broadcaster.BroadcastEventAsync(eventName, data);
+        await _broadcaster.BroadcastEventAsync(eventName, data, TestContext.Current.CancellationToken);
 
         // Assert
         _mockClientProxy.Verify(
-            c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), default),
+            c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -420,14 +420,14 @@ public class RealtimeBroadcasterTests
             var mockGroupProxy = new Mock<IClientProxy>();
             _ = _mockClients.Setup(c => c.Group(group)).Returns(mockGroupProxy.Object);
             _ = mockGroupProxy
-                .Setup(c => c.SendCoreAsync(method, It.IsAny<object?[]>(), default))
+                .Setup(c => c.SendCoreAsync(method, It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
                 .Returns(Task.CompletedTask);
         }
 
         // Act
         foreach (var group in groups)
         {
-            await _broadcaster.BroadcastToGroupAsync(group, method, message);
+            await _broadcaster.BroadcastToGroupAsync(group, method, message, TestContext.Current.CancellationToken);
         }
 
         // Assert
@@ -444,11 +444,11 @@ public class RealtimeBroadcasterTests
         var level = "Information";
         var message = "Test log";
         _ = _mockClientProxy
-            .Setup(c => c.SendCoreAsync("ReceiveLog", It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync("ReceiveLog", It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act
-        await _broadcaster.BroadcastLogAsync(level, message);
+        await _broadcaster.BroadcastLogAsync(level, message, TestContext.Current.CancellationToken);
 
         // Assert
         _mockLogger.Verify(
@@ -463,11 +463,11 @@ public class RealtimeBroadcasterTests
         var eventName = "TestEvent";
         var data = "Test data";
         _ = _mockClientProxy
-            .Setup(c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync("ReceiveEvent", It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act
-        await _broadcaster.BroadcastEventAsync(eventName, data);
+        await _broadcaster.BroadcastEventAsync(eventName, data, TestContext.Current.CancellationToken);
 
         // Assert
         _mockLogger.Verify(
@@ -486,11 +486,11 @@ public class RealtimeBroadcasterTests
 
         _ = _mockClients.Setup(c => c.Group(groupName)).Returns(mockGroupProxy.Object);
         _ = mockGroupProxy
-            .Setup(c => c.SendCoreAsync(method, It.IsAny<object?[]>(), default))
+            .Setup(c => c.SendCoreAsync(method, It.IsAny<object?[]>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act
-        await _broadcaster.BroadcastToGroupAsync(groupName, method, message);
+        await _broadcaster.BroadcastToGroupAsync(groupName, method, message, TestContext.Current.CancellationToken);
 
         // Assert
         _mockLogger.Verify(

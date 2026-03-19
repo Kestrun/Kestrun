@@ -14,17 +14,24 @@ internal static partial class Program
             return inputExitCode;
         }
 
-        if (!TryRunInstallServicePreflight(command, moduleManifestPath, skipGalleryCheck, out var preflightExitCode))
+        try
         {
-            return preflightExitCode;
-        }
+            if (!TryRunInstallServicePreflight(command, moduleManifestPath, skipGalleryCheck, out var preflightExitCode))
+            {
+                return preflightExitCode;
+            }
 
-        if (!TryPrepareInstallServiceBundle(command, serviceName, scriptSource, moduleManifestPath, out var serviceBundle, out var bundleExitCode))
-        {
-            return bundleExitCode;
+            if (!TryPrepareInstallServiceBundle(command, serviceName, scriptSource, moduleManifestPath, out var serviceBundle, out var bundleExitCode))
+            {
+                return bundleExitCode;
+            }
+            // Service bundle preparation should not fail silently, but check for null just in case.
+            return InstallPreparedServiceForCurrentPlatform(command, serviceName, serviceBundle);
         }
-        // Service bundle preparation should not fail silently, but check for null just in case.
-        return InstallPreparedServiceForCurrentPlatform(command, serviceName, serviceBundle);
+        finally
+        {
+            TryCleanupTemporaryServiceContentRoot(scriptSource.TemporaryContentRootPath);
+        }
     }
 
     /// <summary>
@@ -44,7 +51,7 @@ internal static partial class Program
         out int exitCode)
     {
         serviceName = string.Empty;
-        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty);
+        scriptSource = new ResolvedServiceScriptSource(string.Empty, null, string.Empty, null);
         moduleManifestPath = string.Empty;
         exitCode = 0;
 
@@ -64,16 +71,49 @@ internal static partial class Program
             return false;
         }
 
-        var locatedModuleManifestPath = LocateModuleManifest(command.KestrunManifestPath, command.KestrunFolder);
-        if (locatedModuleManifestPath is null)
+        var cleanupScriptSourceOnFailure = true;
+        try
         {
-            WriteModuleNotFoundMessage(command.KestrunManifestPath, command.KestrunFolder, Console.Error.WriteLine);
-            exitCode = 3;
-            return false;
+            var locatedModuleManifestPath = LocateModuleManifest(command.KestrunManifestPath, command.KestrunFolder);
+            if (locatedModuleManifestPath is null)
+            {
+                WriteModuleNotFoundMessage(command.KestrunManifestPath, command.KestrunFolder, Console.Error.WriteLine);
+                exitCode = 3;
+                return false;
+            }
+
+            moduleManifestPath = locatedModuleManifestPath;
+            cleanupScriptSourceOnFailure = false;
+            return true;
+        }
+        finally
+        {
+            if (cleanupScriptSourceOnFailure)
+            {
+                TryCleanupTemporaryServiceContentRoot(scriptSource.TemporaryContentRootPath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Removes a temporary service content root directory when archive extraction mode was used.
+    /// </summary>
+    /// <param name="temporaryContentRootPath">Temporary extraction path.</param>
+    private static void TryCleanupTemporaryServiceContentRoot(string? temporaryContentRootPath)
+    {
+        if (string.IsNullOrWhiteSpace(temporaryContentRootPath) || !Directory.Exists(temporaryContentRootPath))
+        {
+            return;
         }
 
-        moduleManifestPath = locatedModuleManifestPath;
-        return true;
+        try
+        {
+            TryDeleteDirectoryWithRetry(temporaryContentRootPath, maxAttempts: 5, initialDelayMs: 50);
+        }
+        catch
+        {
+            // Best-effort cleanup; do not fail install/remove flow on temp directory cleanup errors.
+        }
     }
 
     /// <summary>

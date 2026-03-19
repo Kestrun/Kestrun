@@ -823,7 +823,7 @@ internal static partial class Program
     /// </summary>
     /// <returns>Default parsed command for module mode.</returns>
     private static ParsedCommand CreateDefaultModuleParsedCommand()
-        => new(CommandMode.ModuleInfo, string.Empty, [], null, null, null, null, null, null, null, ModuleStorageScope.Local, false, null, null);
+        => new(CommandMode.ModuleInfo, string.Empty, [], null, null, null, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
 
     /// <summary>
     /// Resolves and validates the module action token into parsing state.
@@ -1072,5 +1072,5 @@ internal static partial class Program
     /// <param name="parseState">Completed parse state.</param>
     /// <returns>Parsed command payload.</returns>
     private static ParsedCommand CreateParsedModuleCommand(ModuleParseState parseState)
-        => new(parseState.Mode, string.Empty, [], null, null, null, null, null, null, parseState.ModuleVersion, parseState.ModuleScope, parseState.ModuleForce, null, null);
+        => new(parseState.Mode, string.Empty, [], null, null, null, null, null, null, parseState.ModuleVersion, parseState.ModuleScope, parseState.ModuleForce, null, null, null, null, null, false, []);
 }

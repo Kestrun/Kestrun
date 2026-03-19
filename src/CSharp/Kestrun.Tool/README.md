@@ -26,7 +26,7 @@ dotnet kestrun <command> [options]
 
 - `run`: run a PowerShell script (`./server.ps1` by default)
 - `module`: manage Kestrun PowerShell module install/update/remove/info
-- `service`: install/remove/start/stop/query service lifecycle
+- `service`: install/update/remove/start/stop/query/info service lifecycle
 - `info`: display runtime/build diagnostics
 - `version`: display tool version
 
@@ -50,43 +50,37 @@ dotnet kestrun run --script .\server.ps1 --arguments --port 5000
 Install a service:
 
 ```powershell
-dotnet kestrun service install --name my-kestrun --script .\server.ps1
+dotnet kestrun service install --package .\my-kestrun.krpack
 ```
 
-Install a service from a packaged app archive:
+Install with package checksum verification (default algorithm is SHA-256):
 
 ```powershell
-dotnet kestrun service install --name my-kestrun --content-root .\my-app.zip --script .\server.ps1
+dotnet kestrun service install --package .\my-kestrun.krpack --content-root-checksum <hex>
 ```
 
-Install with archive checksum verification (default algorithm is SHA-256):
+Install from a remote package URL:
 
 ```powershell
-dotnet kestrun service install --name my-kestrun --content-root .\my-app.tgz --content-root-checksum <hex>
+dotnet kestrun service install --package https://downloads.example.com/my-kestrun.krpack
 ```
 
-Install from a remote archive URL:
+Install from an authenticated package URL:
 
 ```powershell
-dotnet kestrun service install --name my-kestrun --content-root https://downloads.example.com/my-app.zip --script .\server.ps1
+dotnet kestrun service install --package https://downloads.example.com/my-kestrun.krpack --content-root-bearer-token <token>
 ```
 
-Install from an authenticated archive URL:
+Install from a package URL with custom request headers (repeat `--content-root-header` as needed):
 
 ```powershell
-dotnet kestrun service install --name my-kestrun --content-root https://downloads.example.com/my-app.zip --content-root-bearer-token <token> --script .\server.ps1
+dotnet kestrun service install --package https://downloads.example.com/my-kestrun.krpack --content-root-header x-api-key:<key> --content-root-header x-env:prod
 ```
 
-Install from an archive URL with custom request headers (repeat `--content-root-header` as needed):
+Ignore HTTPS certificate validation for package download (insecure):
 
 ```powershell
-dotnet kestrun service install --name my-kestrun --content-root https://downloads.example.com/my-app.zip --content-root-header x-api-key:<key> --content-root-header x-env:prod --script .\server.ps1
-```
-
-Ignore HTTPS certificate validation for archive download (insecure):
-
-```powershell
-dotnet kestrun service install --name my-kestrun --content-root https://downloads.example.com/my-app.zip --content-root-ignore-certificate --script .\server.ps1
+dotnet kestrun service install --package https://downloads.example.com/my-kestrun.krpack --content-root-ignore-certificate
 ```
 
 Query service status:
@@ -95,16 +89,45 @@ Query service status:
 dotnet kestrun service query --name my-kestrun
 ```
 
+Show installed service metadata (including Service.psd1 values and service bundle path):
+
+```powershell
+dotnet kestrun service info --name my-kestrun
+```
+
+Update an installed service bundle from a package and/or module manifest:
+
+```powershell
+dotnet kestrun service update --name my-kestrun --package .\my-kestrun.krpack --kestrun-manifest .\src\PowerShell\Kestrun\Kestrun.psd1
+```
+
+Update using the repository module only when it is newer than the bundled module:
+
+```powershell
+dotnet kestrun service update --name my-kestrun --package .\my-kestrun.krpack --kestrun
+```
+
+Fail back to latest backup for application/module:
+
+```powershell
+dotnet kestrun service update --name my-kestrun --failback
+```
+
 ## Notes
 
 - Use `dotnet kestrun module install` when the `Kestrun` PowerShell module is not available.
 - `service install` registers the service/daemon but does not auto-start it.
-- `service install --content-root` accepts folders and archives (`.zip`, `.tar`, `.tgz`, `.tar.gz`).
-- `service install --content-root` also accepts HTTP(S) URLs for supported archive formats.
-- `--content-root-bearer-token` sends bearer auth for HTTP(S) archive downloads.
-- `--content-root-header <name:value>` adds custom HTTP headers for HTTP(S) archive downloads and can be repeated.
-- `--content-root-ignore-certificate` skips HTTPS certificate validation for archive downloads.
-- `--content-root-checksum` is only used for archive inputs and verifies integrity before extraction.
+- `service update` requires the service to be stopped.
+- `service update --package` only updates the application when package `Version` is greater than installed `Version`.
+- `service update` creates backup folders for updated application/module/service-host content.
+- `service update --kestrun` uses `src/PowerShell/Kestrun/Kestrun.psd1` from the current repository and updates bundled module only when repository version is newer;
+otherwise it prints a skip message.
+- `service update --failback` restores from the latest backup (application/module) and removes that backup folder after restore.
+- `service install --package` expects a `.krpack` package.
+- `--content-root-bearer-token` sends bearer auth for HTTP(S) package downloads.
+- `--content-root-header <name:value>` adds custom HTTP headers for HTTP(S) package downloads and can be repeated.
+- `--content-root-ignore-certificate` skips HTTPS certificate validation for package downloads.
+- `--content-root-checksum` verifies package integrity before extraction.
 - On Windows, global module operations and some service operations may require elevation.
 
 ## Repository

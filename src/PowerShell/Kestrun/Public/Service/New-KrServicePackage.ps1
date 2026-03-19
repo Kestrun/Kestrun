@@ -67,6 +67,24 @@ function New-KrServicePackage {
         [switch]$Force
     )
 
+    <#
+    .SYNOPSIS
+        Resolves the output path for the .krpack file.
+    .DESCRIPTION
+        Determines the full path for the output .krpack file based on the provided path or a default base name.
+    .PARAMETER ProvidedOutputPath
+        The user-provided output path.
+    .PARAMETER DefaultBaseName
+        The default base name to use if no output path is provided.
+    .EXAMPLE
+        Get-KrResolvedOutputPath -ProvidedOutputPath .\output.krpack -DefaultBaseName demo
+    .EXAMPLE
+        Get-KrResolvedOutputPath -ProvidedOutputPath '' -DefaultBaseName demo
+    .EXAMPLE
+        Get-KrResolvedOutputPath -ProvidedOutputPath $null -DefaultBaseName demo
+    .OUTPUTS
+        [string] The resolved full path for the .krpack file.
+    #>
     function Get-KrResolvedOutputPath {
         param(
             [string]$ProvidedOutputPath,
@@ -86,104 +104,21 @@ function New-KrServicePackage {
         return $resolved
     }
 
-    function Test-KrServiceDescriptorData {
-        param(
-            [hashtable]$Descriptor,
-            [string]$DescriptorPath,
-            [string]$PackageRoot
-        )
-
-        if (-not $Descriptor.ContainsKey('Name') -or [string]::IsNullOrWhiteSpace([string]$Descriptor['Name'])) {
-            throw "Descriptor '$DescriptorPath' is missing required key 'Name'."
-        }
-
-        $formatVersion = if ($Descriptor.ContainsKey('FormatVersion')) { [string]$Descriptor['FormatVersion'] } else { $null }
-
-        if (-not [string]::IsNullOrWhiteSpace($formatVersion)) {
-            if (-not [string]::Equals($formatVersion.Trim(), '1.0', [System.StringComparison]::Ordinal)) {
-                throw "Descriptor '$DescriptorPath' has unsupported FormatVersion '$formatVersion'. Expected '1.0'."
-            }
-
-            if (-not $Descriptor.ContainsKey('EntryPoint') -or [string]::IsNullOrWhiteSpace([string]$Descriptor['EntryPoint'])) {
-                throw "Descriptor '$DescriptorPath' is missing required key 'EntryPoint'."
-            }
-
-            if (-not $Descriptor.ContainsKey('Description') -or [string]::IsNullOrWhiteSpace([string]$Descriptor['Description'])) {
-                throw "Descriptor '$DescriptorPath' is missing required key 'Description'."
-            }
-
-            $entryPoint = [string]$Descriptor['EntryPoint']
-            if ([System.IO.Path]::IsPathRooted($entryPoint)) {
-                throw "Descriptor '$DescriptorPath' EntryPoint must be a relative path."
-            }
-
-            $entryPointFullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($PackageRoot, $entryPoint))
-            if (-not $entryPointFullPath.StartsWith([System.IO.Path]::GetFullPath($PackageRoot), [System.StringComparison]::OrdinalIgnoreCase)) {
-                throw "Descriptor '$DescriptorPath' EntryPoint escapes the package root."
-            }
-
-            if (-not (Test-Path -LiteralPath $entryPointFullPath -PathType Leaf)) {
-                throw "EntryPoint file '$entryPoint' was not found under '$PackageRoot'."
-            }
-
-            if ($Descriptor.ContainsKey('Version') -and -not [string]::IsNullOrWhiteSpace([string]$Descriptor['Version'])) {
-                $parsedVersion = $null
-                if (-not [version]::TryParse([string]$Descriptor['Version'], [ref]$parsedVersion)) {
-                    throw "Descriptor '$DescriptorPath' has invalid Version value '$($Descriptor['Version'])'."
-                }
-            }
-
-            return [pscustomobject]@{
-                Name = [string]$Descriptor['Name']
-                FormatVersion = '1.0'
-                EntryPoint = [string]$Descriptor['EntryPoint']
-                Description = [string]$Descriptor['Description']
-                Version = if ($Descriptor.ContainsKey('Version')) { [string]$Descriptor['Version'] } else { $null }
-                ServiceLogPath = if ($Descriptor.ContainsKey('ServiceLogPath')) { [string]$Descriptor['ServiceLogPath'] } else { $null }
-            }
-        }
-
-        foreach ($requiredKey in @('Description', 'Version')) {
-            if (-not $Descriptor.ContainsKey($requiredKey) -or [string]::IsNullOrWhiteSpace([string]$Descriptor[$requiredKey])) {
-                throw "Descriptor '$DescriptorPath' is missing required key '$requiredKey'."
-            }
-        }
-
-        $legacyVersion = $null
-        if (-not [version]::TryParse([string]$Descriptor['Version'], [ref]$legacyVersion)) {
-            throw "Descriptor '$DescriptorPath' has invalid Version value '$($Descriptor['Version'])'."
-        }
-
-        $legacyScript = if ($Descriptor.ContainsKey('Script') -and -not [string]::IsNullOrWhiteSpace([string]$Descriptor['Script'])) {
-            [string]$Descriptor['Script']
-        } else {
-            'server.ps1'
-        }
-
-        if ([System.IO.Path]::IsPathRooted($legacyScript)) {
-            throw "Descriptor '$DescriptorPath' Script must be a relative path."
-        }
-
-        $legacyScriptFullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($PackageRoot, $legacyScript))
-        if (-not $legacyScriptFullPath.StartsWith([System.IO.Path]::GetFullPath($PackageRoot), [System.StringComparison]::OrdinalIgnoreCase)) {
-            throw "Descriptor '$DescriptorPath' Script escapes the package root."
-        }
-
-        if (-not (Test-Path -LiteralPath $legacyScriptFullPath -PathType Leaf)) {
-            throw "Script file '$legacyScript' was not found under '$PackageRoot'."
-        }
-
-        [pscustomobject]@{
-            Name = [string]$Descriptor['Name']
-            FormatVersion = 'legacy'
-            EntryPoint = $legacyScript
-            Description = [string]$Descriptor['Description']
-            Version = $legacyVersion.ToString()
-            ServiceLogPath = if ($Descriptor.ContainsKey('ServiceLogPath')) { [string]$Descriptor['ServiceLogPath'] } else { $null }
-        }
-    }
-
-    function New-KrZipFromDirectory {
+    <#
+    .SYNOPSIS
+        Creates a zip archive from a directory.
+    .DESCRIPTION
+        Compresses the contents of a directory into a .krpack file.
+    .PARAMETER DirectoryPath
+        The path of the directory to compress.
+    .PARAMETER DestinationPath
+        The path of the resulting .krpack file.
+    .EXAMPLE
+        Invoke-KrZipFromDirectory -DirectoryPath .\my-service -DestinationPath .\my-service.krpack
+    .OUTPUTS
+        None. Creates a .krpack file at the specified destination.
+    #>
+    function Invoke-KrZipFromDirectory {
         param(
             [string]$DirectoryPath,
             [string]$DestinationPath
@@ -241,7 +176,7 @@ function New-KrServicePackage {
             }
 
             if (-not $resolvedScriptPath.EndsWith('.ps1', [System.StringComparison]::OrdinalIgnoreCase)) {
-                throw "ScriptPath must point to a .ps1 file."
+                throw 'ScriptPath must point to a .ps1 file.'
             }
 
             $scriptFileName = [System.IO.Path]::GetFileName($resolvedScriptPath)
@@ -288,20 +223,20 @@ function New-KrServicePackage {
         }
 
         if ($PSCmdlet.ShouldProcess($resolvedOutputPath, 'Create .krpack package')) {
-            New-KrZipFromDirectory -DirectoryPath $packageRoot -DestinationPath $resolvedOutputPath
+            Invoke-KrZipFromDirectory -DirectoryPath $packageRoot -DestinationPath $resolvedOutputPath
         }
 
         [pscustomobject]([ordered]@{
-            PackagePath = $resolvedOutputPath
-            Name = $descriptorInfo.Name
-            FormatVersion = $descriptorInfo.FormatVersion
-            EntryPoint = $descriptorInfo.EntryPoint
-            Description = $descriptorInfo.Description
-            Version = $descriptorInfo.Version
-            ServiceLogPath = $descriptorInfo.ServiceLogPath
-        })
-    }
-    finally {
+                PackagePath = $resolvedOutputPath
+                Name = $descriptorInfo.Name
+                FormatVersion = $descriptorInfo.FormatVersion
+                EntryPoint = $descriptorInfo.EntryPoint
+                Description = $descriptorInfo.Description
+                Version = $descriptorInfo.Version
+                ServiceLogPath = $descriptorInfo.ServiceLogPath
+            }
+        )
+    } finally {
         if (-not [string]::IsNullOrWhiteSpace($stagingRoot) -and (Test-Path -LiteralPath $stagingRoot -PathType Container)) {
             Remove-Item -LiteralPath $stagingRoot -Recurse -Force -ErrorAction SilentlyContinue
         }

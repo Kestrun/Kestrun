@@ -457,6 +457,833 @@ internal static partial class Program
     }
 
     /// <summary>
+    /// Returns installed service descriptor metadata plus the resolved service bundle path.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <returns>Process exit code.</returns>
+    private static int InfoService(ParsedCommand command)
+    {
+        if (string.IsNullOrWhiteSpace(command.ServiceName))
+        {
+            Console.Error.WriteLine("Service name is required. Use --name <value>.");
+            return 2;
+        }
+
+        if (!TryResolveInstalledServiceBundleRoot(command.ServiceName, command.ServiceDeploymentRoot, out var serviceRootPath, out var resolutionError))
+        {
+            Console.Error.WriteLine(resolutionError);
+            return 1;
+        }
+
+        var scriptRoot = Path.Combine(serviceRootPath, ServiceBundleScriptDirectoryName);
+        if (!TryResolveServiceInstallDescriptor(scriptRoot, out var descriptor, out var descriptorError))
+        {
+            Console.Error.WriteLine(descriptorError);
+            return 1;
+        }
+
+        var descriptorPath = Path.Combine(scriptRoot, ServiceDescriptorFileName);
+        var payload = new
+        {
+            ServiceName = command.ServiceName,
+            ServicePath = serviceRootPath,
+            DescriptorPath = descriptorPath,
+            Descriptor = new
+            {
+                descriptor.FormatVersion,
+                descriptor.Name,
+                descriptor.EntryPoint,
+                descriptor.Description,
+                descriptor.Version,
+                descriptor.ServiceLogPath,
+            },
+        };
+
+        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true,
+        }));
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Updates an installed service bundle from a package and/or module manifest source.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <returns>Process exit code.</returns>
+    private static int UpdateService(ParsedCommand command)
+    {
+        if (string.IsNullOrWhiteSpace(command.ServiceName))
+        {
+            Console.Error.WriteLine("Service name is required. Use --name <value>.");
+            return 2;
+        }
+
+        if (command.ServiceFailback && (!string.IsNullOrWhiteSpace(command.KestrunManifestPath) || command.ServiceUseRepositoryKestrun))
+        {
+            Console.Error.WriteLine("--failback cannot be combined with --kestrun, --kestrun-module, or --kestrun-manifest.");
+            return 2;
+        }
+
+        if (command.ServiceUseRepositoryKestrun && !string.IsNullOrWhiteSpace(command.KestrunManifestPath))
+        {
+            Console.Error.WriteLine("--kestrun cannot be combined with --kestrun-module or --kestrun-manifest.");
+            return 2;
+        }
+
+        var hasPackageUpdate = !string.IsNullOrWhiteSpace(command.ServiceContentRoot);
+        var hasModuleUpdate = !string.IsNullOrWhiteSpace(command.KestrunManifestPath) || command.ServiceUseRepositoryKestrun;
+
+        if (!command.ServiceFailback && !hasPackageUpdate && !hasModuleUpdate)
+        {
+            Console.Error.WriteLine("Service update requires --package and/or --kestrun-module/--kestrun-manifest, or use --failback.");
+            return 2;
+        }
+
+        var serviceName = command.ServiceName;
+        if (!TryEnsureServiceIsStopped(serviceName, out var runningError))
+        {
+            Console.Error.WriteLine(runningError);
+            return 1;
+        }
+
+        if (!TryResolveInstalledServiceBundleRoot(serviceName, command.ServiceDeploymentRoot, out var serviceRootPath, out var resolutionError))
+        {
+            Console.Error.WriteLine(resolutionError);
+            return 1;
+        }
+
+        var scriptRoot = Path.Combine(serviceRootPath, ServiceBundleScriptDirectoryName);
+        var modulesRoot = Path.Combine(serviceRootPath, ServiceBundleModulesDirectoryName);
+        var moduleRoot = Path.Combine(modulesRoot, ModuleName);
+        var backupRoot = Path.Combine(serviceRootPath, "backup", DateTime.UtcNow.ToString("yyyyMMddHHmmss"));
+
+        if (command.ServiceFailback)
+        {
+            if (!TryFailbackServiceFromBackup(serviceRootPath, scriptRoot, moduleRoot, out var failbackSummary, out var failbackError))
+            {
+                Console.Error.WriteLine(failbackError);
+                return 1;
+            }
+
+            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(failbackSummary, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+            }));
+
+            return 0;
+        }
+
+        var applicationUpdated = false;
+        var moduleUpdated = false;
+        var serviceHostUpdated = false;
+
+        var scriptSource = CreateEmptyResolvedServiceScriptSource();
+        try
+        {
+            if (hasPackageUpdate)
+            {
+                if (!TryResolveServiceScriptSource(command, out scriptSource, out var scriptError))
+                {
+                    Console.Error.WriteLine(scriptError);
+                    return 2;
+                }
+
+                if (!TryResolveServiceInstallDescriptor(scriptRoot, out var runningDescriptor, out var currentDescriptorError))
+                {
+                    Console.Error.WriteLine(currentDescriptorError);
+                    return 1;
+                }
+
+                if (!TryParseServiceDescriptorVersion(runningDescriptor.Version, out var runningVersion, out var runningVersionError))
+                {
+                    Console.Error.WriteLine($"Unable to compare installed version: {runningVersionError}");
+                    return 1;
+                }
+
+                if (!TryParseServiceDescriptorVersion(scriptSource.DescriptorServiceVersion, out var packageVersion, out var packageVersionError))
+                {
+                    Console.Error.WriteLine($"Unable to compare package version: {packageVersionError}");
+                    return 1;
+                }
+
+                if (packageVersion <= runningVersion)
+                {
+                    Console.Error.WriteLine($"Package version '{packageVersion}' must be greater than installed version '{runningVersion}'.");
+                    return 1;
+                }
+
+                if (string.IsNullOrWhiteSpace(scriptSource.FullContentRoot) || !Directory.Exists(scriptSource.FullContentRoot))
+                {
+                    Console.Error.WriteLine("Resolved package content root is not available for update.");
+                    return 1;
+                }
+
+                if (!TryBackupDirectory(scriptRoot, Path.Combine(backupRoot, "application"), out var backupAppError))
+                {
+                    Console.Error.WriteLine(backupAppError);
+                    return 1;
+                }
+
+                if (!TryReplaceDirectoryFromSource(scriptSource.FullContentRoot, scriptRoot, "Updating service application", out var appReplaceError))
+                {
+                    Console.Error.WriteLine(appReplaceError);
+                    return 1;
+                }
+
+                applicationUpdated = true;
+            }
+
+            if (hasModuleUpdate)
+            {
+                var manifestPath = command.ServiceUseRepositoryKestrun
+                    ? ResolveRepositoryModuleManifestPath()
+                    : LocateModuleManifest(command.KestrunManifestPath, command.KestrunFolder);
+
+                if (manifestPath is null)
+                {
+                    if (command.ServiceUseRepositoryKestrun)
+                    {
+                        Console.Error.WriteLine("Unable to locate repository module manifest at 'src/PowerShell/Kestrun/Kestrun.psd1' from the current working tree.");
+                        return 1;
+                    }
+
+                    WriteModuleNotFoundMessage(command.KestrunManifestPath, command.KestrunFolder, Console.Error.WriteLine);
+                    return 3;
+                }
+
+                var sourceModuleRoot = Path.GetDirectoryName(Path.GetFullPath(manifestPath));
+                if (string.IsNullOrWhiteSpace(sourceModuleRoot) || !Directory.Exists(sourceModuleRoot))
+                {
+                    Console.Error.WriteLine($"Unable to resolve module root from manifest path: {manifestPath}");
+                    return 1;
+                }
+
+                if (command.ServiceUseRepositoryKestrun)
+                {
+                    var bundledManifestPath = Path.Combine(moduleRoot, ModuleManifestFileName);
+                    if (!TryEvaluateRepositoryModuleUpdateNeeded(manifestPath, bundledManifestPath, out var shouldUpdateBundledModule, out var moduleDecisionMessage, out var moduleDecisionError))
+                    {
+                        Console.Error.WriteLine(moduleDecisionError);
+                        return 1;
+                    }
+
+                    if (!shouldUpdateBundledModule)
+                    {
+                        Console.WriteLine(moduleDecisionMessage);
+                    }
+                    else
+                    {
+                        if (!TryBackupDirectory(moduleRoot, Path.Combine(backupRoot, "module"), out var backupModuleError))
+                        {
+                            Console.Error.WriteLine(backupModuleError);
+                            return 1;
+                        }
+
+                        if (!TryReplaceDirectoryFromSource(sourceModuleRoot, moduleRoot, "Updating bundled Kestrun module", out var moduleReplaceError, ServiceBundleModuleExclusionPatterns))
+                        {
+                            Console.Error.WriteLine(moduleReplaceError);
+                            return 1;
+                        }
+
+                        moduleUpdated = true;
+                    }
+                }
+                else
+                {
+                    if (!TryBackupDirectory(moduleRoot, Path.Combine(backupRoot, "module"), out var backupModuleError))
+                    {
+                        Console.Error.WriteLine(backupModuleError);
+                        return 1;
+                    }
+
+                    if (!TryReplaceDirectoryFromSource(sourceModuleRoot, moduleRoot, "Updating bundled Kestrun module", out var moduleReplaceError, ServiceBundleModuleExclusionPatterns))
+                    {
+                        Console.Error.WriteLine(moduleReplaceError);
+                        return 1;
+                    }
+
+                    moduleUpdated = true;
+                }
+            }
+
+            var runtimeDirectory = Path.Combine(serviceRootPath, ServiceBundleRuntimeDirectoryName);
+            if (!TryUpdateBundledServiceHostIfNewer(runtimeDirectory, Path.Combine(backupRoot, "servicehost"), out var hostUpdateError, out serviceHostUpdated))
+            {
+                Console.Error.WriteLine(hostUpdateError);
+                return 1;
+            }
+        }
+        finally
+        {
+            TryCleanupTemporaryServiceContentRoot(scriptSource.TemporaryContentRootPath);
+        }
+
+        var summary = new
+        {
+            ServiceName = serviceName,
+            ServicePath = serviceRootPath,
+            ApplicationUpdated = applicationUpdated,
+            ModuleUpdated = moduleUpdated,
+            ServiceHostUpdated = serviceHostUpdated,
+            BackupPath = Directory.Exists(backupRoot) ? backupRoot : null,
+        };
+
+        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(summary, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true,
+        }));
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Resolves the repository-local Kestrun manifest path by scanning current directory ancestors.
+    /// </summary>
+    /// <returns>Absolute manifest path when found; otherwise null.</returns>
+    private static string? ResolveRepositoryModuleManifestPath()
+    {
+        foreach (var parent in EnumerateDirectoryAndParents(Environment.CurrentDirectory))
+        {
+            var candidate = Path.Combine(parent, "src", "PowerShell", ModuleName, ModuleManifestFileName);
+            if (File.Exists(candidate))
+            {
+                return Path.GetFullPath(candidate);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Determines whether repository module content should replace the bundled module based on semantic version comparison.
+    /// </summary>
+    /// <param name="repositoryManifestPath">Repository Kestrun manifest path.</param>
+    /// <param name="bundledManifestPath">Bundled service module manifest path.</param>
+    /// <param name="shouldUpdate">True when the bundled module should be replaced.</param>
+    /// <param name="message">Decision summary message when no update is required.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when comparison succeeds.</returns>
+    private static bool TryEvaluateRepositoryModuleUpdateNeeded(
+        string repositoryManifestPath,
+        string bundledManifestPath,
+        out bool shouldUpdate,
+        out string message,
+        out string error)
+    {
+        shouldUpdate = false;
+        message = string.Empty;
+        error = string.Empty;
+
+        if (!TryReadModuleSemanticVersionFromManifest(repositoryManifestPath, out var repositoryVersion))
+        {
+            error = $"Unable to read ModuleVersion from repository manifest '{repositoryManifestPath}'.";
+            return false;
+        }
+
+        if (!File.Exists(bundledManifestPath))
+        {
+            shouldUpdate = true;
+            return true;
+        }
+
+        if (!TryReadModuleSemanticVersionFromManifest(bundledManifestPath, out var bundledVersion))
+        {
+            error = $"Unable to read ModuleVersion from bundled manifest '{bundledManifestPath}'.";
+            return false;
+        }
+
+        var comparison = CompareModuleVersionValues(repositoryVersion, bundledVersion);
+        if (comparison > 0)
+        {
+            shouldUpdate = true;
+            return true;
+        }
+
+        message = $"Bundled Kestrun module version '{bundledVersion}' is current or newer than repository version '{repositoryVersion}'. Skipping module update.";
+        return true;
+    }
+
+    /// <summary>
+    /// Restores service application/module directories from the latest backup folder and removes the consumed backup.
+    /// </summary>
+    /// <param name="serviceRootPath">Resolved service bundle root.</param>
+    /// <param name="scriptRoot">Target script root directory.</param>
+    /// <param name="moduleRoot">Target bundled module root directory.</param>
+    /// <param name="summary">Serialized summary payload.</param>
+    /// <param name="error">Failback error details.</param>
+    /// <returns>True when failback succeeds.</returns>
+    private static bool TryFailbackServiceFromBackup(
+        string serviceRootPath,
+        string scriptRoot,
+        string moduleRoot,
+        out object summary,
+        out string error)
+    {
+        summary = new { };
+        error = string.Empty;
+
+        if (!TryResolveLatestServiceBackupDirectory(serviceRootPath, out var latestBackupPath, out error))
+        {
+            return false;
+        }
+
+        var backupApplicationPath = Path.Combine(latestBackupPath, "application");
+        var backupModulePath = Path.Combine(latestBackupPath, "module");
+        var hasApplicationBackup = Directory.Exists(backupApplicationPath);
+        var hasModuleBackup = Directory.Exists(backupModulePath);
+
+        if (!hasApplicationBackup && !hasModuleBackup)
+        {
+            error = $"Backup '{latestBackupPath}' does not contain application or module content.";
+            return false;
+        }
+
+        if (hasApplicationBackup
+            && !TryReplaceDirectoryFromSource(backupApplicationPath, scriptRoot, "Failback service application", out var applicationRestoreError))
+        {
+            error = applicationRestoreError;
+            return false;
+        }
+
+        if (hasModuleBackup
+            && !TryReplaceDirectoryFromSource(backupModulePath, moduleRoot, "Failback bundled Kestrun module", out var moduleRestoreError))
+        {
+            error = moduleRestoreError;
+            return false;
+        }
+
+        try
+        {
+            TryDeleteDirectoryWithRetry(latestBackupPath, maxAttempts: 5, initialDelayMs: 50);
+        }
+        catch (Exception ex)
+        {
+            error = $"Failback succeeded but backup folder '{latestBackupPath}' could not be removed: {ex.Message}";
+            return false;
+        }
+
+        summary = new
+        {
+            ServicePath = serviceRootPath,
+            ApplicationReverted = hasApplicationBackup,
+            ModuleReverted = hasModuleBackup,
+            ConsumedBackupPath = latestBackupPath,
+            BackupRemoved = true,
+        };
+
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves the latest service backup directory from the service backup root.
+    /// </summary>
+    /// <param name="serviceRootPath">Resolved service bundle root.</param>
+    /// <param name="backupDirectoryPath">Resolved latest backup path.</param>
+    /// <param name="error">Resolution error details.</param>
+    /// <returns>True when a backup directory exists.</returns>
+    private static bool TryResolveLatestServiceBackupDirectory(string serviceRootPath, out string backupDirectoryPath, out string error)
+    {
+        backupDirectoryPath = string.Empty;
+        error = string.Empty;
+
+        var backupRoot = Path.Combine(serviceRootPath, "backup");
+        if (!Directory.Exists(backupRoot))
+        {
+            error = $"No backup folder found under '{backupRoot}'.";
+            return false;
+        }
+
+        var candidates = Directory
+            .GetDirectories(backupRoot)
+            .Select(static path => new
+            {
+                Path = path,
+                Name = Path.GetFileName(path),
+                LastWriteUtc = Directory.GetLastWriteTimeUtc(path),
+            })
+            .OrderByDescending(static candidate => candidate.Name)
+            .ThenByDescending(static candidate => candidate.LastWriteUtc)
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            error = $"No backup folder found under '{backupRoot}'.";
+            return false;
+        }
+
+        backupDirectoryPath = candidates[0].Path;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates that a descriptor version string is present and compatible with System.Version.
+    /// </summary>
+    /// <param name="descriptorVersion">Descriptor version string.</param>
+    /// <param name="version">Parsed version.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when version parsing succeeds.</returns>
+    private static bool TryParseServiceDescriptorVersion(string? descriptorVersion, out Version version, out string error)
+    {
+        version = new Version(0, 0);
+        error = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(descriptorVersion))
+        {
+            error = "Service descriptor Version is required for update comparison.";
+            return false;
+        }
+
+        if (!Version.TryParse(descriptorVersion.Trim(), out var parsedVersion) || parsedVersion is null)
+        {
+            error = $"Service descriptor Version '{descriptorVersion}' is not compatible with System.Version.";
+            return false;
+        }
+
+        version = parsedVersion;
+        return true;
+    }
+
+    /// <summary>
+    /// Returns false when the service is currently running.
+    /// </summary>
+    /// <param name="serviceName">Service name.</param>
+    /// <param name="error">State validation details.</param>
+    /// <returns>True when service is stopped or inactive.</returns>
+    private static bool TryEnsureServiceIsStopped(string serviceName, out string error)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var queryResult = RunProcess("sc.exe", ["query", serviceName], writeStandardOutput: false);
+            if (queryResult.ExitCode != 0)
+            {
+                error = string.IsNullOrWhiteSpace(queryResult.Error)
+                    ? $"Unable to query service '{serviceName}'."
+                    : queryResult.Error.Trim();
+                return false;
+            }
+
+            var stateLine = queryResult.Output
+                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .FirstOrDefault(static line => line.Contains("STATE", StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(stateLine) && stateLine.Contains("RUNNING", StringComparison.OrdinalIgnoreCase))
+            {
+                error = $"Service '{serviceName}' is running. Stop it before update.";
+                return false;
+            }
+
+            error = string.Empty;
+            return true;
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            var useSystemScope = IsLinuxSystemUnitInstalled(serviceName);
+            var unitName = GetLinuxUnitName(serviceName);
+            var activeResult = RunLinuxSystemctl(useSystemScope, ["is-active", unitName]);
+            if (activeResult.ExitCode == 0)
+            {
+                error = $"Service '{serviceName}' is running. Stop it before update.";
+                return false;
+            }
+
+            error = string.Empty;
+            return true;
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            var useSystemScope = IsMacSystemLaunchDaemonInstalled(serviceName);
+            var result = useSystemScope
+                ? RunProcess("launchctl", ["print", $"system/{serviceName}"])
+                : RunProcess("launchctl", ["list", serviceName]);
+
+            if (result.ExitCode == 0)
+            {
+                if (useSystemScope)
+                {
+                    var running = result.Output
+                        .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Any(static line => line.Contains("state = running", StringComparison.OrdinalIgnoreCase));
+
+                    if (running)
+                    {
+                        error = $"Service '{serviceName}' is running. Stop it before update.";
+                        return false;
+                    }
+                }
+                else
+                {
+                    var columns = result.Output.Split(['\t', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    if (columns.Length > 0 && int.TryParse(columns[0], out var pid) && pid > 0)
+                    {
+                        error = $"Service '{serviceName}' is running. Stop it before update.";
+                        return false;
+                    }
+                }
+            }
+
+            error = string.Empty;
+            return true;
+        }
+
+        error = "Service update is not supported on this OS.";
+        return false;
+    }
+
+    /// <summary>
+    /// Creates a backup copy of a directory when it exists.
+    /// </summary>
+    /// <param name="sourceDirectory">Directory to back up.</param>
+    /// <param name="backupDirectory">Backup destination directory.</param>
+    /// <param name="error">Backup error details.</param>
+    /// <returns>True when backup succeeds or source does not exist.</returns>
+    private static bool TryBackupDirectory(string sourceDirectory, string backupDirectory, out string error)
+    {
+        error = string.Empty;
+        if (!Directory.Exists(sourceDirectory))
+        {
+            return true;
+        }
+
+        try
+        {
+            _ = Directory.CreateDirectory(backupDirectory);
+            CopyDirectoryContents(sourceDirectory, backupDirectory, showProgress: false, "Creating backup", exclusionPatterns: null);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to back up '{sourceDirectory}' to '{backupDirectory}': {ex.Message}";
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Replaces a target directory from a source directory.
+    /// </summary>
+    /// <param name="sourceDirectory">Source directory.</param>
+    /// <param name="targetDirectory">Target directory.</param>
+    /// <param name="operationName">Operation label for progress output.</param>
+    /// <param name="error">Replacement error details.</param>
+    /// <param name="exclusionPatterns">Optional exclusion patterns.</param>
+    /// <returns>True when replacement succeeds.</returns>
+    private static bool TryReplaceDirectoryFromSource(
+        string sourceDirectory,
+        string targetDirectory,
+        string operationName,
+        out string error,
+        IReadOnlyList<string>? exclusionPatterns = null)
+    {
+        error = string.Empty;
+        try
+        {
+            if (Directory.Exists(targetDirectory))
+            {
+                Directory.Delete(targetDirectory, recursive: true);
+            }
+
+            _ = Directory.CreateDirectory(targetDirectory);
+            CopyDirectoryContents(sourceDirectory, targetDirectory, showProgress: !Console.IsOutputRedirected, operationName, exclusionPatterns);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to replace '{targetDirectory}' from '{sourceDirectory}': {ex.Message}";
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Updates bundled service-host binary when the tool-shipped host is newer.
+    /// </summary>
+    /// <param name="runtimeDirectory">Service runtime directory.</param>
+    /// <param name="backupDirectory">Backup directory for replaced host binary.</param>
+    /// <param name="error">Update error details.</param>
+    /// <param name="updated">True when host binary was replaced.</param>
+    /// <returns>True when host check/update succeeds.</returns>
+    private static bool TryUpdateBundledServiceHostIfNewer(string runtimeDirectory, string backupDirectory, out string error, out bool updated)
+    {
+        updated = false;
+        error = string.Empty;
+
+        if (!TryResolveDedicatedServiceHostExecutableFromToolDistribution(out var sourceHostPath))
+        {
+            error = "Unable to resolve bundled service-host from Kestrun.Tool distribution.";
+            return false;
+        }
+
+        var targetHostPath = Path.Combine(runtimeDirectory, Path.GetFileName(sourceHostPath));
+        if (!File.Exists(targetHostPath))
+        {
+            File.Copy(sourceHostPath, targetHostPath, overwrite: true);
+            if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+            {
+                TryEnsureServiceRuntimeExecutablePermissions(targetHostPath);
+            }
+
+            updated = true;
+            return true;
+        }
+
+        var shouldReplace = true;
+        if (TryReadFileVersion(sourceHostPath, out var sourceVersion)
+            && TryReadFileVersion(targetHostPath, out var targetVersion)
+            && sourceVersion is not null
+            && targetVersion is not null)
+        {
+            shouldReplace = sourceVersion > targetVersion;
+        }
+
+        if (!shouldReplace)
+        {
+            return true;
+        }
+
+        try
+        {
+            _ = Directory.CreateDirectory(backupDirectory);
+            File.Copy(targetHostPath, Path.Combine(backupDirectory, Path.GetFileName(targetHostPath)), overwrite: true);
+            File.Copy(sourceHostPath, targetHostPath, overwrite: true);
+            if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+            {
+                TryEnsureServiceRuntimeExecutablePermissions(targetHostPath);
+            }
+
+            updated = true;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to update bundled service-host: {ex.Message}";
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Reads file version metadata from a binary file.
+    /// </summary>
+    /// <param name="filePath">Binary file path.</param>
+    /// <param name="version">Parsed version when available.</param>
+    /// <returns>True when version parsing succeeds.</returns>
+    private static bool TryReadFileVersion(string filePath, out Version? version)
+    {
+        version = null;
+        try
+        {
+            var fileVersionInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(filePath);
+            if (!string.IsNullOrWhiteSpace(fileVersionInfo.FileVersion)
+                && Version.TryParse(fileVersionInfo.FileVersion, out var parsedFileVersion)
+                && parsedFileVersion is not null)
+            {
+                version = parsedFileVersion;
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(fileVersionInfo.ProductVersion)
+                && Version.TryParse(fileVersionInfo.ProductVersion, out var parsedProductVersion)
+                && parsedProductVersion is not null)
+            {
+                version = parsedProductVersion;
+                return true;
+            }
+
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Resolves an installed service bundle path by service name across deployment roots.
+    /// </summary>
+    /// <param name="serviceName">Service name.</param>
+    /// <param name="deploymentRootOverride">Optional deployment root override.</param>
+    /// <param name="serviceRootPath">Resolved service bundle root path.</param>
+    /// <param name="error">Resolution error details.</param>
+    /// <returns>True when a matching installed service bundle is found.</returns>
+    private static bool TryResolveInstalledServiceBundleRoot(string serviceName, string? deploymentRootOverride, out string serviceRootPath, out string error)
+    {
+        serviceRootPath = string.Empty;
+        error = string.Empty;
+
+        var serviceDirectoryName = GetServiceDeploymentDirectoryName(serviceName);
+        var candidateRoots = new List<string>();
+        if (!string.IsNullOrWhiteSpace(deploymentRootOverride))
+        {
+            candidateRoots.Add(deploymentRootOverride);
+        }
+
+        candidateRoots.AddRange(GetServiceDeploymentRootCandidates());
+
+        foreach (var root in candidateRoots.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                continue;
+            }
+
+            var serviceBaseRoot = Path.Combine(root, serviceDirectoryName);
+            if (!Directory.Exists(serviceBaseRoot))
+            {
+                continue;
+            }
+
+            var directDescriptorPath = Path.Combine(serviceBaseRoot, ServiceBundleScriptDirectoryName, ServiceDescriptorFileName);
+            if (File.Exists(directDescriptorPath))
+            {
+                serviceRootPath = Path.GetFullPath(serviceBaseRoot);
+                return true;
+            }
+
+            var versionedCandidates = Directory
+                .GetDirectories(serviceBaseRoot)
+                .Select(static dir => new
+                {
+                    Directory = dir,
+                    Name = Path.GetFileName(dir),
+                    DescriptorPath = Path.Combine(dir, ServiceBundleScriptDirectoryName, ServiceDescriptorFileName),
+                    LastWriteUtc = Directory.GetLastWriteTimeUtc(dir),
+                })
+                .Where(static candidate => File.Exists(candidate.DescriptorPath))
+                .ToList();
+
+            if (versionedCandidates.Count == 0)
+            {
+                continue;
+            }
+
+            var parsedVersionCandidates = versionedCandidates
+                .Select(candidate =>
+                {
+                    var parsed = Version.TryParse(candidate.Name, out var parsedVersion)
+                        ? parsedVersion
+                        : null;
+
+                    return new
+                    {
+                        candidate.Directory,
+                        ParsedVersion = parsed,
+                        candidate.LastWriteUtc,
+                    };
+                })
+                .OrderByDescending(static candidate => candidate.ParsedVersion)
+                .ThenByDescending(static candidate => candidate.LastWriteUtc)
+                .ToList();
+
+            serviceRootPath = Path.GetFullPath(parsedVersionCandidates[0].Directory);
+            return true;
+        }
+
+        error = $"Installed service bundle not found for '{serviceName}'.";
+        return false;
+    }
+
+    /// <summary>
     /// Starts a Windows service using sc.exe.
     /// </summary>
     /// <param name="serviceName">Service name.</param>

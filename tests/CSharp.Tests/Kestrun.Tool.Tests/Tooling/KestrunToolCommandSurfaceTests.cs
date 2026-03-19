@@ -641,6 +641,167 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInfo_WithName_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "info",
+            "--name",
+            "demo",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal("ServiceInfo", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal("demo", GetParsedCommandField(ParsedCommand!, "ServiceName"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceUpdate_WithNameAndPackage_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "update",
+            "--name",
+            "demo",
+            "--package",
+            "./demo.krpack",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal("ServiceUpdate", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal("demo", GetParsedCommandField(ParsedCommand!, "ServiceName"));
+        Assert.Equal("./demo.krpack", GetParsedCommandField(ParsedCommand!, "ServiceContentRoot"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceUpdate_WithKestrunModuleAlias_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "update",
+            "--name",
+            "demo",
+            "--kestrunModule",
+            "./src/PowerShell/Kestrun/Kestrun.psd1",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal("ServiceUpdate", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal("./src/PowerShell/Kestrun/Kestrun.psd1", GetParsedCommandField(ParsedCommand!, "KestrunManifestPath"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceUpdate_WithFailback_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "update",
+            "--name",
+            "demo",
+            "--failback",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal("ServiceUpdate", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal("True", GetParsedCommandField(ParsedCommand!, "ServiceFailback"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceUpdate_WithFailbackAndPackage_Fails()
+    {
+        var (Success, _, Error) = InvokeTryParseArguments([
+            "service",
+            "update",
+            "--name",
+            "demo",
+            "--failback",
+            "--package",
+            "./demo.krpack",
+        ]);
+
+        Assert.False(Success);
+        Assert.Contains("cannot be combined", Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceUpdate_WithKestrunSwitch_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "update",
+            "--name",
+            "demo",
+            "--kestrun",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal("ServiceUpdate", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal("True", GetParsedCommandField(ParsedCommand!, "ServiceUseRepositoryKestrun"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceUpdate_WithFailbackAndKestrun_Fails()
+    {
+        var (Success, _, Error) = InvokeTryParseArguments([
+            "service",
+            "update",
+            "--name",
+            "demo",
+            "--failback",
+            "--kestrun",
+        ]);
+
+        Assert.False(Success);
+        Assert.Contains("cannot be combined", Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveInstalledServiceBundleRoot_WithVersionedBundle_PicksLatestVersion()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            var serviceDirectoryName = InvokeGetServiceDeploymentDirectoryName("Demo.Service");
+            var baseRoot = Path.Combine(tempRoot, serviceDirectoryName);
+            var olderRoot = Path.Combine(baseRoot, "1.0.0");
+            var newerRoot = Path.Combine(baseRoot, "2.0.0");
+
+            _ = Directory.CreateDirectory(Path.Combine(olderRoot, "script"));
+            _ = Directory.CreateDirectory(Path.Combine(newerRoot, "script"));
+
+            var descriptorText = "@{`n    FormatVersion = '1.0'`n    Name = 'Demo.Service'`n    Description = 'demo'`n    EntryPoint = 'server.ps1'`n}";
+            File.WriteAllText(Path.Combine(olderRoot, "script", "Service.psd1"), descriptorText, Encoding.UTF8);
+            File.WriteAllText(Path.Combine(newerRoot, "script", "Service.psd1"), descriptorText, Encoding.UTF8);
+
+            var (Success, ServiceRootPath, Error) = InvokeTryResolveInstalledServiceBundleRoot("Demo.Service", tempRoot);
+
+            Assert.True(Success, Error);
+            Assert.True(string.IsNullOrWhiteSpace(Error));
+            Assert.Equal(Path.GetFullPath(newerRoot), Path.GetFullPath(ServiceRootPath));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void TryParseArguments_ServiceInstall_WithContentRootAndName_Fails()
     {
         var (Success, _, Error) = InvokeTryParseArguments([
@@ -2133,6 +2294,20 @@ public class KestrunToolCommandSurfaceTests
         var error = values[2]?.ToString() ?? string.Empty;
         return (success, runtimePath, error);
     }
+
+    private static (bool Success, string ServiceRootPath, string Error) InvokeTryResolveInstalledServiceBundleRoot(string serviceName, string deploymentRootOverride)
+    {
+        var method = GetRequiredProgramMethod("TryResolveInstalledServiceBundleRoot");
+
+        var values = new object?[] { serviceName, deploymentRootOverride, null, null };
+        var success = InvokeRequiredBool(method, values);
+        var serviceRootPath = values[2]?.ToString() ?? string.Empty;
+        var error = values[3]?.ToString() ?? string.Empty;
+        return (success, serviceRootPath, error);
+    }
+
+    private static string InvokeGetServiceDeploymentDirectoryName(string serviceName)
+        => Assert.IsType<string>(InvokeRaw("GetServiceDeploymentDirectoryName", [serviceName]));
 
     private static (bool Success, object? Bundle, string BundleRootPath, string RuntimeExecutablePath, string ScriptPath, string ModuleManifestPath, string Error)
         InvokeTryPrepareServiceBundle(

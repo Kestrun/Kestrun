@@ -43,10 +43,12 @@ internal static partial class Program
         ModuleRemove,
         ModuleInfo,
         ServiceInstall,
+        ServiceUpdate,
         ServiceRemove,
         ServiceStart,
         ServiceStop,
         ServiceQuery,
+        ServiceInfo,
     }
 
     private enum ModuleCommandAction
@@ -83,7 +85,9 @@ internal static partial class Program
         string? ServiceContentRootChecksumAlgorithm,
         string? ServiceContentRootBearerToken,
         bool ServiceContentRootIgnoreCertificate,
-        string[] ServiceContentRootHeaders);
+        string[] ServiceContentRootHeaders,
+        bool ServiceFailback = false,
+        bool ServiceUseRepositoryKestrun = false);
 
     private sealed record ServiceRegisterOptions(
         string ServiceName,

@@ -22,8 +22,14 @@ function Get-KrServiceDescriptor {
     if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
         throw "Descriptor file not found: $fullPath"
     }
-
     $descriptor = Import-PowerShellDataFile -LiteralPath $fullPath
+    if (-not $descriptor -or -not ($descriptor -is [hashtable])) {
+        throw "Descriptor file '$fullPath' is not a valid hashtable."
+    }
+    if (-not (Test-KrServiceDescriptorData -Descriptor $descriptor -DescriptorPath $fullPath -PackageRoot ([System.IO.Path]::GetDirectoryName($fullPath)))) {
+        throw "Descriptor file '$fullPath' failed validation."
+    }
+
     $requiredKeys = @('Name', 'Description', 'Version')
     foreach ($key in $requiredKeys) {
         if (-not $descriptor.ContainsKey($key) -or [string]::IsNullOrWhiteSpace([string]$descriptor[$key])) {

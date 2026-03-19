@@ -48,7 +48,7 @@ jobs:
                         ubuntu-24.04-arm,
                         windows-11-arm,
                     ]
-                pwsh: ["7.4.13", "latest", "7.6-rc"]
+                pwsh: ["7.4.14", "7.5.5", "latest" ]
         runs-on: ${{ matrix.os }}
 
         defaults:

@@ -1602,46 +1602,74 @@ internal static partial class Program
         var extractedContentRoot = CreateServiceContentRootExtractionDirectory(command.ServiceName);
         try
         {
-            if (!TryExtractServiceContentRootArchive(fullContentRoot, extractedContentRoot, out error))
-            {
-                TryDeleteDirectoryWithRetry(extractedContentRoot, maxAttempts: 5, initialDelayMs: 50);
-                return false;
-            }
-
-            if (!TryResolveServiceInstallDescriptor(extractedContentRoot, out var descriptor, out error))
-            {
-                TryDeleteDirectoryWithRetry(extractedContentRoot, maxAttempts: 5, initialDelayMs: 50);
-                return false;
-            }
-
-            if (!TryResolveServiceDescriptorScriptPath(requestedScriptPath, descriptor, out var resolvedScriptPath, out error))
-            {
-                TryDeleteDirectoryWithRetry(extractedContentRoot, maxAttempts: 5, initialDelayMs: 50);
-                return false;
-            }
-
-            if (!TryResolveScriptFromResolvedContentRoot(
-                    resolvedScriptPath,
+            if (TryResolveServiceScriptFromExtractedArchiveContentRoot(
+                    requestedScriptPath,
+                    fullContentRoot,
                     extractedContentRoot,
-                    $"Script path '{resolvedScriptPath}' escapes the extracted archive content root.",
-                    $"Script file '{resolvedScriptPath}' was not found inside extracted archive '{fullContentRoot}'.",
-                    extractedContentRoot,
-                    out scriptSource,
+                    out var extractedScriptSource,
                     out error))
             {
-                TryDeleteDirectoryWithRetry(extractedContentRoot, maxAttempts: 5, initialDelayMs: 50);
-                return false;
+                scriptSource = extractedScriptSource;
+                return true;
             }
 
-            scriptSource = ApplyDescriptorMetadata(scriptSource, descriptor);
-
-            return true;
+            TryDeleteDirectoryWithRetry(extractedContentRoot, maxAttempts: 5, initialDelayMs: 50);
+            return false;
         }
         catch
         {
             TryDeleteDirectoryWithRetry(extractedContentRoot, maxAttempts: 5, initialDelayMs: 50);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Resolves service script source from an already-created extraction directory for a local archive content root.
+    /// </summary>
+    /// <param name="requestedScriptPath">Requested script path.</param>
+    /// <param name="fullContentRoot">Absolute archive path.</param>
+    /// <param name="extractedContentRoot">Archive extraction directory path.</param>
+    /// <param name="scriptSource">Resolved script source details.</param>
+    /// <param name="error">Error details when validation fails.</param>
+    /// <returns>True when script source resolution succeeds.</returns>
+    private static bool TryResolveServiceScriptFromExtractedArchiveContentRoot(
+        string requestedScriptPath,
+        string fullContentRoot,
+        string extractedContentRoot,
+        out ResolvedServiceScriptSource scriptSource,
+        out string error)
+    {
+        scriptSource = CreateEmptyResolvedServiceScriptSource();
+
+        if (!TryExtractServiceContentRootArchive(fullContentRoot, extractedContentRoot, out error))
+        {
+            return false;
+        }
+
+        if (!TryResolveServiceInstallDescriptor(extractedContentRoot, out var descriptor, out error))
+        {
+            return false;
+        }
+
+        if (!TryResolveServiceDescriptorScriptPath(requestedScriptPath, descriptor, out var resolvedScriptPath, out error))
+        {
+            return false;
+        }
+
+        if (!TryResolveScriptFromResolvedContentRoot(
+                resolvedScriptPath,
+                extractedContentRoot,
+                $"Script path '{resolvedScriptPath}' escapes the extracted archive content root.",
+                $"Script file '{resolvedScriptPath}' was not found inside extracted archive '{fullContentRoot}'.",
+                extractedContentRoot,
+                out scriptSource,
+                out error))
+        {
+            return false;
+        }
+
+        scriptSource = ApplyDescriptorMetadata(scriptSource, descriptor);
+        return true;
     }
 
     /// <summary>
@@ -1764,86 +1792,25 @@ internal static partial class Program
     private static bool TryResolveServiceInstallDescriptor(string fullContentRoot, out ServiceInstallDescriptor descriptor, out string error)
     {
         descriptor = new ServiceInstallDescriptor(string.Empty, string.Empty, string.Empty, string.Empty, null, null, []);
-        var descriptorPath = Path.Combine(fullContentRoot, ServiceDescriptorFileName);
-        if (!File.Exists(descriptorPath))
-        {
-            error = $"Service descriptor file '{ServiceDescriptorFileName}' was not found at content-root '{fullContentRoot}'.";
-            return false;
-        }
-
-        string descriptorText;
-        try
-        {
-            descriptorText = File.ReadAllText(descriptorPath, Encoding.UTF8);
-        }
-        catch (Exception ex)
-        {
-            error = $"Failed to read service descriptor '{descriptorPath}': {ex.Message}";
-            return false;
-        }
-
-        // Some tests and generated fixtures write PowerShell escaped newlines (`n / `r`n) as literal text.
-        // Normalize those sequences so key parsing behaves like a regular multi-line psd1 document.
-        descriptorText = NormalizeServiceDescriptorText(descriptorText);
-
-        if (!TryGetServiceDescriptorStringValue(descriptorText, "Name", required: true, out var name, out error)
-            || !TryGetServiceDescriptorStringValue(descriptorText, "Description", required: true, out var description, out error))
+        if (!TryReadNormalizedServiceDescriptorText(fullContentRoot, out var descriptorText, out error))
         {
             return false;
         }
 
-        _ = TryGetServiceDescriptorStringValue(descriptorText, "FormatVersion", required: false, out var formatVersion, out _);
-
-        string entryPoint;
-        string? version = null;
-        if (string.IsNullOrWhiteSpace(formatVersion))
+        if (!TryResolveServiceDescriptorCoreFields(descriptorText, out var name, out var description, out var formatVersion, out error))
         {
-            if (!TryGetServiceDescriptorStringValue(descriptorText, "Script", required: false, out entryPoint, out error))
-            {
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(entryPoint))
-            {
-                entryPoint = DefaultScriptFileName;
-            }
-
-            _ = TryGetServiceDescriptorStringValue(descriptorText, "Version", required: false, out var rawVersion, out _);
-            if (!string.IsNullOrWhiteSpace(rawVersion))
-            {
-                if (!Version.TryParse(rawVersion.Trim(), out _))
-                {
-                    error = $"Service descriptor '{ServiceDescriptorFileName}' key 'Version' must be compatible with System.Version.";
-                    return false;
-                }
-
-                version = rawVersion.Trim();
-            }
+            return false;
         }
-        else
+
+        if (!TryResolveServiceDescriptorEntryPointAndVersion(
+                descriptorText,
+                formatVersion,
+                out var normalizedFormatVersion,
+                out var entryPoint,
+                out var version,
+                out error))
         {
-            if (!string.Equals(formatVersion.Trim(), "1.0", StringComparison.Ordinal))
-            {
-                error = "Service descriptor FormatVersion must be '1.0'.";
-                return false;
-            }
-
-            if (!TryGetServiceDescriptorStringValue(descriptorText, "EntryPoint", required: true, out entryPoint, out error))
-            {
-                return false;
-            }
-
-            _ = TryGetServiceDescriptorStringValue(descriptorText, "Version", required: false, out var rawVersion, out _);
-            if (!string.IsNullOrWhiteSpace(rawVersion))
-            {
-                if (!Version.TryParse(rawVersion.Trim(), out _))
-                {
-                    error = $"Service descriptor '{ServiceDescriptorFileName}' key 'Version' must be compatible with System.Version.";
-                    return false;
-                }
-
-                version = rawVersion.Trim();
-            }
+            return false;
         }
 
         _ = TryGetServiceDescriptorStringValue(descriptorText, "ServiceLogPath", required: false, out var serviceLogPath, out _);
@@ -1854,13 +1821,157 @@ internal static partial class Program
         }
 
         descriptor = new ServiceInstallDescriptor(
-            string.IsNullOrWhiteSpace(formatVersion) ? "legacy" : formatVersion.Trim(),
+            normalizedFormatVersion,
             name,
             entryPoint,
             description,
             version,
             string.IsNullOrWhiteSpace(serviceLogPath) ? null : serviceLogPath,
             preservePaths);
+        return true;
+    }
+
+    /// <summary>
+    /// Reads service descriptor text from disk and normalizes escaped newlines for regex parsing.
+    /// </summary>
+    /// <param name="fullContentRoot">Absolute content-root directory path.</param>
+    /// <param name="descriptorText">Normalized service descriptor text.</param>
+    /// <param name="error">Error details when file resolution or read fails.</param>
+    /// <returns>True when descriptor text is available and normalized.</returns>
+    private static bool TryReadNormalizedServiceDescriptorText(string fullContentRoot, out string descriptorText, out string error)
+    {
+        descriptorText = string.Empty;
+        var descriptorPath = Path.Combine(fullContentRoot, ServiceDescriptorFileName);
+        if (!File.Exists(descriptorPath))
+        {
+            error = $"Service descriptor file '{ServiceDescriptorFileName}' was not found at content-root '{fullContentRoot}'.";
+            return false;
+        }
+
+        try
+        {
+            descriptorText = File.ReadAllText(descriptorPath, Encoding.UTF8);
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to read service descriptor '{descriptorPath}': {ex.Message}";
+            return false;
+        }
+
+        descriptorText = NormalizeServiceDescriptorText(descriptorText);
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves required descriptor core fields and optional format version.
+    /// </summary>
+    /// <param name="descriptorText">Normalized service descriptor text.</param>
+    /// <param name="name">Resolved service name.</param>
+    /// <param name="description">Resolved service description.</param>
+    /// <param name="formatVersion">Optional format version token.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when required core fields are valid.</returns>
+    private static bool TryResolveServiceDescriptorCoreFields(
+        string descriptorText,
+        out string name,
+        out string description,
+        out string formatVersion,
+        out string error)
+    {
+        if (!TryGetServiceDescriptorStringValue(descriptorText, "Name", required: true, out name, out error))
+        {
+            description = string.Empty;
+            formatVersion = string.Empty;
+            return false;
+        }
+
+        if (!TryGetServiceDescriptorStringValue(descriptorText, "Description", required: true, out description, out error))
+        {
+            formatVersion = string.Empty;
+            return false;
+        }
+
+        _ = TryGetServiceDescriptorStringValue(descriptorText, "FormatVersion", required: false, out formatVersion, out _);
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves descriptor entrypoint/version fields for legacy and format-1.0 descriptors.
+    /// </summary>
+    /// <param name="descriptorText">Normalized service descriptor text.</param>
+    /// <param name="formatVersion">Optional format version token.</param>
+    /// <param name="normalizedFormatVersion">Normalized format marker used by runtime metadata.</param>
+    /// <param name="entryPoint">Resolved script entrypoint path.</param>
+    /// <param name="version">Optional parsed version string.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when entrypoint/version resolution succeeds.</returns>
+    private static bool TryResolveServiceDescriptorEntryPointAndVersion(
+        string descriptorText,
+        string formatVersion,
+        out string normalizedFormatVersion,
+        out string entryPoint,
+        out string? version,
+        out string error)
+    {
+        version = null;
+
+        if (string.IsNullOrWhiteSpace(formatVersion))
+        {
+            normalizedFormatVersion = "legacy";
+            if (!TryGetServiceDescriptorStringValue(descriptorText, "Script", required: false, out entryPoint, out error))
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(entryPoint))
+            {
+                entryPoint = DefaultScriptFileName;
+            }
+
+            return TryResolveOptionalServiceDescriptorVersion(descriptorText, out version, out error);
+        }
+
+        var trimmedFormatVersion = formatVersion.Trim();
+        normalizedFormatVersion = trimmedFormatVersion;
+        if (!string.Equals(trimmedFormatVersion, "1.0", StringComparison.Ordinal))
+        {
+            entryPoint = string.Empty;
+            error = "Service descriptor FormatVersion must be '1.0'.";
+            return false;
+        }
+
+        return TryGetServiceDescriptorStringValue(descriptorText, "EntryPoint", required: true, out entryPoint, out error)
+            && TryResolveOptionalServiceDescriptorVersion(descriptorText, out version, out error);
+    }
+
+    /// <summary>
+    /// Resolves and validates optional descriptor version metadata.
+    /// </summary>
+    /// <param name="descriptorText">Normalized service descriptor text.</param>
+    /// <param name="version">Resolved version string when present.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when version is absent or parseable by <see cref="Version"/>.</returns>
+    private static bool TryResolveOptionalServiceDescriptorVersion(string descriptorText, out string? version, out string error)
+    {
+        version = null;
+        _ = TryGetServiceDescriptorStringValue(descriptorText, "Version", required: false, out var rawVersion, out _);
+        if (string.IsNullOrWhiteSpace(rawVersion))
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        var trimmedVersion = rawVersion.Trim();
+        if (!Version.TryParse(trimmedVersion, out _))
+        {
+            error = $"Service descriptor '{ServiceDescriptorFileName}' key 'Version' must be compatible with System.Version.";
+            return false;
+        }
+
+        version = trimmedVersion;
+        error = string.Empty;
         return true;
     }
 

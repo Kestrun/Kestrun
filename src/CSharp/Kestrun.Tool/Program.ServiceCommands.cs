@@ -724,253 +724,521 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int UpdateService(ParsedCommand command)
     {
-        if (command.ServiceFailback && (!string.IsNullOrWhiteSpace(command.KestrunManifestPath) || command.ServiceUseRepositoryKestrun))
+        if (!TryValidateUpdateServiceCommand(command, out var hasPackageUpdate, out var hasModuleUpdate, out var validationExitCode))
         {
-            Console.Error.WriteLine("--failback cannot be combined with --kestrun, --kestrun-module, or --kestrun-manifest.");
-            return 2;
+            return validationExitCode;
         }
 
-        if (command.ServiceUseRepositoryKestrun && !string.IsNullOrWhiteSpace(command.KestrunManifestPath))
+        if (!TryResolveUpdateServiceIdentity(command, hasPackageUpdate, out var serviceName, out var scriptSource, out var packageSourceResolved, out var identityExitCode))
         {
-            Console.Error.WriteLine("--kestrun cannot be combined with --kestrun-module or --kestrun-manifest.");
-            return 2;
+            return identityExitCode;
         }
-
-        var hasPackageUpdate = !string.IsNullOrWhiteSpace(command.ServiceContentRoot);
-        var hasModuleUpdate = !string.IsNullOrWhiteSpace(command.KestrunManifestPath) || command.ServiceUseRepositoryKestrun;
-
-        if (!command.ServiceFailback && !hasPackageUpdate && !hasModuleUpdate)
-        {
-            Console.Error.WriteLine("Service update requires --package and/or --kestrun-module/--kestrun-manifest, or use --failback.");
-            return 2;
-        }
-
-        var scriptSource = CreateEmptyResolvedServiceScriptSource();
-        var packageSourceResolved = false;
-
-        var serviceName = command.ServiceName;
-        if (string.IsNullOrWhiteSpace(serviceName))
-        {
-            if (!hasPackageUpdate)
-            {
-                Console.Error.WriteLine("Service name is required. Use --name <value>.");
-                return 2;
-            }
-
-            if (!TryResolveServiceScriptSource(command, out scriptSource, out var scriptError))
-            {
-                Console.Error.WriteLine(scriptError);
-                return 2;
-            }
-
-            packageSourceResolved = true;
-            if (string.IsNullOrWhiteSpace(scriptSource.DescriptorServiceName))
-            {
-                Console.Error.WriteLine("Service name is required in Service.psd1 (Name) when using --package.");
-                return 2;
-            }
-
-            serviceName = scriptSource.DescriptorServiceName;
-        }
-
-        if (!TryEnsureServiceIsStopped(serviceName, out var runningError))
-        {
-            Console.Error.WriteLine(runningError);
-            return 1;
-        }
-
-        if (!TryResolveInstalledServiceBundleRoot(serviceName, command.ServiceDeploymentRoot, out var serviceRootPath, out var resolutionError))
-        {
-            Console.Error.WriteLine(resolutionError);
-            return 1;
-        }
-
-        var scriptRoot = Path.Combine(serviceRootPath, ServiceBundleScriptDirectoryName);
-        var modulesRoot = Path.Combine(serviceRootPath, ServiceBundleModulesDirectoryName);
-        var moduleRoot = Path.Combine(modulesRoot, ModuleName);
-        var backupRoot = Path.Combine(serviceRootPath, "backup", DateTime.UtcNow.ToString("yyyyMMddHHmmss"));
-
-        if (command.ServiceFailback)
-        {
-            if (!TryFailbackServiceFromBackup(serviceRootPath, scriptRoot, moduleRoot, out var failbackSummary, out var failbackError))
-            {
-                Console.Error.WriteLine(failbackError);
-                return 1;
-            }
-
-            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(failbackSummary, new System.Text.Json.JsonSerializerOptions
-            {
-                WriteIndented = true,
-            }));
-
-            return 0;
-        }
-
-        var applicationUpdated = false;
-        var moduleUpdated = false;
-        var serviceHostUpdated = false;
 
         try
         {
-            if (hasPackageUpdate)
+            if (!TryEnsureServiceIsStopped(serviceName, out var runningError))
             {
-                if (!packageSourceResolved && !TryResolveServiceScriptSource(command, out scriptSource, out var scriptError))
-                {
-                    Console.Error.WriteLine(scriptError);
-                    return 2;
-                }
-
-                if (!TryResolveServiceInstallDescriptor(scriptRoot, out var runningDescriptor, out var currentDescriptorError))
-                {
-                    Console.Error.WriteLine(currentDescriptorError);
-                    return 1;
-                }
-
-                if (!TryValidateServicePackageVersionUpdate(
-                        runningDescriptor.Version,
-                        scriptSource.DescriptorServiceVersion,
-                        out _,
-                        out var versionWarning,
-                        out var versionValidationError))
-                {
-                    Console.Error.WriteLine(versionValidationError);
-                    return 1;
-                }
-
-                if (!string.IsNullOrWhiteSpace(versionWarning))
-                {
-                    Console.WriteLine(versionWarning);
-                }
-
-                if (string.IsNullOrWhiteSpace(scriptSource.FullContentRoot) || !Directory.Exists(scriptSource.FullContentRoot))
-                {
-                    Console.Error.WriteLine("Resolved package content root is not available for update.");
-                    return 1;
-                }
-
-                if (!TryBackupDirectory(scriptRoot, Path.Combine(backupRoot, "application"), out var backupAppError))
-                {
-                    Console.Error.WriteLine(backupAppError);
-                    return 1;
-                }
-
-                if (!TryReplaceDirectoryFromSource(
-                        scriptSource.FullContentRoot,
-                        scriptRoot,
-                        "Updating service application",
-                        out var appReplaceError,
-                        exclusionPatterns: null,
-                        preserveRelativePaths: scriptSource.DescriptorPreservePaths))
-                {
-                    Console.Error.WriteLine(appReplaceError);
-                    return 1;
-                }
-
-                applicationUpdated = true;
-            }
-
-            if (hasModuleUpdate)
-            {
-                var manifestPath = command.ServiceUseRepositoryKestrun
-                    ? ResolveRepositoryModuleManifestPath()
-                    : LocateModuleManifest(command.KestrunManifestPath, command.KestrunFolder);
-
-                if (manifestPath is null)
-                {
-                    if (command.ServiceUseRepositoryKestrun)
-                    {
-                        Console.Error.WriteLine("Unable to locate repository module manifest at 'src/PowerShell/Kestrun/Kestrun.psd1' from the current working tree.");
-                        return 1;
-                    }
-
-                    WriteModuleNotFoundMessage(command.KestrunManifestPath, command.KestrunFolder, Console.Error.WriteLine);
-                    return 3;
-                }
-
-                var sourceModuleRoot = Path.GetDirectoryName(Path.GetFullPath(manifestPath));
-                if (string.IsNullOrWhiteSpace(sourceModuleRoot) || !Directory.Exists(sourceModuleRoot))
-                {
-                    Console.Error.WriteLine($"Unable to resolve module root from manifest path: {manifestPath}");
-                    return 1;
-                }
-
-                if (command.ServiceUseRepositoryKestrun)
-                {
-                    var bundledManifestPath = Path.Combine(moduleRoot, ModuleManifestFileName);
-                    if (!TryEvaluateRepositoryModuleUpdateNeeded(manifestPath, bundledManifestPath, out var shouldUpdateBundledModule, out var moduleDecisionMessage, out var moduleDecisionError))
-                    {
-                        Console.Error.WriteLine(moduleDecisionError);
-                        return 1;
-                    }
-
-                    if (!shouldUpdateBundledModule)
-                    {
-                        Console.WriteLine(moduleDecisionMessage);
-                    }
-                    else
-                    {
-                        if (!TryBackupDirectory(moduleRoot, Path.Combine(backupRoot, "module"), out var backupModuleError))
-                        {
-                            Console.Error.WriteLine(backupModuleError);
-                            return 1;
-                        }
-
-                        if (!TryReplaceDirectoryFromSource(sourceModuleRoot, moduleRoot, "Updating bundled Kestrun module", out var moduleReplaceError, ServiceBundleModuleExclusionPatterns))
-                        {
-                            Console.Error.WriteLine(moduleReplaceError);
-                            return 1;
-                        }
-
-                        moduleUpdated = true;
-                    }
-                }
-                else
-                {
-                    if (!TryBackupDirectory(moduleRoot, Path.Combine(backupRoot, "module"), out var backupModuleError))
-                    {
-                        Console.Error.WriteLine(backupModuleError);
-                        return 1;
-                    }
-
-                    if (!TryReplaceDirectoryFromSource(sourceModuleRoot, moduleRoot, "Updating bundled Kestrun module", out var moduleReplaceError, ServiceBundleModuleExclusionPatterns))
-                    {
-                        Console.Error.WriteLine(moduleReplaceError);
-                        return 1;
-                    }
-
-                    moduleUpdated = true;
-                }
-            }
-
-            var runtimeDirectory = Path.Combine(serviceRootPath, ServiceBundleRuntimeDirectoryName);
-            if (!TryUpdateBundledServiceHostIfNewer(runtimeDirectory, Path.Combine(backupRoot, "servicehost"), out var hostUpdateError, out serviceHostUpdated))
-            {
-                Console.Error.WriteLine(hostUpdateError);
+                Console.Error.WriteLine(runningError);
                 return 1;
             }
+
+            if (!TryResolveServiceUpdatePaths(serviceName, command.ServiceDeploymentRoot, out var paths, out var pathExitCode))
+            {
+                return pathExitCode;
+            }
+
+            if (command.ServiceFailback)
+            {
+                return TryExecuteServiceFailback(paths, out var failbackExitCode)
+                    ? 0
+                    : failbackExitCode;
+            }
+
+            if (!TryApplyServicePackageUpdate(command, hasPackageUpdate, paths, ref scriptSource, ref packageSourceResolved, out var applicationUpdated, out var packageExitCode))
+            {
+                return packageExitCode;
+            }
+
+            if (!TryApplyServiceModuleUpdate(command, hasModuleUpdate, paths, out var moduleUpdated, out var moduleExitCode))
+            {
+                return moduleExitCode;
+            }
+
+            if (!TryApplyServiceHostUpdate(paths, out var serviceHostUpdated, out var hostExitCode))
+            {
+                return hostExitCode;
+            }
+
+            WriteServiceUpdateSummary(serviceName, paths, applicationUpdated, moduleUpdated, serviceHostUpdated);
+            return 0;
         }
         finally
         {
             TryCleanupTemporaryServiceContentRoot(scriptSource.TemporaryContentRootPath);
         }
+    }
 
+    /// <summary>
+    /// Validates the supported option combinations for service update.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <param name="hasPackageUpdate">True when package/content-root update was requested.</param>
+    /// <param name="hasModuleUpdate">True when module update was requested.</param>
+    /// <param name="exitCode">Validation exit code when invalid options are supplied.</param>
+    /// <returns>True when option combinations are valid.</returns>
+    private static bool TryValidateUpdateServiceCommand(
+        ParsedCommand command,
+        out bool hasPackageUpdate,
+        out bool hasModuleUpdate,
+        out int exitCode)
+    {
+        hasPackageUpdate = !string.IsNullOrWhiteSpace(command.ServiceContentRoot);
+        hasModuleUpdate = !string.IsNullOrWhiteSpace(command.KestrunManifestPath) || command.ServiceUseRepositoryKestrun;
+        exitCode = 0;
+
+        if (command.ServiceFailback && (!string.IsNullOrWhiteSpace(command.KestrunManifestPath) || command.ServiceUseRepositoryKestrun))
+        {
+            Console.Error.WriteLine("--failback cannot be combined with --kestrun, --kestrun-module, or --kestrun-manifest.");
+            exitCode = 2;
+            return false;
+        }
+
+        if (command.ServiceUseRepositoryKestrun && !string.IsNullOrWhiteSpace(command.KestrunManifestPath))
+        {
+            Console.Error.WriteLine("--kestrun cannot be combined with --kestrun-module or --kestrun-manifest.");
+            exitCode = 2;
+            return false;
+        }
+
+        if (!command.ServiceFailback && !hasPackageUpdate && !hasModuleUpdate)
+        {
+            Console.Error.WriteLine("Service update requires --package and/or --kestrun-module/--kestrun-manifest, or use --failback.");
+            exitCode = 2;
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves service identity and initial package metadata required by update and failback flows.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <param name="hasPackageUpdate">True when package/content-root update was requested.</param>
+    /// <param name="serviceName">Resolved service name.</param>
+    /// <param name="scriptSource">Resolved package script source when required.</param>
+    /// <param name="packageSourceResolved">True when <paramref name="scriptSource"/> was resolved.</param>
+    /// <param name="exitCode">Exit code when identity resolution fails.</param>
+    /// <returns>True when identity resolution succeeds.</returns>
+    private static bool TryResolveUpdateServiceIdentity(
+        ParsedCommand command,
+        bool hasPackageUpdate,
+        out string serviceName,
+        out ResolvedServiceScriptSource scriptSource,
+        out bool packageSourceResolved,
+        out int exitCode)
+    {
+        serviceName = command.ServiceName ?? string.Empty;
+        scriptSource = CreateEmptyResolvedServiceScriptSource();
+        packageSourceResolved = false;
+        exitCode = 0;
+
+        if (!string.IsNullOrWhiteSpace(serviceName))
+        {
+            return true;
+        }
+
+        if (!hasPackageUpdate)
+        {
+            Console.Error.WriteLine("Service name is required. Use --name <value>.");
+            exitCode = 2;
+            return false;
+        }
+
+        if (!TryResolveServiceScriptSource(command, out scriptSource, out var scriptError))
+        {
+            Console.Error.WriteLine(scriptError);
+            exitCode = 2;
+            return false;
+        }
+
+        packageSourceResolved = true;
+        if (string.IsNullOrWhiteSpace(scriptSource.DescriptorServiceName))
+        {
+            Console.Error.WriteLine("Service name is required in Service.psd1 (Name) when using --package.");
+            exitCode = 2;
+            return false;
+        }
+
+        serviceName = scriptSource.DescriptorServiceName;
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves the installed service bundle paths required by update operations.
+    /// </summary>
+    /// <param name="serviceName">Target service name.</param>
+    /// <param name="deploymentRootOverride">Optional deployment root override.</param>
+    /// <param name="paths">Resolved service update path set.</param>
+    /// <param name="exitCode">Exit code when path resolution fails.</param>
+    /// <returns>True when service bundle paths are resolved.</returns>
+    private static bool TryResolveServiceUpdatePaths(
+        string serviceName,
+        string? deploymentRootOverride,
+        out ServiceUpdatePaths paths,
+        out int exitCode)
+    {
+        paths = default;
+        exitCode = 0;
+
+        if (!TryResolveInstalledServiceBundleRoot(serviceName, deploymentRootOverride, out var serviceRootPath, out var resolutionError))
+        {
+            Console.Error.WriteLine(resolutionError);
+            exitCode = 1;
+            return false;
+        }
+
+        paths = new ServiceUpdatePaths(
+            serviceRootPath,
+            Path.Combine(serviceRootPath, ServiceBundleScriptDirectoryName),
+            Path.Combine(serviceRootPath, ServiceBundleModulesDirectoryName, ModuleName),
+            Path.Combine(serviceRootPath, "backup", DateTime.UtcNow.ToString("yyyyMMddHHmmss")));
+        return true;
+    }
+
+    /// <summary>
+    /// Executes service failback and writes a JSON summary payload.
+    /// </summary>
+    /// <param name="paths">Resolved service update path set.</param>
+    /// <param name="exitCode">Exit code when failback fails.</param>
+    /// <returns>True when failback succeeds.</returns>
+    private static bool TryExecuteServiceFailback(ServiceUpdatePaths paths, out int exitCode)
+    {
+        exitCode = 0;
+
+        if (!TryFailbackServiceFromBackup(paths.ServiceRootPath, paths.ScriptRoot, paths.ModuleRoot, out var failbackSummary, out var failbackError))
+        {
+            Console.Error.WriteLine(failbackError);
+            exitCode = 1;
+            return false;
+        }
+
+        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(failbackSummary, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true,
+        }));
+
+        return true;
+    }
+
+    /// <summary>
+    /// Applies package/application update to the installed service bundle.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <param name="hasPackageUpdate">True when package update was requested.</param>
+    /// <param name="paths">Resolved service update path set.</param>
+    /// <param name="scriptSource">Current resolved script source; may be populated when needed.</param>
+    /// <param name="packageSourceResolved">True when <paramref name="scriptSource"/> is already resolved.</param>
+    /// <param name="applicationUpdated">True when application files were updated.</param>
+    /// <param name="exitCode">Exit code when update fails.</param>
+    /// <returns>True when package update succeeds or is not requested.</returns>
+    private static bool TryApplyServicePackageUpdate(
+        ParsedCommand command,
+        bool hasPackageUpdate,
+        ServiceUpdatePaths paths,
+        ref ResolvedServiceScriptSource scriptSource,
+        ref bool packageSourceResolved,
+        out bool applicationUpdated,
+        out int exitCode)
+    {
+        applicationUpdated = false;
+        exitCode = 0;
+
+        if (!hasPackageUpdate)
+        {
+            return true;
+        }
+
+        if (!packageSourceResolved)
+        {
+            if (!TryResolveServiceScriptSource(command, out scriptSource, out var scriptError))
+            {
+                Console.Error.WriteLine(scriptError);
+                exitCode = 2;
+                return false;
+            }
+
+            packageSourceResolved = true;
+        }
+
+        if (!TryResolveServiceInstallDescriptor(paths.ScriptRoot, out var runningDescriptor, out var currentDescriptorError))
+        {
+            Console.Error.WriteLine(currentDescriptorError);
+            exitCode = 1;
+            return false;
+        }
+
+        if (!TryValidateServicePackageVersionUpdate(
+                runningDescriptor.Version,
+                scriptSource.DescriptorServiceVersion,
+                out _,
+                out var versionWarning,
+                out var versionValidationError))
+        {
+            Console.Error.WriteLine(versionValidationError);
+            exitCode = 1;
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(versionWarning))
+        {
+            Console.WriteLine(versionWarning);
+        }
+
+        if (string.IsNullOrWhiteSpace(scriptSource.FullContentRoot) || !Directory.Exists(scriptSource.FullContentRoot))
+        {
+            Console.Error.WriteLine("Resolved package content root is not available for update.");
+            exitCode = 1;
+            return false;
+        }
+
+        if (!TryBackupDirectory(paths.ScriptRoot, Path.Combine(paths.BackupRoot, "application"), out var backupAppError))
+        {
+            Console.Error.WriteLine(backupAppError);
+            exitCode = 1;
+            return false;
+        }
+
+        if (!TryReplaceDirectoryFromSource(
+                scriptSource.FullContentRoot,
+                paths.ScriptRoot,
+                "Updating service application",
+                out var appReplaceError,
+                exclusionPatterns: null,
+                preserveRelativePaths: scriptSource.DescriptorPreservePaths))
+        {
+            Console.Error.WriteLine(appReplaceError);
+            exitCode = 1;
+            return false;
+        }
+
+        applicationUpdated = true;
+        return true;
+    }
+
+    /// <summary>
+    /// Applies module update logic for either repository module replacement or explicit manifest replacement.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <param name="hasModuleUpdate">True when module update was requested.</param>
+    /// <param name="paths">Resolved service update path set.</param>
+    /// <param name="moduleUpdated">True when bundled module files were replaced.</param>
+    /// <param name="exitCode">Exit code when module update fails.</param>
+    /// <returns>True when module update succeeds or is not requested.</returns>
+    private static bool TryApplyServiceModuleUpdate(
+        ParsedCommand command,
+        bool hasModuleUpdate,
+        ServiceUpdatePaths paths,
+        out bool moduleUpdated,
+        out int exitCode)
+    {
+        moduleUpdated = false;
+        exitCode = 0;
+
+        if (!hasModuleUpdate)
+        {
+            return true;
+        }
+
+        if (!TryResolveUpdateManifestPath(command, out var manifestPath, out exitCode))
+        {
+            return false;
+        }
+
+        if (!TryResolveSourceModuleRoot(manifestPath, out var sourceModuleRoot, out var sourceModuleRootError))
+        {
+            Console.Error.WriteLine(sourceModuleRootError);
+            exitCode = 1;
+            return false;
+        }
+
+        if (!command.ServiceUseRepositoryKestrun)
+        {
+            return TryApplyDirectModuleReplacement(sourceModuleRoot, paths, out moduleUpdated, out exitCode);
+        }
+
+        var bundledManifestPath = Path.Combine(paths.ModuleRoot, ModuleManifestFileName);
+        if (!TryEvaluateRepositoryModuleUpdateNeeded(manifestPath, bundledManifestPath, out var shouldUpdateBundledModule, out var moduleDecisionMessage, out var moduleDecisionError))
+        {
+            Console.Error.WriteLine(moduleDecisionError);
+            exitCode = 1;
+            return false;
+        }
+
+        if (!shouldUpdateBundledModule)
+        {
+            Console.WriteLine(moduleDecisionMessage);
+            return true;
+        }
+
+        return TryApplyDirectModuleReplacement(sourceModuleRoot, paths, out moduleUpdated, out exitCode);
+    }
+
+    /// <summary>
+    /// Replaces the bundled module directory from the provided source module root with backup creation.
+    /// </summary>
+    /// <param name="sourceModuleRoot">Source module root directory.</param>
+    /// <param name="paths">Resolved service update path set.</param>
+    /// <param name="moduleUpdated">True when module replacement succeeds.</param>
+    /// <param name="exitCode">Exit code when replacement fails.</param>
+    /// <returns>True when module replacement succeeds.</returns>
+    private static bool TryApplyDirectModuleReplacement(
+        string sourceModuleRoot,
+        ServiceUpdatePaths paths,
+        out bool moduleUpdated,
+        out int exitCode)
+    {
+        moduleUpdated = false;
+        exitCode = 0;
+
+        if (!TryBackupDirectory(paths.ModuleRoot, Path.Combine(paths.BackupRoot, "module"), out var backupModuleError))
+        {
+            Console.Error.WriteLine(backupModuleError);
+            exitCode = 1;
+            return false;
+        }
+
+        if (!TryReplaceDirectoryFromSource(sourceModuleRoot, paths.ModuleRoot, "Updating bundled Kestrun module", out var moduleReplaceError, ServiceBundleModuleExclusionPatterns))
+        {
+            Console.Error.WriteLine(moduleReplaceError);
+            exitCode = 1;
+            return false;
+        }
+
+        moduleUpdated = true;
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves the manifest path to use for service module update.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <param name="manifestPath">Resolved manifest path.</param>
+    /// <param name="exitCode">Exit code when resolution fails.</param>
+    /// <returns>True when manifest resolution succeeds.</returns>
+    private static bool TryResolveUpdateManifestPath(ParsedCommand command, out string manifestPath, out int exitCode)
+    {
+        manifestPath = string.Empty;
+        exitCode = 0;
+
+        var resolvedManifestPath = command.ServiceUseRepositoryKestrun
+            ? ResolveRepositoryModuleManifestPath()
+            : LocateModuleManifest(command.KestrunManifestPath, command.KestrunFolder);
+
+        if (resolvedManifestPath is null)
+        {
+            if (command.ServiceUseRepositoryKestrun)
+            {
+                Console.Error.WriteLine("Unable to locate repository module manifest at 'src/PowerShell/Kestrun/Kestrun.psd1' from the current working tree.");
+                exitCode = 1;
+                return false;
+            }
+
+            WriteModuleNotFoundMessage(command.KestrunManifestPath, command.KestrunFolder, Console.Error.WriteLine);
+            exitCode = 3;
+            return false;
+        }
+
+        manifestPath = resolvedManifestPath;
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves and validates the source module root directory from a manifest path.
+    /// </summary>
+    /// <param name="manifestPath">Module manifest path.</param>
+    /// <param name="sourceModuleRoot">Resolved module root directory.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when the source module root is valid.</returns>
+    private static bool TryResolveSourceModuleRoot(string manifestPath, out string sourceModuleRoot, out string error)
+    {
+        sourceModuleRoot = Path.GetDirectoryName(Path.GetFullPath(manifestPath)) ?? string.Empty;
+        error = string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(sourceModuleRoot) && Directory.Exists(sourceModuleRoot))
+        {
+            return true;
+        }
+
+        error = $"Unable to resolve module root from manifest path: {manifestPath}";
+        return false;
+    }
+
+    /// <summary>
+    /// Applies service-host runtime update when a newer host binary is available.
+    /// </summary>
+    /// <param name="paths">Resolved service update path set.</param>
+    /// <param name="serviceHostUpdated">True when service host binaries were updated.</param>
+    /// <param name="exitCode">Exit code when update fails.</param>
+    /// <returns>True when service host update succeeds.</returns>
+    private static bool TryApplyServiceHostUpdate(ServiceUpdatePaths paths, out bool serviceHostUpdated, out int exitCode)
+    {
+        exitCode = 0;
+
+        var runtimeDirectory = Path.Combine(paths.ServiceRootPath, ServiceBundleRuntimeDirectoryName);
+        if (TryUpdateBundledServiceHostIfNewer(runtimeDirectory, Path.Combine(paths.BackupRoot, "servicehost"), out var hostUpdateError, out serviceHostUpdated))
+        {
+            return true;
+        }
+
+        Console.Error.WriteLine(hostUpdateError);
+        exitCode = 1;
+        return false;
+    }
+
+    /// <summary>
+    /// Writes service update results as indented JSON.
+    /// </summary>
+    /// <param name="serviceName">Resolved service name.</param>
+    /// <param name="paths">Resolved service update path set.</param>
+    /// <param name="applicationUpdated">True when application files were updated.</param>
+    /// <param name="moduleUpdated">True when module files were updated.</param>
+    /// <param name="serviceHostUpdated">True when service host was updated.</param>
+    private static void WriteServiceUpdateSummary(
+        string serviceName,
+        ServiceUpdatePaths paths,
+        bool applicationUpdated,
+        bool moduleUpdated,
+        bool serviceHostUpdated)
+    {
         var summary = new
         {
             ServiceName = serviceName,
-            ServicePath = serviceRootPath,
+            ServicePath = paths.ServiceRootPath,
             ApplicationUpdated = applicationUpdated,
             ModuleUpdated = moduleUpdated,
             ServiceHostUpdated = serviceHostUpdated,
-            BackupPath = Directory.Exists(backupRoot) ? backupRoot : null,
+            BackupPath = Directory.Exists(paths.BackupRoot) ? paths.BackupRoot : null,
         };
 
         Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(summary, new System.Text.Json.JsonSerializerOptions
         {
             WriteIndented = true,
         }));
-
-        return 0;
     }
+
+    /// <summary>
+    /// Contains resolved directory paths used by service update and failback operations.
+    /// </summary>
+    /// <param name="ServiceRootPath">Installed service bundle root path.</param>
+    /// <param name="ScriptRoot">Installed service script directory path.</param>
+    /// <param name="ModuleRoot">Installed bundled module root path.</param>
+    /// <param name="BackupRoot">Backup snapshot root path for the current update operation.</param>
+    private readonly record struct ServiceUpdatePaths(
+        string ServiceRootPath,
+        string ScriptRoot,
+        string ModuleRoot,
+        string BackupRoot);
 
     /// <summary>
     /// Resolves the repository-local Kestrun manifest path by scanning current directory ancestors.
@@ -1237,35 +1505,101 @@ internal static partial class Program
     {
         if (OperatingSystem.IsWindows())
         {
-            var queryResult = RunProcess("sc.exe", ["query", serviceName], writeStandardOutput: false);
-            if (queryResult.ExitCode != 0)
-            {
-                error = string.IsNullOrWhiteSpace(queryResult.Error)
-                    ? $"Unable to query service '{serviceName}'."
-                    : queryResult.Error.Trim();
-                return false;
-            }
-
-            var stateLine = queryResult.Output
-                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .FirstOrDefault(static line => line.Contains("STATE", StringComparison.OrdinalIgnoreCase));
-
-            if (!string.IsNullOrWhiteSpace(stateLine) && stateLine.Contains("RUNNING", StringComparison.OrdinalIgnoreCase))
-            {
-                error = $"Service '{serviceName}' is running. Stop it before update.";
-                return false;
-            }
-
-            error = string.Empty;
-            return true;
+            return TryEnsureWindowsServiceIsStopped(serviceName, out error);
         }
 
         if (OperatingSystem.IsLinux())
         {
-            var useSystemScope = IsLinuxSystemUnitInstalled(serviceName);
-            var unitName = GetLinuxUnitName(serviceName);
-            var activeResult = RunLinuxSystemctl(useSystemScope, ["is-active", unitName]);
-            if (activeResult.ExitCode == 0)
+            return TryEnsureLinuxServiceIsStopped(serviceName, out error);
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return TryEnsureMacServiceIsStopped(serviceName, out error);
+        }
+
+        error = "Service update is not supported on this OS.";
+        return false;
+    }
+
+    /// <summary>
+    /// Returns false when a Windows service is currently running.
+    /// </summary>
+    /// <param name="serviceName">Service name.</param>
+    /// <param name="error">State validation details.</param>
+    /// <returns>True when service is stopped or inactive.</returns>
+    private static bool TryEnsureWindowsServiceIsStopped(string serviceName, out string error)
+    {
+        var queryResult = RunProcess("sc.exe", ["query", serviceName], writeStandardOutput: false);
+        if (queryResult.ExitCode != 0)
+        {
+            error = string.IsNullOrWhiteSpace(queryResult.Error)
+                ? $"Unable to query service '{serviceName}'."
+                : queryResult.Error.Trim();
+            return false;
+        }
+
+        var stateLine = queryResult.Output
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault(static line => line.Contains("STATE", StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(stateLine) && stateLine.Contains("RUNNING", StringComparison.OrdinalIgnoreCase))
+        {
+            error = $"Service '{serviceName}' is running. Stop it before update.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Returns false when a Linux service unit is currently active.
+    /// </summary>
+    /// <param name="serviceName">Service name.</param>
+    /// <param name="error">State validation details.</param>
+    /// <returns>True when service is stopped or inactive.</returns>
+    private static bool TryEnsureLinuxServiceIsStopped(string serviceName, out string error)
+    {
+        var useSystemScope = IsLinuxSystemUnitInstalled(serviceName);
+        var unitName = GetLinuxUnitName(serviceName);
+        var activeResult = RunLinuxSystemctl(useSystemScope, ["is-active", unitName]);
+        if (activeResult.ExitCode == 0)
+        {
+            error = $"Service '{serviceName}' is running. Stop it before update.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Returns false when a macOS launchd service is currently running.
+    /// </summary>
+    /// <param name="serviceName">Service name.</param>
+    /// <param name="error">State validation details.</param>
+    /// <returns>True when service is stopped or inactive.</returns>
+    private static bool TryEnsureMacServiceIsStopped(string serviceName, out string error)
+    {
+        var useSystemScope = IsMacSystemLaunchDaemonInstalled(serviceName);
+        var result = useSystemScope
+            ? RunProcess("launchctl", ["print", $"system/{serviceName}"])
+            : RunProcess("launchctl", ["list", serviceName]);
+
+        if (result.ExitCode != 0)
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        if (useSystemScope)
+        {
+            var running = result.Output
+                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Any(static line => line.Contains("state = running", StringComparison.OrdinalIgnoreCase));
+
+            if (running)
             {
                 error = $"Service '{serviceName}' is running. Stop it before update.";
                 return false;
@@ -1275,44 +1609,15 @@ internal static partial class Program
             return true;
         }
 
-        if (OperatingSystem.IsMacOS())
+        var columns = result.Output.Split(['\t', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (columns.Length > 0 && int.TryParse(columns[0], out var pid) && pid > 0)
         {
-            var useSystemScope = IsMacSystemLaunchDaemonInstalled(serviceName);
-            var result = useSystemScope
-                ? RunProcess("launchctl", ["print", $"system/{serviceName}"])
-                : RunProcess("launchctl", ["list", serviceName]);
-
-            if (result.ExitCode == 0)
-            {
-                if (useSystemScope)
-                {
-                    var running = result.Output
-                        .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                        .Any(static line => line.Contains("state = running", StringComparison.OrdinalIgnoreCase));
-
-                    if (running)
-                    {
-                        error = $"Service '{serviceName}' is running. Stop it before update.";
-                        return false;
-                    }
-                }
-                else
-                {
-                    var columns = result.Output.Split(['\t', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                    if (columns.Length > 0 && int.TryParse(columns[0], out var pid) && pid > 0)
-                    {
-                        error = $"Service '{serviceName}' is running. Stop it before update.";
-                        return false;
-                    }
-                }
-            }
-
-            error = string.Empty;
-            return true;
+            error = $"Service '{serviceName}' is running. Stop it before update.";
+            return false;
         }
 
-        error = "Service update is not supported on this OS.";
-        return false;
+        error = string.Empty;
+        return true;
     }
 
     /// <summary>

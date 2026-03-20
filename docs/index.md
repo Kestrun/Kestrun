@@ -40,10 +40,39 @@ It combines the performance of C# with the flexibility of PowerShell, making it 
 - 👉 **PowerShell Cmdlets**: [pwsh/cmdlets/](/pwsh/cmdlets/)
 - 👉 **C# API**: [cs/api/](/cs/api/)
 - 📚 **Tutorials**: [pwsh/tutorial/](/pwsh/tutorial/)
-- 📘 **Guides**: [Logging](/guides/)
+- 📘 **Guides**: [guides/](/guides/)
 - 🛠️ **Dotnet Tool**: [Kestrun CLI (`Kestrun.Tool`)](/guides/tooling)
 
 ## Getting started
+
+Follow this path to go from zero → running API → production deployment:
+
+### 1. Learn the basics
+
+Start with the [Tutorials](/pwsh/tutorial/) to understand how Kestrun works:
+
+- PowerShell-first routing
+- Request/response handling
+- OpenAPI integration
+
+### 2. Build your app
+
+Use the [Guides](/guides/) to add real-world features:
+
+- Authentication (JWT, API keys, etc.)
+- Logging and observability
+- OpenAPI documentation and UI
+
+### 3. Run and test locally
+
+Spin up your server, validate endpoints, and iterate quickly.
+
+### 4. Deploy to production
+
+Choose your deployment model:
+
+- **Service/daemon** → [Production Deployment](/guides/production-service-daemon)
+- **Container** → 🚧 Coming soon
 
 ## Minimal example
 

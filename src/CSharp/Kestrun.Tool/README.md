@@ -119,6 +119,32 @@ Update using the repository module only when it is newer than the bundled module
 dotnet kestrun service update --name my-kestrun --package .\my-kestrun.krpack --kestrun
 ```
 
+## Service packaging quick start
+
+Create a Service.psd1 descriptor:
+
+```powershell
+New-KrServiceDescriptor `
+    -Path .\MyServiceApp\Service.psd1 `
+    -Name 'my-service' `
+    -Description 'Production Kestrun service' `
+    -Version 1.2.0 `
+    -EntryPoint '.\Service.ps1' `
+    -ServiceLogPath '.\logs\service.log' `
+    -PreservePaths @('config/production.json', 'data/', 'logs/')
+```
+
+Create a package from a single script (auto-generates Service.psd1):
+
+```powershell
+New-KrServicePackage `
+    -ScriptPath .\Service.ps1 `
+    -Name 'my-service' `
+    -Description 'Production Kestrun service' `
+    -Version 1.2.0 `
+    -OutputPath .\my-service-1.2.0.krpack
+```
+
 Fail back to latest backup for application/module:
 
 ```powershell

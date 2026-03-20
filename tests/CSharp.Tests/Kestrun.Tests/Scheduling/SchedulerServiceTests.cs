@@ -251,11 +251,18 @@ public class SchedulerServiceTests
         svc.Schedule("cron-cs", "* * * * * *", async ct => { _ = Interlocked.Increment(ref ran); await Task.CompletedTask; }, runImmediately: true);
 
         var start = DateTime.UtcNow;
-        while (ran == 0 && DateTime.UtcNow - start < TimeSpan.FromSeconds(2))
+        var seenRunWithTimestamp = false;
+        while (!seenRunWithTimestamp && DateTime.UtcNow - start < TimeSpan.FromSeconds(3))
         {
+            var jobSnapshot = svc.GetSnapshot().SingleOrDefault(j => j.Name == "cron-cs");
+            seenRunWithTimestamp = ran > 0 && jobSnapshot?.LastRunAt != null;
+            if (seenRunWithTimestamp)
+            {
+                break;
+            }
             await Task.Delay(25, TestContext.Current.CancellationToken);
         }
-        Assert.True(ran > 0);
+        Assert.True(seenRunWithTimestamp, "C# cron job did not publish LastRunAt after runImmediately execution");
         var job = Assert.Single(svc.GetSnapshot(), j => j.Name == "cron-cs");
         _ = Assert.NotNull(job.LastRunAt);
     }

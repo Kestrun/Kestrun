@@ -179,6 +179,34 @@ Import the module (from source):
 Import-Module ./src/PowerShell/Kestrun/Kestrun.psm1
 ```
 
+### Service Packaging Quick Start (Service/Daemon)
+
+For full production deployment guidance, see [Production Deployment (Service/Daemon)](docs/guides/production-service-daemon.md).
+
+Create a `Service.psd1` descriptor:
+
+```powershell
+New-KrServiceDescriptor `
+  -Path .\MyServiceApp\Service.psd1 `
+  -Name 'my-service' `
+  -Description 'Production Kestrun service' `
+  -Version 1.2.0 `
+  -EntryPoint '.\Service.ps1' `
+  -ServiceLogPath '.\logs\service.log' `
+  -PreservePaths @('config/production.json', 'data/', 'logs/')
+```
+
+Package a single script (auto-generates `Service.psd1`):
+
+```powershell
+New-KrServicePackage `
+  -ScriptPath .\Service.ps1 `
+  -Name 'my-service' `
+  -Description 'Production Kestrun service' `
+  -Version 1.2.0 `
+  -OutputPath .\my-service-1.2.0.krpack
+```
+
 ## Running Tests
 
 ### Using Invoke-Build (Recommended)

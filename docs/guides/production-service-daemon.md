@@ -1,13 +1,13 @@
 ---
 layout: default
-title: Production Deployment (No Containers)
+title: Production Deployment (Service/Daemon)
 parent: Guides
 nav_order: 36
 ---
 
-# Production Deployment (No Containers)
+# Production Deployment (Service/Daemon)
 
-This guide shows how to deploy and update a custom Kestrun PowerShell application to production without containers using
+This guide shows how to deploy and update a custom Kestrun PowerShell application to production as a native service/daemon using
 `dotnet kestrun service install` and `dotnet kestrun service update`.
 
 ## Scope
@@ -39,6 +39,33 @@ New-KrServicePackage -SourceFolder .\MyServiceApp -OutputPath .\my-service.krpac
 ```
 
 The package embeds `Service.psd1` metadata and app content used by `service install --package` and `service update --package`.
+
+## Create `Service.psd1`
+
+Use `New-KrServiceDescriptor` to generate a valid descriptor in your service folder.
+
+```powershell
+New-KrServiceDescriptor `
+  -Path .\MyServiceApp\Service.psd1 `
+  -Name 'my-service' `
+  -Description 'Production Kestrun service' `
+  -Version 1.2.0 `
+  -EntryPoint '.\Service.ps1' `
+  -ServiceLogPath '.\logs\service.log' `
+  -PreservePaths @('config/production.json', 'data/', 'logs/')
+```
+
+Quick verification:
+
+```powershell
+Get-KrServiceDescriptor -Path .\MyServiceApp\Service.psd1
+```
+
+Update descriptor fields later (without changing `Name`):
+
+```powershell
+Set-KrServiceDescriptor -Path .\MyServiceApp\Service.psd1 -Version 1.2.1 -Description 'Production Kestrun service (patched)'
+```
 
 ## Service Descriptor Basics (`Service.psd1`)
 
@@ -140,6 +167,32 @@ New-KrServicePackage `
   -OutputPath .\my-service-1.2.0.krpack
 ```
 
+## Create a Package from a Single Script
+
+If you only have one script file, package it directly. `New-KrServicePackage` will stage the script, generate `Service.psd1`, validate it, and produce a `.krpack`.
+
+Minimal:
+
+```powershell
+New-KrServicePackage -ScriptPath .\Service.ps1 -Version 1.2.0
+```
+
+Explicit metadata and output path:
+
+```powershell
+New-KrServicePackage `
+  -ScriptPath .\Service.ps1 `
+  -Name 'my-service' `
+  -Description 'Production Kestrun service' `
+  -Version 1.2.0 `
+  -OutputPath .\my-service-1.2.0.krpack
+```
+
+The generated descriptor in this mode always uses:
+
+- `FormatVersion = '1.0'`
+- `EntryPoint = 'Service.ps1'` (the script file name)
+
 ## Optional: Generate a Checksum
 
 For production safety, verify package integrity at install or update time.
@@ -221,7 +274,7 @@ Recommended checks:
 - Confirm your API endpoints respond.
 - Confirm bootstrap logs and app logs are written to expected paths.
 
-## Upgrade Workflow (No Containers)
+## Upgrade Workflow (Service/Daemon)
 
 1. Build and publish a new `.krpack` payload (with incremented `Version` in `Service.psd1`).
 2. Stop the service.

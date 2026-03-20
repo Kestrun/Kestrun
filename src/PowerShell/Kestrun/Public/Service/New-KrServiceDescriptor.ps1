@@ -75,6 +75,8 @@ function New-KrServiceDescriptor {
     if (-not [string]::IsNullOrWhiteSpace($Script)) {
         $escapedScript = $Script.Replace("'", "''")
         $contentLines.Add("    Script = '$escapedScript'")
+    } else {
+        $contentLines.Add("    Script = 'Service.ps1'")
     }
 
     if (-not [string]::IsNullOrWhiteSpace($ServiceLogPath)) {

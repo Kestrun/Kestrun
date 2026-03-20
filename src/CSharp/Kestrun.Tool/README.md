@@ -139,10 +139,11 @@ dotnet kestrun service update --name my-kestrun --failback
 
 ```powershell
 @{
+ FormatVersion = '1.0'
  Name = 'my-kestrun'
  Description = 'Production service package'
  Version = '1.2.0'
- Script = './Service.ps1'
+ EntryPoint = './Service.ps1'
  PreservePaths = @(
   'config/production.json'
   'data/'

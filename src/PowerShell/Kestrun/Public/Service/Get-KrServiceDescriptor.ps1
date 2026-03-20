@@ -36,14 +36,20 @@ function Get-KrServiceDescriptor {
         $preservePaths = @($normalizedDescriptor.PreservePaths)
     }
 
+    $props = $normalizedDescriptor.PSObject.Properties
+
     [pscustomobject]([ordered]@{
             FormatVersion = [string]$normalizedDescriptor.FormatVersion
             Path = $fullPath
             Name = [string]$normalizedDescriptor.Name
-            Description = if ($normalizedDescriptor.PSObject.Properties.Match('Description').Count -gt 0) { [string]$normalizedDescriptor.Description } else { $null }
-            Version = if ($normalizedDescriptor.PSObject.Properties.Match('Version').Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$normalizedDescriptor.Version)) { [string]$normalizedDescriptor.Version } else { $null }
-            EntryPoint = if ($normalizedDescriptor.PSObject.Properties.Match('EntryPoint').Count -gt 0) { [string]$normalizedDescriptor.EntryPoint } else { $null }
-            ServiceLogPath = if ($normalizedDescriptor.PSObject.Properties.Match('ServiceLogPath').Count -gt 0) { [string]$normalizedDescriptor.ServiceLogPath } else { $null }
+            Description = if ($props['Description']) { [string]$normalizedDescriptor.Description } else { $null }
+            Version = if ($props['Version'] -and -not [string]::IsNullOrWhiteSpace($normalizedDescriptor.Version)) {
+                [string]$normalizedDescriptor.Version
+            } else {
+                $null
+            }
+            EntryPoint = if ($props['EntryPoint']) { [string]$normalizedDescriptor.EntryPoint } else { $null }
+            ServiceLogPath = if ($props['ServiceLogPath']) { [string]$normalizedDescriptor.ServiceLogPath } else { $null }
             PreservePaths = $preservePaths
         })
 }

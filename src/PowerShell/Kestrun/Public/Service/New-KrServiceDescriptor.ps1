@@ -3,7 +3,7 @@
     Creates a Service.psd1 descriptor file.
 .DESCRIPTION
     Creates a Service.psd1 descriptor file used by Kestrun.Tool content-root service install flow.
-    Required keys are Name, Description, and Version. Optional keys are Script and ServiceLogPath.
+    Required keys are Name, Description, and Version. Optional keys are Script, ServiceLogPath, and PreservePaths.
 .PARAMETER Path
     Target descriptor path. Defaults to Service.psd1 in the current directory.
 .PARAMETER Name
@@ -16,6 +16,8 @@
     Optional script path relative to the content root.
 .PARAMETER ServiceLogPath
     Optional default service log path.
+.PARAMETER PreservePaths
+    Optional list of relative file/folder paths that must be preserved during service update.
 .PARAMETER Force
     Overwrite an existing descriptor file.
 .EXAMPLE
@@ -47,6 +49,9 @@ function New-KrServiceDescriptor {
 
         [Parameter()]
         [string]$ServiceLogPath,
+
+        [Parameter()]
+        [string[]]$PreservePaths,
 
         [Parameter()]
         [switch]$Force
@@ -82,6 +87,20 @@ function New-KrServiceDescriptor {
     if (-not [string]::IsNullOrWhiteSpace($ServiceLogPath)) {
         $escapedServiceLogPath = $ServiceLogPath.Replace("'", "''")
         $contentLines.Add("    ServiceLogPath = '$escapedServiceLogPath'")
+    }
+
+    if ($null -ne $PreservePaths -and $PreservePaths.Count -gt 0) {
+        $contentLines.Add('    PreservePaths = @(')
+        foreach ($preservePath in $PreservePaths) {
+            if ([string]::IsNullOrWhiteSpace($preservePath)) {
+                continue
+            }
+
+            $escapedPreservePath = $preservePath.Replace("'", "''")
+            $contentLines.Add("        '$escapedPreservePath'")
+        }
+
+        $contentLines.Add('    )')
     }
 
     $contentLines.Add('}')

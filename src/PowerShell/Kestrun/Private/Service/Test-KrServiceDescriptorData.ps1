@@ -40,6 +40,37 @@ function Test-KrServiceDescriptorData {
         throw "Descriptor '$DescriptorPath' is missing required key 'Name'."
     }
 
+    $packageRootFullPath = [System.IO.Path]::GetFullPath($PackageRoot)
+    $normalizedPreservePaths = @()
+    if ($Descriptor.ContainsKey('PreservePaths') -and $null -ne $Descriptor['PreservePaths']) {
+        $rawPreservePaths = @()
+        if ($Descriptor['PreservePaths'] -is [string]) {
+            $rawPreservePaths = @([string]$Descriptor['PreservePaths'])
+        } elseif ($Descriptor['PreservePaths'] -is [System.Collections.IEnumerable]) {
+            $rawPreservePaths = @($Descriptor['PreservePaths'])
+        } else {
+            throw "Descriptor '$DescriptorPath' key 'PreservePaths' must be a string array."
+        }
+
+        foreach ($preservePathValue in $rawPreservePaths) {
+            $preservePath = [string]$preservePathValue
+            if ([string]::IsNullOrWhiteSpace($preservePath)) {
+                throw "Descriptor '$DescriptorPath' key 'PreservePaths' cannot contain empty values."
+            }
+
+            if ([System.IO.Path]::IsPathRooted($preservePath)) {
+                throw "Descriptor '$DescriptorPath' PreservePaths entry '$preservePath' must be a relative path."
+            }
+
+            $combinedPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($packageRootFullPath, $preservePath))
+            if (-not $combinedPath.StartsWith($packageRootFullPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+                throw "Descriptor '$DescriptorPath' PreservePaths entry '$preservePath' escapes the package root."
+            }
+
+            $normalizedPreservePaths += $preservePath
+        }
+    }
+
     $formatVersion = if ($Descriptor.ContainsKey('FormatVersion')) { [string]$Descriptor['FormatVersion'] } else { $null }
 
     if (-not [string]::IsNullOrWhiteSpace($formatVersion)) {
@@ -60,8 +91,8 @@ function Test-KrServiceDescriptorData {
             throw "Descriptor '$DescriptorPath' EntryPoint must be a relative path."
         }
 
-        $entryPointFullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($PackageRoot, $entryPoint))
-        if (-not $entryPointFullPath.StartsWith([System.IO.Path]::GetFullPath($PackageRoot), [System.StringComparison]::OrdinalIgnoreCase)) {
+        $entryPointFullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($packageRootFullPath, $entryPoint))
+        if (-not $entryPointFullPath.StartsWith($packageRootFullPath, [System.StringComparison]::OrdinalIgnoreCase)) {
             throw "Descriptor '$DescriptorPath' EntryPoint escapes the package root."
         }
 
@@ -83,6 +114,7 @@ function Test-KrServiceDescriptorData {
             Description = [string]$Descriptor['Description']
             Version = if ($Descriptor.ContainsKey('Version')) { [string]$Descriptor['Version'] } else { $null }
             ServiceLogPath = if ($Descriptor.ContainsKey('ServiceLogPath')) { [string]$Descriptor['ServiceLogPath'] } else { $null }
+            PreservePaths = $normalizedPreservePaths
         }
     }
 
@@ -107,8 +139,8 @@ function Test-KrServiceDescriptorData {
         throw "Descriptor '$DescriptorPath' Script must be a relative path."
     }
 
-    $legacyScriptFullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($PackageRoot, $legacyScript))
-    if (-not $legacyScriptFullPath.StartsWith([System.IO.Path]::GetFullPath($PackageRoot), [System.StringComparison]::OrdinalIgnoreCase)) {
+    $legacyScriptFullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($packageRootFullPath, $legacyScript))
+    if (-not $legacyScriptFullPath.StartsWith($packageRootFullPath, [System.StringComparison]::OrdinalIgnoreCase)) {
         throw "Descriptor '$DescriptorPath' Script escapes the package root."
     }
 
@@ -123,5 +155,6 @@ function Test-KrServiceDescriptorData {
         Description = [string]$Descriptor['Description']
         Version = $legacyVersion.ToString()
         ServiceLogPath = if ($Descriptor.ContainsKey('ServiceLogPath')) { [string]$Descriptor['ServiceLogPath'] } else { $null }
+        PreservePaths = $normalizedPreservePaths
     }
 }

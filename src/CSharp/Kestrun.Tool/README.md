@@ -134,6 +134,24 @@ dotnet kestrun service update --name my-kestrun --failback
 - `service update` requires the service to be stopped.
 - `service update --package` only updates the application when package `Version` is greater than installed `Version`.
 - `service update` creates backup folders for updated application/module/service-host content.
+- `service update --package` respects descriptor `PreservePaths` (relative file/folder paths) and restores those paths from the current install
+after package content is applied.
+- `Service.psd1` example for update-safe content:
+
+```powershell
+@{
+ Name = 'my-kestrun'
+ Description = 'Production service package'
+ Version = '1.2.0'
+ Script = './Service.ps1'
+ PreservePaths = @(
+  'config/production.json'
+  'data/'
+  'logs/'
+ )
+}
+```
+
 - `service update --kestrun` uses `src/PowerShell/Kestrun/Kestrun.psd1` from the current repository and updates bundled module only when repository version is newer;
 otherwise it prints a skip message.
 - `service update --failback` restores from the latest backup (application/module) and removes that backup folder after restore.

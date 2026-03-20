@@ -1434,7 +1434,7 @@ internal static partial class Program
             return false;
         }
 
-        scriptSource = new ResolvedServiceScriptSource(fullScriptPath, null, Path.GetFileName(fullScriptPath), null, null, null, null, null);
+        scriptSource = new ResolvedServiceScriptSource(fullScriptPath, null, Path.GetFileName(fullScriptPath), null, null, null, null, null, []);
         error = string.Empty;
         return true;
     }
@@ -1763,7 +1763,7 @@ internal static partial class Program
     /// <returns>True when descriptor exists and mandatory metadata is valid.</returns>
     private static bool TryResolveServiceInstallDescriptor(string fullContentRoot, out ServiceInstallDescriptor descriptor, out string error)
     {
-        descriptor = new ServiceInstallDescriptor(string.Empty, string.Empty, string.Empty, string.Empty, null, null);
+        descriptor = new ServiceInstallDescriptor(string.Empty, string.Empty, string.Empty, string.Empty, null, null, []);
         var descriptorPath = Path.Combine(fullContentRoot, ServiceDescriptorFileName);
         if (!File.Exists(descriptorPath))
         {
@@ -1848,13 +1848,19 @@ internal static partial class Program
 
         _ = TryGetServiceDescriptorStringValue(descriptorText, "ServiceLogPath", required: false, out var serviceLogPath, out _);
 
+        if (!TryGetServiceDescriptorStringArrayValue(descriptorText, "PreservePaths", out var preservePaths, out error))
+        {
+            return false;
+        }
+
         descriptor = new ServiceInstallDescriptor(
             string.IsNullOrWhiteSpace(formatVersion) ? "legacy" : formatVersion.Trim(),
             name,
             entryPoint,
             description,
             version,
-            string.IsNullOrWhiteSpace(serviceLogPath) ? null : serviceLogPath);
+            string.IsNullOrWhiteSpace(serviceLogPath) ? null : serviceLogPath,
+            preservePaths);
         return true;
     }
 
@@ -1906,6 +1912,53 @@ internal static partial class Program
     }
 
     /// <summary>
+    /// Reads a string-array key from Service.psd1 using PowerShell array syntax: Key = @( 'a', 'b' ).
+    /// </summary>
+    /// <param name="descriptorText">Raw descriptor content.</param>
+    /// <param name="key">Descriptor key name.</param>
+    /// <param name="values">Resolved array values.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when array resolution succeeds.</returns>
+    private static bool TryGetServiceDescriptorStringArrayValue(string descriptorText, string key, out string[] values, out string error)
+    {
+        values = [];
+        error = string.Empty;
+
+        var arrayMatch = Regex.Match(
+            descriptorText,
+            $@"(?mis)(?:^|[;{{\r\n])\s*{Regex.Escape(key)}\s*=\s*@\((?<items>.*?)\)",
+            RegexOptions.CultureInvariant);
+
+        if (!arrayMatch.Success)
+        {
+            return true;
+        }
+
+        var itemsText = arrayMatch.Groups["items"].Value;
+        var itemMatches = Regex.Matches(
+            itemsText,
+            "'(?<single>(?:''|[^'])*)'|\"(?<double>(?:\"\"|[^\"])*)\"",
+            RegexOptions.CultureInvariant);
+
+        if (itemMatches.Count == 0 && !string.IsNullOrWhiteSpace(itemsText))
+        {
+            error = $"Service descriptor '{ServiceDescriptorFileName}' key '{key}' must be a string array, for example: @('path1','path2').";
+            return false;
+        }
+
+        values = [.. itemMatches
+            .Select(static match =>
+            {
+                var raw = match.Groups["single"].Success
+                    ? match.Groups["single"].Value.Replace("''", "'", StringComparison.Ordinal)
+                    : match.Groups["double"].Value.Replace("\"\"", "\"", StringComparison.Ordinal);
+                return raw.Trim();
+            })
+            .Where(static path => !string.IsNullOrWhiteSpace(path))];
+        return true;
+    }
+
+    /// <summary>
     /// Resolves the script path for descriptor-driven service installs.
     /// </summary>
     /// <param name="requestedScriptPath">Script path requested on the command line.</param>
@@ -1949,7 +2002,8 @@ internal static partial class Program
             descriptor.Name,
             descriptor.Description,
             descriptor.Version,
-            descriptor.ServiceLogPath);
+            descriptor.ServiceLogPath,
+            descriptor.PreservePaths);
 
     /// <summary>
     /// Downloads and extracts an HTTP content-root archive into the supplied directory.
@@ -2027,7 +2081,7 @@ internal static partial class Program
         }
 
         var relativeScriptPath = Path.GetRelativePath(fullContentRoot, fullScriptPathFromRoot);
-        scriptSource = new ResolvedServiceScriptSource(fullScriptPathFromRoot, fullContentRoot, relativeScriptPath, temporaryContentRootPath, null, null, null, null);
+        scriptSource = new ResolvedServiceScriptSource(fullScriptPathFromRoot, fullContentRoot, relativeScriptPath, temporaryContentRootPath, null, null, null, null, []);
         error = string.Empty;
         return true;
     }
@@ -2037,7 +2091,7 @@ internal static partial class Program
     /// </summary>
     /// <returns>Empty resolved service script source value.</returns>
     private static ResolvedServiceScriptSource CreateEmptyResolvedServiceScriptSource()
-        => new(string.Empty, null, string.Empty, null, null, null, null, null);
+        => new(string.Empty, null, string.Empty, null, null, null, null, null, []);
 
     /// <summary>
     /// Creates a temporary extraction directory for archive-based service content roots.

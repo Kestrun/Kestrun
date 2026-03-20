@@ -856,7 +856,13 @@ internal static partial class Program
                     return 1;
                 }
 
-                if (!TryReplaceDirectoryFromSource(scriptSource.FullContentRoot, scriptRoot, "Updating service application", out var appReplaceError))
+                if (!TryReplaceDirectoryFromSource(
+                        scriptSource.FullContentRoot,
+                        scriptRoot,
+                        "Updating service application",
+                        out var appReplaceError,
+                        exclusionPatterns: null,
+                        preserveRelativePaths: scriptSource.DescriptorPreservePaths))
                 {
                     Console.Error.WriteLine(appReplaceError);
                     return 1;
@@ -1304,11 +1310,21 @@ internal static partial class Program
         string targetDirectory,
         string operationName,
         out string error,
-        IReadOnlyList<string>? exclusionPatterns = null)
+        IReadOnlyList<string>? exclusionPatterns = null,
+        IReadOnlyList<string>? preserveRelativePaths = null)
     {
         error = string.Empty;
+        string? preserveStagingRoot = null;
         try
         {
+            if (preserveRelativePaths is not null
+                && preserveRelativePaths.Count > 0
+                && Directory.Exists(targetDirectory)
+                && !TryStagePreservedPaths(targetDirectory, preserveRelativePaths, out preserveStagingRoot, out error))
+            {
+                return false;
+            }
+
             if (Directory.Exists(targetDirectory))
             {
                 Directory.Delete(targetDirectory, recursive: true);
@@ -1316,13 +1332,169 @@ internal static partial class Program
 
             _ = Directory.CreateDirectory(targetDirectory);
             CopyDirectoryContents(sourceDirectory, targetDirectory, showProgress: !Console.IsOutputRedirected, operationName, exclusionPatterns);
-            return true;
+
+            return string.IsNullOrWhiteSpace(preserveStagingRoot)
+                || TryRestorePreservedPaths(preserveStagingRoot, targetDirectory, out error);
         }
         catch (Exception ex)
         {
             error = $"Failed to replace '{targetDirectory}' from '{sourceDirectory}': {ex.Message}";
             return false;
         }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(preserveStagingRoot) && Directory.Exists(preserveStagingRoot))
+            {
+                try
+                {
+                    TryDeleteDirectoryWithRetry(preserveStagingRoot, maxAttempts: 5, initialDelayMs: 50);
+                }
+                catch
+                {
+                    // Best-effort cleanup for preserve staging directory.
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Stages preserve-path files/directories from an existing target directory into a temporary folder.
+    /// </summary>
+    /// <param name="targetDirectory">Existing target directory whose content is being replaced.</param>
+    /// <param name="preserveRelativePaths">Relative preserve paths declared in the package descriptor.</param>
+    /// <param name="preserveStagingRoot">Temporary preserve staging root path.</param>
+    /// <param name="error">Staging error details.</param>
+    /// <returns>True when staging succeeds.</returns>
+    private static bool TryStagePreservedPaths(
+        string targetDirectory,
+        IReadOnlyList<string> preserveRelativePaths,
+        out string preserveStagingRoot,
+        out string error)
+    {
+        preserveStagingRoot = Path.Combine(Path.GetTempPath(), $"kestrun-preserve-{Guid.NewGuid():N}");
+        error = string.Empty;
+
+        var targetRootFullPath = Path.GetFullPath(targetDirectory);
+        var normalizedPreservePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var preservePath in preserveRelativePaths)
+        {
+            if (!TryNormalizePreservePath(preservePath, out var normalizedPath, out error))
+            {
+                return false;
+            }
+
+            _ = normalizedPreservePaths.Add(normalizedPath);
+        }
+
+        _ = Directory.CreateDirectory(preserveStagingRoot);
+        foreach (var normalizedPath in normalizedPreservePaths)
+        {
+            var sourcePath = Path.GetFullPath(Path.Combine(targetRootFullPath, normalizedPath));
+            if (!IsPathWithinDirectory(sourcePath, targetRootFullPath))
+            {
+                error = $"PreservePaths entry '{normalizedPath}' escapes the service application root.";
+                return false;
+            }
+
+            var stagedPath = Path.Combine(preserveStagingRoot, normalizedPath);
+            var stagedDirectory = Path.GetDirectoryName(stagedPath);
+            if (!string.IsNullOrWhiteSpace(stagedDirectory))
+            {
+                _ = Directory.CreateDirectory(stagedDirectory);
+            }
+
+            if (File.Exists(sourcePath))
+            {
+                File.Copy(sourcePath, stagedPath, overwrite: true);
+                continue;
+            }
+
+            if (Directory.Exists(sourcePath))
+            {
+                _ = Directory.CreateDirectory(stagedPath);
+                CopyDirectoryContents(sourcePath, stagedPath, showProgress: false, "Staging preserved paths", exclusionPatterns: null);
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Restores staged preserve-path files/directories into the replaced target directory.
+    /// </summary>
+    /// <param name="preserveStagingRoot">Preserve staging root path.</param>
+    /// <param name="targetDirectory">Replacement target directory.</param>
+    /// <param name="error">Restore error details.</param>
+    /// <returns>True when restore succeeds.</returns>
+    private static bool TryRestorePreservedPaths(string preserveStagingRoot, string targetDirectory, out string error)
+    {
+        error = string.Empty;
+        try
+        {
+            foreach (var directoryPath in Directory.GetDirectories(preserveStagingRoot, "*", SearchOption.AllDirectories))
+            {
+                var relativePath = Path.GetRelativePath(preserveStagingRoot, directoryPath);
+                var destinationDirectory = Path.Combine(targetDirectory, relativePath);
+                _ = Directory.CreateDirectory(destinationDirectory);
+            }
+
+            foreach (var filePath in Directory.GetFiles(preserveStagingRoot, "*", SearchOption.AllDirectories))
+            {
+                var relativePath = Path.GetRelativePath(preserveStagingRoot, filePath);
+                var destinationPath = Path.Combine(targetDirectory, relativePath);
+                var destinationDirectory = Path.GetDirectoryName(destinationPath);
+                if (!string.IsNullOrWhiteSpace(destinationDirectory))
+                {
+                    _ = Directory.CreateDirectory(destinationDirectory);
+                }
+
+                File.Copy(filePath, destinationPath, overwrite: true);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to restore preserved paths into '{targetDirectory}': {ex.Message}";
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Validates and normalizes one PreservePaths entry.
+    /// </summary>
+    /// <param name="rawPath">Raw path value from the descriptor.</param>
+    /// <param name="normalizedPath">Normalized relative path.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when the preserve path is valid.</returns>
+    private static bool TryNormalizePreservePath(string rawPath, out string normalizedPath, out string error)
+    {
+        normalizedPath = string.Empty;
+        if (string.IsNullOrWhiteSpace(rawPath))
+        {
+            error = $"Service descriptor '{ServiceDescriptorFileName}' contains an empty PreservePaths entry.";
+            return false;
+        }
+
+        var candidate = rawPath.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar).Trim();
+        if (Path.IsPathRooted(candidate))
+        {
+            error = $"Service descriptor '{ServiceDescriptorFileName}' PreservePaths entry '{rawPath}' must be relative.";
+            return false;
+        }
+
+        var candidatePath = candidate.TrimEnd(Path.DirectorySeparatorChar);
+        if (string.IsNullOrWhiteSpace(candidatePath)
+            || string.Equals(candidatePath, ".", StringComparison.Ordinal)
+            || candidatePath.Split(Path.DirectorySeparatorChar).Any(static segment => string.Equals(segment, "..", StringComparison.Ordinal)))
+        {
+            error = $"Service descriptor '{ServiceDescriptorFileName}' PreservePaths entry '{rawPath}' is invalid.";
+            return false;
+        }
+
+        normalizedPath = candidatePath;
+        error = string.Empty;
+        return true;
     }
 
     /// <summary>

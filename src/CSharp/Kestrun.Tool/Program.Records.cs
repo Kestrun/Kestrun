@@ -124,7 +124,8 @@ internal static partial class Program
         string? DescriptorServiceName,
         string? DescriptorServiceDescription,
         string? DescriptorServiceVersion,
-        string? DescriptorServiceLogPath);
+        string? DescriptorServiceLogPath,
+        IReadOnlyList<string> DescriptorPreservePaths);
 
     private sealed record ServiceInstallDescriptor(
         string FormatVersion,
@@ -132,7 +133,8 @@ internal static partial class Program
         string EntryPoint,
         string Description,
         string? Version,
-        string? ServiceLogPath);
+        string? ServiceLogPath,
+        IReadOnlyList<string> PreservePaths);
 
     [GeneratedRegex("--service-log-path\\s+(\\\"(?<quoted>[^\\\"]+)\\\"|(?<plain>\\S+))", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
     private static partial Regex ServiceLogPathRegex();

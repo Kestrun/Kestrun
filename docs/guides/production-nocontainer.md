@@ -7,13 +7,15 @@ nav_order: 36
 
 # Production Deployment (No Containers)
 
-This guide shows how to deploy a custom Kestrun PowerShell application to production without containers, using `dotnet kestrun service install`.
+This guide shows how to deploy and update a custom Kestrun PowerShell application to production without containers using
+`dotnet kestrun service install` and `dotnet kestrun service update`.
 
 ## Scope
 
 - Target: VM or bare-metal hosts.
 - Runtime model: native OS service/daemon.
-- Packaging model: folder bundle or archive bundle.
+- Packaging model: `.krpack` service package (recommended).
+- Also supported: descriptor-driven `--content-root` installs from folder/archive/HTTP(S) archive.
 - Not covered: container deployments (Docker/Kubernetes).
 
 ## Prerequisites
@@ -26,11 +28,51 @@ dotnet tool install -g Kestrun.Tool
 ```
 
 - Your app entry script exists (usually `server.ps1` or `scripts/start.ps1`).
+- If you build packages on the host, ensure the `Kestrun` PowerShell module is available.
 - The target host account has permissions to install/start services.
 
-## Prepare Your Application Payload
+## Prepare a Service Package (Recommended)
 
-You can deploy from either:
+Build a `.krpack` package from your app folder before deployment:
+
+```powershell
+New-KrServicePackage -Path .\MyServiceApp -OutputPath .\my-service.krpack -Name my-service -Version 1.2.0
+```
+
+The package embeds `Service.psd1` metadata and app content used by `service install --package` and `service update --package`.
+
+## Service Descriptor Basics (`Service.psd1`)
+
+When using package or descriptor-based content deployments, `Service.psd1` should define at least:
+
+- `Name`
+- `Description`
+- `Version`
+
+Optional keys include `Script`, `ServiceLogPath`, and `PreservePaths`.
+
+Example:
+
+```powershell
+@{
+  Name = 'my-service'
+  Description = 'Production Kestrun service'
+  Version = '1.2.0'
+  Script = './Service.ps1'
+  PreservePaths = @(
+    'config/production.json'
+    'data/'
+    'logs/'
+  )
+}
+```
+
+`PreservePaths` values must be relative paths inside the app root (no absolute paths and no `..` traversal). During `service update --package`, those paths are
+staged from the current install and restored after the package content is applied.
+
+## Legacy Content-Root Input (Optional)
+
+You can still deploy from:
 
 1. A folder that contains your full app content.
 2. An archive (`.zip`, `.tar`, `.tgz`, or `.tar.gz`).
@@ -48,25 +90,61 @@ MyServiceApp/
 
 If you package an archive, include everything needed by the script at runtime.
 
-## Optional: Generate a Checksum for Archive Integrity
+## Optional: Generate a Checksum
 
-For production safety, verify archive integrity at install time.
+For production safety, verify package/archive integrity at install or update time.
 
 Windows PowerShell:
 
 ```powershell
-Get-FileHash .\MyServiceApp.tgz -Algorithm SHA256 | Select-Object -ExpandProperty Hash
+Get-FileHash .\my-service.krpack -Algorithm SHA256 | Select-Object -ExpandProperty Hash
 ```
 
 Linux/macOS shell:
 
 ```bash
-sha256sum ./MyServiceApp.tgz
+sha256sum ./my-service.krpack
 ```
 
 Keep the resulting hex hash for `--content-root-checksum`.
 
-## Install the Service (Folder Input)
+## Install the Service (Package Input)
+
+```powershell
+dotnet kestrun service install --package .\my-service.krpack
+```
+
+With checksum verification:
+
+```powershell
+dotnet kestrun service install --package .\my-service.krpack --content-root-checksum <sha256-hex>
+```
+
+From an HTTP(S) URL:
+
+```powershell
+dotnet kestrun service install --package https://downloads.example.com/my-service.krpack --content-root-checksum <sha256-hex>
+```
+
+From an HTTP(S) URL with bearer token auth:
+
+```powershell
+dotnet kestrun service install --package https://downloads.example.com/my-service.krpack --content-root-bearer-token <token> --content-root-checksum <sha256-hex>
+```
+
+From an HTTP(S) URL with custom request headers:
+
+```powershell
+dotnet kestrun service install --package https://downloads.example.com/my-service.krpack --content-root-header x-api-key:<key> --content-root-header x-env:prod --content-root-checksum <sha256-hex>
+```
+
+Ignore HTTPS certificate validation (insecure):
+
+```powershell
+dotnet kestrun service install --package https://downloads.example.com/my-service.krpack --content-root-ignore-certificate --content-root-checksum <sha256-hex>
+```
+
+## Install the Service (Legacy Content-Root Input)
 
 ```powershell
 dotnet kestrun service install --name my-service --content-root .\MyServiceApp --script .\server.ps1
@@ -119,13 +197,13 @@ dotnet kestrun service install --name my-service --content-root https://download
 Use `--service-user` when the service/daemon must run as a dedicated account.
 
 ```powershell
-dotnet kestrun service install --name my-service --content-root .\MyServiceApp --service-user svc-kestrun
+dotnet kestrun service install --package .\my-service.krpack --service-user svc-kestrun
 ```
 
 Use `--deployment-root` to control where bundles are staged.
 
 ```powershell
-dotnet kestrun service install --name my-service --content-root .\MyServiceApp --deployment-root D:\KestrunServices
+dotnet kestrun service install --package .\my-service.krpack --deployment-root D:\KestrunServices
 ```
 
 ## Start and Validate
@@ -143,26 +221,40 @@ Recommended checks:
 
 ## Upgrade Workflow (No Containers)
 
-1. Prepare a new folder/archive payload.
-2. Stop service.
-3. Remove service.
-4. Re-install service with new payload.
-5. Start service.
-6. Query health/status endpoints.
+1. Build and publish a new `.krpack` payload (with incremented `Version` in `Service.psd1`).
+2. Stop the service.
+3. Run `service update --package`.
+4. Start service.
+5. Query service and API health.
 
 Example:
 
 ```powershell
 dotnet kestrun service stop --name my-service
-dotnet kestrun service remove --name my-service
-dotnet kestrun service install --name my-service --content-root .\MyServiceApp-v2.tgz --content-root-checksum <sha256-hex>
+dotnet kestrun service update --name my-service --package .\my-service-v2.krpack --content-root-checksum <sha256-hex>
 dotnet kestrun service start --name my-service
 dotnet kestrun service query --name my-service
 ```
 
+Optional module update (repository module only when newer than bundled):
+
+```powershell
+dotnet kestrun service stop --name my-service
+dotnet kestrun service update --name my-service --package .\my-service-v2.krpack --kestrun
+dotnet kestrun service start --name my-service
+```
+
+Fail back to latest backup when needed:
+
+```powershell
+dotnet kestrun service stop --name my-service
+dotnet kestrun service update --name my-service --failback
+dotnet kestrun service start --name my-service
+```
+
 ## Production Hardening Notes
 
-- Prefer archive deployments with checksum validation for repeatability.
+- Prefer `.krpack` deployments with checksum validation for repeatability.
 - Use least-privilege service accounts where possible.
 - Keep app configuration and secrets externalized where feasible.
 - Store service logs on durable storage and ship them to monitoring.
@@ -170,9 +262,9 @@ dotnet kestrun service query --name my-service
 
 ## Current Limits
 
-- `--content-root` supports local folders and local archive files.
-- URL-based content roots are supported for HTTP(S) archive files.
-- Private archive URLs can use bearer token auth via `--content-root-bearer-token`.
+- `service install --package` and `service update --package` support local `.krpack` files and HTTP(S) package URLs.
+- `--content-root` remains supported for descriptor-driven installs from local folder/archive or HTTP(S) archive URL.
+- Private package/archive URLs can use bearer token auth via `--content-root-bearer-token`.
 - HTTPS certificate bypass is available via `--content-root-ignore-certificate` and should be used only for controlled environments.
 - `.7z` archives are not currently supported.
 

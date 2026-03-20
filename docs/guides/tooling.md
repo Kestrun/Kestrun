@@ -125,6 +125,15 @@ dotnet kestrun run --script .\server.ps1
 dotnet kestrun service install --name MyService .\server.ps1
 dotnet kestrun service install --name MyService --script .\server.ps1
 
+# Install from a service package (.krpack)
+dotnet kestrun service install --package .\my-service.krpack
+
+# Install from a remote package URL
+dotnet kestrun service install --package https://downloads.example.com/my-service.krpack
+
+# Update an installed service from a package
+dotnet kestrun service update --name MyService --package .\my-service-v2.krpack
+
 # Install from a script folder/archive/url content root.
 # Service.psd1 is required at the content-root root and defines Name/Description/Version.
 dotnet kestrun service install --content-root .\MyServiceApp
@@ -189,45 +198,66 @@ For `service install`:
 - `--deployment-root <folder>`: override where per-service bundles are created.
 - `--content-root <path>`: copy the full folder or extract a supported archive (`.zip`, `.tar`, `.tgz`, `.tar.gz`) into the service bundle.
 - `--content-root` also accepts an HTTP(S) URL that points to one of the supported archive formats.
-- when `--content-root` is provided, `Service.psd1` must exist at the content root (or archive root).
+- When `--content-root` is provided, `Service.psd1` must exist at the content root (or archive root).
 - `Service.psd1` required keys: `Name`, `Description`, `Version`.
-- `Service.psd1` optional keys: `Script`, `ServiceLogPath`.
+- `Service.psd1` optional keys: `Script`, `ServiceLogPath`, `PreservePaths`.
 - `Version` in `Service.psd1` must be compatible with `System.Version` parsing.
-- when `--content-root` is provided, `--name` and `--script` (including positional script path) are not supported.
-- if `Service.psd1` omits `Script`, default script is `./server.ps1` under the content root.
-- if both `Service.psd1` and CLI provide a service log path, `--service-log-path` overrides descriptor `ServiceLogPath`.
-- content-root installs create versioned bundles: `<deployment-root>/<Name>/<Version>/`.
+- When `--content-root` is provided, `--name` and `--script` (including positional script path) are not supported.
+- If `Service.psd1` omits `Script`, the default script is `./Service.ps1` under the content root.
+- If both `Service.psd1` and CLI provide a service log path, `--service-log-path` overrides descriptor `ServiceLogPath`.
+- Content-root installs create bundles at `<deployment-root>/<Name>/`.
+- `PreservePaths` is an optional string array of relative file/folder paths to keep from the currently installed application during `service update --package`.
+- `PreservePaths` entries must stay inside the service application root (no absolute paths, no `..` traversal).
+
+Example `Service.psd1` with `PreservePaths`:
+
+```powershell
+@{
+  Name = 'MuseumService'
+  Description = 'Museum API service bundle'
+  Version = '1.2.0'
+  Script = './Service.ps1'
+  PreservePaths = @(
+    'config/settings.json'
+    'data/'
+    'db/app.db'
+    'logs/'
+  )
+}
+```
+
+- Files and folders listed in `PreservePaths` are copied from the currently installed application before package replacement and restored afterward.
 - `--content-root-checksum <hex>`: verify archive checksum before extraction.
 - `--content-root-checksum-algorithm <name>`: checksum algorithm (`md5`, `sha1`, `sha256`, `sha384`, `sha512`). Defaults to `sha256`.
 - `--content-root-bearer-token <token>`: sends `Authorization: Bearer <token>` for HTTP(S) archive downloads.
 - `--content-root-header <name:value>`: adds custom request headers for HTTP(S) archive downloads. Repeat to send multiple headers.
 - `--content-root-ignore-certificate`: skips HTTPS certificate validation for archive downloads (insecure; use only when necessary).
 - `--arguments <args...>`: script arguments for installed service execution.
-- if the selected script does not exist inside `--content-root`, install fails with an error.
-- if `--content-root` points to an archive, Kestrun extracts it to a temporary folder before bundling.
-- if `--content-root-checksum` is provided, `--content-root` must point to a supported archive source: either a local archive file path or an HTTP(S) archive URL
+- If the selected script does not exist inside `--content-root`, install fails with an error.
+- If `--content-root` points to an archive, Kestrun extracts it to a temporary folder before bundling.
+- If `--content-root-checksum` is provided, `--content-root` must point to a supported archive source: either a local archive file path or an HTTP(S) archive URL
 (folder paths are not valid with checksum verification).
-- when `--deployment-root` is provided, install writes the service bundle under that root instead of OS defaults.
-- install creates a per-service bundle containing runtime, module, script, and dedicated service-host assets before registration.
-- dedicated `kestrun-service-host` is sourced from the `Kestrun.Tool` package's internal `kestrun-service` folder under the dotnet tool install location,
+- When `--deployment-root` is provided, install writes the service bundle under that root instead of OS defaults.
+- Install creates a per-service bundle containing runtime, module, script, and dedicated service-host assets before registration.
+- Dedicated `kestrun-service-host` is sourced from the `Kestrun.Tool` package's internal `kestrun-service` folder under the dotnet tool install location,
  not from the PowerShell module payload.
 - `Modules` are bundled from the PowerShell release matching `Microsoft.PowerShell.SDK` used by ServiceHost and
  copied into the service `Modules` folder during install.  This bundling is determined at package build time (during `Build-KestrunTool`),
  not discovered at service install or service runtime.
-- install shows progress bars for bundle staging and module file copy in interactive terminals.
+- Install shows progress bars for bundle staging and module file copy in interactive terminals.
 - URL content roots are supported for HTTP(S) archive sources.
 - `--content-root-header` only applies to HTTP(S) URL content roots.
 - `--content-root-ignore-certificate` only applies to HTTPS URL content roots.
-- when `--service-user` is provided:
+- When `--service-user` is provided:
   - Windows: service is registered with that account (password may be required by SCM depending on account type).
     Built-in aliases are supported for convenience: `NetworkService`, `LocalService`, and `LocalSystem`.
     You can also use full names like `NT AUTHORITY\NetworkService`.
   - Linux: installs a systemd system unit (`/etc/systemd/system`) with `User=<name>`; requires root.
   - macOS: installs a LaunchDaemon (`/Library/LaunchDaemons`) with `UserName`; requires root.
-- bundle roots: Windows `%ProgramData%\Kestrun\services`; Linux `/var/kestrun/services`
+- Bundle roots: Windows `%ProgramData%\Kestrun\services`; Linux `/var/kestrun/services`
   or `/usr/local/kestrun/services` (with user fallback when those are not writable).
-- on Linux, root candidates are used only when writable; otherwise install falls back to `$HOME/.local/share/kestrun/services`.
-- default bootstrap/service logs on Linux are written under `$HOME/.local/share/kestrun/logs` unless `--service-log-path` is provided.
+- On Linux, root candidates are used only when writable; otherwise install falls back to `$HOME/.local/share/kestrun/services`.
+- Default bootstrap and service logs on Linux are written under `$HOME/.local/share/kestrun/logs` unless `--service-log-path` is provided.
 
 ## Dedicated service-host direct run
 
@@ -253,12 +283,13 @@ Direct-run defaults:
 ## Service examples
 
 ```powershell
-dotnet kestrun service install --name demo --script .\server.ps1 --service-log-path C:\ProgramData\Kestrun\logs\demo.log
-dotnet kestrun service install --content-root .\examples\PowerShell\MultiRoutes
+dotnet kestrun service install --package .\demo.krpack
 dotnet kestrun service install --name demo --deployment-root D:\KestrunServices --script .\server.ps1
 dotnet kestrun service start --name demo
 dotnet kestrun service query --name demo
 dotnet kestrun service stop --name demo
+dotnet kestrun service update --name demo --package .\demo-v2.krpack
+dotnet kestrun service update --name demo --failback
 dotnet kestrun service remove --name demo
 ```
 

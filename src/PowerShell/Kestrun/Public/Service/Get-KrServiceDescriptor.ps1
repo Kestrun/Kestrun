@@ -2,7 +2,7 @@
 .SYNOPSIS
     Reads a Service.psd1 descriptor file.
 .DESCRIPTION
-    Reads Service.psd1 and returns a normalized object with Name, Description, Version, Script, and ServiceLogPath.
+    Reads Service.psd1 and returns a normalized object with Name, Description, Version, Script, ServiceLogPath, and PreservePaths.
 .PARAMETER Path
     Descriptor path. Defaults to Service.psd1 in the current directory.
 .EXAMPLE
@@ -42,6 +42,11 @@ function Get-KrServiceDescriptor {
         throw "Descriptor '$fullPath' has invalid Version value '$($descriptor['Version'])'."
     }
 
+    $preservePaths = @()
+    if ($descriptor.ContainsKey('PreservePaths') -and $null -ne $descriptor['PreservePaths']) {
+        $preservePaths = @($descriptor['PreservePaths'])
+    }
+
     [pscustomobject]([ordered]@{
             Path = $fullPath
             Name = [string]$descriptor['Name']
@@ -49,5 +54,6 @@ function Get-KrServiceDescriptor {
             Version = $parsedVersion.ToString()
             Script = if ($descriptor.ContainsKey('Script')) { [string]$descriptor['Script'] } else { $null }
             ServiceLogPath = if ($descriptor.ContainsKey('ServiceLogPath')) { [string]$descriptor['ServiceLogPath'] } else { $null }
+            PreservePaths = $preservePaths
         })
 }

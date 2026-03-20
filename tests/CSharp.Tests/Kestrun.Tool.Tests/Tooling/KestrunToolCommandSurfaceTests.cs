@@ -862,6 +862,78 @@ public class KestrunToolCommandSurfaceTests
             Assert.True(string.IsNullOrWhiteSpace(Error));
             Assert.NotNull(Descriptor);
             Assert.Equal("1.0", Descriptor!.GetType().GetProperty("Version")!.GetValue(Descriptor)?.ToString());
+            var preservePaths = Assert.IsAssignableFrom<System.Collections.IEnumerable>(Descriptor.GetType().GetProperty("PreservePaths")!.GetValue(Descriptor));
+            var preserveValues = preservePaths.Cast<object>().Select(static value => value?.ToString()).Where(static value => !string.IsNullOrWhiteSpace(value)).ToList();
+            Assert.Empty(preserveValues);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceInstallDescriptor_Format10_ParsesPreservePaths()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var descriptorPath = Path.Combine(tempRoot, "Service.psd1");
+            var descriptorText = "@{`n    FormatVersion = '1.0'`n    Name = 'Demo.Service'`n    Description = 'demo'`n    Version = '1.1.0'`n    EntryPoint = 'server.ps1'`n    PreservePaths = @('config/settings.json','data/','db/app.db')`n}";
+            File.WriteAllText(descriptorPath, descriptorText, Encoding.UTF8);
+
+            var (Success, Descriptor, Error) = InvokeTryResolveServiceInstallDescriptor(tempRoot);
+
+            Assert.True(Success, Error);
+            Assert.True(string.IsNullOrWhiteSpace(Error));
+            Assert.NotNull(Descriptor);
+            var preservePaths = Assert.IsAssignableFrom<System.Collections.IEnumerable>(Descriptor!.GetType().GetProperty("PreservePaths")!.GetValue(Descriptor));
+            var preserveValues = preservePaths.Cast<object>().Select(static value => value?.ToString()).Where(static value => !string.IsNullOrWhiteSpace(value)).ToList();
+            Assert.Equal(["config/settings.json", "data/", "db/app.db"], preserveValues);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryReplaceDirectoryFromSource_WithPreservePaths_PreservesTargetContent()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            var sourceRoot = Path.Combine(tempRoot, "source");
+            var targetRoot = Path.Combine(tempRoot, "target");
+            _ = Directory.CreateDirectory(Path.Combine(sourceRoot, "config"));
+            _ = Directory.CreateDirectory(Path.Combine(sourceRoot, "logs"));
+            _ = Directory.CreateDirectory(Path.Combine(targetRoot, "config"));
+            _ = Directory.CreateDirectory(Path.Combine(targetRoot, "logs"));
+
+            File.WriteAllText(Path.Combine(sourceRoot, "config", "settings.json"), "new-config", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(sourceRoot, "logs", "new.log"), "new-log", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(sourceRoot, "server.ps1"), "Write-Output 'new'", Encoding.UTF8);
+
+            File.WriteAllText(Path.Combine(targetRoot, "config", "settings.json"), "old-config", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(targetRoot, "logs", "old.log"), "old-log", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(targetRoot, "server.ps1"), "Write-Output 'old'", Encoding.UTF8);
+
+            var (Success, Error) = InvokeTryReplaceDirectoryFromSource(sourceRoot, targetRoot, ["config/settings.json", "logs/"]);
+
+            Assert.True(Success, Error);
+            Assert.True(string.IsNullOrWhiteSpace(Error));
+            Assert.Equal("old-config", File.ReadAllText(Path.Combine(targetRoot, "config", "settings.json"), Encoding.UTF8));
+            Assert.Equal("old-log", File.ReadAllText(Path.Combine(targetRoot, "logs", "old.log"), Encoding.UTF8));
+            Assert.Equal("Write-Output 'new'", File.ReadAllText(Path.Combine(targetRoot, "server.ps1"), Encoding.UTF8));
         }
         finally
         {
@@ -1287,6 +1359,7 @@ public class KestrunToolCommandSurfaceTests
             var contentRoot = Path.Combine(tempRoot, "content");
             _ = Directory.CreateDirectory(contentRoot);
             File.WriteAllText(Path.Combine(contentRoot, "server.ps1"), "Write-Output 'hello'", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(contentRoot, "Service.ps1"), "Write-Output 'hello'", Encoding.UTF8);
             File.WriteAllText(
                 Path.Combine(contentRoot, "Service.psd1"),
                 "@{`n    Name = 'demo'`n    Description = 'Demo service'`n    Version = '1.2.0'`n    ServiceLogPath = './logs/service.log'`n}",
@@ -1457,7 +1530,7 @@ public class KestrunToolCommandSurfaceTests
 
             Assert.True(File.Exists(bundledConfig));
             Assert.True(File.Exists(bundledScript));
-            Assert.Equal(Path.GetFullPath(bundledScript), Path.GetFullPath(ScriptPath));
+            Assert.Equal(Path.GetFullPath(bundledScript), Path.GetFullPath(ScriptPath), StringComparer.OrdinalIgnoreCase);
         }
         finally
         {
@@ -2414,6 +2487,16 @@ public class KestrunToolCommandSurfaceTests
         var runtimePath = values[1]?.ToString() ?? string.Empty;
         var error = values[2]?.ToString() ?? string.Empty;
         return (success, runtimePath, error);
+    }
+
+    private static (bool Success, string Error) InvokeTryReplaceDirectoryFromSource(string sourceDirectory, string targetDirectory, IReadOnlyList<string> preservePaths)
+    {
+        var method = GetRequiredProgramMethod("TryReplaceDirectoryFromSource");
+
+        var values = new object?[] { sourceDirectory, targetDirectory, "Testing replace", null, null, preservePaths };
+        var success = InvokeRequiredBool(method, values);
+        var error = values[3]?.ToString() ?? string.Empty;
+        return (success, error);
     }
 
     private static (bool Success, string ServiceRootPath, string Error) InvokeTryResolveInstalledServiceBundleRoot(string serviceName, string deploymentRootOverride)

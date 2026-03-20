@@ -24,6 +24,7 @@ Describe 'Service package cmdlet' {
                 "    Name = 'demo-folder'",
                 "    Description = 'Demo folder service'",
                 "    EntryPoint = 'server.ps1'",
+                "    PreservePaths = @('config/settings.json','data/')",
                 '}'
             ) -join [Environment]::NewLine
             Set-Content -LiteralPath $descriptorPath -Value $descriptor -Encoding utf8NoBOM
@@ -34,6 +35,7 @@ Describe 'Service package cmdlet' {
             $result.Name | Should -Be 'demo-folder'
             $result.EntryPoint | Should -Be 'server.ps1'
             $result.FormatVersion | Should -Be '1.0'
+            @($result.PreservePaths) | Should -Be @('config/settings.json', 'data/')
 
             $zip = [System.IO.Compression.ZipFile]::OpenRead($packagePath)
             try {
@@ -60,12 +62,13 @@ Describe 'Service package cmdlet' {
             $null = New-Item -ItemType Directory -Path $tempRoot -Force
             Set-Content -LiteralPath $scriptPath -Value "Write-Output 'hello-script'" -Encoding utf8NoBOM
 
-            $result = New-KrServicePackage -ScriptPath $scriptPath -Name 'demo-script' -Version ([Version]'2.4.0') -OutputPath $packagePath
+            $result = New-KrServicePackage -ScriptPath $scriptPath -Name 'demo-script' -Version ([Version]'2.4.0') -OutputPath $packagePath -PreservePaths @('logs/', 'db/app.db')
 
             Test-Path -LiteralPath $packagePath | Should -BeTrue
             $result.Name | Should -Be 'demo-script'
             $result.EntryPoint | Should -Be 'app.ps1'
             $result.Version | Should -Be '2.4.0'
+            @($result.PreservePaths) | Should -Be @('logs/', 'db/app.db')
 
             Expand-Archive -LiteralPath $packagePath -DestinationPath $extractPath -Force
             $descriptor = Import-PowerShellDataFile -LiteralPath (Join-Path $extractPath 'Service.psd1')
@@ -74,6 +77,7 @@ Describe 'Service package cmdlet' {
             $descriptor['Name'] | Should -Be 'demo-script'
             $descriptor['EntryPoint'] | Should -Be 'app.ps1'
             $descriptor['Version'] | Should -Be '2.4.0'
+            @($descriptor['PreservePaths']) | Should -Be @('logs/', 'db/app.db')
             Test-Path -LiteralPath (Join-Path $extractPath 'app.ps1') | Should -BeTrue
         } finally {
             if (Test-Path -LiteralPath $tempRoot) {

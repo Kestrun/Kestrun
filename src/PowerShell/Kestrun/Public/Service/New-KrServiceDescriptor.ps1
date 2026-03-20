@@ -3,7 +3,8 @@
     Creates a Service.psd1 descriptor file.
 .DESCRIPTION
     Creates a Service.psd1 descriptor file used by Kestrun.Tool content-root service install flow.
-    Required keys are Name, Description, and Version. Optional keys are Script, ServiceLogPath, and PreservePaths.
+    Required keys are FormatVersion, Name, Description, Version, and EntryPoint.
+    Optional keys are ServiceLogPath and PreservePaths.
 .PARAMETER Path
     Target descriptor path. Defaults to Service.psd1 in the current directory.
 .PARAMETER Name
@@ -12,8 +13,8 @@
     Service description value.
 .PARAMETER Version
     Service version. Must be compatible with System.Version.
-.PARAMETER Script
-    Optional script path relative to the content root.
+.PARAMETER EntryPoint
+    Optional entry point path relative to the content root. Defaults to Service.ps1.
 .PARAMETER ServiceLogPath
     Optional default service log path.
 .PARAMETER PreservePaths
@@ -49,7 +50,7 @@ function New-KrServiceDescriptor {
         [version]$Version,
 
         [Parameter()]
-        [string]$Script,
+        [string]$EntryPoint,
 
         [Parameter()]
         [string]$ServiceLogPath,
@@ -74,19 +75,16 @@ function New-KrServiceDescriptor {
     $escapedName = $Name.Replace("'", "''")
     $escapedDescription = $Description.Replace("'", "''")
     $escapedVersion = $Version.ToString().Replace("'", "''")
+    $resolvedEntryPoint = if ([string]::IsNullOrWhiteSpace($EntryPoint)) { 'Service.ps1' } else { $EntryPoint }
+    $escapedEntryPoint = $resolvedEntryPoint.Replace("'", "''")
 
     $contentLines = [System.Collections.Generic.List[string]]::new()
     $contentLines.Add('@{')
+    $contentLines.Add("    FormatVersion = '1.0'")
     $contentLines.Add("    Name = '$escapedName'")
     $contentLines.Add("    Description = '$escapedDescription'")
     $contentLines.Add("    Version = '$escapedVersion'")
-
-    if (-not [string]::IsNullOrWhiteSpace($Script)) {
-        $escapedScript = $Script.Replace("'", "''")
-        $contentLines.Add("    Script = '$escapedScript'")
-    } else {
-        $contentLines.Add("    Script = 'Service.ps1'")
-    }
+    $contentLines.Add("    EntryPoint = '$escapedEntryPoint'")
 
     if (-not [string]::IsNullOrWhiteSpace($ServiceLogPath)) {
         $escapedServiceLogPath = $ServiceLogPath.Replace("'", "''")

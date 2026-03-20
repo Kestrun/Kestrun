@@ -2,8 +2,8 @@
 .SYNOPSIS
     Validates and processes a service descriptor hashtable.
 .DESCRIPTION
-    Validates the structure and required keys of a service descriptor hashtable, ensuring it conforms to expected formats (either '1.0' or 'legacy').
-    Also checks that referenced script files exist within the package root and do not escape it. Returns a processed descriptor object with consistent properties for downstream use.
+    Validates the structure and required keys of a format 1.0 service descriptor hashtable.
+    Also checks that referenced entry point files exist within the package root and do not escape it.
 .PARAMETER Descriptor
     The service descriptor as a hashtable, typically parsed from Service.psd1.
 .PARAMETER DescriptorPath
@@ -19,15 +19,6 @@
         Version = '1.0.0'
     }
     Test-KrServiceDescriptorData -Descriptor $descriptor -DescriptorPath '.\Service.psd1' -PackageRoot '.\'
-.EXAMPLE
-    $descriptor = @{
-        Name = 'MyLegacyService'
-        Description = 'A legacy service.'
-        Version = '0.9.0'
-        Script = 'legacy-server.ps1'
-    }
-    Test-KrServiceDescriptorData -Descriptor $descriptor -DescriptorPath '.\Service.psd1' -PackageRoot '.\'
-
 #>
 function Test-KrServiceDescriptorData {
     param(
@@ -94,89 +85,46 @@ function Test-KrServiceDescriptorData {
         }
     }
 
-    $formatVersion = if ($Descriptor.ContainsKey('FormatVersion')) { [string]$Descriptor['FormatVersion'] } else { $null }
-
-    if (-not [string]::IsNullOrWhiteSpace($formatVersion)) {
-        if (-not [string]::Equals($formatVersion.Trim(), '1.0', [System.StringComparison]::Ordinal)) {
-            throw "Descriptor '$DescriptorPath' has unsupported FormatVersion '$formatVersion'. Expected '1.0'."
-        }
-
-        if (-not $Descriptor.ContainsKey('EntryPoint') -or [string]::IsNullOrWhiteSpace([string]$Descriptor['EntryPoint'])) {
-            throw "Descriptor '$DescriptorPath' is missing required key 'EntryPoint'."
-        }
-
-        if (-not $Descriptor.ContainsKey('Description') -or [string]::IsNullOrWhiteSpace([string]$Descriptor['Description'])) {
-            throw "Descriptor '$DescriptorPath' is missing required key 'Description'."
-        }
-
-        $entryPoint = [string]$Descriptor['EntryPoint']
-        if ([System.IO.Path]::IsPathRooted($entryPoint)) {
-            throw "Descriptor '$DescriptorPath' EntryPoint must be a relative path."
-        }
-
-        $entryPointFullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($packageRootFullPath, $entryPoint))
-        if (-not (& $isWithinPackageRoot $entryPointFullPath)) {
-            throw "Descriptor '$DescriptorPath' EntryPoint escapes the package root."
-        }
-
-        if (-not (Test-Path -LiteralPath $entryPointFullPath -PathType Leaf)) {
-            throw "EntryPoint file '$entryPoint' was not found under '$PackageRoot'."
-        }
-
-        if ($Descriptor.ContainsKey('Version') -and -not [string]::IsNullOrWhiteSpace([string]$Descriptor['Version'])) {
-            $parsedVersion = $null
-            if (-not [version]::TryParse([string]$Descriptor['Version'], [ref]$parsedVersion)) {
-                throw "Descriptor '$DescriptorPath' has invalid Version value '$($Descriptor['Version'])'."
-            }
-        }
-
-        return [pscustomobject]@{
-            Name = [string]$Descriptor['Name']
-            FormatVersion = '1.0'
-            EntryPoint = [string]$Descriptor['EntryPoint']
-            Description = [string]$Descriptor['Description']
-            Version = if ($Descriptor.ContainsKey('Version')) { [string]$Descriptor['Version'] } else { $null }
-            ServiceLogPath = if ($Descriptor.ContainsKey('ServiceLogPath')) { [string]$Descriptor['ServiceLogPath'] } else { $null }
-            PreservePaths = $normalizedPreservePaths
-        }
+    if (-not $Descriptor.ContainsKey('FormatVersion') -or [string]::IsNullOrWhiteSpace([string]$Descriptor['FormatVersion'])) {
+        throw "Descriptor '$DescriptorPath' is missing required key 'FormatVersion'."
     }
 
-    foreach ($requiredKey in @('Description', 'Version')) {
+    $formatVersion = [string]$Descriptor['FormatVersion']
+    if (-not [string]::Equals($formatVersion.Trim(), '1.0', [System.StringComparison]::Ordinal)) {
+        throw "Descriptor '$DescriptorPath' has unsupported FormatVersion '$formatVersion'. Expected '1.0'."
+    }
+
+    foreach ($requiredKey in @('Description', 'Version', 'EntryPoint')) {
         if (-not $Descriptor.ContainsKey($requiredKey) -or [string]::IsNullOrWhiteSpace([string]$Descriptor[$requiredKey])) {
             throw "Descriptor '$DescriptorPath' is missing required key '$requiredKey'."
         }
     }
 
-    $legacyVersion = $null
-    if (-not [version]::TryParse([string]$Descriptor['Version'], [ref]$legacyVersion)) {
+    $parsedVersion = $null
+    if (-not [version]::TryParse([string]$Descriptor['Version'], [ref]$parsedVersion)) {
         throw "Descriptor '$DescriptorPath' has invalid Version value '$($Descriptor['Version'])'."
     }
 
-    $legacyScript = if ($Descriptor.ContainsKey('Script') -and -not [string]::IsNullOrWhiteSpace([string]$Descriptor['Script'])) {
-        [string]$Descriptor['Script']
-    } else {
-        'server.ps1'
+    $entryPoint = [string]$Descriptor['EntryPoint']
+    if ([System.IO.Path]::IsPathRooted($entryPoint)) {
+        throw "Descriptor '$DescriptorPath' EntryPoint must be a relative path."
     }
 
-    if ([System.IO.Path]::IsPathRooted($legacyScript)) {
-        throw "Descriptor '$DescriptorPath' Script must be a relative path."
+    $entryPointFullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($packageRootFullPath, $entryPoint))
+    if (-not (& $isWithinPackageRoot $entryPointFullPath)) {
+        throw "Descriptor '$DescriptorPath' EntryPoint escapes the package root."
     }
 
-    $legacyScriptFullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($packageRootFullPath, $legacyScript))
-    if (-not (& $isWithinPackageRoot $legacyScriptFullPath)) {
-        throw "Descriptor '$DescriptorPath' Script escapes the package root."
-    }
-
-    if (-not (Test-Path -LiteralPath $legacyScriptFullPath -PathType Leaf)) {
-        throw "Script file '$legacyScript' was not found under '$PackageRoot'."
+    if (-not (Test-Path -LiteralPath $entryPointFullPath -PathType Leaf)) {
+        throw "EntryPoint file '$entryPoint' was not found under '$PackageRoot'."
     }
 
     [pscustomobject]@{
         Name = [string]$Descriptor['Name']
-        FormatVersion = 'legacy'
-        EntryPoint = $legacyScript
+        FormatVersion = '1.0'
+        EntryPoint = $entryPoint
         Description = [string]$Descriptor['Description']
-        Version = $legacyVersion.ToString()
+        Version = $parsedVersion.ToString()
         ServiceLogPath = if ($Descriptor.ContainsKey('ServiceLogPath')) { [string]$Descriptor['ServiceLogPath'] } else { $null }
         PreservePaths = $normalizedPreservePaths
     }

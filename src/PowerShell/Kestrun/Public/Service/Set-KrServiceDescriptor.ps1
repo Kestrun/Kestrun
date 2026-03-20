@@ -2,7 +2,7 @@
 .SYNOPSIS
     Updates a Service.psd1 descriptor file.
 .DESCRIPTION
-    Updates Description, Version, Script, ServiceLogPath, and PreservePaths values in Service.psd1.
+    Updates Description, Version, EntryPoint, ServiceLogPath, and PreservePaths values in Service.psd1.
     Name is immutable and cannot be changed by this cmdlet.
 .PARAMETER Path
     Descriptor path. Defaults to Service.psd1 in the current directory.
@@ -10,12 +10,10 @@
     New description value.
 .PARAMETER Version
     New version value compatible with System.Version.
-.PARAMETER Script
-    New script path value.
+.PARAMETER EntryPoint
+    New entry point path value.
 .PARAMETER ServiceLogPath
     New default service log path.
-.PARAMETER ClearScript
-    Removes Script from the descriptor.
 .PARAMETER ClearServiceLogPath
     Removes ServiceLogPath from the descriptor.
 .PARAMETER PreservePaths
@@ -45,16 +43,13 @@ function Set-KrServiceDescriptor {
         [version]$Version,
 
         [Parameter()]
-        [string]$Script,
+        [string]$EntryPoint,
 
         [Parameter()]
         [string]$ServiceLogPath,
 
         [Parameter()]
         [string[]]$PreservePaths,
-
-        [Parameter()]
-        [switch]$ClearScript,
 
         [Parameter()]
         [switch]$ClearServiceLogPath,
@@ -65,19 +60,14 @@ function Set-KrServiceDescriptor {
 
     $updateRequested = $PSBoundParameters.ContainsKey('Description') -or
     $PSBoundParameters.ContainsKey('Version') -or
-    $PSBoundParameters.ContainsKey('Script') -or
+    $PSBoundParameters.ContainsKey('EntryPoint') -or
     $PSBoundParameters.ContainsKey('ServiceLogPath') -or
     $PSBoundParameters.ContainsKey('PreservePaths') -or
-    $ClearScript -or
     $ClearServiceLogPath -or
     $ClearPreservePaths
 
     if (-not $updateRequested) {
         throw 'No updates requested. Specify one or more updatable fields.'
-    }
-
-    if ($PSBoundParameters.ContainsKey('Script') -and $ClearScript) {
-        throw 'Cannot use -Script and -ClearScript together.'
     }
 
     if ($PSBoundParameters.ContainsKey('ServiceLogPath') -and $ClearServiceLogPath) {
@@ -100,7 +90,7 @@ function Set-KrServiceDescriptor {
     } else {
         $current.Version
     }
-    $nextScript = if ($ClearScript) { $null } elseif ($PSBoundParameters.ContainsKey('Script')) { $Script } else { $current.Script }
+    $nextEntryPoint = if ($PSBoundParameters.ContainsKey('EntryPoint')) { $EntryPoint } else { $current.EntryPoint }
     $nextServiceLogPath = if ($ClearServiceLogPath) { $null } elseif ($PSBoundParameters.ContainsKey('ServiceLogPath')) { $ServiceLogPath } else { $current.ServiceLogPath }
     $nextPreservePaths = if ($ClearPreservePaths) { @() } elseif ($PSBoundParameters.ContainsKey('PreservePaths')) { @($PreservePaths) } else { @($current.PreservePaths) }
 
@@ -130,20 +120,27 @@ function Set-KrServiceDescriptor {
         throw 'Service descriptor is missing a valid Version. Pass -Version with a value compatible with [System.Version].'
     }
 
+    if ([string]::IsNullOrWhiteSpace($nextEntryPoint)) {
+        if ($PSBoundParameters.ContainsKey('EntryPoint')) {
+            throw 'Parameter -EntryPoint cannot be null or empty.'
+        }
+
+        throw 'Service descriptor is missing a valid EntryPoint. Update the descriptor or pass -EntryPoint with a non-empty value.'
+    }
+
     $escapedName = $current.Name.Replace("'", "''")
     $escapedDescription = $nextDescription.Replace("'", "''")
     $escapedVersion = $nextVersion.Replace("'", "''")
 
     $contentLines = [System.Collections.Generic.List[string]]::new()
     $contentLines.Add('@{')
+    $contentLines.Add("    FormatVersion = '1.0'")
     $contentLines.Add("    Name = '$escapedName'")
     $contentLines.Add("    Description = '$escapedDescription'")
     $contentLines.Add("    Version = '$escapedVersion'")
 
-    if (-not [string]::IsNullOrWhiteSpace($nextScript)) {
-        $escapedScript = $nextScript.Replace("'", "''")
-        $contentLines.Add("    Script = '$escapedScript'")
-    }
+    $escapedEntryPoint = $nextEntryPoint.Replace("'", "''")
+    $contentLines.Add("    EntryPoint = '$escapedEntryPoint'")
 
     if (-not [string]::IsNullOrWhiteSpace($nextServiceLogPath)) {
         $escapedServiceLogPath = $nextServiceLogPath.Replace("'", "''")

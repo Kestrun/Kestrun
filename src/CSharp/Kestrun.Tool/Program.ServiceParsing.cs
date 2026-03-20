@@ -959,6 +959,34 @@ internal static partial class Program
 
         var hasContentRoot = !string.IsNullOrWhiteSpace(state.ServiceContentRoot);
 
+        if (!TryValidateServiceInstallScriptContentRootSelection(state, hasContentRoot, out error))
+        {
+            return false;
+        }
+
+        if (!TryValidateServiceInstallPackageExtension(state, hasContentRoot, out error))
+        {
+            return false;
+        }
+
+        if (!TryValidateServiceContentRootLinkedOptions(state, hasContentRoot, out error))
+        {
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates service-install script/content-root selection rules.
+    /// </summary>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="hasContentRoot">True when a content root or package was specified.</param>
+    /// <param name="error">Validation error text.</param>
+    /// <returns>True when script/content-root selection is valid.</returns>
+    private static bool TryValidateServiceInstallScriptContentRootSelection(ServiceParseState state, bool hasContentRoot, out string error)
+    {
         if (state.ScriptPathSet && hasContentRoot)
         {
             error = "--script (or positional script path) is not supported when --package/--content-root is used. Define Script in Service.psd1 (EntryPoint in format 1.0).";
@@ -971,6 +999,19 @@ internal static partial class Program
             return false;
         }
 
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates package extension requirements when --package semantics are in effect.
+    /// </summary>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="hasContentRoot">True when a content root or package was specified.</param>
+    /// <param name="error">Validation error text.</param>
+    /// <returns>True when package extension usage is valid.</returns>
+    private static bool TryValidateServiceInstallPackageExtension(ServiceParseState state, bool hasContentRoot, out string error)
+    {
         if (hasContentRoot
             && state.ServicePackageSet
             && !state.ServiceContentRoot!.Trim().EndsWith(ServicePackageExtension, StringComparison.OrdinalIgnoreCase))
@@ -979,6 +1020,19 @@ internal static partial class Program
             return false;
         }
 
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates options that require --content-root to be supplied.
+    /// </summary>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="hasContentRoot">True when a content root or package was specified.</param>
+    /// <param name="error">Validation error text.</param>
+    /// <returns>True when content-root dependent option usage is valid.</returns>
+    private static bool TryValidateServiceContentRootLinkedOptions(ServiceParseState state, bool hasContentRoot, out string error)
+    {
         var hasChecksum = !string.IsNullOrWhiteSpace(state.ServiceContentRootChecksum);
         var hasChecksumAlgorithm = !string.IsNullOrWhiteSpace(state.ServiceContentRootChecksumAlgorithm);
         if (hasChecksumAlgorithm && !hasChecksum)

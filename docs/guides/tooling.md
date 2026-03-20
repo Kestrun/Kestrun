@@ -135,7 +135,7 @@ dotnet kestrun service install --package https://downloads.example.com/my-servic
 dotnet kestrun service update --name MyService --package .\my-service-v2.krpack
 
 # Install from a script folder/archive/url content root.
-# Service.psd1 is required at the content-root root and defines Name/Description/Version.
+# Service.psd1 is required at the content-root root and defines FormatVersion/Name/Description/Version/EntryPoint.
 dotnet kestrun service install --content-root .\MyServiceApp
 
 # Install from an archive payload (.zip/.tar/.tgz/.tar.gz)
@@ -160,7 +160,7 @@ dotnet kestrun service install --content-root .\MyServiceApp.tgz --content-root-
 dotnet kestrun service install --content-root .\MyServiceApp.tar.gz --content-root-checksum <hex> --content-root-checksum-algorithm sha512
 
 # Override default per-OS service bundle root
-dotnet kestrun service install --name MyService --deployment-root D:\KestrunServices --script .\server.ps1
+dotnet kestrun service install --content-root .\MyServiceApp --deployment-root D:\KestrunServices
 ```
 
 ## Important options
@@ -199,11 +199,10 @@ For `service install`:
 - `--content-root <path>`: copy the full folder or extract a supported archive (`.zip`, `.tar`, `.tgz`, `.tar.gz`) into the service bundle.
 - `--content-root` also accepts an HTTP(S) URL that points to one of the supported archive formats.
 - When `--content-root` is provided, `Service.psd1` must exist at the content root (or archive root).
-- `Service.psd1` required keys: `Name`, `Description`, `Version`.
-- `Service.psd1` optional keys: `Script`, `ServiceLogPath`, `PreservePaths`.
+- `Service.psd1` required keys: `FormatVersion` (must be `'1.0'`), `Name`, `Description`, `Version`, `EntryPoint`.
+- `Service.psd1` optional keys: `ServiceLogPath`, `PreservePaths`.
 - `Version` in `Service.psd1` must be compatible with `System.Version` parsing.
 - When `--content-root` is provided, `--name` and `--script` (including positional script path) are not supported.
-- If `Service.psd1` omits `Script`, the default script is `./Service.ps1` under the content root.
 - If both `Service.psd1` and CLI provide a service log path, `--service-log-path` overrides descriptor `ServiceLogPath`.
 - Content-root installs create bundles at `<deployment-root>/<Name>/`.
 - `PreservePaths` is an optional string array of relative file/folder paths to keep from the currently installed application during `service update --package`.
@@ -213,10 +212,11 @@ Example `Service.psd1` with `PreservePaths`:
 
 ```powershell
 @{
+  FormatVersion = '1.0'
   Name = 'MuseumService'
   Description = 'Museum API service bundle'
   Version = '1.2.0'
-  Script = './Service.ps1'
+  EntryPoint = './Service.ps1'
   PreservePaths = @(
     'config/settings.json'
     'data/'
@@ -258,6 +258,61 @@ Example `Service.psd1` with `PreservePaths`:
   or `/usr/local/kestrun/services` (with user fallback when those are not writable).
 - On Linux, root candidates are used only when writable; otherwise install falls back to `$HOME/.local/share/kestrun/services`.
 - Default bootstrap and service logs on Linux are written under `$HOME/.local/share/kestrun/logs` unless `--service-log-path` is provided.
+
+## .krpack lifecycle (create, check, modify)
+
+Use this flow when you want a repeatable package artifact for install/update.
+
+### 1. Create a package
+
+```powershell
+# Create/update Service.psd1 in your app root
+$newDescriptorParams = @{
+  Path = '.\MyServiceApp\Service.psd1'
+  Name = 'MuseumService'
+  Description = 'Museum API service bundle'
+  Version = [Version]'1.2.0'
+  EntryPoint = './Service.ps1'
+  PreservePaths = @('config/settings.json', 'data/', 'logs/')
+}
+New-KrServiceDescriptor @newDescriptorParams
+
+# Build .krpack from the folder
+New-KrServicePackage -SourceFolder .\MyServiceApp -OutputPath .\museum-service-1.2.0.krpack
+```
+
+### 2. Check a package
+
+```powershell
+# Inspect descriptor contents from an existing package
+$tmp = Join-Path $env:TEMP ("kestrun-krpack-inspect-" + [guid]::NewGuid().ToString('N'))
+Expand-Archive -LiteralPath .\museum-service-1.2.0.krpack -DestinationPath $tmp -Force
+Get-KrServiceDescriptor -Path (Join-Path $tmp 'Service.psd1')
+
+# Optional integrity hash for distribution/sign-off
+Get-FileHash .\museum-service-1.2.0.krpack -Algorithm SHA256
+```
+
+### 3. Modify and repack
+
+```powershell
+# Expand package, update descriptor metadata, then repack
+$tmp = Join-Path $env:TEMP ("kestrun-krpack-edit-" + [guid]::NewGuid().ToString('N'))
+Expand-Archive -LiteralPath .\museum-service-1.2.0.krpack -DestinationPath $tmp -Force
+
+$setDescriptorParams = @{
+  Path = (Join-Path $tmp 'Service.psd1')
+  Version = [Version]'1.2.1'
+  Description = 'Museum API service bundle v1.2.1'
+  EntryPoint = './Service.ps1'
+  PreservePaths = @('config/settings.json', 'data/', 'logs/')
+}
+Set-KrServiceDescriptor @setDescriptorParams
+
+New-KrServicePackage -SourceFolder $tmp -OutputPath .\museum-service-1.2.1.krpack -Force
+```
+
+`Service.psd1` in `.krpack` is format `1.0`; `FormatVersion` and `EntryPoint` are required.
 
 ## Dedicated service-host direct run
 

@@ -45,20 +45,23 @@ The package embeds `Service.psd1` metadata and app content used by `service inst
 
 When using package or descriptor-based content deployments, `Service.psd1` should define at least:
 
+- `FormatVersion` (`'1.0'`)
 - `Name`
 - `Description`
 - `Version`
+- `EntryPoint`
 
-Optional keys include `Script`, `ServiceLogPath`, and `PreservePaths`.
+Optional keys include `ServiceLogPath` and `PreservePaths`.
 
 Example:
 
 ```powershell
 @{
+  FormatVersion = '1.0'
   Name = 'my-service'
   Description = 'Production Kestrun service'
   Version = '1.2.0'
-  Script = './Service.ps1'
+  EntryPoint = './Service.ps1'
   PreservePaths = @(
     'config/production.json'
     'data/'
@@ -70,7 +73,7 @@ Example:
 `PreservePaths` values must be relative paths inside the app root (no absolute paths and no `..` traversal). During `service update --package`, those paths are
 staged from the current install and restored after the package content is applied.
 
-## Legacy Content-Root Input (Optional)
+## Content-Root Input (Optional)
 
 You can still deploy from:
 
@@ -88,7 +91,7 @@ MyServiceApp/
   assets/
 ```
 
-If you package an archive, include everything needed by the script at runtime.
+If you package an archive, include everything needed by the configured `EntryPoint` at runtime.
 
 ## Optional: Generate a Checksum
 
@@ -144,52 +147,52 @@ Ignore HTTPS certificate validation (insecure):
 dotnet kestrun service install --package https://downloads.example.com/my-service.krpack --content-root-ignore-certificate --content-root-checksum <sha256-hex>
 ```
 
-## Install the Service (Legacy Content-Root Input)
+## Install the Service (Content-Root Input)
 
 ```powershell
-dotnet kestrun service install --name my-service --content-root .\MyServiceApp --script .\server.ps1
+dotnet kestrun service install --content-root .\MyServiceApp
 ```
 
 ## Install the Service (Archive Input)
 
 ```powershell
-dotnet kestrun service install --name my-service --content-root .\MyServiceApp.zip --script .\server.ps1
+dotnet kestrun service install --content-root .\MyServiceApp.zip
 ```
 
 With checksum verification:
 
 ```powershell
-dotnet kestrun service install --name my-service --content-root .\MyServiceApp.tgz --content-root-checksum <sha256-hex>
+dotnet kestrun service install --content-root .\MyServiceApp.tgz --content-root-checksum <sha256-hex>
 ```
 
 With explicit checksum algorithm:
 
 ```powershell
-dotnet kestrun service install --name my-service --content-root .\MyServiceApp.tar.gz --content-root-checksum <hex> --content-root-checksum-algorithm sha512
+dotnet kestrun service install --content-root .\MyServiceApp.tar.gz --content-root-checksum <hex> --content-root-checksum-algorithm sha512
 ```
 
 From an HTTP(S) URL:
 
 ```powershell
-dotnet kestrun service install --name my-service --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-checksum <sha256-hex>
+dotnet kestrun service install --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-checksum <sha256-hex>
 ```
 
 From an HTTP(S) URL with bearer token auth:
 
 ```powershell
-dotnet kestrun service install --name my-service --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-bearer-token <token> --content-root-checksum <sha256-hex>
+dotnet kestrun service install --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-bearer-token <token> --content-root-checksum <sha256-hex>
 ```
 
 From an HTTP(S) URL with custom request headers:
 
 ```powershell
-dotnet kestrun service install --name my-service --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-header x-api-key:<key> --content-root-header x-env:prod --content-root-checksum <sha256-hex>
+dotnet kestrun service install --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-header x-api-key:<key> --content-root-header x-env:prod --content-root-checksum <sha256-hex>
 ```
 
 Ignore HTTPS certificate validation (insecure):
 
 ```powershell
-dotnet kestrun service install --name my-service --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-ignore-certificate --content-root-checksum <sha256-hex>
+dotnet kestrun service install --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-ignore-certificate --content-root-checksum <sha256-hex>
 ```
 
 ## Choose Account and Bundle Location

@@ -736,46 +736,152 @@ internal static partial class Program
 
         try
         {
-            if (!TryEnsureServiceIsStopped(serviceName, out var runningError))
-            {
-                Console.Error.WriteLine(runningError);
-                return 1;
-            }
-
-            if (!TryResolveServiceUpdatePaths(serviceName, command.ServiceDeploymentRoot, out var paths, out var pathExitCode))
-            {
-                return pathExitCode;
-            }
-
-            if (command.ServiceFailback)
-            {
-                return TryExecuteServiceFailback(paths, out var failbackExitCode)
-                    ? 0
-                    : failbackExitCode;
-            }
-
-            if (!TryApplyServicePackageUpdate(command, hasPackageUpdate, paths, ref scriptSource, ref packageSourceResolved, out var applicationUpdated, out var packageExitCode))
-            {
-                return packageExitCode;
-            }
-
-            if (!TryApplyServiceModuleUpdate(command, hasModuleUpdate, paths, out var moduleUpdated, out var moduleExitCode))
-            {
-                return moduleExitCode;
-            }
-
-            if (!TryApplyServiceHostUpdate(paths, out var serviceHostUpdated, out var hostExitCode))
-            {
-                return hostExitCode;
-            }
-
-            WriteServiceUpdateSummary(serviceName, paths, applicationUpdated, moduleUpdated, serviceHostUpdated);
-            return 0;
+            return ExecuteServiceUpdateFlow(
+                command,
+                serviceName,
+                hasPackageUpdate,
+                hasModuleUpdate,
+                ref scriptSource,
+                ref packageSourceResolved);
         }
         finally
         {
             TryCleanupTemporaryServiceContentRoot(scriptSource.TemporaryContentRootPath);
         }
+    }
+
+    /// <summary>
+    /// Executes the resolved service update workflow including failback and update operations.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <param name="serviceName">Resolved service name.</param>
+    /// <param name="hasPackageUpdate">True when package/content-root update was requested.</param>
+    /// <param name="hasModuleUpdate">True when module update was requested.</param>
+    /// <param name="scriptSource">Resolved package script source; may be populated lazily.</param>
+    /// <param name="packageSourceResolved">True when <paramref name="scriptSource"/> is already resolved.</param>
+    /// <returns>Process exit code.</returns>
+    private static int ExecuteServiceUpdateFlow(
+        ParsedCommand command,
+        string serviceName,
+        bool hasPackageUpdate,
+        bool hasModuleUpdate,
+        ref ResolvedServiceScriptSource scriptSource,
+        ref bool packageSourceResolved)
+    {
+        if (!TryPrepareServiceUpdateExecution(serviceName, command.ServiceDeploymentRoot, out var paths, out var prepareExitCode))
+        {
+            return prepareExitCode;
+        }
+
+        if (command.ServiceFailback)
+        {
+            return TryExecuteServiceFailback(paths, out var failbackExitCode)
+                ? 0
+                : failbackExitCode;
+        }
+
+        if (!TryRunServiceUpdateOperations(
+                command,
+                hasPackageUpdate,
+                hasModuleUpdate,
+                paths,
+                ref scriptSource,
+                ref packageSourceResolved,
+                out var applicationUpdated,
+                out var moduleUpdated,
+                out var serviceHostUpdated,
+                out var updateExitCode))
+        {
+            return updateExitCode;
+        }
+
+        WriteServiceUpdateSummary(serviceName, paths, applicationUpdated, moduleUpdated, serviceHostUpdated);
+        return 0;
+    }
+
+    /// <summary>
+    /// Validates service run state and resolves installed bundle paths for update execution.
+    /// </summary>
+    /// <param name="serviceName">Resolved service name.</param>
+    /// <param name="deploymentRootOverride">Optional deployment root override.</param>
+    /// <param name="paths">Resolved service update path set.</param>
+    /// <param name="exitCode">Exit code when validation or path resolution fails.</param>
+    /// <returns>True when update execution prerequisites are satisfied.</returns>
+    private static bool TryPrepareServiceUpdateExecution(
+        string serviceName,
+        string? deploymentRootOverride,
+        out ServiceUpdatePaths paths,
+        out int exitCode)
+    {
+        paths = default;
+        exitCode = 0;
+
+        if (!TryEnsureServiceIsStopped(serviceName, out var runningError))
+        {
+            Console.Error.WriteLine(runningError);
+            exitCode = 1;
+            return false;
+        }
+
+        if (!TryResolveServiceUpdatePaths(serviceName, deploymentRootOverride, out paths, out var pathExitCode))
+        {
+            exitCode = pathExitCode;
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Applies package, module, and service-host updates for a resolved service bundle.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <param name="hasPackageUpdate">True when package/content-root update was requested.</param>
+    /// <param name="hasModuleUpdate">True when module update was requested.</param>
+    /// <param name="paths">Resolved service update path set.</param>
+    /// <param name="scriptSource">Resolved package script source; may be populated when required.</param>
+    /// <param name="packageSourceResolved">True when <paramref name="scriptSource"/> is already resolved.</param>
+    /// <param name="applicationUpdated">True when application files were updated.</param>
+    /// <param name="moduleUpdated">True when module files were updated.</param>
+    /// <param name="serviceHostUpdated">True when service host binaries were updated.</param>
+    /// <param name="exitCode">Exit code when any update stage fails.</param>
+    /// <returns>True when all requested update stages succeed.</returns>
+    private static bool TryRunServiceUpdateOperations(
+        ParsedCommand command,
+        bool hasPackageUpdate,
+        bool hasModuleUpdate,
+        ServiceUpdatePaths paths,
+        ref ResolvedServiceScriptSource scriptSource,
+        ref bool packageSourceResolved,
+        out bool applicationUpdated,
+        out bool moduleUpdated,
+        out bool serviceHostUpdated,
+        out int exitCode)
+    {
+        applicationUpdated = false;
+        moduleUpdated = false;
+        serviceHostUpdated = false;
+        exitCode = 0;
+
+        if (!TryApplyServicePackageUpdate(command, hasPackageUpdate, paths, ref scriptSource, ref packageSourceResolved, out applicationUpdated, out var packageExitCode))
+        {
+            exitCode = packageExitCode;
+            return false;
+        }
+
+        if (!TryApplyServiceModuleUpdate(command, hasModuleUpdate, paths, out moduleUpdated, out var moduleExitCode))
+        {
+            exitCode = moduleExitCode;
+            return false;
+        }
+
+        if (!TryApplyServiceHostUpdate(paths, out serviceHostUpdated, out var hostExitCode))
+        {
+            exitCode = hostExitCode;
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -959,19 +1065,74 @@ internal static partial class Program
             return true;
         }
 
-        if (!packageSourceResolved)
+        if (!TryEnsureServicePackageSourceResolved(command, ref scriptSource, ref packageSourceResolved, out exitCode))
         {
-            if (!TryResolveServiceScriptSource(command, out scriptSource, out var scriptError))
-            {
-                Console.Error.WriteLine(scriptError);
-                exitCode = 2;
-                return false;
-            }
-
-            packageSourceResolved = true;
+            return false;
         }
 
-        if (!TryResolveServiceInstallDescriptor(paths.ScriptRoot, out var runningDescriptor, out var currentDescriptorError))
+        if (!TryValidateServicePackageUpdateContext(paths.ScriptRoot, scriptSource, out var contentRoot, out exitCode))
+        {
+            return false;
+        }
+
+        if (!TryApplyServiceApplicationReplacement(paths, contentRoot, scriptSource.DescriptorPreservePaths, out exitCode))
+        {
+            return false;
+        }
+
+        applicationUpdated = true;
+        return true;
+    }
+
+    /// <summary>
+    /// Ensures package script metadata is resolved for service package update operations.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <param name="scriptSource">Current resolved script source; populated when resolution is required.</param>
+    /// <param name="packageSourceResolved">True when <paramref name="scriptSource"/> is already resolved.</param>
+    /// <param name="exitCode">Exit code when source resolution fails.</param>
+    /// <returns>True when package script source is available.</returns>
+    private static bool TryEnsureServicePackageSourceResolved(
+        ParsedCommand command,
+        ref ResolvedServiceScriptSource scriptSource,
+        ref bool packageSourceResolved,
+        out int exitCode)
+    {
+        exitCode = 0;
+        if (packageSourceResolved)
+        {
+            return true;
+        }
+
+        if (!TryResolveServiceScriptSource(command, out scriptSource, out var scriptError))
+        {
+            Console.Error.WriteLine(scriptError);
+            exitCode = 2;
+            return false;
+        }
+
+        packageSourceResolved = true;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates package update preconditions against the installed service descriptor and content root.
+    /// </summary>
+    /// <param name="scriptRoot">Installed service script root.</param>
+    /// <param name="scriptSource">Resolved incoming package script source.</param>
+    /// <param name="contentRoot">Validated package content root path.</param>
+    /// <param name="exitCode">Exit code when validation fails.</param>
+    /// <returns>True when package update preconditions are satisfied.</returns>
+    private static bool TryValidateServicePackageUpdateContext(
+        string scriptRoot,
+        ResolvedServiceScriptSource scriptSource,
+        out string contentRoot,
+        out int exitCode)
+    {
+        contentRoot = string.Empty;
+        exitCode = 0;
+
+        if (!TryResolveServiceInstallDescriptor(scriptRoot, out var runningDescriptor, out var currentDescriptorError))
         {
             Console.Error.WriteLine(currentDescriptorError);
             exitCode = 1;
@@ -1002,6 +1163,27 @@ internal static partial class Program
             return false;
         }
 
+        contentRoot = scriptSource.FullContentRoot;
+
+        return true;
+    }
+
+    /// <summary>
+    /// Backs up and replaces the installed service application directory from package content.
+    /// </summary>
+    /// <param name="paths">Resolved service update path set.</param>
+    /// <param name="contentRoot">Validated source content root path.</param>
+    /// <param name="preserveRelativePaths">Optional preserve-path entries from the service descriptor.</param>
+    /// <param name="exitCode">Exit code when replacement fails.</param>
+    /// <returns>True when backup and replacement succeed.</returns>
+    private static bool TryApplyServiceApplicationReplacement(
+        ServiceUpdatePaths paths,
+        string contentRoot,
+        IReadOnlyList<string>? preserveRelativePaths,
+        out int exitCode)
+    {
+        exitCode = 0;
+
         if (!TryBackupDirectory(paths.ScriptRoot, Path.Combine(paths.BackupRoot, "application"), out var backupAppError))
         {
             Console.Error.WriteLine(backupAppError);
@@ -1010,19 +1192,18 @@ internal static partial class Program
         }
 
         if (!TryReplaceDirectoryFromSource(
-                scriptSource.FullContentRoot,
+            contentRoot,
                 paths.ScriptRoot,
                 "Updating service application",
                 out var appReplaceError,
                 exclusionPatterns: null,
-                preserveRelativePaths: scriptSource.DescriptorPreservePaths))
+            preserveRelativePaths: preserveRelativePaths))
         {
             Console.Error.WriteLine(appReplaceError);
             exitCode = 1;
             return false;
         }
 
-        applicationUpdated = true;
         return true;
     }
 
@@ -1727,7 +1908,8 @@ internal static partial class Program
         error = string.Empty;
 
         var targetRootFullPath = Path.GetFullPath(targetDirectory);
-        var normalizedPreservePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var preservePathComparer = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+        var normalizedPreservePaths = new HashSet<string>(preservePathComparer);
         foreach (var preservePath in preserveRelativePaths)
         {
             if (!TryNormalizePreservePath(preservePath, out var normalizedPath, out error))
@@ -1862,43 +2044,68 @@ internal static partial class Program
         updated = false;
         error = string.Empty;
 
-        if (!TryResolveDedicatedServiceHostExecutableFromToolDistribution(out var sourceHostPath))
+        if (!TryResolveServiceHostUpdatePaths(runtimeDirectory, out var sourceHostPath, out var targetHostPath, out error))
+        {
+            return false;
+        }
+
+        if (!File.Exists(targetHostPath))
+        {
+            return TryCopyServiceHostBinary(sourceHostPath, targetHostPath, out error, out updated);
+        }
+
+        if (!ShouldReplaceBundledServiceHostBinary(sourceHostPath, targetHostPath))
+        {
+            updated = false;
+            return true;
+        }
+
+        return TryBackupAndReplaceServiceHostBinary(sourceHostPath, targetHostPath, backupDirectory, out error, out updated);
+    }
+
+    /// <summary>
+    /// Resolves source and target service-host paths used by runtime host update operations.
+    /// </summary>
+    /// <param name="runtimeDirectory">Service runtime directory.</param>
+    /// <param name="sourceHostPath">Tool-distributed host executable path.</param>
+    /// <param name="targetHostPath">Installed runtime host executable path.</param>
+    /// <param name="error">Resolution error details.</param>
+    /// <returns>True when path resolution succeeds.</returns>
+    private static bool TryResolveServiceHostUpdatePaths(
+        string runtimeDirectory,
+        out string sourceHostPath,
+        out string targetHostPath,
+        out string error)
+    {
+        sourceHostPath = string.Empty;
+        targetHostPath = string.Empty;
+        error = string.Empty;
+
+        if (!TryResolveDedicatedServiceHostExecutableFromToolDistribution(out sourceHostPath))
         {
             error = "Unable to resolve bundled service-host from Kestrun.Tool distribution.";
             return false;
         }
 
-        var targetHostPath = Path.Combine(runtimeDirectory, Path.GetFileName(sourceHostPath));
-        if (!File.Exists(targetHostPath))
-        {
-            File.Copy(sourceHostPath, targetHostPath, overwrite: true);
-            if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
-            {
-                TryEnsureServiceRuntimeExecutablePermissions(targetHostPath);
-            }
+        targetHostPath = Path.Combine(runtimeDirectory, Path.GetFileName(sourceHostPath));
+        return true;
+    }
 
-            updated = true;
-            return true;
-        }
-
-        var shouldReplace = true;
-        if (TryReadFileVersion(sourceHostPath, out var sourceVersion)
-            && TryReadFileVersion(targetHostPath, out var targetVersion)
-            && sourceVersion is not null
-            && targetVersion is not null)
-        {
-            shouldReplace = sourceVersion > targetVersion;
-        }
-
-        if (!shouldReplace)
-        {
-            return true;
-        }
+    /// <summary>
+    /// Copies a service-host executable to the target runtime path and applies Unix execute permissions when required.
+    /// </summary>
+    /// <param name="sourceHostPath">Source host executable path.</param>
+    /// <param name="targetHostPath">Target runtime host executable path.</param>
+    /// <param name="error">Copy error details.</param>
+    /// <param name="updated">True when copy succeeds.</param>
+    /// <returns>True when copy succeeds.</returns>
+    private static bool TryCopyServiceHostBinary(string sourceHostPath, string targetHostPath, out string error, out bool updated)
+    {
+        error = string.Empty;
+        updated = false;
 
         try
         {
-            _ = Directory.CreateDirectory(backupDirectory);
-            File.Copy(targetHostPath, Path.Combine(backupDirectory, Path.GetFileName(targetHostPath)), overwrite: true);
             File.Copy(sourceHostPath, targetHostPath, overwrite: true);
             if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
             {
@@ -1913,6 +2120,58 @@ internal static partial class Program
             error = $"Failed to update bundled service-host: {ex.Message}";
             return false;
         }
+    }
+
+    /// <summary>
+    /// Determines whether the bundled host binary should replace the installed runtime host binary.
+    /// </summary>
+    /// <param name="sourceHostPath">Tool-distributed host executable path.</param>
+    /// <param name="targetHostPath">Installed runtime host executable path.</param>
+    /// <returns>True when replacement should occur.</returns>
+    private static bool ShouldReplaceBundledServiceHostBinary(string sourceHostPath, string targetHostPath)
+    {
+        var hasSourceVersion = TryReadFileVersion(sourceHostPath, out var sourceVersion) && sourceVersion is not null;
+        var hasTargetVersion = TryReadFileVersion(targetHostPath, out var targetVersion) && targetVersion is not null;
+
+        if (!hasSourceVersion || !hasTargetVersion)
+        {
+            return true;
+        }
+
+        return sourceVersion > targetVersion;
+    }
+
+    /// <summary>
+    /// Backs up the installed runtime host binary and replaces it with the bundled host binary.
+    /// </summary>
+    /// <param name="sourceHostPath">Tool-distributed host executable path.</param>
+    /// <param name="targetHostPath">Installed runtime host executable path.</param>
+    /// <param name="backupDirectory">Backup directory for the previous runtime host binary.</param>
+    /// <param name="error">Replacement error details.</param>
+    /// <param name="updated">True when replacement succeeds.</param>
+    /// <returns>True when backup and replacement succeed.</returns>
+    private static bool TryBackupAndReplaceServiceHostBinary(
+        string sourceHostPath,
+        string targetHostPath,
+        string backupDirectory,
+        out string error,
+        out bool updated)
+    {
+        error = string.Empty;
+        updated = false;
+
+        try
+        {
+            _ = Directory.CreateDirectory(backupDirectory);
+            File.Copy(targetHostPath, Path.Combine(backupDirectory, Path.GetFileName(targetHostPath)), overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to update bundled service-host: {ex.Message}";
+            return false;
+        }
+
+        return TryCopyServiceHostBinary(sourceHostPath, targetHostPath, out error, out updated);
     }
 
     /// <summary>

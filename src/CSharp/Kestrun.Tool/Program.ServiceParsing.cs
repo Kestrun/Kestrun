@@ -989,7 +989,7 @@ internal static partial class Program
     {
         if (state.ScriptPathSet && hasContentRoot)
         {
-            error = "--script (or positional script path) is not supported when --package/--content-root is used. Define Script in Service.psd1 (EntryPoint in format 1.0).";
+            error = "--script (or positional script path) is not supported when --package/--content-root is used. Define EntryPoint in Service.psd1 (format 1.0).";
             return false;
         }
 
@@ -1033,6 +1033,39 @@ internal static partial class Program
     /// <returns>True when content-root dependent option usage is valid.</returns>
     private static bool TryValidateServiceContentRootLinkedOptions(ServiceParseState state, bool hasContentRoot, out string error)
     {
+        if (!TryValidateServiceContentRootChecksumOptions(state, hasContentRoot, out error))
+        {
+            return false;
+        }
+
+        if (!TryValidateContentRootLinkedOption(!string.IsNullOrWhiteSpace(state.ServiceContentRootBearerToken), hasContentRoot, "--content-root-bearer-token requires --content-root.", out error))
+        {
+            return false;
+        }
+
+        if (!TryValidateContentRootLinkedOption(state.ServiceContentRootIgnoreCertificate, hasContentRoot, "--content-root-ignore-certificate requires --content-root.", out error))
+        {
+            return false;
+        }
+
+        if (!TryValidateContentRootLinkedOption(state.ServiceContentRootHeaders.Count > 0, hasContentRoot, "--content-root-header requires --content-root.", out error))
+        {
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates checksum-specific option dependencies for service content-root installs.
+    /// </summary>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="hasContentRoot">True when a content root or package was specified.</param>
+    /// <param name="error">Validation error text.</param>
+    /// <returns>True when checksum-related options are valid.</returns>
+    private static bool TryValidateServiceContentRootChecksumOptions(ServiceParseState state, bool hasContentRoot, out string error)
+    {
         var hasChecksum = !string.IsNullOrWhiteSpace(state.ServiceContentRootChecksum);
         var hasChecksumAlgorithm = !string.IsNullOrWhiteSpace(state.ServiceContentRootChecksumAlgorithm);
         if (hasChecksumAlgorithm && !hasChecksum)
@@ -1041,28 +1074,28 @@ internal static partial class Program
             return false;
         }
 
-        if (hasChecksum && !hasContentRoot)
+        if (!TryValidateContentRootLinkedOption(hasChecksum, hasContentRoot, "--content-root-checksum requires --content-root.", out error))
         {
-            error = "--content-root-checksum requires --content-root.";
             return false;
         }
 
-        var hasBearerToken = !string.IsNullOrWhiteSpace(state.ServiceContentRootBearerToken);
-        if (hasBearerToken && !hasContentRoot)
-        {
-            error = "--content-root-bearer-token requires --content-root.";
-            return false;
-        }
+        error = string.Empty;
+        return true;
+    }
 
-        if (state.ServiceContentRootIgnoreCertificate && !hasContentRoot)
+    /// <summary>
+    /// Validates that an option requiring a content root is only supplied with --content-root.
+    /// </summary>
+    /// <param name="optionIsSet">True when the dependent option was supplied.</param>
+    /// <param name="hasContentRoot">True when a content root or package was specified.</param>
+    /// <param name="errorMessage">Validation error to emit when dependency is missing.</param>
+    /// <param name="error">Validation error text.</param>
+    /// <returns>True when the option dependency is satisfied.</returns>
+    private static bool TryValidateContentRootLinkedOption(bool optionIsSet, bool hasContentRoot, string errorMessage, out string error)
+    {
+        if (optionIsSet && !hasContentRoot)
         {
-            error = "--content-root-ignore-certificate requires --content-root.";
-            return false;
-        }
-
-        if (state.ServiceContentRootHeaders.Count > 0 && !hasContentRoot)
-        {
-            error = "--content-root-header requires --content-root.";
+            error = errorMessage;
             return false;
         }
 

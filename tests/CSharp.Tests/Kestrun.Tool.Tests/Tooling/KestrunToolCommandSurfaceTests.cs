@@ -689,6 +689,59 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceQuery_WithJson_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "query",
+            "--name",
+            "demo",
+            "--json",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal("ServiceQuery", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal("True", GetParsedCommandField(ParsedCommand!, "JsonOutput"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceStart_WithRaw_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "start",
+            "--name",
+            "demo",
+            "--raw",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal("ServiceStart", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal("True", GetParsedCommandField(ParsedCommand!, "RawOutput"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceStop_WithJsonAndRaw_Fails()
+    {
+        var (Success, _, Error) = InvokeTryParseArguments([
+            "service",
+            "stop",
+            "--name",
+            "demo",
+            "--json",
+            "--raw",
+        ]);
+
+        Assert.False(Success);
+        Assert.Contains("cannot be combined", Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void TryParseArguments_ServiceUpdate_WithNameAndPackage_Succeeds()
     {
         var (Success, ParsedCommand, Error) = InvokeTryParseArguments([

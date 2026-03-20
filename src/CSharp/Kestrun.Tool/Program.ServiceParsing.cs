@@ -40,6 +40,8 @@ internal static partial class Program
 
         public bool ServiceJsonOutputRequested { get; set; }
 
+        public bool ServiceRawOutputRequested { get; set; }
+
         public List<string> ServiceContentRootHeaders { get; } = [];
     }
 
@@ -216,7 +218,8 @@ internal static partial class Program
             [.. state.ServiceContentRootHeaders],
             state.ServiceFailbackRequested,
             state.ServiceUseRepositoryKestrun,
-            state.ServiceJsonOutputRequested);
+            state.ServiceJsonOutputRequested,
+            state.ServiceRawOutputRequested);
 
     /// <summary>
     /// Parses the service action token into a concrete command mode.
@@ -293,6 +296,7 @@ internal static partial class Program
             "--failback" => TryConsumeServiceFailbackOption(mode, state, ref index, out error),
             "--kestrun" => TryConsumeServiceRepositoryKestrunOption(mode, state, ref index, out error),
             "--json" => TryConsumeServiceJsonOption(mode, state, ref index, out error),
+            RawOption => TryConsumeServiceRawOption(mode, state, ref index, out error),
             _ => false,
         };
     }
@@ -307,13 +311,35 @@ internal static partial class Program
     /// <returns>True when the option token is handled.</returns>
     private static bool TryConsumeServiceJsonOption(CommandMode mode, ServiceParseState state, ref int index, out string error)
     {
-        if (mode != CommandMode.ServiceInfo)
+        if (mode is not (CommandMode.ServiceInfo or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery))
         {
-            error = "--json is only supported for service info.";
+            error = "--json is only supported for service start/stop/query/info.";
             return true;
         }
 
         state.ServiceJsonOutputRequested = true;
+        index += 1;
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes and validates the raw output switch.
+    /// </summary>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceRawOption(CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        if (mode is not (CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery))
+        {
+            error = "--raw is only supported for service start/stop/query.";
+            return true;
+        }
+
+        state.ServiceRawOutputRequested = true;
         index += 1;
         error = string.Empty;
         return true;
@@ -802,6 +828,12 @@ internal static partial class Program
     {
         if (!TryValidateServiceName(mode, state, out error))
         {
+            return false;
+        }
+
+        if (state.ServiceJsonOutputRequested && state.ServiceRawOutputRequested)
+        {
+            error = "--json cannot be combined with --raw.";
             return false;
         }
 

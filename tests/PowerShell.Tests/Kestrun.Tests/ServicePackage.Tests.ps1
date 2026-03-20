@@ -23,6 +23,7 @@ Describe 'Service package cmdlet' {
                 "    FormatVersion = '1.0'",
                 "    Name = 'demo-folder'",
                 "    Description = 'Demo folder service'",
+                "    Version = '1.0.0'",
                 "    EntryPoint = 'server.ps1'",
                 "    PreservePaths = @('config/settings.json','data/')",
                 '}'
@@ -151,6 +152,7 @@ Describe 'Service package cmdlet' {
                 "    FormatVersion = '1.0'",
                 "    Name = 'escape-entrypoint'",
                 "    Description = 'EntryPoint boundary escape attempt'",
+                "    Version = '1.0.0'",
                 "    EntryPoint = '../source2/app.ps1'",
                 '}'
             ) -join [Environment]::NewLine
@@ -181,6 +183,7 @@ Describe 'Service package cmdlet' {
                 "    FormatVersion = '1.0'",
                 "    Name = 'escape-preservepaths'",
                 "    Description = 'PreservePaths boundary escape attempt'",
+                "    Version = '1.0.0'",
                 "    EntryPoint = 'server.ps1'",
                 "    PreservePaths = @('../source2/settings.json')",
                 '}'

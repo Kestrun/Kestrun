@@ -25,6 +25,7 @@ internal static partial class Program
     private const string ModuleScopeGlobalValue = "global";
     private const string NoCheckOption = "--nocheck";
     private const string NoCheckAliasOption = "--no-check";
+    private const string RawOption = "--raw";
     private const string PowerShellGalleryApiBaseUri = "https://www.powershellgallery.com/api/v2";
     private static readonly Regex ModuleVersionPatternRegex = ModuleVersionRegex();
     private static readonly Regex ModulePrereleasePatternRegex = ModulePrereleaseRegex();
@@ -89,7 +90,8 @@ internal static partial class Program
         string[] ServiceContentRootHeaders,
         bool ServiceFailback = false,
         bool ServiceUseRepositoryKestrun = false,
-        bool JsonOutput = false);
+        bool JsonOutput = false,
+        bool RawOutput = false);
 
     private sealed record ServiceRegisterOptions(
         string ServiceName,

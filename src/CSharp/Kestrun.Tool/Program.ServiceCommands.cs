@@ -359,24 +359,24 @@ internal static partial class Program
         }
 
         var serviceName = command.ServiceName;
+        ServiceControlResult result;
 
         if (OperatingSystem.IsWindows())
         {
-            return StartWindowsService(serviceName, command.ServiceLogPath);
+            result = StartWindowsService(serviceName, command.ServiceLogPath, command.RawOutput);
+            return WriteServiceControlResult(command, result);
         }
 
         if (OperatingSystem.IsLinux())
         {
-            var result = StartLinuxUserDaemon(serviceName);
-            WriteServiceOperationResult("start", "linux", serviceName, result, command.ServiceLogPath);
-            return result;
+            result = StartLinuxUserDaemon(serviceName, command.ServiceLogPath, command.RawOutput);
+            return WriteServiceControlResult(command, result);
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            var result = StartMacLaunchAgent(serviceName);
-            WriteServiceOperationResult("start", "macos", serviceName, result, command.ServiceLogPath);
-            return result;
+            result = StartMacLaunchAgent(serviceName, command.ServiceLogPath, command.RawOutput);
+            return WriteServiceControlResult(command, result);
         }
 
         Console.Error.WriteLine("Service start is not supported on this OS.");
@@ -397,24 +397,24 @@ internal static partial class Program
         }
 
         var serviceName = command.ServiceName;
+        ServiceControlResult result;
 
         if (OperatingSystem.IsWindows())
         {
-            return StopWindowsService(serviceName, command.ServiceLogPath);
+            result = StopWindowsService(serviceName, command.ServiceLogPath, command.RawOutput);
+            return WriteServiceControlResult(command, result);
         }
 
         if (OperatingSystem.IsLinux())
         {
-            var result = StopLinuxUserDaemon(serviceName);
-            WriteServiceOperationResult("stop", "linux", serviceName, result, command.ServiceLogPath);
-            return result;
+            result = StopLinuxUserDaemon(serviceName, command.ServiceLogPath, command.RawOutput);
+            return WriteServiceControlResult(command, result);
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            var result = StopMacLaunchAgent(serviceName);
-            WriteServiceOperationResult("stop", "macos", serviceName, result, command.ServiceLogPath);
-            return result;
+            result = StopMacLaunchAgent(serviceName, command.ServiceLogPath, command.RawOutput);
+            return WriteServiceControlResult(command, result);
         }
 
         Console.Error.WriteLine("Service stop is not supported on this OS.");
@@ -435,28 +435,124 @@ internal static partial class Program
         }
 
         var serviceName = command.ServiceName;
+        ServiceControlResult result;
 
         if (OperatingSystem.IsWindows())
         {
-            return QueryWindowsService(serviceName, command.ServiceLogPath);
+            result = QueryWindowsService(serviceName, command.ServiceLogPath, command.RawOutput);
+            return WriteServiceControlResult(command, result);
         }
 
         if (OperatingSystem.IsLinux())
         {
-            var result = QueryLinuxUserDaemon(serviceName);
-            WriteServiceOperationResult("query", "linux", serviceName, result, command.ServiceLogPath);
-            return result;
+            result = QueryLinuxUserDaemon(serviceName, command.ServiceLogPath, command.RawOutput);
+            return WriteServiceControlResult(command, result);
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            var result = QueryMacLaunchAgent(serviceName);
-            WriteServiceOperationResult("query", "macos", serviceName, result, command.ServiceLogPath);
-            return result;
+            result = QueryMacLaunchAgent(serviceName, command.ServiceLogPath, command.RawOutput);
+            return WriteServiceControlResult(command, result);
         }
 
         Console.Error.WriteLine("Service query is not supported on this OS.");
         return 1;
+    }
+
+    /// <summary>
+    /// Represents normalized start/stop/query operation output.
+    /// </summary>
+    /// <param name="Operation">Operation token (start/stop/query).</param>
+    /// <param name="ServiceName">Service identifier.</param>
+    /// <param name="Platform">Platform token (windows/linux/macos).</param>
+    /// <param name="State">Normalized service state.</param>
+    /// <param name="Pid">Service process id when available.</param>
+    /// <param name="ExitCode">Command exit code.</param>
+    /// <param name="Message">Human-readable status message.</param>
+    /// <param name="RawOutput">Raw standard output from the OS command when available.</param>
+    /// <param name="RawError">Raw standard error from the OS command when available.</param>
+    private sealed record ServiceControlResult(
+        string Operation,
+        string ServiceName,
+        string Platform,
+        string State,
+        int? Pid,
+        int ExitCode,
+        string Message,
+        string RawOutput,
+        string RawError)
+    {
+        /// <summary>
+        /// Returns true when the operation succeeded.
+        /// </summary>
+        public bool Success => ExitCode == 0;
+    }
+
+    /// <summary>
+    /// Writes a service control result using table/json/raw output selection.
+    /// </summary>
+    /// <param name="command">Parsed command containing output switches.</param>
+    /// <param name="result">Normalized service operation result.</param>
+    /// <returns>Operation exit code.</returns>
+    private static int WriteServiceControlResult(ParsedCommand command, ServiceControlResult result)
+    {
+        if (command.RawOutput)
+        {
+            if (!string.IsNullOrWhiteSpace(result.RawOutput))
+            {
+                Console.WriteLine(result.RawOutput.TrimEnd());
+            }
+
+            if (!string.IsNullOrWhiteSpace(result.RawError))
+            {
+                Console.Error.WriteLine(result.RawError.TrimEnd());
+            }
+
+            return result.ExitCode;
+        }
+
+        if (command.JsonOutput)
+        {
+            var payload = new
+            {
+                result.Operation,
+                result.ServiceName,
+                result.Platform,
+                Status = result.Success ? "success" : "failed",
+                result.State,
+                PID = result.Pid,
+                result.ExitCode,
+                result.Message,
+            };
+
+            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+            }));
+            return result.ExitCode;
+        }
+
+        var columns = new[] { "Operation", "Service", "Platform", "Status", "State", "PID", "ExitCode", "Message" };
+        var values = new[]
+        {
+            result.Operation,
+            result.ServiceName,
+            result.Platform,
+            result.Success ? "success" : "failed",
+            result.State,
+            result.Pid?.ToString(CultureInfo.InvariantCulture) ?? "-",
+            result.ExitCode.ToString(CultureInfo.InvariantCulture),
+            result.Message,
+        };
+
+        var widths = columns
+            .Select((header, index) => Math.Max(header.Length, values[index].Length))
+            .ToArray();
+
+        Console.WriteLine(string.Join(" | ", columns.Select((header, index) => header.PadRight(widths[index]))));
+        Console.WriteLine(string.Join("-+-", widths.Select(static width => new string('-', width))));
+        Console.WriteLine(string.Join(" | ", values.Select((value, index) => value.PadRight(widths[index]))));
+        return result.ExitCode;
     }
 
     /// <summary>
@@ -858,7 +954,6 @@ internal static partial class Program
         out bool serviceHostUpdated,
         out int exitCode)
     {
-        applicationUpdated = false;
         moduleUpdated = false;
         serviceHostUpdated = false;
         exitCode = 0;
@@ -2042,8 +2137,6 @@ internal static partial class Program
     private static bool TryUpdateBundledServiceHostIfNewer(string runtimeDirectory, string backupDirectory, out string error, out bool updated)
     {
         updated = false;
-        error = string.Empty;
-
         if (!TryResolveServiceHostUpdatePaths(runtimeDirectory, out var sourceHostPath, out var targetHostPath, out error))
         {
             return false;
@@ -2077,7 +2170,6 @@ internal static partial class Program
         out string targetHostPath,
         out string error)
     {
-        sourceHostPath = string.Empty;
         targetHostPath = string.Empty;
         error = string.Empty;
 
@@ -2133,12 +2225,7 @@ internal static partial class Program
         var hasSourceVersion = TryReadFileVersion(sourceHostPath, out var sourceVersion) && sourceVersion is not null;
         var hasTargetVersion = TryReadFileVersion(targetHostPath, out var targetVersion) && targetVersion is not null;
 
-        if (!hasSourceVersion || !hasTargetVersion)
-        {
-            return true;
-        }
-
-        return sourceVersion > targetVersion;
+        return !hasSourceVersion || !hasTargetVersion || sourceVersion > targetVersion;
     }
 
     /// <summary>
@@ -2157,7 +2244,6 @@ internal static partial class Program
         out string error,
         out bool updated)
     {
-        error = string.Empty;
         updated = false;
 
         try
@@ -2262,25 +2348,23 @@ internal static partial class Program
     /// </summary>
     /// <param name="serviceName">Service name.</param>
     /// <returns>Process exit code.</returns>
-    private static int StartWindowsService(string serviceName, string? configuredLogPath)
+    private static ServiceControlResult StartWindowsService(string serviceName, string? configuredLogPath, bool rawOutput)
     {
-        var result = RunProcess("sc.exe", ["start", serviceName]);
+        var result = RunProcess("sc.exe", ["start", serviceName], writeStandardOutput: false);
         if (result.ExitCode != 0)
         {
-            Console.Error.WriteLine(result.Error);
             WriteServiceOperationLog(
                 $"operation='start' service='{serviceName}' platform='windows' result='failed' exitCode={result.ExitCode} error='{result.Error.Trim()}'",
                 configuredLogPath,
                 serviceName);
-            return result.ExitCode;
+            return new ServiceControlResult("start", serviceName, "windows", "unknown", null, result.ExitCode, "Failed to start service.", result.Output, result.Error);
         }
 
         WriteServiceOperationLog(
             $"operation='start' service='{serviceName}' platform='windows' result='success' exitCode=0",
             configuredLogPath,
             serviceName);
-        Console.WriteLine($"Started Windows service '{serviceName}'.");
-        return 0;
+        return new ServiceControlResult("start", serviceName, "windows", "running", null, 0, "Service started.", result.Output, result.Error);
     }
 
     /// <summary>
@@ -2288,25 +2372,45 @@ internal static partial class Program
     /// </summary>
     /// <param name="serviceName">Service name.</param>
     /// <returns>Process exit code.</returns>
-    private static int StopWindowsService(string serviceName, string? configuredLogPath)
+    private static ServiceControlResult StopWindowsService(string serviceName, string? configuredLogPath, bool rawOutput)
     {
-        var result = RunProcess("sc.exe", ["stop", serviceName]);
+        var result = RunProcess("sc.exe", ["stop", serviceName], writeStandardOutput: false);
         if (result.ExitCode != 0)
         {
-            Console.Error.WriteLine(result.Error);
+            if (IsWindowsServiceAlreadyStopped(result))
+            {
+                WriteServiceOperationLog(
+                    $"operation='stop' service='{serviceName}' platform='windows' result='success' exitCode=0 note='already stopped'",
+                    configuredLogPath,
+                    serviceName);
+                return new ServiceControlResult("stop", serviceName, "windows", "stopped", null, 0, "Service is already stopped.", result.Output, result.Error);
+            }
+
             WriteServiceOperationLog(
                 $"operation='stop' service='{serviceName}' platform='windows' result='failed' exitCode={result.ExitCode} error='{result.Error.Trim()}'",
                 configuredLogPath,
                 serviceName);
-            return result.ExitCode;
+            return new ServiceControlResult("stop", serviceName, "windows", "unknown", null, result.ExitCode, "Failed to stop service.", result.Output, result.Error);
         }
 
         WriteServiceOperationLog(
             $"operation='stop' service='{serviceName}' platform='windows' result='success' exitCode=0",
             configuredLogPath,
             serviceName);
-        Console.WriteLine($"Stopped Windows service '{serviceName}'.");
-        return 0;
+        return new ServiceControlResult("stop", serviceName, "windows", "stopped", null, 0, "Service stopped.", result.Output, result.Error);
+    }
+
+    /// <summary>
+    /// Returns true when SCM stop command indicates the service was not running.
+    /// </summary>
+    /// <param name="result">SCM command result.</param>
+    /// <returns>True when SCM returned service-not-started semantics.</returns>
+    private static bool IsWindowsServiceAlreadyStopped(ProcessResult result)
+    {
+        var text = $"{result.Output}\n{result.Error}";
+        return text.Contains("1062", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("has not been started", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("not started", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -2314,29 +2418,34 @@ internal static partial class Program
     /// </summary>
     /// <param name="serviceName">Service name.</param>
     /// <returns>Process exit code.</returns>
-    private static int QueryWindowsService(string serviceName, string? configuredLogPath)
+    private static ServiceControlResult QueryWindowsService(string serviceName, string? configuredLogPath, bool rawOutput)
     {
-        var result = RunProcess("sc.exe", ["query", serviceName]);
+        var result = RunProcess("sc.exe", ["queryex", serviceName], writeStandardOutput: false);
         if (result.ExitCode != 0)
         {
-            Console.Error.WriteLine(result.Error);
             WriteServiceOperationLog(
                 $"operation='query' service='{serviceName}' platform='windows' result='failed' exitCode={result.ExitCode} error='{result.Error.Trim()}'",
                 configuredLogPath,
                 serviceName);
-            return result.ExitCode;
+            return new ServiceControlResult("query", serviceName, "windows", "unknown", null, result.ExitCode, "Failed to query service.", result.Output, result.Error);
         }
 
         var stateLine = result.Output
             .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .FirstOrDefault(static line => line.Contains("STATE", StringComparison.OrdinalIgnoreCase)) ?? "STATE: unknown";
+        var state = stateLine.Contains("RUNNING", StringComparison.OrdinalIgnoreCase)
+            ? "running"
+            : stateLine.Contains("STOPPED", StringComparison.OrdinalIgnoreCase)
+                ? "stopped"
+                : "unknown";
+        var pid = TryExtractWindowsServicePid(result.Output);
 
         WriteServiceOperationLog(
             $"operation='query' service='{serviceName}' platform='windows' result='success' exitCode=0 state='{stateLine}'",
             configuredLogPath,
             serviceName);
 
-        return 0;
+        return new ServiceControlResult("query", serviceName, "windows", state, pid, 0, stateLine, result.Output, result.Error);
     }
 
     /// <summary>
@@ -2480,26 +2589,22 @@ internal static partial class Program
     /// </summary>
     /// <param name="serviceName">Unit base name.</param>
     /// <returns>Process exit code.</returns>
-    private static int StartLinuxUserDaemon(string serviceName)
+    private static ServiceControlResult StartLinuxUserDaemon(string serviceName, string? configuredLogPath, bool rawOutput)
     {
         var useSystemScope = IsLinuxSystemUnitInstalled(serviceName);
         var unitName = GetLinuxUnitName(serviceName);
-        var result = RunLinuxSystemctl(useSystemScope, ["start", unitName]);
+        var result = RunLinuxSystemctl(useSystemScope, ["start", unitName], writeStandardOutput: false);
         if (result.ExitCode != 0)
         {
-            Console.Error.WriteLine(result.Error);
-            if (!useSystemScope)
-            {
-                WriteLinuxUserSystemdFailureHint(result);
-            }
-
-            return result.ExitCode;
+            WriteServiceOperationLog(
+                $"operation='start' service='{serviceName}' platform='linux' result='failed' exitCode={result.ExitCode} error='{result.Error.Trim()}'",
+                configuredLogPath,
+                serviceName);
+            return new ServiceControlResult("start", serviceName, "linux", "unknown", null, result.ExitCode, "Failed to start service.", result.Output, result.Error);
         }
 
-        Console.WriteLine(useSystemScope
-            ? $"Started Linux system daemon '{unitName}'."
-            : $"Started Linux user daemon '{unitName}'.");
-        return 0;
+        WriteServiceOperationResult("start", "linux", serviceName, 0, configuredLogPath);
+        return new ServiceControlResult("start", serviceName, "linux", "running", null, 0, "Service started.", result.Output, result.Error);
     }
 
     /// <summary>
@@ -2507,26 +2612,45 @@ internal static partial class Program
     /// </summary>
     /// <param name="serviceName">Unit base name.</param>
     /// <returns>Process exit code.</returns>
-    private static int StopLinuxUserDaemon(string serviceName)
+    private static ServiceControlResult StopLinuxUserDaemon(string serviceName, string? configuredLogPath, bool rawOutput)
     {
         var useSystemScope = IsLinuxSystemUnitInstalled(serviceName);
         var unitName = GetLinuxUnitName(serviceName);
-        var result = RunLinuxSystemctl(useSystemScope, ["stop", unitName]);
+        var result = RunLinuxSystemctl(useSystemScope, ["stop", unitName], writeStandardOutput: false);
         if (result.ExitCode != 0)
         {
-            Console.Error.WriteLine(result.Error);
-            if (!useSystemScope)
+            if (IsLinuxServiceAlreadyStopped(result))
             {
-                WriteLinuxUserSystemdFailureHint(result);
+                WriteServiceOperationLog(
+                    $"operation='stop' service='{serviceName}' platform='linux' result='success' exitCode=0 note='already stopped'",
+                    configuredLogPath,
+                    serviceName);
+                return new ServiceControlResult("stop", serviceName, "linux", "stopped", null, 0, "Service is already stopped.", result.Output, result.Error);
             }
 
-            return result.ExitCode;
+            WriteServiceOperationLog(
+                $"operation='stop' service='{serviceName}' platform='linux' result='failed' exitCode={result.ExitCode} error='{result.Error.Trim()}'",
+                configuredLogPath,
+                serviceName);
+            return new ServiceControlResult("stop", serviceName, "linux", "unknown", null, result.ExitCode, "Failed to stop service.", result.Output, result.Error);
         }
 
-        Console.WriteLine(useSystemScope
-            ? $"Stopped Linux system daemon '{unitName}'."
-            : $"Stopped Linux user daemon '{unitName}'.");
-        return 0;
+        WriteServiceOperationResult("stop", "linux", serviceName, 0, configuredLogPath);
+        return new ServiceControlResult("stop", serviceName, "linux", "stopped", null, 0, "Service stopped.", result.Output, result.Error);
+    }
+
+    /// <summary>
+    /// Returns true when systemctl stop indicates the unit is already inactive or absent.
+    /// </summary>
+    /// <param name="result">Systemctl command result.</param>
+    /// <returns>True when stop semantics indicate no-op success.</returns>
+    private static bool IsLinuxServiceAlreadyStopped(ProcessResult result)
+    {
+        var text = $"{result.Output}\n{result.Error}";
+        return text.Contains("not loaded", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("inactive", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("not running", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("could not be found", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -2534,23 +2658,26 @@ internal static partial class Program
     /// </summary>
     /// <param name="serviceName">Unit base name.</param>
     /// <returns>Process exit code.</returns>
-    private static int QueryLinuxUserDaemon(string serviceName)
+    private static ServiceControlResult QueryLinuxUserDaemon(string serviceName, string? configuredLogPath, bool rawOutput)
     {
         var useSystemScope = IsLinuxSystemUnitInstalled(serviceName);
         var unitName = GetLinuxUnitName(serviceName);
-        var result = RunLinuxSystemctl(useSystemScope, ["status", unitName]);
+        var queryArgs = rawOutput ? (IReadOnlyList<string>)["status", unitName] : ["is-active", unitName];
+        var result = RunLinuxSystemctl(useSystemScope, queryArgs, writeStandardOutput: false);
         if (result.ExitCode != 0)
         {
-            Console.Error.WriteLine(result.Error);
-            if (!useSystemScope)
-            {
-                WriteLinuxUserSystemdFailureHint(result);
-            }
-
-            return result.ExitCode;
+            WriteServiceOperationLog(
+                $"operation='query' service='{serviceName}' platform='linux' result='failed' exitCode={result.ExitCode} error='{result.Error.Trim()}'",
+                configuredLogPath,
+                serviceName);
+            return new ServiceControlResult("query", serviceName, "linux", "unknown", null, result.ExitCode, "Failed to query service.", result.Output, result.Error);
         }
 
-        return 0;
+        var normalizedOutput = result.Output.Trim();
+        var state = normalizedOutput.StartsWith("active", StringComparison.OrdinalIgnoreCase) ? "running" : "unknown";
+        var pid = TryQueryLinuxServicePid(useSystemScope, unitName);
+        WriteServiceOperationResult("query", "linux", serviceName, 0, configuredLogPath);
+        return new ServiceControlResult("query", serviceName, "linux", state, pid, 0, string.IsNullOrWhiteSpace(normalizedOutput) ? "Service queried." : normalizedOutput, result.Output, result.Error);
     }
 
     /// <summary>
@@ -2559,11 +2686,11 @@ internal static partial class Program
     /// <param name="useSystemScope">True for system scope; false for user scope.</param>
     /// <param name="arguments">Arguments after optional scope switch.</param>
     /// <returns>Process execution result.</returns>
-    private static ProcessResult RunLinuxSystemctl(bool useSystemScope, IReadOnlyList<string> arguments)
+    private static ProcessResult RunLinuxSystemctl(bool useSystemScope, IReadOnlyList<string> arguments, bool writeStandardOutput = true)
     {
         return useSystemScope
-            ? RunProcess("systemctl", arguments)
-            : RunProcess("systemctl", ["--user", .. arguments]);
+            ? RunProcess("systemctl", arguments, writeStandardOutput)
+            : RunProcess("systemctl", ["--user", .. arguments], writeStandardOutput);
     }
 
     /// <summary>
@@ -2648,7 +2775,7 @@ internal static partial class Program
     /// </summary>
     /// <param name="serviceName">Agent label.</param>
     /// <returns>Process exit code.</returns>
-    private static int StartMacLaunchAgent(string serviceName)
+    private static ServiceControlResult StartMacLaunchAgent(string serviceName, string? configuredLogPath, bool rawOutput)
     {
         var useSystemScope = IsMacSystemLaunchDaemonInstalled(serviceName);
         var agentDirectory = useSystemScope
@@ -2657,23 +2784,23 @@ internal static partial class Program
         var plistPath = Path.Combine(agentDirectory, $"{serviceName}.plist");
         if (!File.Exists(plistPath))
         {
-            Console.Error.WriteLine($"Launch agent plist not found: {plistPath}");
-            return 2;
+            return new ServiceControlResult("start", serviceName, "macos", "unknown", null, 2, $"Launch agent plist not found: {plistPath}", string.Empty, string.Empty);
         }
 
         var result = useSystemScope
-            ? RunProcess("launchctl", ["bootstrap", "system", plistPath])
-            : RunProcess("launchctl", ["load", "-w", plistPath]);
+            ? RunProcess("launchctl", ["bootstrap", "system", plistPath], writeStandardOutput: false)
+            : RunProcess("launchctl", ["load", "-w", plistPath], writeStandardOutput: false);
         if (result.ExitCode != 0)
         {
-            Console.Error.WriteLine(result.Error);
-            return result.ExitCode;
+            WriteServiceOperationLog(
+                $"operation='start' service='{serviceName}' platform='macos' result='failed' exitCode={result.ExitCode} error='{result.Error.Trim()}'",
+                configuredLogPath,
+                serviceName);
+            return new ServiceControlResult("start", serviceName, "macos", "unknown", null, result.ExitCode, "Failed to start service.", result.Output, result.Error);
         }
 
-        Console.WriteLine(useSystemScope
-            ? $"Started macOS launch daemon '{serviceName}'."
-            : $"Started macOS launch agent '{serviceName}'.");
-        return 0;
+        WriteServiceOperationResult("start", "macos", serviceName, 0, configuredLogPath);
+        return new ServiceControlResult("start", serviceName, "macos", "running", null, 0, "Service started.", result.Output, result.Error);
     }
 
     /// <summary>
@@ -2681,7 +2808,7 @@ internal static partial class Program
     /// </summary>
     /// <param name="serviceName">Agent label.</param>
     /// <returns>Process exit code.</returns>
-    private static int StopMacLaunchAgent(string serviceName)
+    private static ServiceControlResult StopMacLaunchAgent(string serviceName, string? configuredLogPath, bool rawOutput)
     {
         var useSystemScope = IsMacSystemLaunchDaemonInstalled(serviceName);
         var agentDirectory = useSystemScope
@@ -2690,23 +2817,46 @@ internal static partial class Program
         var plistPath = Path.Combine(agentDirectory, $"{serviceName}.plist");
         if (!File.Exists(plistPath))
         {
-            Console.Error.WriteLine($"Launch agent plist not found: {plistPath}");
-            return 2;
+            return new ServiceControlResult("stop", serviceName, "macos", "unknown", null, 2, $"Launch agent plist not found: {plistPath}", string.Empty, string.Empty);
         }
 
         var result = useSystemScope
-            ? RunProcess("launchctl", ["bootout", $"system/{serviceName}"])
-            : RunProcess("launchctl", ["unload", plistPath]);
+            ? RunProcess("launchctl", ["bootout", $"system/{serviceName}"], writeStandardOutput: false)
+            : RunProcess("launchctl", ["unload", plistPath], writeStandardOutput: false);
         if (result.ExitCode != 0)
         {
-            Console.Error.WriteLine(result.Error);
-            return result.ExitCode;
+            if (IsMacServiceAlreadyStopped(result))
+            {
+                WriteServiceOperationLog(
+                    $"operation='stop' service='{serviceName}' platform='macos' result='success' exitCode=0 note='already stopped'",
+                    configuredLogPath,
+                    serviceName);
+                return new ServiceControlResult("stop", serviceName, "macos", "stopped", null, 0, "Service is already stopped.", result.Output, result.Error);
+            }
+
+            WriteServiceOperationLog(
+                $"operation='stop' service='{serviceName}' platform='macos' result='failed' exitCode={result.ExitCode} error='{result.Error.Trim()}'",
+                configuredLogPath,
+                serviceName);
+            return new ServiceControlResult("stop", serviceName, "macos", "unknown", null, result.ExitCode, "Failed to stop service.", result.Output, result.Error);
         }
 
-        Console.WriteLine(useSystemScope
-            ? $"Stopped macOS launch daemon '{serviceName}'."
-            : $"Stopped macOS launch agent '{serviceName}'.");
-        return 0;
+        WriteServiceOperationResult("stop", "macos", serviceName, 0, configuredLogPath);
+        return new ServiceControlResult("stop", serviceName, "macos", "stopped", null, 0, "Service stopped.", result.Output, result.Error);
+    }
+
+    /// <summary>
+    /// Returns true when launchctl stop semantics indicate service is not currently running.
+    /// </summary>
+    /// <param name="result">Launchctl command result.</param>
+    /// <returns>True when stop is effectively a no-op success.</returns>
+    private static bool IsMacServiceAlreadyStopped(ProcessResult result)
+    {
+        var text = $"{result.Output}\n{result.Error}";
+        return text.Contains("Could not find specified service", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("No such process", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("not loaded", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("service is not loaded", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -2714,19 +2864,100 @@ internal static partial class Program
     /// </summary>
     /// <param name="serviceName">Agent label.</param>
     /// <returns>Process exit code.</returns>
-    private static int QueryMacLaunchAgent(string serviceName)
+    private static ServiceControlResult QueryMacLaunchAgent(string serviceName, string? configuredLogPath, bool rawOutput)
     {
         var useSystemScope = IsMacSystemLaunchDaemonInstalled(serviceName);
         var result = useSystemScope
-            ? RunProcess("launchctl", ["print", $"system/{serviceName}"])
-            : RunProcess("launchctl", ["list", serviceName]);
+            ? RunProcess("launchctl", ["print", $"system/{serviceName}"], writeStandardOutput: false)
+            : RunProcess("launchctl", ["list", serviceName], writeStandardOutput: false);
         if (result.ExitCode != 0)
         {
-            Console.Error.WriteLine(result.Error);
-            return result.ExitCode;
+            WriteServiceOperationLog(
+                $"operation='query' service='{serviceName}' platform='macos' result='failed' exitCode={result.ExitCode} error='{result.Error.Trim()}'",
+                configuredLogPath,
+                serviceName);
+            return new ServiceControlResult("query", serviceName, "macos", "unknown", null, result.ExitCode, "Failed to query service.", result.Output, result.Error);
         }
 
-        return 0;
+        var state = result.Output.Contains("\"PID\" =", StringComparison.OrdinalIgnoreCase)
+            || result.Output.Contains("pid =", StringComparison.OrdinalIgnoreCase)
+            ? "running"
+            : "loaded";
+        var pid = TryExtractMacServicePid(result.Output);
+
+        WriteServiceOperationResult("query", "macos", serviceName, 0, configuredLogPath);
+        return new ServiceControlResult("query", serviceName, "macos", state, pid, 0, "Service queried.", result.Output, result.Error);
+    }
+
+    /// <summary>
+    /// Extracts a Windows service PID from sc.exe queryex output.
+    /// </summary>
+    /// <param name="output">Raw command output.</param>
+    /// <returns>Parsed PID when available.</returns>
+    private static int? TryExtractWindowsServicePid(string output)
+    {
+        var pidLine = output
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault(static line => line.Contains("PID", StringComparison.OrdinalIgnoreCase));
+
+        if (string.IsNullOrWhiteSpace(pidLine))
+        {
+            return null;
+        }
+
+        var parts = pidLine.Split(':', 2, StringSplitOptions.TrimEntries);
+        return parts.Length == 2 && int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var pid) && pid > 0
+            ? pid
+            : null;
+    }
+
+    /// <summary>
+    /// Queries Linux MainPID for a systemd unit.
+    /// </summary>
+    /// <param name="useSystemScope">True for system scope; false for user scope.</param>
+    /// <param name="unitName">Systemd unit name.</param>
+    /// <returns>Main PID when available.</returns>
+    private static int? TryQueryLinuxServicePid(bool useSystemScope, string unitName)
+    {
+        var pidResult = RunLinuxSystemctl(useSystemScope, ["show", "-p", "MainPID", "--value", unitName], writeStandardOutput: false);
+        if (pidResult.ExitCode != 0)
+        {
+            return null;
+        }
+
+        var text = pidResult.Output.Trim();
+        return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var pid) && pid > 0
+            ? pid
+            : null;
+    }
+
+    /// <summary>
+    /// Extracts a macOS launchd PID from launchctl output.
+    /// </summary>
+    /// <param name="output">Raw command output.</param>
+    /// <returns>Parsed PID when available.</returns>
+    private static int? TryExtractMacServicePid(string output)
+    {
+        var lines = output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (var line in lines)
+        {
+            if (line.Contains("pid =", StringComparison.OrdinalIgnoreCase))
+            {
+                var value = line[(line.IndexOf('=') + 1)..].Trim().TrimEnd(';');
+                if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var pid) && pid > 0)
+                {
+                    return pid;
+                }
+            }
+
+            var tokens = line.Split(['\t', ' '], StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length > 0 && int.TryParse(tokens[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var listPid) && listPid > 0)
+            {
+                return listPid;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

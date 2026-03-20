@@ -188,9 +188,43 @@ internal static partial class Program
     {
         if (OperatingSystem.IsWindows() && !IsWindowsAdministrator())
         {
-            return !TryPreflightWindowsServiceControl(parsedCommand, out var preflightExitCode)
-                ? preflightExitCode
-                : RelaunchElevatedOnWindows(args);
+            if (!TryPreflightWindowsServiceControl(parsedCommand, out var preflightExitCode, out var preflightMessage))
+            {
+                if (parsedCommand.RawOutput)
+                {
+                    Console.Error.WriteLine(preflightMessage);
+                    return preflightExitCode;
+                }
+
+                return WriteServiceControlResult(
+                    parsedCommand,
+                    new ServiceControlResult(
+                        "start",
+                        parsedCommand.ServiceName ?? string.Empty,
+                        "windows",
+                        "unknown",
+                        null,
+                        preflightExitCode,
+                        preflightMessage,
+                        string.Empty,
+                        string.Empty));
+            }
+
+            var relaunchExitCode = RelaunchElevatedOnWindows(args, suppressStatusMessages: true);
+            return relaunchExitCode == 1223 && !parsedCommand.RawOutput
+                ? WriteServiceControlResult(
+                    parsedCommand,
+                    new ServiceControlResult(
+                        "start",
+                        parsedCommand.ServiceName ?? string.Empty,
+                        "windows",
+                        "unknown",
+                        null,
+                        1,
+                        "Elevation was canceled by the user. Run this command from an elevated terminal if you want to proceed without UAC interaction.",
+                        string.Empty,
+                        string.Empty))
+                : relaunchExitCode;
         }
 
         // For non-Windows OSes, attempt start without elevation and rely on permission/service-state errors.
@@ -207,9 +241,43 @@ internal static partial class Program
     {
         if (OperatingSystem.IsWindows() && !IsWindowsAdministrator())
         {
-            return !TryPreflightWindowsServiceControl(parsedCommand, out var preflightExitCode)
-                ? preflightExitCode
-                : RelaunchElevatedOnWindows(args);
+            if (!TryPreflightWindowsServiceControl(parsedCommand, out var preflightExitCode, out var preflightMessage))
+            {
+                if (parsedCommand.RawOutput)
+                {
+                    Console.Error.WriteLine(preflightMessage);
+                    return preflightExitCode;
+                }
+
+                return WriteServiceControlResult(
+                    parsedCommand,
+                    new ServiceControlResult(
+                        "stop",
+                        parsedCommand.ServiceName ?? string.Empty,
+                        "windows",
+                        "unknown",
+                        null,
+                        preflightExitCode,
+                        preflightMessage,
+                        string.Empty,
+                        string.Empty));
+            }
+
+            var relaunchExitCode = RelaunchElevatedOnWindows(args, suppressStatusMessages: true);
+            return relaunchExitCode == 1223 && !parsedCommand.RawOutput
+                ? WriteServiceControlResult(
+                    parsedCommand,
+                    new ServiceControlResult(
+                        "stop",
+                        parsedCommand.ServiceName ?? string.Empty,
+                        "windows",
+                        "unknown",
+                        null,
+                        1,
+                        "Elevation was canceled by the user. Run this command from an elevated terminal if you want to proceed without UAC interaction.",
+                        string.Empty,
+                        string.Empty))
+                : relaunchExitCode;
         }
 
         // For non-Windows OSes, attempt stop without elevation and rely on permission/service-state errors.
@@ -345,22 +413,24 @@ internal static partial class Program
     /// </summary>
     /// <param name="command">Parsed service command.</param>
     /// <param name="exitCode">Exit code when preflight fails.</param>
+    /// <param name="errorMessage">Preflight failure message when validation fails.</param>
     /// <returns>True when control should proceed with elevation.</returns>
     [SupportedOSPlatform("windows")]
-    private static bool TryPreflightWindowsServiceControl(ParsedCommand command, out int exitCode)
+    private static bool TryPreflightWindowsServiceControl(ParsedCommand command, out int exitCode, out string errorMessage)
     {
         exitCode = 0;
+        errorMessage = string.Empty;
         if (string.IsNullOrWhiteSpace(command.ServiceName))
         {
-            Console.Error.WriteLine("Service name is required. Use --name <value>.");
             exitCode = 2;
+            errorMessage = "Service name is required. Use --name <value>.";
             return false;
         }
 
         if (!WindowsServiceExists(command.ServiceName))
         {
-            Console.Error.WriteLine($"Windows service '{command.ServiceName}' was not found.");
             exitCode = 2;
+            errorMessage = $"Windows service '{command.ServiceName}' was not found.";
             return false;
         }
 
@@ -399,7 +469,7 @@ internal static partial class Program
     /// <param name="exePath">Optional executable path to launch. When null, the current process executable will be used.</param>
     /// <returns>Exit code from the elevated child process or an error code.</returns>
     [SupportedOSPlatform("windows")]
-    private static int RelaunchElevatedOnWindows(IReadOnlyList<string> args, string? exePath = null)
+    private static int RelaunchElevatedOnWindows(IReadOnlyList<string> args, string? exePath = null, bool suppressStatusMessages = false)
     {
         exePath ??= Environment.ProcessPath;
         if (string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
@@ -408,7 +478,10 @@ internal static partial class Program
             return 1;
         }
 
-        Console.Error.WriteLine("Administrator rights are required. Requesting elevation...");
+        if (!suppressStatusMessages)
+        {
+            Console.Error.WriteLine("Administrator rights are required. Requesting elevation...");
+        }
 
         var relaunchArgs = BuildElevatedRelaunchArguments(exePath, args);
         var tempDirectory = Path.Combine(Path.GetTempPath(), ProductName);
@@ -450,7 +523,7 @@ internal static partial class Program
                 }
             }
 
-            if (process.ExitCode != 0)
+            if (process.ExitCode != 0 && !suppressStatusMessages)
             {
                 Console.Error.WriteLine("Elevated operation failed. If no UAC prompt was shown, run this command from an elevated terminal.");
             }
@@ -459,14 +532,22 @@ internal static partial class Program
         }
         catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
-            Console.Error.WriteLine("Elevation was canceled by the user.");
-            Console.Error.WriteLine("Run this command from an elevated terminal if you want to proceed without UAC interaction.");
-            return 1;
+            if (!suppressStatusMessages)
+            {
+                Console.Error.WriteLine("Elevation was canceled by the user.");
+                Console.Error.WriteLine("Run this command from an elevated terminal if you want to proceed without UAC interaction.");
+            }
+
+            return 1223;
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Failed to elevate process: {ex.Message}");
-            Console.Error.WriteLine("Run this command from an elevated terminal if automatic elevation is unavailable.");
+            if (!suppressStatusMessages)
+            {
+                Console.Error.WriteLine($"Failed to elevate process: {ex.Message}");
+                Console.Error.WriteLine("Run this command from an elevated terminal if automatic elevation is unavailable.");
+            }
+
             return 1;
         }
         finally
@@ -910,7 +991,15 @@ internal static partial class Program
     {
         var operationLogPath = ResolveServiceOperationLogPath(command.ServiceLogPath, command.ServiceName);
 
-        _ = RunProcess("sc.exe", ["stop", command.ServiceName!]);
+        var stopResult = RunProcess("sc.exe", ["stop", command.ServiceName!], writeStandardOutput: false);
+        if (stopResult.ExitCode != 0 && !IsWindowsServiceAlreadyStopped(stopResult))
+        {
+            WriteServiceOperationLog(
+                $"Service '{command.ServiceName}' stop-before-delete returned exitCode={stopResult.ExitCode} error='{stopResult.Error.Trim()}'",
+                operationLogPath,
+                command.ServiceName);
+        }
+
         var deleteResult = RunProcess("sc.exe", ["delete", command.ServiceName!]);
         if (deleteResult.ExitCode != 0)
         {
@@ -4930,9 +5019,9 @@ internal static partial class Program
                 Console.WriteLine("  kestrun [--nocheck] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --package <path-or-url-to-.krpack> [--service-log-path <path-to-log-file>] [--service-user <account>] [--service-password <password>] [--deployment-root <folder>] [--content-root-checksum <hex>] [--content-root-checksum-algorithm <name>] [--content-root-bearer-token <token>] [--content-root-header <name:value> ...] [--content-root-ignore-certificate] [--arguments <script arguments...>]");
                 Console.WriteLine("  kestrun [--nocheck] service update --name <service-name> [--package <path-or-url-to-.krpack>] [--kestrun | --kestrun-module <path-to-Kestrun.psd1-or-folder> | --kestrun-manifest <path-to-Kestrun.psd1-or-folder>] [--deployment-root <folder>] [--content-root-checksum <hex>] [--content-root-checksum-algorithm <name>] [--content-root-bearer-token <token>] [--content-root-header <name:value> ...] [--content-root-ignore-certificate] [--failback]");
                 Console.WriteLine("  kestrun service remove --name <service-name>");
-                Console.WriteLine("  kestrun service start --name <service-name>");
-                Console.WriteLine("  kestrun service stop --name <service-name>");
-                Console.WriteLine("  kestrun service query --name <service-name>");
+                Console.WriteLine("  kestrun service start --name <service-name> [--json | --raw]");
+                Console.WriteLine("  kestrun service stop --name <service-name> [--json | --raw]");
+                Console.WriteLine("  kestrun service query --name <service-name> [--json | --raw]");
                 Console.WriteLine("  kestrun service info [--name <service-name>] [--json]");
                 Console.WriteLine();
                 Console.WriteLine("Options (service install):");
@@ -4951,7 +5040,8 @@ internal static partial class Program
                 Console.WriteLine("  --kestrun                   For service update: use repository module at src/PowerShell/Kestrun when newer than bundled module.");
                 Console.WriteLine("  --kestrun-module <path>     For service update: module manifest path or folder to refresh bundled Kestrun module.");
                 Console.WriteLine("  --failback                  For service update: restore application/module from latest backup and delete that backup folder.");
-                Console.WriteLine("  --json                      For service info: output JSON instead of human-readable text.");
+                Console.WriteLine("  --json                      For service start/stop/query/info: output JSON instead of table/human-readable text.");
+                Console.WriteLine("  --raw                       For service start/stop/query: output native OS command output.");
                 Console.WriteLine();
                 Console.WriteLine("Notes:");
                 Console.WriteLine("  - install registers the service/daemon but does not auto-start it.");

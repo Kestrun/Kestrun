@@ -186,6 +186,50 @@ For `run`:
 - `--kestrun-manifest <path>`: explicitly use a `Kestrun.psd1` manifest file.
 - `--arguments <args...>`: pass remaining values to the script.
 
+For `service start`, `service stop`, and `service query`:
+
+- Default output is a cross-platform normalized table.
+- `--json`: return normalized output as JSON.
+- `--raw`: return native OS command output (Windows `sc.exe`, Linux `systemctl`, macOS `launchctl`).
+
+Example output modes (`service query`):
+
+```powershell
+# Default: normalized table output
+dotnet kestrun service query --name demo
+
+# JSON: normalized structured output
+dotnet kestrun service query --name demo --json
+
+# Raw: native OS command output
+dotnet kestrun service query --name demo --raw
+```
+
+Typical default table output:
+
+```text
+Operation | Service | Platform | Status  | State   | PID  | ExitCode | Message
+----------+---------+----------+---------+---------+------+----------+----------------
+query     | demo    | windows  | success | running | 8420 | 0        | STATE : RUNNING
+```
+
+Typical `--json` output:
+
+```json
+{
+  "Operation": "query",
+  "ServiceName": "demo",
+  "Platform": "windows",
+  "Status": "success",
+  "State": "running",
+  "PID": 8420,
+  "ExitCode": 0,
+  "Message": "STATE : RUNNING"
+}
+```
+
+Values in `Platform`, `State`, and `Message` vary by OS and actual service state, but the output schema stays consistent.
+
 For `service install`:
 
 - `--kestrun-manifest <path>`: manifest used by the service runtime.

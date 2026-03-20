@@ -815,6 +815,87 @@ public class KestrunToolCommandSurfaceTests
         Assert.Contains("cannot be combined", Error, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [Trait("Category", "Tooling")]
+    [MemberData(nameof(ServiceInstallOptionsRequiringContentRootData))]
+    public void TryParseArguments_ServiceInstall_ContentRootDependentOptionsWithoutContentRoot_Fail(string[] args, string expectedError)
+    {
+        var (Success, _, Error) = InvokeTryParseArguments(args);
+
+        Assert.False(Success);
+        Assert.Contains(expectedError, Error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [Trait("Category", "Tooling")]
+    [MemberData(nameof(ServiceUpdateFailbackRejectsContentRootOptionsData))]
+    public void TryParseArguments_ServiceUpdate_FailbackRejectsContentRootUpdateOptions(string[] args)
+    {
+        var (Success, _, Error) = InvokeTryParseArguments(args);
+
+        Assert.False(Success);
+        Assert.Contains("--failback does not accept --content-root* update options.", Error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [Trait("Category", "Tooling")]
+    [MemberData(nameof(ServiceActionUnknownOptionData))]
+    public void TryParseArguments_ServiceActions_UnknownOptions_Fail(string[] args)
+    {
+        var (Success, _, Error) = InvokeTryParseArguments(args);
+
+        Assert.False(Success);
+        Assert.Contains("Unknown option:", Error, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [Trait("Category", "Tooling")]
+    [MemberData(nameof(ServiceActionsRejectPackageOptionData))]
+    public void TryParseArguments_ServiceActionsRejectPackageOption_Fails(string[] args)
+    {
+        var (Success, _, Error) = InvokeTryParseArguments(args);
+
+        Assert.False(Success);
+        Assert.Contains("does not accept --package.", Error, StringComparison.Ordinal);
+    }
+
+    public static IEnumerable<object[]> ServiceInstallOptionsRequiringContentRootData()
+    {
+        yield return [new[] { "service", "install", "--name", "demo", "--script", "server.ps1", "--content-root-checksum", "abcdef" }, "--content-root-checksum requires --content-root."];
+        yield return [new[] { "service", "install", "--name", "demo", "--script", "server.ps1", "--content-root-bearer-token", "token-value" }, "--content-root-bearer-token requires --content-root."];
+        yield return [new[] { "service", "install", "--name", "demo", "--script", "server.ps1", "--content-root-ignore-certificate" }, "--content-root-ignore-certificate requires --content-root."];
+        yield return [new[] { "service", "install", "--name", "demo", "--script", "server.ps1", "--content-root-header", "x-api-key:abc" }, "--content-root-header requires --content-root."];
+    }
+
+    public static IEnumerable<object[]> ServiceUpdateFailbackRejectsContentRootOptionsData()
+    {
+        yield return [new[] { "service", "update", "--name", "demo", "--failback", "--content-root-checksum", "abcdef" }];
+        yield return [new[] { "service", "update", "--name", "demo", "--failback", "--content-root-checksum-algorithm", "sha256" }];
+        yield return [new[] { "service", "update", "--name", "demo", "--failback", "--content-root-bearer-token", "token-value" }];
+        yield return [new[] { "service", "update", "--name", "demo", "--failback", "--content-root-ignore-certificate" }];
+        yield return [new[] { "service", "update", "--name", "demo", "--failback", "--content-root-header", "x-env:prod" }];
+    }
+
+    public static IEnumerable<object[]> ServiceActionUnknownOptionData()
+    {
+        yield return [new[] { "service", "install", "--name", "demo", "--script", "server.ps1", "--unknown" }];
+        yield return [new[] { "service", "update", "--name", "demo", "--unknown" }];
+        yield return [new[] { "service", "remove", "--name", "demo", "--unknown" }];
+        yield return [new[] { "service", "start", "--name", "demo", "--unknown" }];
+        yield return [new[] { "service", "stop", "--name", "demo", "--unknown" }];
+        yield return [new[] { "service", "query", "--name", "demo", "--unknown" }];
+        yield return [new[] { "service", "info", "--unknown" }];
+    }
+
+    public static IEnumerable<object[]> ServiceActionsRejectPackageOptionData()
+    {
+        yield return [new[] { "service", "remove", "--name", "demo", "--package", "demo.krpack" }];
+        yield return [new[] { "service", "start", "--name", "demo", "--package", "demo.krpack" }];
+        yield return [new[] { "service", "stop", "--name", "demo", "--package", "demo.krpack" }];
+        yield return [new[] { "service", "query", "--name", "demo", "--package", "demo.krpack" }];
+        yield return [new[] { "service", "info", "--package", "demo.krpack" }];
+    }
+
     [Fact]
     [Trait("Category", "Tooling")]
     public void TryResolveInstalledServiceBundleRoot_WithDirectBundle_ResolvesServiceRoot()
@@ -2512,13 +2593,13 @@ public class KestrunToolCommandSurfaceTests
 
     private static IReadOnlyList<(string Version, string? UpdatedAt, string Path)> InvokeGetServiceBackupSnapshots(string serviceRootPath)
     {
-        var snapshots = Assert.IsAssignableFrom<System.Collections.IEnumerable>(InvokeRaw("GetServiceBackupSnapshots", [serviceRootPath]));
+        var snapshots = Assert.IsType<System.Collections.IEnumerable>(InvokeRaw("GetServiceBackupSnapshots", [serviceRootPath]), exactMatch: false);
         var result = new List<(string Version, string? UpdatedAt, string Path)>();
 
         foreach (var snapshot in snapshots)
         {
             Assert.NotNull(snapshot);
-            var updatedAtValue = snapshot!.GetType().GetProperty("UpdatedAtUtc", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(snapshot);
+            var updatedAtValue = snapshot.GetType().GetProperty("UpdatedAtUtc", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(snapshot);
             var updatedAt = updatedAtValue is DateTimeOffset dto
                 ? dto.ToString("o")
                 : updatedAtValue?.ToString();

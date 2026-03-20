@@ -1392,7 +1392,7 @@ internal static partial class Program
     /// <returns>Resolved script path token.</returns>
     private static string ResolveRequestedServiceScriptPath(string scriptPath, bool useDefaultWhenMissing)
         => string.IsNullOrWhiteSpace(scriptPath)
-            ? (useDefaultWhenMissing ? DefaultScriptFileName : string.Empty)
+            ? (useDefaultWhenMissing ? ServiceDefaultScriptFileName : string.Empty)
             : scriptPath;
 
     /// <summary>
@@ -1927,7 +1927,7 @@ internal static partial class Program
 
             if (string.IsNullOrWhiteSpace(entryPoint))
             {
-                entryPoint = DefaultScriptFileName;
+                entryPoint = ServiceDefaultScriptFileName;
             }
 
             return TryResolveOptionalServiceDescriptorVersion(descriptorText, out version, out error);
@@ -4867,7 +4867,7 @@ internal static partial class Program
         Console.WriteLine($"  {NoCheckOption}          Skip PowerShell Gallery update check warnings.");
         Console.WriteLine();
         Console.WriteLine("Commands:");
-        Console.WriteLine("  run       Run a PowerShell script (default script: ./server.ps1)");
+        Console.WriteLine("  run       Run a PowerShell script (default script: ./Service.ps1)");
         Console.WriteLine("  module    Manage Kestrun module (install/update/remove/info)");
         Console.WriteLine("  service   Manage service lifecycle (install/remove/start/stop/query)");
         Console.WriteLine("  info      Show runtime/build diagnostics");
@@ -4899,7 +4899,7 @@ internal static partial class Program
                 Console.WriteLine("  --arguments <args...>       Pass remaining values to the script as script arguments.");
                 Console.WriteLine();
                 Console.WriteLine("Notes:");
-                Console.WriteLine("  - If no script is provided, ./server.ps1 is used.");
+                Console.WriteLine("  - If no script is provided, ./Service.ps1 is used.");
                 Console.WriteLine("  - Script arguments must be passed after --arguments (or --).");
                 Console.WriteLine("  - Use --kestrun-manifest to pin a specific Kestrun.psd1 file.");
                 Console.WriteLine($"  - If {ModuleName} is missing, run '{ProductName} module install'.");

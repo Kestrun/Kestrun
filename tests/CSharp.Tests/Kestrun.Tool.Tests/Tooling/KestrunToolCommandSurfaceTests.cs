@@ -1128,7 +1128,7 @@ public class KestrunToolCommandSurfaceTests
         ]);
 
         Assert.False(Success);
-        Assert.Contains("Define Script in Service.psd1", Error, StringComparison.Ordinal);
+        Assert.Contains("Define EntryPoint in Service.psd1", Error, StringComparison.Ordinal);
     }
 
     [Fact]

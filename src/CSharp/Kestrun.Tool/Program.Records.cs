@@ -8,7 +8,8 @@ internal static partial class Program
     private const string ServiceDescriptorFileName = "Service.psd1";
     private const string ServicePackageExtension = ".krpack";
     private const string ModuleName = "Kestrun";
-    private const string DefaultScriptFileName = "Service.ps1";
+    private const string RunDefaultScriptFileName = "Service.ps1";
+    private const string ServiceDefaultScriptFileName = "Service.ps1";
     private const string ProductName = "kestrun";
     private const string ServiceDeploymentProductFolderName = "Kestrun";
     private const string ServiceDeploymentServicesFolderName = "Services";

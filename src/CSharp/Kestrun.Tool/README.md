@@ -24,7 +24,7 @@ dotnet kestrun <command> [options]
 
 ## Core commands
 
-- `run`: run a PowerShell script (`./server.ps1` by default)
+- `run`: run a PowerShell script (`./Service.ps1` by default)
 - `module`: manage Kestrun PowerShell module install/update/remove/info
 - `service`: install/update/remove/start/stop/query/info service lifecycle
 - `info`: display runtime/build diagnostics
@@ -44,7 +44,7 @@ dotnet kestrun service help
 Run a script:
 
 ```powershell
-dotnet kestrun run --script .\server.ps1 --arguments --port 5000
+dotnet kestrun run --script .\Service.ps1 --arguments --port 5000
 ```
 
 Install a service:

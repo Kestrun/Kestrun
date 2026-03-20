@@ -116,8 +116,8 @@ internal static partial class Program
 
         if (!state.ScriptPathSet)
         {
-            // Default to ./server.ps1 when a script path is not explicitly provided.
-            state.ScriptPath = DefaultScriptFileName;
+            // Default to ./Service.ps1 when a script path is not explicitly provided.
+            state.ScriptPath = RunDefaultScriptFileName;
         }
 
         parsedCommand = new ParsedCommand(CommandMode.Run, state.ScriptPath, state.ScriptPathSet, state.ScriptArguments, state.KestrunFolder, state.KestrunManifestPath, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);

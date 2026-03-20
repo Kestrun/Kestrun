@@ -116,14 +116,11 @@ dotnet kestrun version help
 
 ## Script path options
 
-`run` and `service install` accept either a positional script path or a named script path:
+`run` accepts either a positional script path or a named script path:
 
 ```powershell
-dotnet kestrun run .\server.ps1
-dotnet kestrun run --script .\server.ps1
-
-dotnet kestrun service install --name MyService .\server.ps1
-dotnet kestrun service install --name MyService --script .\server.ps1
+dotnet kestrun run .\Service.ps1
+dotnet kestrun run --script .\Service.ps1
 
 # Install from a service package (.krpack)
 dotnet kestrun service install --package .\my-service.krpack
@@ -319,13 +316,13 @@ New-KrServicePackage -SourceFolder $tmp -OutputPath .\museum-service-1.2.1.krpac
 `kestrun-service-host` supports direct script execution with `--run`.
 
 ```powershell
-kestrun-service-host --run .\server.ps1 --kestrun-manifest .\src\PowerShell\Kestrun\Kestrun.psd1
+kestrun-service-host --run .\Service.ps1 --kestrun-manifest .\src\PowerShell\Kestrun\Kestrun.psd1
 ```
 
 You can still use `--script`, but `--run` is convenient when launching a script directly.
 
 ```powershell
-kestrun-service-host --script .\server.ps1 --kestrun-manifest .\src\PowerShell\Kestrun\Kestrun.psd1
+kestrun-service-host --script .\Service.ps1 --kestrun-manifest .\src\PowerShell\Kestrun\Kestrun.psd1
 ```
 
 Direct-run defaults:
@@ -339,7 +336,7 @@ Direct-run defaults:
 
 ```powershell
 dotnet kestrun service install --package .\demo.krpack
-dotnet kestrun service install --name demo --deployment-root D:\KestrunServices --script .\server.ps1
+dotnet kestrun service install --package .\demo.krpack --deployment-root D:\KestrunServices
 dotnet kestrun service start --name demo
 dotnet kestrun service query --name demo
 dotnet kestrun service stop --name demo

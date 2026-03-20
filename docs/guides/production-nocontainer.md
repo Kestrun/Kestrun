@@ -27,7 +27,7 @@ This guide shows how to deploy and update a custom Kestrun PowerShell applicatio
 dotnet tool install -g Kestrun.Tool
 ```
 
-- Your app entry script exists (usually `server.ps1` or `scripts/start.ps1`).
+- Your app entry script exists (usually `Service.ps1` or `scripts/start.ps1`).
 - If you build packages on the host, ensure the `Kestrun` PowerShell module is available.
 - The target host account has permissions to install/start services.
 
@@ -85,7 +85,7 @@ Example app layout:
 
 ```text
 MyServiceApp/
-  server.ps1
+  Service.ps1
   config/
     production.json
   assets/

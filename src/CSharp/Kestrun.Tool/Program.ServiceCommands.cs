@@ -642,12 +642,9 @@ internal static partial class Program
     private static List<ServiceBackupSnapshot> GetServiceBackupSnapshots(string serviceRootPath)
     {
         var backupRoot = Path.Combine(serviceRootPath, "backup");
-        if (!Directory.Exists(backupRoot))
-        {
-            return [];
-        }
-
-        return [.. Directory
+        return !Directory.Exists(backupRoot)
+            ? []
+            : [.. Directory
             .GetDirectories(backupRoot)
             .Select(static directoryPath =>
             {

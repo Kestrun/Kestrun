@@ -5030,7 +5030,7 @@ internal static partial class Program
         Console.WriteLine("Commands:");
         Console.WriteLine("  run       Run a PowerShell script (default script: ./Service.ps1)");
         Console.WriteLine("  module    Manage Kestrun module (install/update/remove/info)");
-        Console.WriteLine("  service   Manage service lifecycle (install/remove/start/stop/query)");
+        Console.WriteLine("  service   Manage service lifecycle (install/update/remove/start/stop/query/info)");
         Console.WriteLine("  info      Show runtime/build diagnostics");
         Console.WriteLine("  version   Show tool version");
         Console.WriteLine();

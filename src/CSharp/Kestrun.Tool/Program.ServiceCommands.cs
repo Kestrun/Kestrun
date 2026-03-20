@@ -2614,8 +2614,18 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static ServiceControlResult StopLinuxUserDaemon(string serviceName, string? configuredLogPath, bool rawOutput)
     {
-        var useSystemScope = IsLinuxSystemUnitInstalled(serviceName);
         var unitName = GetLinuxUnitName(serviceName);
+        if (!TryGetInstalledLinuxUnitScope(serviceName, out var useSystemScope))
+        {
+            const int missingServiceExitCode = 2;
+            var message = $"Service unit '{unitName}' was not found.";
+            WriteServiceOperationLog(
+                $"operation='stop' service='{serviceName}' platform='linux' result='failed' exitCode={missingServiceExitCode} error='{message}'",
+                configuredLogPath,
+                serviceName);
+            return new ServiceControlResult("stop", serviceName, "linux", "unknown", null, missingServiceExitCode, message, string.Empty, message);
+        }
+
         var result = RunLinuxSystemctl(useSystemScope, ["stop", unitName], writeStandardOutput: false);
         if (result.ExitCode != 0)
         {
@@ -2703,6 +2713,26 @@ internal static partial class Program
         var unitName = GetLinuxUnitName(serviceName);
         var systemUnitPath = Path.Combine("/etc/systemd/system", unitName);
         return File.Exists(systemUnitPath);
+    }
+
+    /// <summary>
+    /// Resolves whether a Linux service is installed as a system or user unit.
+    /// </summary>
+    /// <param name="serviceName">Service name.</param>
+    /// <param name="useSystemScope">True when installed as a system unit; false for user unit.</param>
+    /// <returns>True when either system or user unit file exists.</returns>
+    private static bool TryGetInstalledLinuxUnitScope(string serviceName, out bool useSystemScope)
+    {
+        if (IsLinuxSystemUnitInstalled(serviceName))
+        {
+            useSystemScope = true;
+            return true;
+        }
+
+        var unitName = GetLinuxUnitName(serviceName);
+        var userUnitPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "systemd", "user", unitName);
+        useSystemScope = false;
+        return File.Exists(userUnitPath);
     }
 
     /// <summary>

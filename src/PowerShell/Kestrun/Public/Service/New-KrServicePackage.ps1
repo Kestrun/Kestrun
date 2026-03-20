@@ -13,6 +13,7 @@
     Script file to package. A Service.psd1 descriptor is generated automatically.
 .PARAMETER Name
     Service name used when generating Service.psd1 from ScriptPath.
+    If omitted, defaults to the script filename without extension.
 .PARAMETER Version
     Service version used when generating Service.psd1 from ScriptPath.
 .PARAMETER Description
@@ -24,13 +25,15 @@
     Output .krpack path.
     Defaults:
     - SourceFolder mode: <SourceFolderName>.krpack in current directory
-    - ScriptPath mode: <ScriptBaseName>.krpack in current directory
+    - ScriptPath mode: <Name>-<Version>.krpack in current directory
 .PARAMETER Force
     Overwrite an existing output file.
 .EXAMPLE
     New-KrServicePackage -SourceFolder .\my-service -OutputPath .\my-service.krpack
 .EXAMPLE
     New-KrServicePackage -ScriptPath .\server.ps1 -Name demo -Version 1.2.0 -OutputPath .\demo.krpack
+.EXAMPLE
+    New-KrServicePackage -ScriptPath .\server.ps1 -Version 1.2.0
 #>
 function New-KrServicePackage {
     [KestrunRuntimeApi('Everywhere')]
@@ -45,7 +48,7 @@ function New-KrServicePackage {
         [ValidateNotNullOrEmpty()]
         [string]$ScriptPath,
 
-        [Parameter(Mandatory, ParameterSetName = 'FromScript')]
+        [Parameter(ParameterSetName = 'FromScript')]
         [ValidateNotNullOrEmpty()]
         [string]$Name,
 
@@ -180,7 +183,8 @@ function New-KrServicePackage {
             }
 
             $scriptFileName = [System.IO.Path]::GetFileName($resolvedScriptPath)
-            $effectiveDescription = if ([string]::IsNullOrWhiteSpace($Description)) { $Name } else { $Description }
+            $effectiveName = if ([string]::IsNullOrWhiteSpace($Name)) { [System.IO.Path]::GetFileNameWithoutExtension($resolvedScriptPath) } else { $Name }
+            $effectiveDescription = if ([string]::IsNullOrWhiteSpace($Description)) { $effectiveName } else { $Description }
 
             $stagingRoot = [System.IO.Path]::Combine([System.IO.Path]::GetTempPath(), "kestrun-krpack-$([Guid]::NewGuid().ToString('N'))")
             $null = New-Item -ItemType Directory -Path $stagingRoot -Force
@@ -188,7 +192,7 @@ function New-KrServicePackage {
 
             Copy-Item -LiteralPath $resolvedScriptPath -Destination ([System.IO.Path]::Combine($packageRoot, $scriptFileName)) -Force
 
-            $escapedName = $Name.Replace("'", "''")
+            $escapedName = $effectiveName.Replace("'", "''")
             $escapedDescription = $effectiveDescription.Replace("'", "''")
             $escapedVersion = $Version.ToString().Replace("'", "''")
             $escapedEntryPoint = $scriptFileName.Replace("'", "''")
@@ -214,7 +218,7 @@ function New-KrServicePackage {
             $descriptorData = Import-PowerShellDataFile -LiteralPath $descriptorPath
             $descriptorInfo = Test-KrServiceDescriptorData -Descriptor $descriptorData -DescriptorPath $descriptorPath -PackageRoot $packageRoot
 
-            $defaultBaseName = [System.IO.Path]::GetFileNameWithoutExtension($scriptFileName)
+            $defaultBaseName = "$effectiveName-$($Version.ToString())"
             $resolvedOutputPath = Get-KrResolvedOutputPath -ProvidedOutputPath $OutputPath -DefaultBaseName $defaultBaseName
         }
 

@@ -82,6 +82,39 @@ Describe 'Service package cmdlet' {
         }
     }
 
+    It 'New-KrServicePackage infers name from script file and uses name-version default package path' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-package-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $scriptPath = Join-Path $tempRoot 'demo-app.ps1'
+        $extractPath = Join-Path $tempRoot 'extracted'
+        $previousLocation = Get-Location
+
+        try {
+            $null = New-Item -ItemType Directory -Path $tempRoot -Force
+            Set-Content -LiteralPath $scriptPath -Value "Write-Output 'hello-script-defaults'" -Encoding utf8NoBOM
+            Set-Location -LiteralPath $tempRoot
+
+            $result = New-KrServicePackage -ScriptPath $scriptPath -Version ([Version]'3.2.1')
+
+            $expectedPackagePath = Join-Path $tempRoot 'demo-app-3.2.1.krpack'
+            $result.PackagePath | Should -Be $expectedPackagePath
+            Test-Path -LiteralPath $expectedPackagePath | Should -BeTrue
+            $result.Name | Should -Be 'demo-app'
+            $result.Version | Should -Be '3.2.1'
+
+            Expand-Archive -LiteralPath $expectedPackagePath -DestinationPath $extractPath -Force
+            $descriptor = Import-PowerShellDataFile -LiteralPath (Join-Path $extractPath 'Service.psd1')
+            $descriptor['Name'] | Should -Be 'demo-app'
+            $descriptor['Description'] | Should -Be 'demo-app'
+            $descriptor['Version'] | Should -Be '3.2.1'
+            $descriptor['EntryPoint'] | Should -Be 'demo-app.ps1'
+        } finally {
+            Set-Location -LiteralPath $previousLocation
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
     It 'New-KrServicePackage fails for folder input when Service.psd1 is missing' {
         $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-package-{0}' -f [Guid]::NewGuid().ToString('N'))
         $sourceFolder = Join-Path $tempRoot 'source'

@@ -14,8 +14,7 @@ This guide shows how to deploy and update a custom Kestrun PowerShell applicatio
 
 - Target: VM or bare-metal hosts.
 - Runtime model: native OS service/daemon.
-- Packaging model: `.krpack` service package (recommended).
-- Also supported: descriptor-driven `--content-root` installs from folder/archive/HTTP(S) archive.
+- Packaging model: `.krpack` service package.
 - Not covered: container deployments (Docker/Kubernetes).
 
 ## Prerequisites
@@ -73,29 +72,77 @@ Example:
 `PreservePaths` values must be relative paths inside the app root (no absolute paths and no `..` traversal). During `service update --package`, those paths are
 staged from the current install and restored after the package content is applied.
 
-## Content-Root Input (Optional)
+## Build a `.krpack` (All `New-KrServicePackage` Options)
 
-You can still deploy from:
+`New-KrServicePackage` has two parameter sets.
 
-1. A folder that contains your full app content.
-2. An archive (`.zip`, `.tar`, `.tgz`, or `.tar.gz`).
-3. An HTTP(S) URL that serves one of the supported archive formats.
+### Parameter set 1: package an existing app folder
 
-Example app layout:
+Required:
 
-```text
-MyServiceApp/
-  Service.ps1
-  config/
-    production.json
-  assets/
+- `-SourceFolder <string>`: folder that already contains a valid `Service.psd1`.
+
+Optional:
+
+- `-OutputPath <string>`: output package path. If omitted, defaults to `<SourceFolderName>.krpack` in the current directory.
+- `-Force`: overwrite an existing output file.
+- `-WhatIf` and `-Confirm`: standard PowerShell safety switches.
+
+Examples:
+
+```powershell
+# Uses default output path: .\MyServiceApp.krpack
+New-KrServicePackage -SourceFolder .\MyServiceApp
+
+# Explicit output path
+New-KrServicePackage -SourceFolder .\MyServiceApp -OutputPath .\my-service.krpack
+
+# Overwrite existing package
+New-KrServicePackage -SourceFolder .\MyServiceApp -OutputPath .\my-service.krpack -Force
 ```
 
-If you package an archive, include everything needed by the configured `EntryPoint` at runtime.
+### Parameter set 2: package from a script and generate `Service.psd1`
+
+Required:
+
+- `-ScriptPath <string>`: path to a `.ps1` file.
+- `-Version <version>`: service version written to generated descriptor.
+
+Optional:
+
+- `-Name <string>`: service name in generated descriptor. If omitted, defaults to script filename without extension.
+- `-Description <string>`: descriptor description. If omitted, defaults to `Name`.
+- `-ServiceLogPath <string>`: optional log path written to generated descriptor.
+- `-PreservePaths <string[]>`: optional relative files/folders preserved during `service update --package`.
+- `-OutputPath <string>`: output package path. If omitted, defaults to `<Name>-<Version>.krpack` in the current directory.
+- `-Force`: overwrite an existing output file.
+- `-WhatIf` and `-Confirm`: standard PowerShell safety switches.
+
+Generated descriptor values in this mode:
+
+- `FormatVersion = '1.0'`
+- `EntryPoint = '<script-file-name>.ps1'`
+
+Examples:
+
+```powershell
+# Minimal ScriptPath mode (Name defaults from script filename)
+New-KrServicePackage -ScriptPath .\Service.ps1 -Version 1.2.0
+
+# Full metadata and preserve paths
+New-KrServicePackage `
+  -ScriptPath .\Service.ps1 `
+  -Name 'my-service' `
+  -Version 1.2.0 `
+  -Description 'Production Kestrun service' `
+  -ServiceLogPath '.\logs\service.log' `
+  -PreservePaths @('config/production.json', 'data/', 'logs/') `
+  -OutputPath .\my-service-1.2.0.krpack
+```
 
 ## Optional: Generate a Checksum
 
-For production safety, verify package/archive integrity at install or update time.
+For production safety, verify package integrity at install or update time.
 
 Windows PowerShell:
 
@@ -145,54 +192,6 @@ Ignore HTTPS certificate validation (insecure):
 
 ```powershell
 dotnet kestrun service install --package https://downloads.example.com/my-service.krpack --content-root-ignore-certificate --content-root-checksum <sha256-hex>
-```
-
-## Install the Service (Content-Root Input)
-
-```powershell
-dotnet kestrun service install --content-root .\MyServiceApp
-```
-
-## Install the Service (Archive Input)
-
-```powershell
-dotnet kestrun service install --content-root .\MyServiceApp.zip
-```
-
-With checksum verification:
-
-```powershell
-dotnet kestrun service install --content-root .\MyServiceApp.tgz --content-root-checksum <sha256-hex>
-```
-
-With explicit checksum algorithm:
-
-```powershell
-dotnet kestrun service install --content-root .\MyServiceApp.tar.gz --content-root-checksum <hex> --content-root-checksum-algorithm sha512
-```
-
-From an HTTP(S) URL:
-
-```powershell
-dotnet kestrun service install --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-checksum <sha256-hex>
-```
-
-From an HTTP(S) URL with bearer token auth:
-
-```powershell
-dotnet kestrun service install --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-bearer-token <token> --content-root-checksum <sha256-hex>
-```
-
-From an HTTP(S) URL with custom request headers:
-
-```powershell
-dotnet kestrun service install --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-header x-api-key:<key> --content-root-header x-env:prod --content-root-checksum <sha256-hex>
-```
-
-Ignore HTTPS certificate validation (insecure):
-
-```powershell
-dotnet kestrun service install --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-ignore-certificate --content-root-checksum <sha256-hex>
 ```
 
 ## Choose Account and Bundle Location
@@ -266,10 +265,8 @@ dotnet kestrun service start --name my-service
 ## Current Limits
 
 - `service install --package` and `service update --package` support local `.krpack` files and HTTP(S) package URLs.
-- `--content-root` remains supported for descriptor-driven installs from local folder/archive or HTTP(S) archive URL.
-- Private package/archive URLs can use bearer token auth via `--content-root-bearer-token`.
+- Private package URLs can use bearer token auth via `--content-root-bearer-token`.
 - HTTPS certificate bypass is available via `--content-root-ignore-certificate` and should be used only for controlled environments.
-- `.7z` archives are not currently supported.
 
 ---
 

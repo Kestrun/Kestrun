@@ -472,9 +472,8 @@ internal static partial class Program
     private static int RelaunchElevatedOnWindows(IReadOnlyList<string> args, string? exePath = null, bool suppressStatusMessages = false)
     {
         exePath ??= Environment.ProcessPath;
-        if (string.IsNullOrWhiteSpace(exePath) || !File.Exists(exePath))
+        if (!TryResolveElevationExecutablePath(exePath, out var resolvedExePath))
         {
-            Console.Error.WriteLine("Unable to resolve KestrunTool executable path for elevation.");
             return 1;
         }
 
@@ -483,17 +482,77 @@ internal static partial class Program
             Console.Error.WriteLine("Administrator rights are required. Requesting elevation...");
         }
 
-        var relaunchArgs = BuildElevatedRelaunchArguments(exePath, args);
+        var relaunchArgs = BuildElevatedRelaunchArguments(resolvedExePath, args);
         var tempDirectory = Path.Combine(Path.GetTempPath(), ProductName);
         _ = Directory.CreateDirectory(tempDirectory);
 
         var outputPath = Path.Combine(tempDirectory, $"elevated-{Guid.NewGuid():N}.log");
         var wrapperPath = Path.Combine(tempDirectory, $"elevated-{Guid.NewGuid():N}.cmd");
 
+        WriteElevationWrapperScript(wrapperPath, outputPath, resolvedExePath, relaunchArgs);
+
+        try
+        {
+            return StartElevatedProcess(wrapperPath, outputPath, suppressStatusMessages);
+        }
+        catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
+        {
+            WriteElevationCanceledMessage(suppressStatusMessages);
+            return 1223;
+        }
+        catch (Exception ex)
+        {
+            WriteElevationFailureMessage(ex.Message, suppressStatusMessages);
+            return 1;
+        }
+        finally
+        {
+            TryDeleteFileQuietly(wrapperPath);
+            TryDeleteFileQuietly(outputPath);
+        }
+    }
+
+    /// <summary>
+    /// Resolves and validates the executable path used for elevation relaunch.
+    /// </summary>
+    /// <param name="exePath">Input executable path.</param>
+    /// <param name="resolvedExePath">Resolved executable path when validation succeeds.</param>
+    /// <returns>True when the executable path is valid.</returns>
+    private static bool TryResolveElevationExecutablePath(string? exePath, out string resolvedExePath)
+    {
+        resolvedExePath = exePath ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(resolvedExePath) || !File.Exists(resolvedExePath))
+        {
+            Console.Error.WriteLine("Unable to resolve KestrunTool executable path for elevation.");
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Writes the temporary wrapper script used to capture elevated process output.
+    /// </summary>
+    /// <param name="wrapperPath">Wrapper script path.</param>
+    /// <param name="outputPath">Output capture file path.</param>
+    /// <param name="exePath">Executable path to launch.</param>
+    /// <param name="relaunchArgs">Relaunch argument tokens.</param>
+    private static void WriteElevationWrapperScript(string wrapperPath, string outputPath, string exePath, IReadOnlyList<string> relaunchArgs)
+    {
         var commandLine = BuildWindowsCommandLine(exePath, relaunchArgs);
         var wrapperContents = $"@echo off{Environment.NewLine}{commandLine} > \"{outputPath}\" 2>&1{Environment.NewLine}exit /b %errorlevel%{Environment.NewLine}";
         File.WriteAllText(wrapperPath, wrapperContents, Encoding.ASCII);
+    }
 
+    /// <summary>
+    /// Starts the elevated wrapper process and relays captured output.
+    /// </summary>
+    /// <param name="wrapperPath">Wrapper script path.</param>
+    /// <param name="outputPath">Output capture file path.</param>
+    /// <param name="suppressStatusMessages">True to suppress non-essential status messages.</param>
+    /// <returns>Exit code from the elevated child process.</returns>
+    private static int StartElevatedProcess(string wrapperPath, string outputPath, bool suppressStatusMessages)
+    {
         var startInfo = new ProcessStartInfo
         {
             FileName = "cmd.exe",
@@ -503,58 +562,71 @@ internal static partial class Program
             WorkingDirectory = Environment.CurrentDirectory,
         };
 
-        try
+        using var process = Process.Start(startInfo);
+        if (process is null)
         {
-            using var process = Process.Start(startInfo);
-            if (process is null)
-            {
-                Console.Error.WriteLine("Failed to start elevated process.");
-                return 1;
-            }
-
-            process.WaitForExit();
-
-            if (File.Exists(outputPath))
-            {
-                var elevatedOutput = File.ReadAllText(outputPath);
-                if (!string.IsNullOrWhiteSpace(elevatedOutput))
-                {
-                    Console.Write(elevatedOutput);
-                }
-            }
-
-            if (process.ExitCode != 0 && !suppressStatusMessages)
-            {
-                Console.Error.WriteLine("Elevated operation failed. If no UAC prompt was shown, run this command from an elevated terminal.");
-            }
-
-            return process.ExitCode;
-        }
-        catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
-        {
-            if (!suppressStatusMessages)
-            {
-                Console.Error.WriteLine("Elevation was canceled by the user.");
-                Console.Error.WriteLine("Run this command from an elevated terminal if you want to proceed without UAC interaction.");
-            }
-
-            return 1223;
-        }
-        catch (Exception ex)
-        {
-            if (!suppressStatusMessages)
-            {
-                Console.Error.WriteLine($"Failed to elevate process: {ex.Message}");
-                Console.Error.WriteLine("Run this command from an elevated terminal if automatic elevation is unavailable.");
-            }
-
+            Console.Error.WriteLine("Failed to start elevated process.");
             return 1;
         }
-        finally
+
+        process.WaitForExit();
+        RelayElevatedOutput(outputPath);
+
+        if (process.ExitCode != 0 && !suppressStatusMessages)
         {
-            TryDeleteFileQuietly(wrapperPath);
-            TryDeleteFileQuietly(outputPath);
+            Console.Error.WriteLine("Elevated operation failed. If no UAC prompt was shown, run this command from an elevated terminal.");
         }
+
+        return process.ExitCode;
+    }
+
+    /// <summary>
+    /// Writes captured elevated output to standard output when available.
+    /// </summary>
+    /// <param name="outputPath">Output capture file path.</param>
+    private static void RelayElevatedOutput(string outputPath)
+    {
+        if (!File.Exists(outputPath))
+        {
+            return;
+        }
+
+        var elevatedOutput = File.ReadAllText(outputPath);
+        if (!string.IsNullOrWhiteSpace(elevatedOutput))
+        {
+            Console.Write(elevatedOutput);
+        }
+    }
+
+    /// <summary>
+    /// Writes the standard elevation canceled message when status output is enabled.
+    /// </summary>
+    /// <param name="suppressStatusMessages">True to suppress status messages.</param>
+    private static void WriteElevationCanceledMessage(bool suppressStatusMessages)
+    {
+        if (suppressStatusMessages)
+        {
+            return;
+        }
+
+        Console.Error.WriteLine("Elevation was canceled by the user.");
+        Console.Error.WriteLine("Run this command from an elevated terminal if you want to proceed without UAC interaction.");
+    }
+
+    /// <summary>
+    /// Writes the standard elevation failure message when status output is enabled.
+    /// </summary>
+    /// <param name="errorMessage">Error message from the failed elevation attempt.</param>
+    /// <param name="suppressStatusMessages">True to suppress status messages.</param>
+    private static void WriteElevationFailureMessage(string errorMessage, bool suppressStatusMessages)
+    {
+        if (suppressStatusMessages)
+        {
+            return;
+        }
+
+        Console.Error.WriteLine($"Failed to elevate process: {errorMessage}");
+        Console.Error.WriteLine("Run this command from an elevated terminal if automatic elevation is unavailable.");
     }
 
     /// <summary>

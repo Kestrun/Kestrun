@@ -295,7 +295,7 @@ Example `Service.psd1` with `PreservePaths`:
     You can also use full names like `NT AUTHORITY\NetworkService`.
   - Linux: installs a systemd system unit (`/etc/systemd/system`) with `User=<name>`; requires root.
   - macOS: installs a LaunchDaemon (`/Library/LaunchDaemons`) with `UserName`; requires root.
-- Bundle roots: Windows `%ProgramData%\Kestrun\services`; Linux `/var/kestrun/services`
+- Bundle roots: Windows `%ProgramData%\Kestrun\Services`; Linux `/var/kestrun/services`
   or `/usr/local/kestrun/services` (with user fallback when those are not writable).
 - On Linux, root candidates are used only when writable; otherwise install falls back to `$HOME/.local/share/kestrun/services`.
 - Default bootstrap and service logs on Linux are written under `$HOME/.local/share/kestrun/logs` unless `--service-log-path` is provided.

@@ -87,10 +87,44 @@ function Set-KrServiceDescriptor {
     $current = Get-KrServiceDescriptor -Path $Path
 
     $nextDescription = if ($PSBoundParameters.ContainsKey('Description')) { $Description } else { $current.Description }
-    $nextVersion = if ($PSBoundParameters.ContainsKey('Version')) { $Version.ToString() } else { $current.Version }
+    $nextVersion = if ($PSBoundParameters.ContainsKey('Version')) {
+        if ($null -eq $Version) {
+            $null
+        } else {
+            $Version.ToString()
+        }
+    } else {
+        $current.Version
+    }
     $nextScript = if ($ClearScript) { $null } elseif ($PSBoundParameters.ContainsKey('Script')) { $Script } else { $current.Script }
     $nextServiceLogPath = if ($ClearServiceLogPath) { $null } elseif ($PSBoundParameters.ContainsKey('ServiceLogPath')) { $ServiceLogPath } else { $current.ServiceLogPath }
     $nextPreservePaths = if ($ClearPreservePaths) { @() } elseif ($PSBoundParameters.ContainsKey('PreservePaths')) { @($PreservePaths) } else { @($current.PreservePaths) }
+
+    if ([string]::IsNullOrWhiteSpace($nextDescription)) {
+        if ($PSBoundParameters.ContainsKey('Description')) {
+            throw 'Parameter -Description cannot be null or empty.'
+        }
+
+        throw 'Service descriptor is missing a valid Description. Update the descriptor or pass -Description with a non-empty value.'
+    }
+
+    if ([string]::IsNullOrWhiteSpace($nextVersion)) {
+        if ($PSBoundParameters.ContainsKey('Version')) {
+            throw 'Parameter -Version cannot be null or empty and must be compatible with [System.Version].'
+        }
+
+        throw 'Service descriptor is missing a valid Version. Pass -Version with a value compatible with [System.Version].'
+    }
+
+    try {
+        [void][version]$nextVersion
+    } catch {
+        if ($PSBoundParameters.ContainsKey('Version')) {
+            throw 'Parameter -Version cannot be null or empty and must be compatible with [System.Version].'
+        }
+
+        throw 'Service descriptor is missing a valid Version. Pass -Version with a value compatible with [System.Version].'
+    }
 
     $escapedName = $current.Name.Replace("'", "''")
     $escapedDescription = $nextDescription.Replace("'", "''")

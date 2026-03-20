@@ -36,7 +36,7 @@ dotnet tool install -g Kestrun.Tool
 Build a `.krpack` package from your app folder before deployment:
 
 ```powershell
-New-KrServicePackage -Path .\MyServiceApp -OutputPath .\my-service.krpack -Name my-service -Version 1.2.0
+New-KrServicePackage -SourceFolder .\MyServiceApp -OutputPath .\my-service.krpack
 ```
 
 The package embeds `Service.psd1` metadata and app content used by `service install --package` and `service update --package`.

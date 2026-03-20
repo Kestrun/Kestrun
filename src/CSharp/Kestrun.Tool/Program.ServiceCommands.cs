@@ -826,22 +826,20 @@ internal static partial class Program
                     return 1;
                 }
 
-                if (!TryParseServiceDescriptorVersion(runningDescriptor.Version, out var runningVersion, out var runningVersionError))
+                if (!TryValidateServicePackageVersionUpdate(
+                        runningDescriptor.Version,
+                        scriptSource.DescriptorServiceVersion,
+                        out _,
+                        out var versionWarning,
+                        out var versionValidationError))
                 {
-                    Console.Error.WriteLine($"Unable to compare installed version: {runningVersionError}");
+                    Console.Error.WriteLine(versionValidationError);
                     return 1;
                 }
 
-                if (!TryParseServiceDescriptorVersion(scriptSource.DescriptorServiceVersion, out var packageVersion, out var packageVersionError))
+                if (!string.IsNullOrWhiteSpace(versionWarning))
                 {
-                    Console.Error.WriteLine($"Unable to compare package version: {packageVersionError}");
-                    return 1;
-                }
-
-                if (packageVersion <= runningVersion)
-                {
-                    Console.Error.WriteLine($"Package version '{packageVersion}' must be greater than installed version '{runningVersion}'.");
-                    return 1;
+                    Console.WriteLine(versionWarning);
                 }
 
                 if (string.IsNullOrWhiteSpace(scriptSource.FullContentRoot) || !Directory.Exists(scriptSource.FullContentRoot))
@@ -1177,6 +1175,55 @@ internal static partial class Program
         }
 
         version = parsedVersion;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates package-version progression for service updates.
+    /// </summary>
+    /// <param name="installedDescriptorVersion">Installed descriptor version.</param>
+    /// <param name="packageDescriptorVersion">Incoming package descriptor version.</param>
+    /// <param name="packageVersion">Parsed incoming package version.</param>
+    /// <param name="warning">Optional warning when installed version metadata is missing.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when package update version checks pass.</returns>
+    private static bool TryValidateServicePackageVersionUpdate(
+        string? installedDescriptorVersion,
+        string? packageDescriptorVersion,
+        out Version packageVersion,
+        out string? warning,
+        out string error)
+    {
+        packageVersion = new Version(0, 0);
+        warning = null;
+        error = string.Empty;
+
+        if (!TryParseServiceDescriptorVersion(packageDescriptorVersion, out var parsedPackageVersion, out var packageVersionError))
+        {
+            error = $"Unable to compare package version: {packageVersionError}";
+            return false;
+        }
+
+        packageVersion = parsedPackageVersion;
+
+        if (string.IsNullOrWhiteSpace(installedDescriptorVersion))
+        {
+            warning = "Installed service descriptor Version is missing. Skipping installed-version comparison for this update.";
+            return true;
+        }
+
+        if (!TryParseServiceDescriptorVersion(installedDescriptorVersion, out var installedVersion, out var installedVersionError))
+        {
+            error = $"Unable to compare installed version: {installedVersionError}";
+            return false;
+        }
+
+        if (packageVersion <= installedVersion)
+        {
+            error = $"Package version '{packageVersion}' must be greater than installed version '{installedVersion}'.";
+            return false;
+        }
+
         return true;
     }
 

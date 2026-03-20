@@ -41,6 +41,29 @@ function Test-KrServiceDescriptorData {
     }
 
     $packageRootFullPath = [System.IO.Path]::GetFullPath($PackageRoot)
+    $packageRootNormalized = [System.IO.Path]::TrimEndingDirectorySeparator($packageRootFullPath)
+
+    $isWithinPackageRoot = {
+        param([string]$PathToValidate)
+
+        $normalizedPath = [System.IO.Path]::TrimEndingDirectorySeparator($PathToValidate)
+        $relativePath = [System.IO.Path]::GetRelativePath($packageRootNormalized, $normalizedPath)
+
+        if ([string]::Equals($relativePath, '.', [System.StringComparison]::Ordinal)) {
+            return $true
+        }
+
+        if ([System.IO.Path]::IsPathRooted($relativePath)) {
+            return $false
+        }
+
+        return -not (
+            [string]::Equals($relativePath, '..', [System.StringComparison]::Ordinal) -or
+            $relativePath.StartsWith("..$([System.IO.Path]::DirectorySeparatorChar)", [System.StringComparison]::Ordinal) -or
+            $relativePath.StartsWith("..$([System.IO.Path]::AltDirectorySeparatorChar)", [System.StringComparison]::Ordinal)
+        )
+    }
+
     $normalizedPreservePaths = @()
     if ($Descriptor.ContainsKey('PreservePaths') -and $null -ne $Descriptor['PreservePaths']) {
         $rawPreservePaths = @()
@@ -63,7 +86,7 @@ function Test-KrServiceDescriptorData {
             }
 
             $combinedPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($packageRootFullPath, $preservePath))
-            if (-not $combinedPath.StartsWith($packageRootFullPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+            if (-not (& $isWithinPackageRoot $combinedPath)) {
                 throw "Descriptor '$DescriptorPath' PreservePaths entry '$preservePath' escapes the package root."
             }
 
@@ -92,7 +115,7 @@ function Test-KrServiceDescriptorData {
         }
 
         $entryPointFullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($packageRootFullPath, $entryPoint))
-        if (-not $entryPointFullPath.StartsWith($packageRootFullPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+        if (-not (& $isWithinPackageRoot $entryPointFullPath)) {
             throw "Descriptor '$DescriptorPath' EntryPoint escapes the package root."
         }
 
@@ -140,7 +163,7 @@ function Test-KrServiceDescriptorData {
     }
 
     $legacyScriptFullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($packageRootFullPath, $legacyScript))
-    if (-not $legacyScriptFullPath.StartsWith($packageRootFullPath, [System.StringComparison]::OrdinalIgnoreCase)) {
+    if (-not (& $isWithinPackageRoot $legacyScriptFullPath)) {
         throw "Descriptor '$DescriptorPath' Script escapes the package root."
     }
 

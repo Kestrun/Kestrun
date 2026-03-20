@@ -134,4 +134,93 @@ Describe 'Service package cmdlet' {
             }
         }
     }
+
+    It 'New-KrServicePackage rejects EntryPoint paths that escape package root at sibling boundaries' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-package-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $sourceFolder = Join-Path $tempRoot 'source'
+        $siblingFolder = Join-Path $tempRoot 'source2'
+        $descriptorPath = Join-Path $sourceFolder 'Service.psd1'
+
+        try {
+            $null = New-Item -ItemType Directory -Path $sourceFolder -Force
+            $null = New-Item -ItemType Directory -Path $siblingFolder -Force
+            Set-Content -LiteralPath (Join-Path $siblingFolder 'app.ps1') -Value "Write-Output 'outside-root'" -Encoding utf8NoBOM
+
+            $descriptor = @(
+                '@{',
+                "    FormatVersion = '1.0'",
+                "    Name = 'escape-entrypoint'",
+                "    Description = 'EntryPoint boundary escape attempt'",
+                "    EntryPoint = '../source2/app.ps1'",
+                '}'
+            ) -join [Environment]::NewLine
+            Set-Content -LiteralPath $descriptorPath -Value $descriptor -Encoding utf8NoBOM
+
+            { New-KrServicePackage -SourceFolder $sourceFolder } | Should -Throw '*EntryPoint escapes the package root*'
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'New-KrServicePackage rejects legacy Script paths that escape package root at sibling boundaries' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-package-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $sourceFolder = Join-Path $tempRoot 'source'
+        $siblingFolder = Join-Path $tempRoot 'source2'
+        $descriptorPath = Join-Path $sourceFolder 'Service.psd1'
+
+        try {
+            $null = New-Item -ItemType Directory -Path $sourceFolder -Force
+            $null = New-Item -ItemType Directory -Path $siblingFolder -Force
+            Set-Content -LiteralPath (Join-Path $siblingFolder 'app.ps1') -Value "Write-Output 'outside-root'" -Encoding utf8NoBOM
+
+            $descriptor = @(
+                '@{',
+                "    Name = 'escape-legacy-script'",
+                "    Description = 'Legacy Script boundary escape attempt'",
+                "    Version = '1.0.0'",
+                "    Script = '../source2/app.ps1'",
+                '}'
+            ) -join [Environment]::NewLine
+            Set-Content -LiteralPath $descriptorPath -Value $descriptor -Encoding utf8NoBOM
+
+            { New-KrServicePackage -SourceFolder $sourceFolder } | Should -Throw '*Script escapes the package root*'
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'New-KrServicePackage rejects PreservePaths entries that escape package root at sibling boundaries' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-package-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $sourceFolder = Join-Path $tempRoot 'source'
+        $siblingFolder = Join-Path $tempRoot 'source2'
+        $descriptorPath = Join-Path $sourceFolder 'Service.psd1'
+
+        try {
+            $null = New-Item -ItemType Directory -Path $sourceFolder -Force
+            $null = New-Item -ItemType Directory -Path $siblingFolder -Force
+            Set-Content -LiteralPath (Join-Path $sourceFolder 'server.ps1') -Value "Write-Output 'inside-root'" -Encoding utf8NoBOM
+            Set-Content -LiteralPath (Join-Path $siblingFolder 'settings.json') -Value '{}' -Encoding utf8NoBOM
+
+            $descriptor = @(
+                '@{',
+                "    FormatVersion = '1.0'",
+                "    Name = 'escape-preservepaths'",
+                "    Description = 'PreservePaths boundary escape attempt'",
+                "    EntryPoint = 'server.ps1'",
+                "    PreservePaths = @('../source2/settings.json')",
+                '}'
+            ) -join [Environment]::NewLine
+            Set-Content -LiteralPath $descriptorPath -Value $descriptor -Encoding utf8NoBOM
+
+            { New-KrServicePackage -SourceFolder $sourceFolder } | Should -Throw '*PreservePaths entry*escapes the package root*'
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
 }

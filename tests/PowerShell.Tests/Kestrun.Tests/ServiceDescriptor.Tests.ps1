@@ -54,10 +54,86 @@ Describe 'Service descriptor cmdlets' {
 
             $cleared = Set-KrServiceDescriptor -Path $descriptorPath -ClearScript
             $cleared.Name | Should -Be 'demo'
-            [string]::IsNullOrWhiteSpace($cleared.Script) | Should -BeTrue
+            $cleared.Script | Should -Be 'server.ps1'
 
             $preserveCleared = Set-KrServiceDescriptor -Path $descriptorPath -ClearPreservePaths
             @($preserveCleared.PreservePaths) | Should -Be @()
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'Set-KrServiceDescriptor fails with clear error when descriptor Description is invalid' {
+        Mock -CommandName Get-KrServiceDescriptor -ModuleName Kestrun -MockWith {
+            [pscustomobject]@{
+                Path = 'C:\temp\Service.psd1'
+                Name = 'demo'
+                Description = $null
+                Version = '1.2.0'
+                Script = 'Service.ps1'
+                ServiceLogPath = $null
+                PreservePaths = @()
+            }
+        }
+
+        {
+            Set-KrServiceDescriptor -Path 'C:\temp\Service.psd1' -ServiceLogPath './logs/service.log'
+        } | Should -Throw -ExpectedMessage 'Service descriptor is missing a valid Description. Update the descriptor or pass -Description with a non-empty value.'
+    }
+
+    It 'Set-KrServiceDescriptor fails with clear error when descriptor Version is invalid' {
+        Mock -CommandName Get-KrServiceDescriptor -ModuleName Kestrun -MockWith {
+            [pscustomobject]@{
+                Path = 'C:\temp\Service.psd1'
+                Name = 'demo'
+                Description = 'Demo service'
+                Version = $null
+                Script = 'Service.ps1'
+                ServiceLogPath = $null
+                PreservePaths = @()
+            }
+        }
+
+        {
+            Set-KrServiceDescriptor -Path 'C:\temp\Service.psd1' -ServiceLogPath './logs/service.log'
+        } | Should -Throw -ExpectedMessage 'Service descriptor is missing a valid Version. Pass -Version with a value compatible with `[System.Version`].'
+    }
+
+    It 'Set-KrServiceDescriptor fails with clear error when Description is explicitly null' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-descriptor-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $descriptorPath = Join-Path $tempRoot 'Service.psd1'
+        $scriptPath = Join-Path $tempRoot 'Service.ps1'
+
+        try {
+            $null = New-Item -ItemType Directory -Path $tempRoot -Force
+            Set-Content -LiteralPath $scriptPath -Value "Write-Output 'descriptor'" -Encoding utf8NoBOM
+            $null = New-KrServiceDescriptor -Path $descriptorPath -Name 'demo' -Description 'Demo service' -Version ([Version]'1.2.0')
+
+            {
+                Set-KrServiceDescriptor -Path $descriptorPath -Description $null
+            } | Should -Throw -ExpectedMessage 'Parameter -Description cannot be null or empty.'
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'Set-KrServiceDescriptor fails with clear error when Version is explicitly null' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-descriptor-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $descriptorPath = Join-Path $tempRoot 'Service.psd1'
+        $scriptPath = Join-Path $tempRoot 'Service.ps1'
+
+        try {
+            $null = New-Item -ItemType Directory -Path $tempRoot -Force
+            Set-Content -LiteralPath $scriptPath -Value "Write-Output 'descriptor'" -Encoding utf8NoBOM
+            $null = New-KrServiceDescriptor -Path $descriptorPath -Name 'demo' -Description 'Demo service' -Version ([Version]'1.2.0')
+
+            {
+                Set-KrServiceDescriptor -Path $descriptorPath -Version $null
+            } | Should -Throw -ExpectedMessage 'Parameter -Version cannot be null or empty and must be compatible with `[System.Version`].'
         } finally {
             if (Test-Path -LiteralPath $tempRoot) {
                 Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue

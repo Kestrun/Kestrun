@@ -905,10 +905,10 @@ public class KestrunToolCommandSurfaceTests
         {
             var serviceDirectoryName = InvokeGetServiceDeploymentDirectoryName("Demo.Service");
             var baseRoot = Path.Combine(tempRoot, serviceDirectoryName);
-            _ = Directory.CreateDirectory(Path.Combine(baseRoot, "application"));
+            _ = Directory.CreateDirectory(Path.Combine(baseRoot, "Application"));
 
             var descriptorText = "@{`n    FormatVersion = '1.0'`n    Name = 'Demo.Service'`n    Description = 'demo'`n    EntryPoint = 'server.ps1'`n}";
-            File.WriteAllText(Path.Combine(baseRoot, "application", "Service.psd1"), descriptorText, Encoding.UTF8);
+            File.WriteAllText(Path.Combine(baseRoot, "Application", "Service.psd1"), descriptorText, Encoding.UTF8);
 
             var (Success, ServiceRootPath, Error) = InvokeTryResolveInstalledServiceBundleRoot("Demo.Service", tempRoot);
 
@@ -984,6 +984,29 @@ public class KestrunToolCommandSurfaceTests
                 _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryValidateServicePackageVersionUpdate_WithMissingInstalledVersion_AllowsUpdateWithWarning()
+    {
+        var (Success, PackageVersion, Warning, Error) = InvokeTryValidateServicePackageVersionUpdate(null, "1.2.0");
+
+        Assert.True(Success, Error);
+        Assert.Equal("1.2.0", PackageVersion);
+        Assert.Contains("Skipping installed-version comparison", Warning, StringComparison.Ordinal);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryValidateServicePackageVersionUpdate_WithNonIncreasingPackageVersion_Fails()
+    {
+        var (Success, _, Warning, Error) = InvokeTryValidateServicePackageVersionUpdate("1.2.0", "1.2.0");
+
+        Assert.False(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Warning));
+        Assert.Contains("must be greater than installed version", Error, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -1606,8 +1629,8 @@ public class KestrunToolCommandSurfaceTests
             Assert.True(string.IsNullOrWhiteSpace(Error));
             Assert.NotNull(Bundle);
 
-            var bundledConfig = Path.Combine(BundleRootPath, "application", "config", "settings.json");
-            var bundledScript = Path.Combine(BundleRootPath, "application", "scripts", "start.ps1");
+            var bundledConfig = Path.Combine(BundleRootPath, "Application", "config", "settings.json");
+            var bundledScript = Path.Combine(BundleRootPath, "Application", "scripts", "start.ps1");
 
             Assert.True(File.Exists(bundledConfig));
             Assert.True(File.Exists(bundledScript));
@@ -2267,7 +2290,7 @@ public class KestrunToolCommandSurfaceTests
     public void BuildWindowsServiceHostArguments_UsesBundledManifestPath()
     {
         var runnerPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "runtime", "Kestrun.Runner.dll"));
-        var bundledScriptPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "application", "server.ps1"));
+        var bundledScriptPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "Application", "server.ps1"));
         var bundledManifestPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "module", "Kestrun.psd1"));
 
         var args = (IReadOnlyList<string>)Invoke(
@@ -2625,6 +2648,20 @@ public class KestrunToolCommandSurfaceTests
         var descriptor = values[1];
         var error = values[2]?.ToString() ?? string.Empty;
         return (success, descriptor, error);
+    }
+
+    private static (bool Success, string PackageVersion, string Warning, string Error)
+        InvokeTryValidateServicePackageVersionUpdate(string? installedDescriptorVersion, string? packageDescriptorVersion)
+    {
+        var method = GetRequiredProgramMethod("TryValidateServicePackageVersionUpdate");
+
+        var values = new object?[] { installedDescriptorVersion, packageDescriptorVersion, null, null, null };
+        var success = InvokeRequiredBool(method, values);
+        var packageVersion = values[2]?.ToString() ?? string.Empty;
+        var warning = values[3]?.ToString() ?? string.Empty;
+        var error = values[4]?.ToString() ?? string.Empty;
+
+        return (success, packageVersion, warning, error);
     }
 
     private static (bool Success, object? Bundle, string BundleRootPath, string RuntimeExecutablePath, string ScriptPath, string ModuleManifestPath, string Error)

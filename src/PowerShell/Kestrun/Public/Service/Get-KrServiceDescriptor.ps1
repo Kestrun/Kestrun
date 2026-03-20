@@ -26,34 +26,23 @@ function Get-KrServiceDescriptor {
     if (-not $descriptor -or -not ($descriptor -is [hashtable])) {
         throw "Descriptor file '$fullPath' is not a valid hashtable."
     }
-    if (-not (Test-KrServiceDescriptorData -Descriptor $descriptor -DescriptorPath $fullPath -PackageRoot ([System.IO.Path]::GetDirectoryName($fullPath)))) {
+    $normalizedDescriptor = Test-KrServiceDescriptorData -Descriptor $descriptor -DescriptorPath $fullPath -PackageRoot ([System.IO.Path]::GetDirectoryName($fullPath))
+    if (-not $normalizedDescriptor) {
         throw "Descriptor file '$fullPath' failed validation."
     }
 
-    $requiredKeys = @('Name', 'Description', 'Version')
-    foreach ($key in $requiredKeys) {
-        if (-not $descriptor.ContainsKey($key) -or [string]::IsNullOrWhiteSpace([string]$descriptor[$key])) {
-            throw "Descriptor '$fullPath' is missing required key '$key'."
-        }
-    }
-
-    $parsedVersion = $null
-    if (-not [version]::TryParse([string]$descriptor['Version'], [ref]$parsedVersion)) {
-        throw "Descriptor '$fullPath' has invalid Version value '$($descriptor['Version'])'."
-    }
-
     $preservePaths = @()
-    if ($descriptor.ContainsKey('PreservePaths') -and $null -ne $descriptor['PreservePaths']) {
-        $preservePaths = @($descriptor['PreservePaths'])
+    if ($normalizedDescriptor.PSObject.Properties.Match('PreservePaths').Count -gt 0 -and $null -ne $normalizedDescriptor.PreservePaths) {
+        $preservePaths = @($normalizedDescriptor.PreservePaths)
     }
 
     [pscustomobject]([ordered]@{
             Path = $fullPath
-            Name = [string]$descriptor['Name']
-            Description = [string]$descriptor['Description']
-            Version = $parsedVersion.ToString()
-            Script = if ($descriptor.ContainsKey('Script')) { [string]$descriptor['Script'] } else { $null }
-            ServiceLogPath = if ($descriptor.ContainsKey('ServiceLogPath')) { [string]$descriptor['ServiceLogPath'] } else { $null }
+            Name = [string]$normalizedDescriptor.Name
+            Description = if ($normalizedDescriptor.PSObject.Properties.Match('Description').Count -gt 0) { [string]$normalizedDescriptor.Description } else { $null }
+            Version = if ($normalizedDescriptor.PSObject.Properties.Match('Version').Count -gt 0 -and -not [string]::IsNullOrWhiteSpace([string]$normalizedDescriptor.Version)) { [string]$normalizedDescriptor.Version } else { $null }
+            Script = if ($normalizedDescriptor.PSObject.Properties.Match('EntryPoint').Count -gt 0) { [string]$normalizedDescriptor.EntryPoint } else { $null }
+            ServiceLogPath = if ($normalizedDescriptor.PSObject.Properties.Match('ServiceLogPath').Count -gt 0) { [string]$normalizedDescriptor.ServiceLogPath } else { $null }
             PreservePaths = $preservePaths
         })
 }

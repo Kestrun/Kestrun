@@ -658,6 +658,37 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInfo_WithoutName_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "info",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal("ServiceInfo", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal(string.Empty, GetParsedCommandField(ParsedCommand!, "ServiceName"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInfo_WithJson_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "info",
+            "--json",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal("ServiceInfo", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal("True", GetParsedCommandField(ParsedCommand!, "JsonOutput"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void TryParseArguments_ServiceUpdate_WithNameAndPackage_Succeeds()
     {
         var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
@@ -673,6 +704,24 @@ public class KestrunToolCommandSurfaceTests
         Assert.True(string.IsNullOrWhiteSpace(Error));
         Assert.Equal("ServiceUpdate", GetParsedCommandMode(ParsedCommand!));
         Assert.Equal("demo", GetParsedCommandField(ParsedCommand!, "ServiceName"));
+        Assert.Equal("./demo.krpack", GetParsedCommandField(ParsedCommand!, "ServiceContentRoot"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceUpdate_WithPackageWithoutName_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "update",
+            "--package",
+            "./demo.krpack",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal("ServiceUpdate", GetParsedCommandMode(ParsedCommand!));
+        Assert.Equal(string.Empty, GetParsedCommandField(ParsedCommand!, "ServiceName"));
         Assert.Equal("./demo.krpack", GetParsedCommandField(ParsedCommand!, "ServiceContentRoot"));
     }
 
@@ -790,6 +839,34 @@ public class KestrunToolCommandSurfaceTests
             Assert.True(Success, Error);
             Assert.True(string.IsNullOrWhiteSpace(Error));
             Assert.Equal(Path.GetFullPath(newerRoot), Path.GetFullPath(ServiceRootPath));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceInstallDescriptor_Format10_ParsesVersion()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var descriptorPath = Path.Combine(tempRoot, "Service.psd1");
+            var descriptorText = "@{`n    FormatVersion = '1.0'`n    Name = 'Demo.Service'`n    Description = 'demo'`n    Version = '1.0'`n    EntryPoint = 'server.ps1'`n}";
+            File.WriteAllText(descriptorPath, descriptorText, Encoding.UTF8);
+
+            var (Success, Descriptor, Error) = InvokeTryResolveServiceInstallDescriptor(tempRoot);
+
+            Assert.True(Success, Error);
+            Assert.True(string.IsNullOrWhiteSpace(Error));
+            Assert.NotNull(Descriptor);
+            Assert.Equal("1.0", Descriptor!.GetType().GetProperty("Version")!.GetValue(Descriptor)?.ToString());
         }
         finally
         {
@@ -2308,6 +2385,17 @@ public class KestrunToolCommandSurfaceTests
 
     private static string InvokeGetServiceDeploymentDirectoryName(string serviceName)
         => Assert.IsType<string>(InvokeRaw("GetServiceDeploymentDirectoryName", [serviceName]));
+
+    private static (bool Success, object? Descriptor, string Error) InvokeTryResolveServiceInstallDescriptor(string fullContentRoot)
+    {
+        var method = GetRequiredProgramMethod("TryResolveServiceInstallDescriptor");
+
+        var values = new object?[] { fullContentRoot, null, null };
+        var success = InvokeRequiredBool(method, values);
+        var descriptor = values[1];
+        var error = values[2]?.ToString() ?? string.Empty;
+        return (success, descriptor, error);
+    }
 
     private static (bool Success, object? Bundle, string BundleRootPath, string RuntimeExecutablePath, string ScriptPath, string ModuleManifestPath, string Error)
         InvokeTryPrepareServiceBundle(

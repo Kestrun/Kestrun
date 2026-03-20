@@ -1832,6 +1832,18 @@ internal static partial class Program
             {
                 return false;
             }
+
+            _ = TryGetServiceDescriptorStringValue(descriptorText, "Version", required: false, out var rawVersion, out _);
+            if (!string.IsNullOrWhiteSpace(rawVersion))
+            {
+                if (!Version.TryParse(rawVersion.Trim(), out _))
+                {
+                    error = $"Service descriptor '{ServiceDescriptorFileName}' key 'Version' must be compatible with System.Version.";
+                    return false;
+                }
+
+                version = rawVersion.Trim();
+            }
         }
 
         _ = TryGetServiceDescriptorStringValue(descriptorText, "ServiceLogPath", required: false, out var serviceLogPath, out _);
@@ -4756,7 +4768,7 @@ internal static partial class Program
                 Console.WriteLine("  kestrun service start --name <service-name>");
                 Console.WriteLine("  kestrun service stop --name <service-name>");
                 Console.WriteLine("  kestrun service query --name <service-name>");
-                Console.WriteLine("  kestrun service info --name <service-name>");
+                Console.WriteLine("  kestrun service info [--name <service-name>] [--json]");
                 Console.WriteLine();
                 Console.WriteLine("Options (service install):");
                 Console.WriteLine("  --package <path-or-url>     Required .krpack (zip) package containing Service.psd1 and app files.");
@@ -4774,6 +4786,7 @@ internal static partial class Program
                 Console.WriteLine("  --kestrun                   For service update: use repository module at src/PowerShell/Kestrun when newer than bundled module.");
                 Console.WriteLine("  --kestrun-module <path>     For service update: module manifest path or folder to refresh bundled Kestrun module.");
                 Console.WriteLine("  --failback                  For service update: restore application/module from latest backup and delete that backup folder.");
+                Console.WriteLine("  --json                      For service info: output JSON instead of human-readable text.");
                 Console.WriteLine();
                 Console.WriteLine("Notes:");
                 Console.WriteLine("  - install registers the service/daemon but does not auto-start it.");
@@ -4781,6 +4794,7 @@ internal static partial class Program
                 Console.WriteLine("  - update requires at least one of --package or --kestrun-module/--kestrun-manifest unless --failback is used.");
                 Console.WriteLine("  - --kestrun updates bundled module only when repository module version is newer; otherwise update is skipped with an informational message.");
                 Console.WriteLine("  - --failback restores from latest backup and fails when no backup is available.");
+                Console.WriteLine("  - info without --name lists installed Kestrun services.");
                 Console.WriteLine("  - Service name and entry point are read from Service.psd1 in the package.");
                 Console.WriteLine("  - Service.psd1 requires FormatVersion='1.0', Name, EntryPoint, and Description.");
                 Console.WriteLine("  - Package file must use .krpack extension and contain zip content.");

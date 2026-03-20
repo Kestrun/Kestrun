@@ -87,7 +87,8 @@ internal static partial class Program
         bool ServiceContentRootIgnoreCertificate,
         string[] ServiceContentRootHeaders,
         bool ServiceFailback = false,
-        bool ServiceUseRepositoryKestrun = false);
+        bool ServiceUseRepositoryKestrun = false,
+        bool JsonOutput = false);
 
     private sealed record ServiceRegisterOptions(
         string ServiceName,

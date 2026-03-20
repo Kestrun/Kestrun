@@ -95,6 +95,18 @@ Show installed service metadata (including Service.psd1 values and service bundl
 dotnet kestrun service info --name my-kestrun
 ```
 
+List installed Kestrun services (human-readable default output):
+
+```powershell
+dotnet kestrun service info
+```
+
+List installed Kestrun services as JSON:
+
+```powershell
+dotnet kestrun service info --json
+```
+
 Update an installed service bundle from a package and/or module manifest:
 
 ```powershell
@@ -117,6 +129,8 @@ dotnet kestrun service update --name my-kestrun --failback
 
 - Use `dotnet kestrun module install` when the `Kestrun` PowerShell module is not available.
 - `service install` registers the service/daemon but does not auto-start it.
+- `service info` without `--name` lists installed Kestrun services.
+- `service info` uses human-readable output by default; use `--json` for structured output.
 - `service update` requires the service to be stopped.
 - `service update --package` only updates the application when package `Version` is greater than installed `Version`.
 - `service update` creates backup folders for updated application/module/service-host content.

@@ -38,6 +38,8 @@ internal static partial class Program
 
         public bool ServiceUseRepositoryKestrun { get; set; }
 
+        public bool ServiceJsonOutputRequested { get; set; }
+
         public List<string> ServiceContentRootHeaders { get; } = [];
     }
 
@@ -102,7 +104,7 @@ internal static partial class Program
     /// <param name="kestrunManifestPath">Optional explicit path to Kestrun.psd1.</param>
     /// <returns>Default parsed command for service mode.</returns>
     private static ParsedCommand CreateDefaultServiceParsedCommand(string? kestrunFolder, string? kestrunManifestPath)
-        => new(CommandMode.ServiceInstall, string.Empty, false, [], kestrunFolder, kestrunManifestPath, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, [], false, false);
+        => new(CommandMode.ServiceInstall, string.Empty, false, [], kestrunFolder, kestrunManifestPath, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, [], false, false, false);
 
     /// <summary>
     /// Validates service token bounds and resolves command mode.
@@ -213,7 +215,8 @@ internal static partial class Program
             state.ServiceContentRootIgnoreCertificate,
             [.. state.ServiceContentRootHeaders],
             state.ServiceFailbackRequested,
-            state.ServiceUseRepositoryKestrun);
+            state.ServiceUseRepositoryKestrun,
+            state.ServiceJsonOutputRequested);
 
     /// <summary>
     /// Parses the service action token into a concrete command mode.
@@ -289,8 +292,31 @@ internal static partial class Program
             "--content-root-header" => TryConsumeServiceContentRootHeaderOption(args, mode, state, ref index, out error),
             "--failback" => TryConsumeServiceFailbackOption(mode, state, ref index, out error),
             "--kestrun" => TryConsumeServiceRepositoryKestrunOption(mode, state, ref index, out error),
+            "--json" => TryConsumeServiceJsonOption(mode, state, ref index, out error),
             _ => false,
         };
+    }
+
+    /// <summary>
+    /// Consumes and validates the json output switch.
+    /// </summary>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceJsonOption(CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        if (mode != CommandMode.ServiceInfo)
+        {
+            error = "--json is only supported for service info.";
+            return true;
+        }
+
+        state.ServiceJsonOutputRequested = true;
+        index += 1;
+        error = string.Empty;
+        return true;
     }
 
     /// <summary>
@@ -846,6 +872,20 @@ internal static partial class Program
     {
         if (mode != CommandMode.ServiceInstall)
         {
+            if (mode == CommandMode.ServiceInfo)
+            {
+                error = string.Empty;
+                return true;
+            }
+
+            if (mode == CommandMode.ServiceUpdate
+                && string.IsNullOrWhiteSpace(state.ServiceName)
+                && !string.IsNullOrWhiteSpace(state.ServiceContentRoot))
+            {
+                error = string.Empty;
+                return true;
+            }
+
             if (string.IsNullOrWhiteSpace(state.ServiceName))
             {
                 error = "Service name is required. Use --name <value>.";

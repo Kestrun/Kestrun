@@ -463,48 +463,212 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int InfoService(ParsedCommand command)
     {
-        if (string.IsNullOrWhiteSpace(command.ServiceName))
+        if (!string.IsNullOrWhiteSpace(command.ServiceName))
         {
-            Console.Error.WriteLine("Service name is required. Use --name <value>.");
-            return 2;
-        }
-
-        if (!TryResolveInstalledServiceBundleRoot(command.ServiceName, command.ServiceDeploymentRoot, out var serviceRootPath, out var resolutionError))
-        {
-            Console.Error.WriteLine(resolutionError);
-            return 1;
-        }
-
-        var scriptRoot = Path.Combine(serviceRootPath, ServiceBundleScriptDirectoryName);
-        if (!TryResolveServiceInstallDescriptor(scriptRoot, out var descriptor, out var descriptorError))
-        {
-            Console.Error.WriteLine(descriptorError);
-            return 1;
-        }
-
-        var descriptorPath = Path.Combine(scriptRoot, ServiceDescriptorFileName);
-        var payload = new
-        {
-            ServiceName = command.ServiceName,
-            ServicePath = serviceRootPath,
-            DescriptorPath = descriptorPath,
-            Descriptor = new
+            if (!TryResolveInstalledServiceBundleRoot(command.ServiceName, command.ServiceDeploymentRoot, out var serviceRootPath, out var resolutionError))
             {
-                descriptor.FormatVersion,
-                descriptor.Name,
-                descriptor.EntryPoint,
-                descriptor.Description,
-                descriptor.Version,
-                descriptor.ServiceLogPath,
-            },
-        };
+                Console.Error.WriteLine(resolutionError);
+                return 1;
+            }
 
-        Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions
+            var scriptRoot = Path.Combine(serviceRootPath, ServiceBundleScriptDirectoryName);
+            if (!TryResolveServiceInstallDescriptor(scriptRoot, out var descriptor, out var descriptorError))
+            {
+                Console.Error.WriteLine(descriptorError);
+                return 1;
+            }
+
+            var descriptorPath = Path.Combine(scriptRoot, ServiceDescriptorFileName);
+            var payload = new
+            {
+                command.ServiceName,
+                ServicePath = serviceRootPath,
+                DescriptorPath = descriptorPath,
+                Descriptor = new
+                {
+                    descriptor.FormatVersion,
+                    descriptor.Name,
+                    descriptor.EntryPoint,
+                    descriptor.Description,
+                    descriptor.Version,
+                    descriptor.ServiceLogPath,
+                },
+            };
+
+            if (command.JsonOutput)
+            {
+                Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(payload, new System.Text.Json.JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                }));
+            }
+            else
+            {
+                WriteServiceInfoHumanReadable(payload.ServiceName, payload.ServicePath, payload.DescriptorPath, descriptor);
+            }
+
+            return 0;
+        }
+
+        if (!TryEnumerateInstalledServiceBundleRoots(command.ServiceDeploymentRoot, out var bundleRoots, out var enumerateError))
         {
-            WriteIndented = true,
-        }));
+            Console.Error.WriteLine(enumerateError);
+            return 1;
+        }
+
+        var services = new List<(string ServiceName, string ServicePath, string DescriptorPath, ServiceInstallDescriptor Descriptor)>();
+        foreach (var bundleRoot in bundleRoots)
+        {
+            var scriptRoot = Path.Combine(bundleRoot, ServiceBundleScriptDirectoryName);
+            if (!TryResolveServiceInstallDescriptor(scriptRoot, out var descriptor, out _))
+            {
+                continue;
+            }
+
+            var descriptorPath = Path.Combine(scriptRoot, ServiceDescriptorFileName);
+            services.Add((descriptor.Name, bundleRoot, descriptorPath, descriptor));
+        }
+
+        if (services.Count == 0)
+        {
+            Console.Error.WriteLine("No installed Kestrun services were found.");
+            return 1;
+        }
+
+        if (command.JsonOutput)
+        {
+            Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new
+            {
+                Services = services.Select(static service => new
+                {
+                    service.ServiceName,
+                    service.ServicePath,
+                    service.DescriptorPath,
+                    Descriptor = new
+                    {
+                        service.Descriptor.FormatVersion,
+                        service.Descriptor.Name,
+                        service.Descriptor.EntryPoint,
+                        service.Descriptor.Description,
+                        service.Descriptor.Version,
+                        service.Descriptor.ServiceLogPath,
+                    },
+                }),
+            }, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+            }));
+
+            return 0;
+        }
+
+        foreach (var (ServiceName, ServicePath, DescriptorPath, Descriptor) in services)
+        {
+            WriteServiceInfoHumanReadable(ServiceName, ServicePath, DescriptorPath, Descriptor);
+            Console.WriteLine();
+        }
 
         return 0;
+    }
+
+    /// <summary>
+    /// Writes service information using a human-readable text format.
+    /// </summary>
+    /// <param name="serviceName">Service name.</param>
+    /// <param name="servicePath">Service bundle path.</param>
+    /// <param name="descriptorPath">Service descriptor file path.</param>
+    /// <param name="descriptor">Parsed descriptor payload.</param>
+    private static void WriteServiceInfoHumanReadable(string serviceName, string servicePath, string descriptorPath, ServiceInstallDescriptor descriptor)
+    {
+        Console.WriteLine($"Service: {serviceName}");
+        Console.WriteLine($"Path: {servicePath}");
+        Console.WriteLine($"Descriptor: {descriptorPath}");
+        Console.WriteLine($"FormatVersion: {descriptor.FormatVersion}");
+        Console.WriteLine($"EntryPoint: {descriptor.EntryPoint}");
+        Console.WriteLine($"Description: {descriptor.Description}");
+        Console.WriteLine($"Version: {(string.IsNullOrWhiteSpace(descriptor.Version) ? "(not set)" : descriptor.Version)}");
+        Console.WriteLine($"ServiceLogPath: {(string.IsNullOrWhiteSpace(descriptor.ServiceLogPath) ? "(not set)" : descriptor.ServiceLogPath)}");
+    }
+
+    /// <summary>
+    /// Enumerates installed service bundle roots across deployment roots.
+    /// </summary>
+    /// <param name="deploymentRootOverride">Optional deployment root override.</param>
+    /// <param name="bundleRoots">Resolved service bundle roots.</param>
+    /// <param name="error">Enumeration error details.</param>
+    /// <returns>True when at least one service bundle root is found.</returns>
+    private static bool TryEnumerateInstalledServiceBundleRoots(string? deploymentRootOverride, out List<string> bundleRoots, out string error)
+    {
+        bundleRoots = [];
+        error = string.Empty;
+
+        var candidateRoots = new List<string>();
+        if (!string.IsNullOrWhiteSpace(deploymentRootOverride))
+        {
+            candidateRoots.Add(deploymentRootOverride);
+        }
+
+        candidateRoots.AddRange(GetServiceDeploymentRootCandidates());
+
+        foreach (var root in candidateRoots.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            {
+                continue;
+            }
+
+            foreach (var serviceBaseRoot in Directory.GetDirectories(root))
+            {
+                var directDescriptorPath = Path.Combine(serviceBaseRoot, ServiceBundleScriptDirectoryName, ServiceDescriptorFileName);
+                if (File.Exists(directDescriptorPath))
+                {
+                    bundleRoots.Add(Path.GetFullPath(serviceBaseRoot));
+                    continue;
+                }
+
+                var versionedCandidates = Directory
+                    .GetDirectories(serviceBaseRoot)
+                    .Select(static dir => new
+                    {
+                        Directory = dir,
+                        Name = Path.GetFileName(dir),
+                        DescriptorPath = Path.Combine(dir, ServiceBundleScriptDirectoryName, ServiceDescriptorFileName),
+                        LastWriteUtc = Directory.GetLastWriteTimeUtc(dir),
+                    })
+                    .Where(static candidate => File.Exists(candidate.DescriptorPath))
+                    .ToList();
+
+                if (versionedCandidates.Count == 0)
+                {
+                    continue;
+                }
+
+                var latest = versionedCandidates
+                    .Select(candidate => new
+                    {
+                        candidate.Directory,
+                        ParsedVersion = Version.TryParse(candidate.Name, out var parsedVersion) ? parsedVersion : null,
+                        candidate.LastWriteUtc,
+                    })
+                    .OrderByDescending(static candidate => candidate.ParsedVersion)
+                    .ThenByDescending(static candidate => candidate.LastWriteUtc)
+                    .First();
+
+                bundleRoots.Add(Path.GetFullPath(latest.Directory));
+            }
+        }
+
+        bundleRoots = [.. bundleRoots
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(static path => path, StringComparer.OrdinalIgnoreCase)];
+
+        if (bundleRoots.Count == 0)
+        {
+            error = "No installed Kestrun services were found.";
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -514,12 +678,6 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int UpdateService(ParsedCommand command)
     {
-        if (string.IsNullOrWhiteSpace(command.ServiceName))
-        {
-            Console.Error.WriteLine("Service name is required. Use --name <value>.");
-            return 2;
-        }
-
         if (command.ServiceFailback && (!string.IsNullOrWhiteSpace(command.KestrunManifestPath) || command.ServiceUseRepositoryKestrun))
         {
             Console.Error.WriteLine("--failback cannot be combined with --kestrun, --kestrun-module, or --kestrun-manifest.");
@@ -541,7 +699,34 @@ internal static partial class Program
             return 2;
         }
 
+        var scriptSource = CreateEmptyResolvedServiceScriptSource();
+        var packageSourceResolved = false;
+
         var serviceName = command.ServiceName;
+        if (string.IsNullOrWhiteSpace(serviceName))
+        {
+            if (!hasPackageUpdate)
+            {
+                Console.Error.WriteLine("Service name is required. Use --name <value>.");
+                return 2;
+            }
+
+            if (!TryResolveServiceScriptSource(command, out scriptSource, out var scriptError))
+            {
+                Console.Error.WriteLine(scriptError);
+                return 2;
+            }
+
+            packageSourceResolved = true;
+            if (string.IsNullOrWhiteSpace(scriptSource.DescriptorServiceName))
+            {
+                Console.Error.WriteLine("Service name is required in Service.psd1 (Name) when using --package.");
+                return 2;
+            }
+
+            serviceName = scriptSource.DescriptorServiceName;
+        }
+
         if (!TryEnsureServiceIsStopped(serviceName, out var runningError))
         {
             Console.Error.WriteLine(runningError);
@@ -579,12 +764,11 @@ internal static partial class Program
         var moduleUpdated = false;
         var serviceHostUpdated = false;
 
-        var scriptSource = CreateEmptyResolvedServiceScriptSource();
         try
         {
             if (hasPackageUpdate)
             {
-                if (!TryResolveServiceScriptSource(command, out scriptSource, out var scriptError))
+                if (!packageSourceResolved && !TryResolveServiceScriptSource(command, out scriptSource, out var scriptError))
                 {
                     Console.Error.WriteLine(scriptError);
                     return 2;
@@ -822,7 +1006,6 @@ internal static partial class Program
         out string error)
     {
         summary = new { };
-        error = string.Empty;
 
         if (!TryResolveLatestServiceBackupDirectory(serviceRootPath, out var latestBackupPath, out error))
         {

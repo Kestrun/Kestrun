@@ -180,7 +180,7 @@
         <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="9.0.14" />
         <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.14" />
         <!-- Scripting Engines -->
-        <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.5" />
+        <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.6.0" />
 
         <!-- Roslyn Scripting -->
         <PackageReference Include="Microsoft.CodeAnalysis" Version="4.11.0" />

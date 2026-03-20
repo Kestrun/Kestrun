@@ -22,6 +22,10 @@
     Replaces PreservePaths with a new list of relative file/folder paths.
 .PARAMETER ClearPreservePaths
     Removes PreservePaths from the descriptor.
+.PARAMETER WhatIf
+    Shows what would happen if the cmdlet runs. The cmdlet is not executed.
+.PARAMETER Confirm
+    Prompts for confirmation before running the cmdlet.
 .EXAMPLE
     Set-KrServiceDescriptor -Path .\Service.psd1 -Description 'Updated' -Version 1.2.1
 #>

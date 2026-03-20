@@ -20,6 +20,10 @@
     Optional list of relative file/folder paths that must be preserved during service update.
 .PARAMETER Force
     Overwrite an existing descriptor file.
+.PARAMETER WhatIf
+    Shows what would happen if the cmdlet runs. The cmdlet is not executed.
+.PARAMETER Confirm
+    Prompts for confirmation before running the cmdlet.
 .EXAMPLE
     New-KrServiceDescriptor -Name demo -Description 'Demo service' -Version 1.2.0
 #>

@@ -30,6 +30,10 @@
     - ScriptPath mode: <Name>-<Version>.krpack in current directory
 .PARAMETER Force
     Overwrite an existing output file.
+.PARAMETER WhatIf
+    Shows what would happen if the cmdlet runs. The cmdlet is not executed.
+.PARAMETER Confirm
+    Prompts for confirmation before running the cmdlet.
 .EXAMPLE
     New-KrServicePackage -SourceFolder .\my-service -OutputPath .\my-service.krpack
 .EXAMPLE

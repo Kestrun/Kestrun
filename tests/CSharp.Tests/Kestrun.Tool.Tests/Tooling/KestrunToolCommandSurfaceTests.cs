@@ -817,28 +817,23 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
-    public void TryResolveInstalledServiceBundleRoot_WithVersionedBundle_PicksLatestVersion()
+    public void TryResolveInstalledServiceBundleRoot_WithDirectBundle_ResolvesServiceRoot()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
         try
         {
             var serviceDirectoryName = InvokeGetServiceDeploymentDirectoryName("Demo.Service");
             var baseRoot = Path.Combine(tempRoot, serviceDirectoryName);
-            var olderRoot = Path.Combine(baseRoot, "1.0.0");
-            var newerRoot = Path.Combine(baseRoot, "2.0.0");
-
-            _ = Directory.CreateDirectory(Path.Combine(olderRoot, "script"));
-            _ = Directory.CreateDirectory(Path.Combine(newerRoot, "script"));
+            _ = Directory.CreateDirectory(Path.Combine(baseRoot, "application"));
 
             var descriptorText = "@{`n    FormatVersion = '1.0'`n    Name = 'Demo.Service'`n    Description = 'demo'`n    EntryPoint = 'server.ps1'`n}";
-            File.WriteAllText(Path.Combine(olderRoot, "script", "Service.psd1"), descriptorText, Encoding.UTF8);
-            File.WriteAllText(Path.Combine(newerRoot, "script", "Service.psd1"), descriptorText, Encoding.UTF8);
+            File.WriteAllText(Path.Combine(baseRoot, "application", "Service.psd1"), descriptorText, Encoding.UTF8);
 
             var (Success, ServiceRootPath, Error) = InvokeTryResolveInstalledServiceBundleRoot("Demo.Service", tempRoot);
 
             Assert.True(Success, Error);
             Assert.True(string.IsNullOrWhiteSpace(Error));
-            Assert.Equal(Path.GetFullPath(newerRoot), Path.GetFullPath(ServiceRootPath));
+            Assert.Equal(Path.GetFullPath(baseRoot), Path.GetFullPath(ServiceRootPath));
         }
         finally
         {
@@ -867,6 +862,55 @@ public class KestrunToolCommandSurfaceTests
             Assert.True(string.IsNullOrWhiteSpace(Error));
             Assert.NotNull(Descriptor);
             Assert.Equal("1.0", Descriptor!.GetType().GetProperty("Version")!.GetValue(Descriptor)?.ToString());
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void GetServiceBackupSnapshots_WithTimestampFolders_ReturnsSortedSnapshots()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            var backupRoot = Path.Combine(tempRoot, "backup");
+            _ = Directory.CreateDirectory(Path.Combine(backupRoot, "20260320015143"));
+            _ = Directory.CreateDirectory(Path.Combine(backupRoot, "20260319093000"));
+
+            var snapshots = InvokeGetServiceBackupSnapshots(tempRoot);
+
+            Assert.Equal(2, snapshots.Count);
+            Assert.Equal("20260320015143", snapshots[0].Version);
+            Assert.Equal("2026-03-20T01:51:43.0000000+00:00", snapshots[0].UpdatedAt);
+            Assert.EndsWith(Path.Combine("backup", "20260320015143"), snapshots[0].Path, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+
+            Assert.Equal("20260319093000", snapshots[1].Version);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void GetServiceBackupSnapshots_WithoutBackupFolder_ReturnsEmpty()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var snapshots = InvokeGetServiceBackupSnapshots(tempRoot);
+            Assert.Empty(snapshots);
         }
         finally
         {
@@ -1408,8 +1452,8 @@ public class KestrunToolCommandSurfaceTests
             Assert.True(string.IsNullOrWhiteSpace(Error));
             Assert.NotNull(Bundle);
 
-            var bundledConfig = Path.Combine(BundleRootPath, "script", "config", "settings.json");
-            var bundledScript = Path.Combine(BundleRootPath, "script", "scripts", "start.ps1");
+            var bundledConfig = Path.Combine(BundleRootPath, "application", "config", "settings.json");
+            var bundledScript = Path.Combine(BundleRootPath, "application", "scripts", "start.ps1");
 
             Assert.True(File.Exists(bundledConfig));
             Assert.True(File.Exists(bundledScript));
@@ -1427,7 +1471,7 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
-    public void TryPrepareServiceBundle_WithServiceVersion_UsesVersionedDeploymentSubfolder()
+    public void TryPrepareServiceBundle_WithServiceVersion_UsesNonVersionedDeploymentRoot()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
         var originalDirectory = Environment.CurrentDirectory;
@@ -1460,7 +1504,7 @@ public class KestrunToolCommandSurfaceTests
                 serviceVersion: "1.2.0");
 
             Assert.True(Success, Error);
-            Assert.EndsWith(Path.Combine("MyApp", "1.2.0"), BundleRootPath, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+            Assert.EndsWith("MyApp", BundleRootPath, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
         }
         finally
         {
@@ -2069,7 +2113,7 @@ public class KestrunToolCommandSurfaceTests
     public void BuildWindowsServiceHostArguments_UsesBundledManifestPath()
     {
         var runnerPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "runtime", "Kestrun.Runner.dll"));
-        var bundledScriptPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "script", "server.ps1"));
+        var bundledScriptPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "application", "server.ps1"));
         var bundledManifestPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "module", "Kestrun.psd1"));
 
         var args = (IReadOnlyList<string>)Invoke(
@@ -2381,6 +2425,28 @@ public class KestrunToolCommandSurfaceTests
         var serviceRootPath = values[2]?.ToString() ?? string.Empty;
         var error = values[3]?.ToString() ?? string.Empty;
         return (success, serviceRootPath, error);
+    }
+
+    private static IReadOnlyList<(string Version, string? UpdatedAt, string Path)> InvokeGetServiceBackupSnapshots(string serviceRootPath)
+    {
+        var snapshots = Assert.IsAssignableFrom<System.Collections.IEnumerable>(InvokeRaw("GetServiceBackupSnapshots", [serviceRootPath]));
+        var result = new List<(string Version, string? UpdatedAt, string Path)>();
+
+        foreach (var snapshot in snapshots)
+        {
+            Assert.NotNull(snapshot);
+            var updatedAtValue = snapshot!.GetType().GetProperty("UpdatedAtUtc", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(snapshot);
+            var updatedAt = updatedAtValue is DateTimeOffset dto
+                ? dto.ToString("o")
+                : updatedAtValue?.ToString();
+
+            result.Add((
+                GetRecordField(snapshot, "Version") ?? string.Empty,
+                updatedAt,
+                GetRecordField(snapshot, "Path") ?? string.Empty));
+        }
+
+        return result;
     }
 
     private static string InvokeGetServiceDeploymentDirectoryName(string serviceName)

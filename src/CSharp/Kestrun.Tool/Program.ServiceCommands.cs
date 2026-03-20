@@ -1,3 +1,6 @@
+
+using System.Globalization;
+
 namespace Kestrun.Tool;
 
 internal static partial class Program
@@ -479,6 +482,7 @@ internal static partial class Program
             }
 
             var descriptorPath = Path.Combine(scriptRoot, ServiceDescriptorFileName);
+            var backups = GetServiceBackupSnapshots(serviceRootPath);
             var payload = new
             {
                 command.ServiceName,
@@ -493,6 +497,12 @@ internal static partial class Program
                     descriptor.Version,
                     descriptor.ServiceLogPath,
                 },
+                Backups = backups.Select(static backup => new
+                {
+                    backup.Version,
+                    UpdatedAtUtc = backup.UpdatedAtUtc?.ToString("o"),
+                    backup.Path,
+                }),
             };
 
             if (command.JsonOutput)
@@ -504,7 +514,7 @@ internal static partial class Program
             }
             else
             {
-                WriteServiceInfoHumanReadable(payload.ServiceName, payload.ServicePath, payload.DescriptorPath, descriptor);
+                WriteServiceInfoHumanReadable(payload.ServiceName, payload.ServicePath, payload.DescriptorPath, descriptor, backups);
             }
 
             return 0;
@@ -516,7 +526,7 @@ internal static partial class Program
             return 1;
         }
 
-        var services = new List<(string ServiceName, string ServicePath, string DescriptorPath, ServiceInstallDescriptor Descriptor)>();
+        var services = new List<(string ServiceName, string ServicePath, string DescriptorPath, ServiceInstallDescriptor Descriptor, IReadOnlyList<ServiceBackupSnapshot> Backups)>();
         foreach (var bundleRoot in bundleRoots)
         {
             var scriptRoot = Path.Combine(bundleRoot, ServiceBundleScriptDirectoryName);
@@ -526,7 +536,8 @@ internal static partial class Program
             }
 
             var descriptorPath = Path.Combine(scriptRoot, ServiceDescriptorFileName);
-            services.Add((descriptor.Name, bundleRoot, descriptorPath, descriptor));
+            var backups = GetServiceBackupSnapshots(bundleRoot);
+            services.Add((descriptor.Name, bundleRoot, descriptorPath, descriptor, backups));
         }
 
         if (services.Count == 0)
@@ -553,6 +564,12 @@ internal static partial class Program
                         service.Descriptor.Version,
                         service.Descriptor.ServiceLogPath,
                     },
+                    Backups = service.Backups.Select(static backup => new
+                    {
+                        backup.Version,
+                        UpdatedAtUtc = backup.UpdatedAtUtc?.ToString("o"),
+                        backup.Path,
+                    }),
                 }),
             }, new System.Text.Json.JsonSerializerOptions
             {
@@ -562,9 +579,9 @@ internal static partial class Program
             return 0;
         }
 
-        foreach (var (ServiceName, ServicePath, DescriptorPath, Descriptor) in services)
+        foreach (var (ServiceName, ServicePath, DescriptorPath, Descriptor, Backups) in services)
         {
-            WriteServiceInfoHumanReadable(ServiceName, ServicePath, DescriptorPath, Descriptor);
+            WriteServiceInfoHumanReadable(ServiceName, ServicePath, DescriptorPath, Descriptor, Backups);
             Console.WriteLine();
         }
 
@@ -578,9 +595,15 @@ internal static partial class Program
     /// <param name="servicePath">Service bundle path.</param>
     /// <param name="descriptorPath">Service descriptor file path.</param>
     /// <param name="descriptor">Parsed descriptor payload.</param>
-    private static void WriteServiceInfoHumanReadable(string serviceName, string servicePath, string descriptorPath, ServiceInstallDescriptor descriptor)
+    /// <param name="backups">Available backup snapshots for the service.</param>
+    private static void WriteServiceInfoHumanReadable(
+        string serviceName,
+        string servicePath,
+        string descriptorPath,
+        ServiceInstallDescriptor descriptor,
+        IReadOnlyList<ServiceBackupSnapshot> backups)
     {
-        Console.WriteLine($"Service: {serviceName}");
+        Console.WriteLine($"Name: {serviceName}");
         Console.WriteLine($"Path: {servicePath}");
         Console.WriteLine($"Descriptor: {descriptorPath}");
         Console.WriteLine($"FormatVersion: {descriptor.FormatVersion}");
@@ -588,6 +611,63 @@ internal static partial class Program
         Console.WriteLine($"Description: {descriptor.Description}");
         Console.WriteLine($"Version: {(string.IsNullOrWhiteSpace(descriptor.Version) ? "(not set)" : descriptor.Version)}");
         Console.WriteLine($"ServiceLogPath: {(string.IsNullOrWhiteSpace(descriptor.ServiceLogPath) ? "(not set)" : descriptor.ServiceLogPath)}");
+
+        if (backups.Count == 0)
+        {
+            Console.WriteLine("Backups: (none)");
+            return;
+        }
+
+        Console.WriteLine($"Backups: {backups.Count}");
+        foreach (var backup in backups)
+        {
+            var updatedAt = backup.UpdatedAtUtc?.ToString("yyyy-MM-dd HH:mm:ss 'UTC'") ?? "(unknown)";
+            Console.WriteLine($"  {backup.Version} | {updatedAt} | {backup.Path}");
+        }
+    }
+
+    /// <summary>
+    /// Represents one service backup snapshot.
+    /// </summary>
+    /// <param name="Version">Backup snapshot version token (folder name).</param>
+    /// <param name="UpdatedAtUtc">Parsed update timestamp in UTC when available.</param>
+    /// <param name="Path">Backup directory path.</param>
+    private sealed record ServiceBackupSnapshot(string Version, DateTimeOffset? UpdatedAtUtc, string Path);
+
+    /// <summary>
+    /// Enumerates service backup snapshots from the backup root ordered from newest to oldest.
+    /// </summary>
+    /// <param name="serviceRootPath">Service root path.</param>
+    /// <returns>Ordered backup snapshot list.</returns>
+    private static List<ServiceBackupSnapshot> GetServiceBackupSnapshots(string serviceRootPath)
+    {
+        var backupRoot = Path.Combine(serviceRootPath, "backup");
+        if (!Directory.Exists(backupRoot))
+        {
+            return [];
+        }
+
+        return [.. Directory
+            .GetDirectories(backupRoot)
+            .Select(static directoryPath =>
+            {
+                var versionToken = Path.GetFileName(directoryPath);
+                DateTimeOffset? updatedAtUtc = null;
+                if (DateTime.TryParseExact(
+                        versionToken,
+                        "yyyyMMddHHmmss",
+                        CultureInfo.InvariantCulture,
+                        DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                        out var parsedUtc))
+                {
+                    updatedAtUtc = new DateTimeOffset(parsedUtc, TimeSpan.Zero);
+                }
+
+                return new ServiceBackupSnapshot(versionToken, updatedAtUtc, Path.GetFullPath(directoryPath));
+            })
+            .OrderByDescending(static backup => backup.UpdatedAtUtc)
+            .ThenByDescending(static backup => backup.Version, StringComparer.OrdinalIgnoreCase)
+            .ToList()];
     }
 
     /// <summary>
@@ -623,38 +703,7 @@ internal static partial class Program
                 if (File.Exists(directDescriptorPath))
                 {
                     bundleRoots.Add(Path.GetFullPath(serviceBaseRoot));
-                    continue;
                 }
-
-                var versionedCandidates = Directory
-                    .GetDirectories(serviceBaseRoot)
-                    .Select(static dir => new
-                    {
-                        Directory = dir,
-                        Name = Path.GetFileName(dir),
-                        DescriptorPath = Path.Combine(dir, ServiceBundleScriptDirectoryName, ServiceDescriptorFileName),
-                        LastWriteUtc = Directory.GetLastWriteTimeUtc(dir),
-                    })
-                    .Where(static candidate => File.Exists(candidate.DescriptorPath))
-                    .ToList();
-
-                if (versionedCandidates.Count == 0)
-                {
-                    continue;
-                }
-
-                var latest = versionedCandidates
-                    .Select(candidate => new
-                    {
-                        candidate.Directory,
-                        ParsedVersion = Version.TryParse(candidate.Name, out var parsedVersion) ? parsedVersion : null,
-                        candidate.LastWriteUtc,
-                    })
-                    .OrderByDescending(static candidate => candidate.ParsedVersion)
-                    .ThenByDescending(static candidate => candidate.LastWriteUtc)
-                    .First();
-
-                bundleRoots.Add(Path.GetFullPath(latest.Directory));
             }
         }
 
@@ -1422,44 +1471,6 @@ internal static partial class Program
                 serviceRootPath = Path.GetFullPath(serviceBaseRoot);
                 return true;
             }
-
-            var versionedCandidates = Directory
-                .GetDirectories(serviceBaseRoot)
-                .Select(static dir => new
-                {
-                    Directory = dir,
-                    Name = Path.GetFileName(dir),
-                    DescriptorPath = Path.Combine(dir, ServiceBundleScriptDirectoryName, ServiceDescriptorFileName),
-                    LastWriteUtc = Directory.GetLastWriteTimeUtc(dir),
-                })
-                .Where(static candidate => File.Exists(candidate.DescriptorPath))
-                .ToList();
-
-            if (versionedCandidates.Count == 0)
-            {
-                continue;
-            }
-
-            var parsedVersionCandidates = versionedCandidates
-                .Select(candidate =>
-                {
-                    var parsed = Version.TryParse(candidate.Name, out var parsedVersion)
-                        ? parsedVersion
-                        : null;
-
-                    return new
-                    {
-                        candidate.Directory,
-                        ParsedVersion = parsed,
-                        candidate.LastWriteUtc,
-                    };
-                })
-                .OrderByDescending(static candidate => candidate.ParsedVersion)
-                .ThenByDescending(static candidate => candidate.LastWriteUtc)
-                .ToList();
-
-            serviceRootPath = Path.GetFullPath(parsedVersionCandidates[0].Directory);
-            return true;
         }
 
         error = $"Installed service bundle not found for '{serviceName}'.";
@@ -1990,7 +2001,7 @@ internal static partial class Program
     /// <param name="serviceName">Service name.</param>
     /// <param name="sourceScriptPath">Source script path.</param>
     /// <param name="sourceModuleManifestPath">Source module manifest path.</param>
-    /// <param name="serviceVersion">Optional service version used to create a versioned deployment subfolder.</param>
+    /// <param name="serviceVersion">Optional service version from descriptor metadata.</param>
     /// <param name="serviceBundle">Created service bundle paths.</param>
     /// <param name="error">Error details when bundling fails.</param>
     /// <param name="deploymentRootOverride">Optional deployment root override for tests.</param>
@@ -2092,7 +2103,7 @@ internal static partial class Program
     /// <param name="sourceScriptPath">Source script path.</param>
     /// <param name="sourceModuleManifestPath">Source module manifest path.</param>
     /// <param name="deploymentRootOverride">Optional deployment root override for tests.</param>
-    /// <param name="serviceVersion">Optional service version used to create a versioned deployment subfolder.</param>
+    /// <param name="serviceVersion">Optional service version from descriptor metadata.</param>
     /// <param name="context">Resolved bundle path context.</param>
     /// <param name="error">Error details when resolution fails.</param>
     /// <returns>True when context resolution succeeds.</returns>
@@ -2135,9 +2146,7 @@ internal static partial class Program
         }
 
         var serviceDirectoryName = GetServiceDeploymentDirectoryName(serviceName);
-        var serviceRoot = string.IsNullOrWhiteSpace(serviceVersion)
-            ? Path.Combine(deploymentRoot, serviceDirectoryName)
-            : Path.Combine(deploymentRoot, serviceDirectoryName, serviceVersion);
+        var serviceRoot = Path.Combine(deploymentRoot, serviceDirectoryName);
         var runtimeDirectory = Path.Combine(serviceRoot, ServiceBundleRuntimeDirectoryName);
         var modulesDirectory = Path.Combine(serviceRoot, ServiceBundleModulesDirectoryName);
         var moduleDirectory = Path.Combine(modulesDirectory, ModuleName);

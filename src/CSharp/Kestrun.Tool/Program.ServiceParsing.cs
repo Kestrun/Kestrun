@@ -1044,12 +1044,33 @@ internal static partial class Program
     /// <returns>True when package extension usage is valid.</returns>
     private static bool TryValidateServiceInstallPackageExtension(ServiceParseState state, bool hasContentRoot, out string error)
     {
-        if (hasContentRoot
-            && state.ServicePackageSet
-            && !state.ServiceContentRoot!.Trim().EndsWith(ServicePackageExtension, StringComparison.OrdinalIgnoreCase))
+        if (hasContentRoot && state.ServicePackageSet)
         {
-            error = $"--package must point to a '{ServicePackageExtension}' file.";
-            return false;
+            var contentRoot = state.ServiceContentRoot!.Trim();
+
+            // When --package points to an HTTP/HTTPS URL, rely on the downloader/content-type/signature
+            // pipeline to determine the archive type instead of enforcing a local file extension check.
+            if (Uri.TryCreate(contentRoot, UriKind.Absolute, out var uri)
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                error = string.Empty;
+                return true;
+            }
+
+            // For local paths (and non-HTTP(S) URIs), enforce the extension on the path component only.
+            var pathToCheck = contentRoot;
+            if (Uri.TryCreate(contentRoot, UriKind.Absolute, out uri)
+                && uri.IsAbsoluteUri
+                && uri.Scheme == Uri.UriSchemeFile)
+            {
+                pathToCheck = uri.AbsolutePath;
+            }
+
+            if (!pathToCheck.EndsWith(ServicePackageExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                error = $"--package must point to a '{ServicePackageExtension}' file.";
+                return false;
+            }
         }
 
         error = string.Empty;

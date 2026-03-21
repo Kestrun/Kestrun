@@ -6,6 +6,8 @@ internal static partial class Program
     {
         public string ServiceName { get; set; } = string.Empty;
 
+        public bool ServiceNameSet { get; set; }
+
         public string ScriptPath { get; set; } = string.Empty;
 
         public bool ScriptPathSet { get; set; }
@@ -20,6 +22,8 @@ internal static partial class Program
 
         public string? ServiceContentRoot { get; set; }
 
+        public bool ServicePackageSet { get; set; }
+
         public string? ServiceDeploymentRoot { get; set; }
 
         public string? ServiceContentRootChecksum { get; set; }
@@ -29,6 +33,14 @@ internal static partial class Program
         public string? ServiceContentRootBearerToken { get; set; }
 
         public bool ServiceContentRootIgnoreCertificate { get; set; }
+
+        public bool ServiceFailbackRequested { get; set; }
+
+        public bool ServiceUseRepositoryKestrun { get; set; }
+
+        public bool ServiceJsonOutputRequested { get; set; }
+
+        public bool ServiceRawOutputRequested { get; set; }
 
         public List<string> ServiceContentRootHeaders { get; } = [];
     }
@@ -55,7 +67,7 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Parses arguments for service install/remove/start/stop/query commands.
+    /// Parses arguments for service install/remove/start/stop/query/info commands.
     /// </summary>
     /// <param name="args">Raw command-line arguments.</param>
     /// <param name="startIndex">Index after service token.</param>
@@ -94,7 +106,7 @@ internal static partial class Program
     /// <param name="kestrunManifestPath">Optional explicit path to Kestrun.psd1.</param>
     /// <returns>Default parsed command for service mode.</returns>
     private static ParsedCommand CreateDefaultServiceParsedCommand(string? kestrunFolder, string? kestrunManifestPath)
-        => new(CommandMode.ServiceInstall, string.Empty, [], kestrunFolder, kestrunManifestPath, null, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
+        => new(CommandMode.ServiceInstall, string.Empty, false, [], kestrunFolder, kestrunManifestPath, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, [], false, false, false);
 
     /// <summary>
     /// Validates service token bounds and resolves command mode.
@@ -109,7 +121,7 @@ internal static partial class Program
         mode = CommandMode.Run;
         if (startIndex >= args.Length)
         {
-            error = "Missing service action. Use 'service install', 'service remove', 'service start', 'service stop', or 'service query'.";
+            error = "Missing service action. Use 'service install', 'service update', 'service remove', 'service start', 'service stop', 'service query', or 'service info'.";
             return false;
         }
 
@@ -185,10 +197,12 @@ internal static partial class Program
         => new(
             mode,
             state.ScriptPath,
+            state.ScriptPathSet,
             state.ScriptArguments,
             kestrunFolder,
             kestrunManifestPath,
             state.ServiceName,
+            state.ServiceNameSet,
             state.ServiceLogPath,
             state.ServiceUser,
             state.ServicePassword,
@@ -201,7 +215,11 @@ internal static partial class Program
             state.ServiceContentRootChecksumAlgorithm,
             state.ServiceContentRootBearerToken,
             state.ServiceContentRootIgnoreCertificate,
-            [.. state.ServiceContentRootHeaders]);
+            [.. state.ServiceContentRootHeaders],
+            state.ServiceFailbackRequested,
+            state.ServiceUseRepositoryKestrun,
+            state.ServiceJsonOutputRequested,
+            state.ServiceRawOutputRequested);
 
     /// <summary>
     /// Parses the service action token into a concrete command mode.
@@ -215,10 +233,12 @@ internal static partial class Program
         mode = action.ToLowerInvariant() switch
         {
             "install" => CommandMode.ServiceInstall,
+            "update" => CommandMode.ServiceUpdate,
             "remove" => CommandMode.ServiceRemove,
             "start" => CommandMode.ServiceStart,
             "stop" => CommandMode.ServiceStop,
             "query" => CommandMode.ServiceQuery,
+            "info" => CommandMode.ServiceInfo,
             _ => CommandMode.Run,
         };
 
@@ -228,7 +248,7 @@ internal static partial class Program
             return true;
         }
 
-        error = $"Unknown service action: {action}. Use 'service install', 'service remove', 'service start', 'service stop', or 'service query'.";
+        error = $"Unknown service action: {action}. Use 'service install', 'service update', 'service remove', 'service start', 'service stop', 'service query', or 'service info'.";
         return false;
     }
 
@@ -260,19 +280,113 @@ internal static partial class Program
             "--script" => TryConsumeServiceScriptOption(args, mode, state, ref index, out error),
             "--name" or "-n" => TryConsumeServiceNameOption(args, state, ref index, out error),
             "--kestrun-folder" or "-k" => TryConsumeKestrunFolderOption(args, ref kestrunFolder, ref index, out error),
-            "--kestrun-manifest" or "-m" => TryConsumeKestrunManifestOption(args, ref kestrunManifestPath, ref index, out error),
+            "--kestrun-manifest" or "-m" => TryConsumeKestrunManifestOption(args, ref kestrunManifestPath, ref index, "--kestrun-manifest", out error),
+            "--kestrun-module" or "--kestrunModule" => TryConsumeKestrunManifestOption(args, ref kestrunManifestPath, ref index, "--kestrun-module", out error),
             "--service-log-path" => TryConsumeServiceLogPathOption(args, state, ref index, out error),
             "--service-user" => TryConsumeServiceUserOption(args, mode, state, ref index, out error),
             "--service-password" => TryConsumeServicePasswordOption(args, mode, state, ref index, out error),
             "--deployment-root" => TryConsumeServiceDeploymentRootOption(args, mode, state, ref index, out error),
-            "--content-root" => TryConsumeServiceContentRootOption(args, mode, state, ref index, out error),
+            "--package" => TryConsumeServicePackageOption(args, mode, state, ref index, out error),
+            "--content-root" => TryConsumeDeprecatedServiceContentRootOption(args, mode, state, ref index, out error),
             "--content-root-checksum" => TryConsumeServiceContentRootChecksumOption(args, mode, state, ref index, out error),
             "--content-root-checksum-algorithm" => TryConsumeServiceContentRootChecksumAlgorithmOption(args, mode, state, ref index, out error),
             "--content-root-bearer-token" => TryConsumeServiceContentRootBearerTokenOption(args, mode, state, ref index, out error),
             "--content-root-ignore-certificate" => TryConsumeServiceContentRootIgnoreCertificateOption(mode, state, ref index, out error),
             "--content-root-header" => TryConsumeServiceContentRootHeaderOption(args, mode, state, ref index, out error),
+            "--failback" => TryConsumeServiceFailbackOption(mode, state, ref index, out error),
+            "--kestrun" => TryConsumeServiceRepositoryKestrunOption(mode, state, ref index, out error),
+            "--json" => TryConsumeServiceJsonOption(mode, state, ref index, out error),
+            RawOption => TryConsumeServiceRawOption(mode, state, ref index, out error),
             _ => false,
         };
+    }
+
+    /// <summary>
+    /// Consumes and validates the json output switch.
+    /// </summary>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceJsonOption(CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        if (mode is not (CommandMode.ServiceInfo or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery))
+        {
+            error = "--json is only supported for service start/stop/query/info.";
+            return true;
+        }
+
+        state.ServiceJsonOutputRequested = true;
+        index += 1;
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes and validates the raw output switch.
+    /// </summary>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceRawOption(CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        if (mode is not (CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery))
+        {
+            error = "--raw is only supported for service start/stop/query.";
+            return true;
+        }
+
+        state.ServiceRawOutputRequested = true;
+        index += 1;
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes and validates the repository Kestrun module switch.
+    /// </summary>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceRepositoryKestrunOption(CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        if (mode != CommandMode.ServiceUpdate)
+        {
+            error = "--kestrun is only supported for service update.";
+            return true;
+        }
+
+        state.ServiceUseRepositoryKestrun = true;
+        index += 1;
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes and validates the failback switch.
+    /// </summary>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceFailbackOption(CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        if (mode != CommandMode.ServiceUpdate)
+        {
+            error = "--failback is only supported for service update.";
+            return true;
+        }
+
+        state.ServiceFailbackRequested = true;
+        index += 1;
+        error = string.Empty;
+        return true;
     }
 
     /// <summary>
@@ -286,9 +400,9 @@ internal static partial class Program
     /// <returns>True when the option token is handled.</returns>
     private static bool TryConsumeServiceScriptOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
     {
-        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery or CommandMode.ServiceInfo or CommandMode.ServiceUpdate)
         {
-            error = "Service remove/start/stop/query does not accept --script.";
+            error = "Service remove/start/stop/query/info/update does not accept --script.";
             return true;
         }
 
@@ -324,6 +438,7 @@ internal static partial class Program
         }
 
         state.ServiceName = value;
+        state.ServiceNameSet = true;
         return true;
     }
 
@@ -337,12 +452,13 @@ internal static partial class Program
     /// <returns>True when the option token is handled.</returns>
     private static bool TryConsumeKestrunFolderOption(string[] args, ref string? kestrunFolder, ref int index, out string error)
     {
-        if (!TryConsumeOptionValue(args, ref index, "--kestrun-folder", out var value, out error))
+        if (!TryConsumeOptionValue(args, ref index, "--kestrun-folder", out _, out error))
         {
             return true;
         }
 
-        kestrunFolder = value;
+        _ = kestrunFolder;
+        error = "--kestrun-folder is no longer supported. Use --kestrun-manifest when a custom manifest path is required.";
         return true;
     }
 
@@ -354,9 +470,9 @@ internal static partial class Program
     /// <param name="index">Current parser index.</param>
     /// <param name="error">Error text when parsing fails.</param>
     /// <returns>True when the option token is handled.</returns>
-    private static bool TryConsumeKestrunManifestOption(string[] args, ref string? kestrunManifestPath, ref int index, out string error)
+    private static bool TryConsumeKestrunManifestOption(string[] args, ref string? kestrunManifestPath, ref int index, string optionName, out string error)
     {
-        if (!TryConsumeOptionValue(args, ref index, "--kestrun-manifest", out var value, out error))
+        if (!TryConsumeOptionValue(args, ref index, optionName, out var value, out error))
         {
             return true;
         }
@@ -395,9 +511,9 @@ internal static partial class Program
     /// <returns>True when the option token is handled.</returns>
     private static bool TryConsumeServiceUserOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
     {
-        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery or CommandMode.ServiceInfo or CommandMode.ServiceUpdate)
         {
-            error = "Service remove/start/stop/query does not accept --service-user.";
+            error = "Service remove/start/stop/query/info/update does not accept --service-user.";
             return true;
         }
 
@@ -421,9 +537,9 @@ internal static partial class Program
     /// <returns>True when the option token is handled.</returns>
     private static bool TryConsumeServicePasswordOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
     {
-        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery or CommandMode.ServiceInfo or CommandMode.ServiceUpdate)
         {
-            error = "Service remove/start/stop/query does not accept --service-password.";
+            error = "Service remove/start/stop/query/info/update does not accept --service-password.";
             return true;
         }
 
@@ -463,7 +579,7 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Consumes and validates the content-root option.
+    /// Consumes and validates the package option.
     /// </summary>
     /// <param name="args">Raw command-line arguments.</param>
     /// <param name="mode">Current service mode.</param>
@@ -471,11 +587,36 @@ internal static partial class Program
     /// <param name="index">Current parser index.</param>
     /// <param name="error">Error text when parsing fails.</param>
     /// <returns>True when the option token is handled.</returns>
-    private static bool TryConsumeServiceContentRootOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
+    private static bool TryConsumeServicePackageOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
     {
-        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery or CommandMode.ServiceInfo)
         {
-            error = "Service remove/start/stop/query does not accept --content-root.";
+            error = "Service remove/start/stop/query/info does not accept --package.";
+            return true;
+        }
+
+        if (!TryConsumeOptionValue(args, ref index, "--package", out var value, out error))
+        {
+            return true;
+        }
+
+        state.ServiceContentRoot = value;
+        state.ServicePackageSet = true;
+        return true;
+    }
+
+    /// <summary>
+    /// Handles deprecated content-root option for service install.
+    /// </summary>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeDeprecatedServiceContentRootOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery or CommandMode.ServiceInfo)
+        {
+            error = "Service remove/start/stop/query/info does not accept --content-root.";
             return true;
         }
 
@@ -485,6 +626,8 @@ internal static partial class Program
         }
 
         state.ServiceContentRoot = value;
+        state.ServicePackageSet = false;
+        error = string.Empty;
         return true;
     }
 
@@ -499,9 +642,9 @@ internal static partial class Program
     /// <returns>True when the option token is handled.</returns>
     private static bool TryConsumeServiceContentRootChecksumOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
     {
-        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery or CommandMode.ServiceInfo)
         {
-            error = "Service remove/start/stop/query does not accept --content-root-checksum.";
+            error = "Service remove/start/stop/query/info does not accept --content-root-checksum.";
             return true;
         }
 
@@ -525,9 +668,9 @@ internal static partial class Program
     /// <returns>True when the option token is handled.</returns>
     private static bool TryConsumeServiceContentRootChecksumAlgorithmOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
     {
-        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery or CommandMode.ServiceInfo)
         {
-            error = "Service remove/start/stop/query does not accept --content-root-checksum-algorithm.";
+            error = "Service remove/start/stop/query/info does not accept --content-root-checksum-algorithm.";
             return true;
         }
 
@@ -551,9 +694,9 @@ internal static partial class Program
     /// <returns>True when the option token is handled.</returns>
     private static bool TryConsumeServiceContentRootBearerTokenOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
     {
-        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery or CommandMode.ServiceInfo)
         {
-            error = "Service remove/start/stop/query does not accept --content-root-bearer-token.";
+            error = "Service remove/start/stop/query/info does not accept --content-root-bearer-token.";
             return true;
         }
 
@@ -576,9 +719,9 @@ internal static partial class Program
     /// <returns>True when the option token is handled.</returns>
     private static bool TryConsumeServiceContentRootIgnoreCertificateOption(CommandMode mode, ServiceParseState state, ref int index, out string error)
     {
-        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery or CommandMode.ServiceInfo)
         {
-            error = "Service remove/start/stop/query does not accept --content-root-ignore-certificate.";
+            error = "Service remove/start/stop/query/info does not accept --content-root-ignore-certificate.";
             return true;
         }
 
@@ -599,9 +742,9 @@ internal static partial class Program
     /// <returns>True when the option token is handled.</returns>
     private static bool TryConsumeServiceContentRootHeaderOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
     {
-        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery or CommandMode.ServiceInfo)
         {
-            error = "Service remove/start/stop/query does not accept --content-root-header.";
+            error = "Service remove/start/stop/query/info does not accept --content-root-header.";
             return true;
         }
 
@@ -657,9 +800,9 @@ internal static partial class Program
             return false;
         }
 
-        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery)
+        if (mode is CommandMode.ServiceRemove or CommandMode.ServiceStart or CommandMode.ServiceStop or CommandMode.ServiceQuery or CommandMode.ServiceInfo or CommandMode.ServiceUpdate)
         {
-            error = "Service remove/start/stop/query does not accept a script path.";
+            error = "Service remove/start/stop/query/info/update does not accept a script path.";
             return false;
         }
 
@@ -683,27 +826,111 @@ internal static partial class Program
     /// <returns>True when validation succeeds.</returns>
     private static bool TryValidateServiceParseState(CommandMode mode, ServiceParseState state, out string error)
     {
-        if (!TryValidateServiceName(state, out error))
+        if (!TryValidateServiceName(mode, state, out error))
         {
+            return false;
+        }
+
+        if (state.ServiceJsonOutputRequested && state.ServiceRawOutputRequested)
+        {
+            error = "--json cannot be combined with --raw.";
             return false;
         }
 
         ApplyDefaultServiceInstallScript(mode, state);
 
-        return TryValidateServiceCredentialOptions(mode, state, out error) && TryValidateServiceContentRootDependentOptions(mode, state, out error);
+        return TryValidateServiceCredentialOptions(mode, state, out error)
+            && TryValidateServiceContentRootDependentOptions(mode, state, out error)
+            && TryValidateServiceUpdateOptions(mode, state, out error);
+    }
+
+    /// <summary>
+    /// Validates update-mode specific options.
+    /// </summary>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="error">Error text when validation fails.</param>
+    /// <returns>True when update-mode options are valid.</returns>
+    private static bool TryValidateServiceUpdateOptions(CommandMode mode, ServiceParseState state, out string error)
+    {
+        if (mode != CommandMode.ServiceUpdate)
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        var hasPackageUpdate = !string.IsNullOrWhiteSpace(state.ServiceContentRoot);
+
+        if (state.ServiceFailbackRequested)
+        {
+            if (hasPackageUpdate)
+            {
+                error = "--failback cannot be combined with --package.";
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(state.ServiceContentRootChecksum)
+                || !string.IsNullOrWhiteSpace(state.ServiceContentRootChecksumAlgorithm)
+                || !string.IsNullOrWhiteSpace(state.ServiceContentRootBearerToken)
+                || state.ServiceContentRootIgnoreCertificate
+                || state.ServiceContentRootHeaders.Count > 0)
+            {
+                error = "--failback does not accept --content-root* update options.";
+                return false;
+            }
+
+            if (state.ServiceUseRepositoryKestrun)
+            {
+                error = "--failback cannot be combined with --kestrun.";
+                return false;
+            }
+
+            error = string.Empty;
+            return true;
+        }
+
+        error = string.Empty;
+        return true;
     }
 
     /// <summary>
     /// Validates that the service name option was provided.
     /// </summary>
+    /// <param name="mode">Current service mode.</param>
     /// <param name="state">Mutable service parse state.</param>
     /// <param name="error">Error text when validation fails.</param>
     /// <returns>True when the service name is valid.</returns>
-    private static bool TryValidateServiceName(ServiceParseState state, out string error)
+    private static bool TryValidateServiceName(CommandMode mode, ServiceParseState state, out string error)
     {
-        if (string.IsNullOrWhiteSpace(state.ServiceName))
+        if (mode != CommandMode.ServiceInstall)
         {
-            error = "Service name is required. Use --name <value>.";
+            if (mode == CommandMode.ServiceInfo)
+            {
+                error = string.Empty;
+                return true;
+            }
+
+            if (mode == CommandMode.ServiceUpdate
+                && string.IsNullOrWhiteSpace(state.ServiceName)
+                && !string.IsNullOrWhiteSpace(state.ServiceContentRoot))
+            {
+                error = string.Empty;
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(state.ServiceName))
+            {
+                error = "Service name is required. Use --name <value>.";
+                return false;
+            }
+
+            error = string.Empty;
+            return true;
+        }
+
+        if (state.ServiceNameSet && !string.IsNullOrWhiteSpace(state.ServiceContentRoot))
+        {
+            error = "--name is no longer supported when installing from --package/--content-root. Define Name in Service.psd1 inside the package.";
             return false;
         }
 
@@ -718,10 +945,8 @@ internal static partial class Program
     /// <param name="state">Mutable service parse state.</param>
     private static void ApplyDefaultServiceInstallScript(CommandMode mode, ServiceParseState state)
     {
-        if (mode == CommandMode.ServiceInstall && !state.ScriptPathSet)
-        {
-            state.ScriptPath = DefaultScriptFileName;
-        }
+        _ = mode;
+        _ = state;
     }
 
     /// <summary>
@@ -764,6 +989,136 @@ internal static partial class Program
             return true;
         }
 
+        var hasContentRoot = !string.IsNullOrWhiteSpace(state.ServiceContentRoot);
+
+        if (!TryValidateServiceInstallScriptContentRootSelection(state, hasContentRoot, out error))
+        {
+            return false;
+        }
+
+        if (!TryValidateServiceInstallPackageExtension(state, hasContentRoot, out error))
+        {
+            return false;
+        }
+
+        if (!TryValidateServiceContentRootLinkedOptions(state, hasContentRoot, out error))
+        {
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates service-install script/content-root selection rules.
+    /// </summary>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="hasContentRoot">True when a content root or package was specified.</param>
+    /// <param name="error">Validation error text.</param>
+    /// <returns>True when script/content-root selection is valid.</returns>
+    private static bool TryValidateServiceInstallScriptContentRootSelection(ServiceParseState state, bool hasContentRoot, out string error)
+    {
+        if (state.ScriptPathSet && hasContentRoot)
+        {
+            error = "--script (or positional script path) is not supported when --package/--content-root is used. Define EntryPoint in Service.psd1 (format 1.0).";
+            return false;
+        }
+
+        if (!hasContentRoot && !state.ScriptPathSet)
+        {
+            error = "Service install requires either --package/--content-root or --script.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates package extension requirements when --package semantics are in effect.
+    /// </summary>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="hasContentRoot">True when a content root or package was specified.</param>
+    /// <param name="error">Validation error text.</param>
+    /// <returns>True when package extension usage is valid.</returns>
+    private static bool TryValidateServiceInstallPackageExtension(ServiceParseState state, bool hasContentRoot, out string error)
+    {
+        if (hasContentRoot && state.ServicePackageSet)
+        {
+            var contentRoot = state.ServiceContentRoot!.Trim();
+
+            // When --package points to an HTTP/HTTPS URL, rely on the downloader/content-type/signature
+            // pipeline to determine the archive type instead of enforcing a local file extension check.
+            if (Uri.TryCreate(contentRoot, UriKind.Absolute, out var uri)
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                error = string.Empty;
+                return true;
+            }
+
+            // For local paths (and non-HTTP(S) URIs), enforce the extension on the path component only.
+            var pathToCheck = contentRoot;
+            if (Uri.TryCreate(contentRoot, UriKind.Absolute, out uri)
+                && uri.IsAbsoluteUri
+                && uri.Scheme == Uri.UriSchemeFile)
+            {
+                pathToCheck = uri.AbsolutePath;
+            }
+
+            if (!pathToCheck.EndsWith(ServicePackageExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                error = $"--package must point to a '{ServicePackageExtension}' file.";
+                return false;
+            }
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates options that require --content-root to be supplied.
+    /// </summary>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="hasContentRoot">True when a content root or package was specified.</param>
+    /// <param name="error">Validation error text.</param>
+    /// <returns>True when content-root dependent option usage is valid.</returns>
+    private static bool TryValidateServiceContentRootLinkedOptions(ServiceParseState state, bool hasContentRoot, out string error)
+    {
+        if (!TryValidateServiceContentRootChecksumOptions(state, hasContentRoot, out error))
+        {
+            return false;
+        }
+
+        if (!TryValidateContentRootLinkedOption(!string.IsNullOrWhiteSpace(state.ServiceContentRootBearerToken), hasContentRoot, "--content-root-bearer-token requires --content-root.", out error))
+        {
+            return false;
+        }
+
+        if (!TryValidateContentRootLinkedOption(state.ServiceContentRootIgnoreCertificate, hasContentRoot, "--content-root-ignore-certificate requires --content-root.", out error))
+        {
+            return false;
+        }
+
+        if (!TryValidateContentRootLinkedOption(state.ServiceContentRootHeaders.Count > 0, hasContentRoot, "--content-root-header requires --content-root.", out error))
+        {
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Validates checksum-specific option dependencies for service content-root installs.
+    /// </summary>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="hasContentRoot">True when a content root or package was specified.</param>
+    /// <param name="error">Validation error text.</param>
+    /// <returns>True when checksum-related options are valid.</returns>
+    private static bool TryValidateServiceContentRootChecksumOptions(ServiceParseState state, bool hasContentRoot, out string error)
+    {
         var hasChecksum = !string.IsNullOrWhiteSpace(state.ServiceContentRootChecksum);
         var hasChecksumAlgorithm = !string.IsNullOrWhiteSpace(state.ServiceContentRootChecksumAlgorithm);
         if (hasChecksumAlgorithm && !hasChecksum)
@@ -772,28 +1127,28 @@ internal static partial class Program
             return false;
         }
 
-        if (hasChecksum && string.IsNullOrWhiteSpace(state.ServiceContentRoot))
+        if (!TryValidateContentRootLinkedOption(hasChecksum, hasContentRoot, "--content-root-checksum requires --content-root.", out error))
         {
-            error = "--content-root-checksum requires --content-root.";
             return false;
         }
 
-        var hasBearerToken = !string.IsNullOrWhiteSpace(state.ServiceContentRootBearerToken);
-        if (hasBearerToken && string.IsNullOrWhiteSpace(state.ServiceContentRoot))
-        {
-            error = "--content-root-bearer-token requires --content-root.";
-            return false;
-        }
+        error = string.Empty;
+        return true;
+    }
 
-        if (state.ServiceContentRootIgnoreCertificate && string.IsNullOrWhiteSpace(state.ServiceContentRoot))
+    /// <summary>
+    /// Validates that an option requiring a content root is only supplied with --content-root.
+    /// </summary>
+    /// <param name="optionIsSet">True when the dependent option was supplied.</param>
+    /// <param name="hasContentRoot">True when a content root or package was specified.</param>
+    /// <param name="errorMessage">Validation error to emit when dependency is missing.</param>
+    /// <param name="error">Validation error text.</param>
+    /// <returns>True when the option dependency is satisfied.</returns>
+    private static bool TryValidateContentRootLinkedOption(bool optionIsSet, bool hasContentRoot, string errorMessage, out string error)
+    {
+        if (optionIsSet && !hasContentRoot)
         {
-            error = "--content-root-ignore-certificate requires --content-root.";
-            return false;
-        }
-
-        if (state.ServiceContentRootHeaders.Count > 0 && string.IsNullOrWhiteSpace(state.ServiceContentRoot))
-        {
-            error = "--content-root-header requires --content-root.";
+            error = errorMessage;
             return false;
         }
 

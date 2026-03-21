@@ -102,4 +102,5 @@ src/PowerShell/Kestrun/kestrun.sh
 /pws
 /src/CSharp/Kestrun.Tool/kestrun-service
 /coverage-site-local
+*.krpack
 /Package-Sample

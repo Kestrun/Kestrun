@@ -115,7 +115,7 @@ Describe 'KestrunTool service user lifecycle' {
             Start-Sleep -Seconds 2
             $queryResult = & $script:InvokeKestrunCommand -Arguments @('service', 'query', '--name', $serviceName)
             $queryResult.ExitCode | Should -Be 0
-            $queryResult.Output | Should -Match 'Active:\s+active\s+\(running\)'
+            $queryResult.Output | Should -Match ('(?im)^\s*query\s*\|\s*' + [regex]::Escape($serviceName) + '\s*\|\s*linux\s*\|\s*success\s*\|\s*running\b')
 
             $stopResult = & $script:InvokeKestrunCommand -Arguments @('service', 'stop', '--name', $serviceName)
             $stopResult.ExitCode | Should -Be 0
@@ -165,7 +165,7 @@ Describe 'KestrunTool service user lifecycle' {
             Start-Sleep -Seconds 2
             $queryResult = & $script:InvokeKestrunCommand -Arguments @('service', 'query', '--name', $serviceName)
             $queryResult.ExitCode | Should -Be 0
-            $queryResult.Output | Should -Match 'Active:\s+active\s+\(running\)'
+            $queryResult.Output | Should -Match ('(?im)^\s*query\s*\|\s*' + [regex]::Escape($serviceName) + '\s*\|\s*linux\s*\|\s*success\s*\|\s*running\b')
 
             $stopResult = & $script:InvokeKestrunCommand -Arguments @('service', 'stop', '--name', $serviceName)
             $stopResult.ExitCode | Should -Be 0

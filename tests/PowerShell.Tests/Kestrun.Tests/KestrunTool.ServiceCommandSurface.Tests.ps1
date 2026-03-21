@@ -30,6 +30,17 @@ BeforeAll {
             Output = $output
         }
     }
+
+    $script:GetJsonPayloadFromOutput = {
+        param(
+            [Parameter(Mandatory)]
+            [string]$Output
+        )
+
+        $match = [regex]::Match($Output, '(?s)\{.*\}')
+        $match.Success | Should -BeTrue
+        return $match.Value | ConvertFrom-Json
+    }
 }
 
 AfterAll {
@@ -55,16 +66,18 @@ Describe 'KestrunTool service command surface' {
         $result = & $script:InvokeKestrunCommand -Arguments @('service', 'help')
 
         $result.ExitCode | Should -Be 0
-        $result.Output | Should -Match 'service install --name <service-name>'
+        $result.Output | Should -Match 'service install --package <path-or-url-to-\.krpack>'
         $result.Output | Should -Match 'service remove --name <service-name>'
-        $result.Output | Should -Match 'service start --name <service-name>'
-        $result.Output | Should -Match 'service stop --name <service-name>'
-        $result.Output | Should -Match 'service query --name <service-name>'
+        $result.Output | Should -Match 'service start --name <service-name> \[--json \| --raw\]'
+        $result.Output | Should -Match 'service stop --name <service-name> \[--json \| --raw\]'
+        $result.Output | Should -Match 'service query --name <service-name> \[--json \| --raw\]'
         $result.Output | Should -Match 'service-log-path <path-to-log-file>'
         $result.Output | Should -Match 'service-user <account>'
         $result.Output | Should -Match 'service-password <secret>'
-        $result.Output | Should -Match 'content-root <folder(?:-or-archive)?>'
+        $result.Output | Should -Match '--package <path-or-url>'
         $result.Output | Should -Match 'deployment-root <folder>'
+        $result.Output | Should -Match '--json\s+For service start/stop/query/info'
+        $result.Output | Should -Match '--raw\s+For service start/stop/query'
         $result.Output | Should -Match 'shows progress bars during bundle staging'
     }
 
@@ -75,11 +88,11 @@ Describe 'KestrunTool service command surface' {
         $result.Output | Should -Match '--service-password requires --service-user\.'
     }
 
-    It 'fails service install without --name' {
+    It 'fails service install without package/content-root or script' {
         $result = & $script:InvokeKestrunCommand -Arguments @('service', 'install')
 
         $result.ExitCode | Should -Be 2
-        $result.Output | Should -Match 'Service name is required\. Use --name <value>\.'
+        $result.Output | Should -Match 'Service install requires either --package/--content-root or --script\.'
     }
 
     It 'fails service remove without --name' {
@@ -108,6 +121,42 @@ Describe 'KestrunTool service command surface' {
 
         $result.ExitCode | Should -Be 2
         $result.Output | Should -Match 'Service name is required\. Use --name <value>\.'
+    }
+
+    It 'returns JSON error payload for service start when service is missing' {
+        $missingServiceName = "kestrun-missing-start-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+        $result = & $script:InvokeKestrunCommand -Arguments @('service', 'start', '--name', $missingServiceName, '--json')
+
+        $result.ExitCode | Should -Not -Be 0
+        $payload = & $script:GetJsonPayloadFromOutput -Output $result.Output
+        $payload.Operation | Should -Be 'start'
+        $payload.ServiceName | Should -Be $missingServiceName
+        $payload.Status | Should -Be 'failed'
+        $payload.Message | Should -Not -BeNullOrEmpty
+    }
+
+    It 'returns JSON error payload for service stop when service is missing' {
+        $missingServiceName = "kestrun-missing-stop-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+        $result = & $script:InvokeKestrunCommand -Arguments @('service', 'stop', '--name', $missingServiceName, '--json')
+
+        $result.ExitCode | Should -Not -Be 0
+        $payload = & $script:GetJsonPayloadFromOutput -Output $result.Output
+        $payload.Operation | Should -Be 'stop'
+        $payload.ServiceName | Should -Be $missingServiceName
+        $payload.Status | Should -Be 'failed'
+        $payload.Message | Should -Not -BeNullOrEmpty
+    }
+
+    It 'returns JSON error payload for service query when service is missing' {
+        $missingServiceName = "kestrun-missing-query-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
+        $result = & $script:InvokeKestrunCommand -Arguments @('service', 'query', '--name', $missingServiceName, '--json')
+
+        $result.ExitCode | Should -Not -Be 0
+        $payload = & $script:GetJsonPayloadFromOutput -Output $result.Output
+        $payload.Operation | Should -Be 'query'
+        $payload.ServiceName | Should -Be $missingServiceName
+        $payload.Status | Should -Be 'failed'
+        $payload.Message | Should -Not -BeNullOrEmpty
     }
 
     It 'fails service install when --service-log-path value is missing' {

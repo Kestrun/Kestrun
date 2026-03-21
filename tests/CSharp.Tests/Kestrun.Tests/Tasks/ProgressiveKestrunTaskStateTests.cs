@@ -1,7 +1,7 @@
 using Kestrun.Tasks;
 using Xunit;
 
-namespace KestrunTests.Tasks;
+namespace Kestrun.Tests.Tasks;
 
 public class ProgressiveKestrunTaskStateTests
 {

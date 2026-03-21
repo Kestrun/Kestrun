@@ -4,7 +4,7 @@ using Microsoft.Net.Http.Headers;
 using Xunit;
 using Kestrun.Utilities;
 
-namespace KestrunTests;
+namespace Kestrun.Tests;
 
 public class Conditional304Tests
 {

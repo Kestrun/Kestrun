@@ -1,7 +1,7 @@
 using Kestrun.OpenApi;
 using Xunit;
 
-namespace KestrunTests.OpenApi;
+namespace Kestrun.Tests.OpenApi;
 
 [Trait("Category", "OpenApi")]
 public class CallbackOperationIdTests

@@ -44,13 +44,30 @@ public static class OpenApiSchemaDiscovery
     {
         var primitivesAssembly = typeof(OpenApiString).Assembly;
 
-        return [.. assemblies.SelectMany(asm => asm.GetTypes())
+        return [.. assemblies.SelectMany(GetLoadableTypes)
             .Where(t => t.IsClass && !t.IsAbstract &&
                     t.IsDefined(typeof(OpenApiSchemaComponent), true) &&
                     !IsFormPayloadBaseType(t) &&
                     // Exclude built-in OpenApi* primitives from auto-discovered components,
                     // but keep user-defined schema components that inherit those primitives.
                     !(t.Assembly == primitivesAssembly && typeof(IOpenApiScalar).IsAssignableFrom(t)))];
+    }
+
+    /// <summary>
+    /// Returns all loadable types from an assembly, even when some types fail to load.
+    /// </summary>
+    /// <param name="assembly">Assembly to enumerate types from.</param>
+    /// <returns>Loadable types discovered in the assembly.</returns>
+    private static IEnumerable<Type> GetLoadableTypes(System.Reflection.Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (System.Reflection.ReflectionTypeLoadException ex)
+        {
+            return ex.Types.Where(t => t is not null).Cast<Type>();
+        }
     }
 
     private static bool IsFormPayloadBaseType(Type t)
@@ -64,12 +81,12 @@ public static class OpenApiSchemaDiscovery
 
    private static Type[] GetTypesWithAttribute(System.Reflection.Assembly[] assemblies, Type attributeType)
     {
-        return [.. assemblies.SelectMany(asm => asm.GetTypes())
+        return [.. assemblies.SelectMany(GetLoadableTypes)
             .Where(t => t.IsClass && !t.IsAbstract && t.IsDefined(attributeType, true))];
     }
     private static Type[] GetTypesWithKind(System.Reflection.Assembly[] assemblies, OpenApiModelKind kind)
     {
-        return [.. assemblies.SelectMany(asm => asm.GetTypes())
+        return [.. assemblies.SelectMany(GetLoadableTypes)
             .Where(t => t.IsClass && !t.IsAbstract &&
                 t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
                  .OfType<OpenApiModelKindAttribute>()

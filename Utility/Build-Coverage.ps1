@@ -5,7 +5,7 @@ param(
     [Parameter()] [string]$TestProject,
     [Parameter()]
     [string[]]$TestProjects = @(
-        '.\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj',
+        '.\tests\CSharp.Tests\Kestrun.Tests\Kestrun.Tests.csproj',
         '.\tests\CSharp.Tests\Kestrun.Tool.Tests\Kestrun.Tool.Tests.csproj',
         '.\tests\CSharp.Tests\Kestrun.ServiceHost.Tests\Kestrun.ServiceHost.Tests.csproj',
         '.\tests\CSharp.Tests\Kestrun.Runner.Tests\Kestrun.Runner.Tests.csproj'
@@ -196,7 +196,7 @@ foreach ($testRun in $resolvedTestRuns) {
         throw "❌ No 'coverage.cobertura.xml' found under $resultsDir"
     }
 
-    $projectCoverageFile = Join-Path $CoverageDir ("csharp.{0}.{1}.cobertura.xml" -f $testRun.ProjectName, $testRun.Framework)
+    $projectCoverageFile = Join-Path $CoverageDir ('csharp.{0}.{1}.cobertura.xml' -f $testRun.ProjectName, $testRun.Framework)
     Copy-Item -LiteralPath $foundCoverage.FullName -Destination $projectCoverageFile -Force
 
     if ((Get-Item $projectCoverageFile).Length -lt 400) {

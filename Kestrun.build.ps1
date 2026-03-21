@@ -152,7 +152,7 @@ $KestrunProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestr
 $KestrunAnnotationsProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Annotations/Kestrun.Annotations.csproj'
 $KestrunToolProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
 $KestrunServiceHostProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.ServiceHost/Kestrun.ServiceHost.csproj'
-$KestrunCoreTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Tests/KestrunTests.csproj'
+$KestrunCoreTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Tests/Kestrun.Tests.csproj'
 $KestrunToolTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Tool.Tests/Kestrun.Tool.Tests.csproj'
 $KestrunServiceHostTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.ServiceHost.Tests/Kestrun.ServiceHost.Tests.csproj'
 $KestrunRunnerTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Runner.Tests/Kestrun.Runner.Tests.csproj'
@@ -487,7 +487,7 @@ Add-BuildTask 'Test-xUnit' 'Build', {
         dotnet test "$KestrunCoreTestProjectPath" -c $Configuration -f $framework -v:$DotNetVerbosity
         if ($LASTEXITCODE -ne 0) {
             Write-Host "❌ Core tests failed for $framework" -ForegroundColor Red
-            $failures += "KestrunTests ($framework)"
+            $failures += "Kestrun.Tests ($framework)"
         }
     }
 

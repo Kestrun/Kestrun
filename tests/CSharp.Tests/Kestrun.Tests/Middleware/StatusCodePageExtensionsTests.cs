@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
 
-namespace KestrunTests.Middleware;
+namespace Kestrun.Tests.Middleware;
 
 public class StatusCodePageExtensionsTests
 {

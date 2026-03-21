@@ -9,7 +9,7 @@ using Xunit;
 using Kestrun.Utilities;
 using Kestrun.Authentication;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 [Collection("SharedStateSerial")]
 public class KestrunHostMapExtensionsTests

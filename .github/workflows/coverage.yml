@@ -340,7 +340,7 @@ jobs:
                     -Framework "net10.0" `
                     -Configuration "Release" `
                     -TestProjects @(
-                        ".\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj",
+                        ".\tests\CSharp.Tests\Kestrun.Tests\Kestrun.Tests.csproj",
                         ".\tests\CSharp.Tests\Kestrun.Tool.Tests\Kestrun.Tool.Tests.csproj",
                         ".\tests\CSharp.Tests\Kestrun.ServiceHost.Tests\Kestrun.ServiceHost.Tests.csproj",
                         ".\tests\CSharp.Tests\Kestrun.Runner.Tests\Kestrun.Runner.Tests.csproj"

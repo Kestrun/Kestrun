@@ -3,7 +3,7 @@ using Xunit;
 using System.Runtime.InteropServices;
 using System.Globalization;
 
-namespace KestrunTests.Health;
+namespace Kestrun.Tests.Health;
 
 public class ProcessProbeTests
 {

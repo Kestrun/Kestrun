@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Routing;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 public class KestrunHostForwardedHeadersIntegrationTests
 {

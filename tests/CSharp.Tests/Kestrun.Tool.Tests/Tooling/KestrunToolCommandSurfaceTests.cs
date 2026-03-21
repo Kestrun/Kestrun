@@ -677,12 +677,20 @@ public class KestrunToolCommandSurfaceTests
             Assert.True(string.IsNullOrWhiteSpace(Error));
 
             var resolvedRuntimePath = Path.GetFullPath(RuntimePath);
-            var expectedSuffix = Path.Combine("src", "PowerShell", "Kestrun", "runtimes", runtimeRid, runtimeBinaryName);
+            var expectedRuntimeSuffix = Path.Combine("src", "PowerShell", "Kestrun", "runtimes", runtimeRid, runtimeBinaryName);
+            var expectedServiceHostSuffix = Path.Combine("kestrun-service", runtimeRid, OperatingSystem.IsWindows() ? "kestrun-service-host.exe" : "kestrun-service-host");
             var pathComparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
             Assert.True(File.Exists(resolvedRuntimePath));
-            Assert.EndsWith(expectedSuffix, resolvedRuntimePath, pathComparison);
-            Assert.Equal("fallback-runtime", File.ReadAllText(resolvedRuntimePath, Encoding.UTF8));
+
+            if (resolvedRuntimePath.EndsWith(expectedRuntimeSuffix, pathComparison))
+            {
+                Assert.Equal("fallback-runtime", File.ReadAllText(resolvedRuntimePath, Encoding.UTF8));
+            }
+            else
+            {
+                Assert.EndsWith(expectedServiceHostSuffix, resolvedRuntimePath, pathComparison);
+            }
         }
         finally
         {

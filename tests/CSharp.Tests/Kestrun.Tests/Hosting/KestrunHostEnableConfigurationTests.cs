@@ -3,7 +3,7 @@ using Serilog;
 using Serilog.Events;
 using Xunit;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 /// <summary>
 /// Tests for the refactored EnableConfiguration method helpers in KestrunHost.

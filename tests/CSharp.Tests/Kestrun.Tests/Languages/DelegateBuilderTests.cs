@@ -3,7 +3,7 @@ using Moq;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Languages;
+namespace Kestrun.Tests.Languages;
 
 public class DelegateBuilderTests
 {

@@ -8,7 +8,7 @@ using Serilog.Parsing;
 using Xunit;
 using System.Globalization;
 
-namespace KestrunTests.Logging;
+namespace Kestrun.Tests.Logging;
 
 public class PowerShellSinkTests
 {

@@ -1,7 +1,7 @@
 using Kestrun.OpenApi;
 using Xunit;
 
-namespace KestrunTests.OpenApi;
+namespace Kestrun.Tests.OpenApi;
 
 /// <summary>
 /// Tests for RFC6570 path template mapping to Kestrel route patterns.

@@ -11,7 +11,7 @@ using PeterO.Cbor;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Languages;
+namespace Kestrun.Tests.Languages;
 
 public sealed class ParameterForInjectionInfoPrivateHelperTests
 {
@@ -21,13 +21,13 @@ public sealed class ParameterForInjectionInfoPrivateHelperTests
     public void BuildFieldPropertyValue_AndBuildFilePropertyValue_HandleSupportedShapes()
     {
         var values = new[] { "one", "two" };
-        Assert.Equal("one", Assert.IsType<string>(Invoke("BuildFieldPropertyValue", typeof(string), values)!));
-        Assert.Equal(values, Assert.IsType<string[]>(Invoke("BuildFieldPropertyValue", typeof(string[]), values)!));
+        Assert.Equal("one", Assert.IsType<string>(Invoke("BuildFieldPropertyValue", typeof(string), values)));
+        Assert.Equal(values, Assert.IsType<string[]>(Invoke("BuildFieldPropertyValue", typeof(string[]), values)));
 
-        var objectSingle = Assert.IsType<string>(Invoke("BuildFieldPropertyValue", typeof(object), new[] { "solo" })!);
+        var objectSingle = Assert.IsType<string>(Invoke("BuildFieldPropertyValue", typeof(object), new[] { "solo" }));
         Assert.Equal("solo", objectSingle);
 
-        var objectMulti = Assert.IsType<string[]>(Invoke("BuildFieldPropertyValue", typeof(object), values)!);
+        var objectMulti = Assert.IsType<string[]>(Invoke("BuildFieldPropertyValue", typeof(object), values));
         Assert.Equal(values, objectMulti);
 
         Assert.Null(Invoke("BuildFieldPropertyValue", typeof(int[]), values));
@@ -38,10 +38,10 @@ public sealed class ParameterForInjectionInfoPrivateHelperTests
             new KrFilePart { Name = "file", OriginalFileName = "b.txt", TempPath = "tmp-b" },
         };
 
-        Assert.Equal("a.txt", Assert.IsType<KrFilePart>(Invoke("BuildFilePropertyValue", typeof(KrFilePart), files)!).OriginalFileName);
-        Assert.Equal(files, Assert.IsType<KrFilePart[]>(Invoke("BuildFilePropertyValue", typeof(KrFilePart[]), files)!));
+        Assert.Equal("a.txt", Assert.IsType<KrFilePart>(Invoke("BuildFilePropertyValue", typeof(KrFilePart), files)).OriginalFileName);
+        Assert.Equal(files, Assert.IsType<KrFilePart[]>(Invoke("BuildFilePropertyValue", typeof(KrFilePart[]), files)));
 
-        var fileObject = Assert.IsAssignableFrom<KrFilePart[]>(Invoke("BuildFilePropertyValue", typeof(object), files)!);
+        var fileObject = Assert.IsAssignableFrom<KrFilePart[]>(Invoke("BuildFilePropertyValue", typeof(object), files));
         Assert.Equal(2, fileObject.Length);
 
         Assert.Null(Invoke("BuildFilePropertyValue", typeof(string), files));
@@ -61,9 +61,10 @@ public sealed class ParameterForInjectionInfoPrivateHelperTests
         var target = new FormDataTarget();
         using var logger = new LoggerConfiguration().MinimumLevel.Debug().CreateLogger();
 
-        Invoke("TryPopulateFormDataObjectProperties", target, payload, typeof(FormDataTarget), logger);
+        _ = Invoke("TryPopulateFormDataObjectProperties", target, payload, typeof(FormDataTarget), logger);
 
         Assert.Equal("hello", target.Note);
+        Assert.NotNull(target.Tags);
         Assert.Equal(["alpha", "beta"], target.Tags);
         Assert.NotNull(target.File);
         Assert.Equal("demo.txt", target.File!.OriginalFileName);
@@ -78,7 +79,7 @@ public sealed class ParameterForInjectionInfoPrivateHelperTests
             ["name"] = "demo"
         };
 
-        var table = Assert.IsType<Hashtable>(Invoke("ConvertFormToHashtable", form)!);
+        var table = Assert.IsType<Hashtable>(Invoke("ConvertFormToHashtable", form));
         Assert.Equal("42", table["item"]);
         Assert.Equal("demo", table["name"]);
 
@@ -87,23 +88,23 @@ public sealed class ParameterForInjectionInfoPrivateHelperTests
         Assert.Equal("item", Assert.IsType<string>(simpleValue));
 
         var objectParam = CreateParameter("item", JsonSchemaType.Object);
-        var objectValue = Assert.IsType<Hashtable>(Invoke("ConvertFormToValue", form, objectParam)!);
+        var objectValue = Assert.IsType<Hashtable>(Invoke("ConvertFormToValue", form, objectParam));
         Assert.Equal("42", objectValue["item"]);
 
         Assert.Null(Invoke("ConvertFormToHashtable", (object?)null));
-        Assert.Null(Invoke("ConvertFormToValue", (object?)null, objectParam));
+        Assert.Null(Invoke("ConvertFormToValue", null, objectParam));
     }
 
     [Fact]
     public void DecodeHelpers_HandleBase64HexAndUtf8Fallback()
     {
-        var fromBase64 = Assert.IsType<byte[]>(Invoke("DecodeBodyStringToBytes", "base64:SGVsbG8=")!);
+        var fromBase64 = Assert.IsType<byte[]>(Invoke("DecodeBodyStringToBytes", "base64:SGVsbG8="));
         Assert.Equal("Hello", Encoding.UTF8.GetString(fromBase64));
 
-        var fromHex = Assert.IsType<byte[]>(Invoke("DecodeBodyStringToBytes", "48656c6c6f")!);
+        var fromHex = Assert.IsType<byte[]>(Invoke("DecodeBodyStringToBytes", "48656c6c6f"));
         Assert.Equal("Hello", Encoding.UTF8.GetString(fromHex));
 
-        var fromUtf8 = Assert.IsType<byte[]>(Invoke("DecodeBodyStringToBytes", "plain-text")!);
+        var fromUtf8 = Assert.IsType<byte[]>(Invoke("DecodeBodyStringToBytes", "plain-text"));
         Assert.Equal("plain-text", Encoding.UTF8.GetString(fromUtf8));
 
         var invalidBase64Args = new object?[] { "bad", null };
@@ -125,7 +126,7 @@ public sealed class ParameterForInjectionInfoPrivateHelperTests
             { "nested", new BsonDocument { { "key", "value" } } }
         };
         var bsonBytes = bsonDoc.ToBson();
-        var bsonValue = Assert.IsType<Hashtable>(Invoke("ConvertBsonToHashtable", "base64:" + Convert.ToBase64String(bsonBytes))!);
+        var bsonValue = Assert.IsType<Hashtable>(Invoke("ConvertBsonToHashtable", "base64:" + Convert.ToBase64String(bsonBytes)));
         Assert.Equal("demo", bsonValue["name"]);
         Assert.Equal(7, Convert.ToInt32(bsonValue["count"], CultureInfo.InvariantCulture));
         Assert.Equal(true, bsonValue["enabled"]);
@@ -136,7 +137,7 @@ public sealed class ParameterForInjectionInfoPrivateHelperTests
             .Add("enabled", true)
             .Add("items", CBORObject.NewArray().Add("x").Add("y"));
         var cborBytes = cborMap.EncodeToBytes();
-        var cborValue = Assert.IsType<Hashtable>(Invoke("ConvertCborToHashtable", "base64:" + Convert.ToBase64String(cborBytes))!);
+        var cborValue = Assert.IsType<Hashtable>(Invoke("ConvertCborToHashtable", "base64:" + Convert.ToBase64String(cborBytes)));
         Assert.Equal("demo", cborValue["name"]);
         Assert.Equal(9L, Assert.IsType<long>(cborValue["count"]));
         Assert.Equal(true, cborValue["enabled"]);
@@ -160,16 +161,16 @@ public sealed class ParameterForInjectionInfoPrivateHelperTests
         var invalidEnumArgs = new object?[] { "missing", typeof(SampleState), null };
         Assert.False(InvokeBool("TryConvertScalarByType", invalidEnumArgs));
 
-        Assert.Equal("42", Assert.IsType<string>(Invoke("TryChangeType", 42, typeof(string))!));
+        Assert.Equal("42", Assert.IsType<string>(Invoke("TryChangeType", 42, typeof(string))));
     }
 
     [Fact]
     public void EnumerableAndHashtableConverters_ReturnExpectedTargetTypes()
     {
-        var intArray = Assert.IsType<int[]>(Invoke("ConvertEnumerableToTargetType", new List<object?> { "1", "2" }, typeof(int[]), 0, null)!);
+        var intArray = Assert.IsType<int[]>(Invoke("ConvertEnumerableToTargetType", new List<object?> { "1", "2" }, typeof(int[]), 0, null));
         Assert.Equal([1, 2], intArray);
 
-        var intList = Assert.IsAssignableFrom<IList>(Invoke("ConvertEnumerableToTargetType", new List<object?> { "3", "4" }, typeof(List<int>), 0, null)!);
+        var intList = Assert.IsAssignableFrom<IList>(Invoke("ConvertEnumerableToTargetType", new List<object?> { "3", "4" }, typeof(List<int>), 0, null));
         Assert.Equal(2, intList.Count);
         Assert.Equal(3, intList[0]);
         Assert.Equal(4, intList[1]);
@@ -229,7 +230,7 @@ public sealed class ParameterForInjectionInfoPrivateHelperTests
         {
             File.WriteAllText(tempPath, "payload", Encoding.UTF8);
             var existingPart = new KrRawPart { Name = "data", TempPath = tempPath };
-            Assert.Equal("payload", Assert.IsType<string>(Invoke("TryReadPartAsString", existingPart, logger)!));
+            Assert.Equal("payload", Assert.IsType<string>(Invoke("TryReadPartAsString", existingPart, logger)));
 
             var missingPart = new KrRawPart { Name = "missing", TempPath = tempPath + ".none" };
             Assert.Null(Invoke("TryReadPartAsString", missingPart, logger));
@@ -280,7 +281,7 @@ public sealed class ParameterForInjectionInfoPrivateHelperTests
             .FirstOrDefault();
 
         Assert.NotNull(method);
-        return method!;
+        return method;
     }
 
     private sealed class FormDataTarget

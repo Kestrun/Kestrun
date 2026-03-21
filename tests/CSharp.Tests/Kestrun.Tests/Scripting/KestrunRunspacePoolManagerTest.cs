@@ -3,7 +3,7 @@ using Kestrun.Hosting;
 using Xunit;
 
 
-namespace KestrunTests.Scripting;
+namespace Kestrun.Tests.Scripting;
 
 [Collection("RunspaceSerial")]
 public class KestrunRunspacePoolManagerTest

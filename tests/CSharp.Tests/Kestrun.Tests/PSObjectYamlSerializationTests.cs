@@ -3,7 +3,7 @@ using YamlDotNet.Serialization;
 using Xunit;
 using Kestrun.Utilities.Yaml;
 
-namespace KestrunTests;
+namespace Kestrun.Tests;
 
 public class PSObjectYamlSerializationTests
 {

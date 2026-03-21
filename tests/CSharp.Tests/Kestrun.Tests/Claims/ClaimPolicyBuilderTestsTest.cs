@@ -3,7 +3,7 @@ using System.Security.Claims;
 using Kestrun.Claims;
 using Xunit;
 
-namespace KestrunTests.Claims;
+namespace Kestrun.Tests.Claims;
 
 public class ClaimPolicyBuilderTestsTest
 {

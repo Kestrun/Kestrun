@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Text;
 using Xunit;
 
-namespace KestrunTests.Models;
+namespace Kestrun.Tests.Models;
 
 public partial class KestrunResponseTests
 {

@@ -1,6 +1,6 @@
 using Xunit;
 
-namespace KestrunTests.Sse;
+namespace Kestrun.Tests.Sse;
 
 public class SseEventFormatterTests
 {

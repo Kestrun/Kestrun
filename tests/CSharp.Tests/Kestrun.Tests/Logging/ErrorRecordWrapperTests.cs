@@ -2,7 +2,7 @@ using System.Management.Automation;
 using Kestrun.Logging.Data;
 using Xunit;
 
-namespace KestrunTests.Logging;
+namespace Kestrun.Tests.Logging;
 
 public class ErrorRecordWrapperTests
 {

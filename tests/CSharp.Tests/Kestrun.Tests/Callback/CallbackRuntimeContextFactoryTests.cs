@@ -4,7 +4,7 @@ using Kestrun.Languages;
 using Microsoft.OpenApi;
 using Xunit;
 
-namespace KestrunTests.Callback;
+namespace Kestrun.Tests.Callback;
 
 public class CallbackRuntimeContextFactoryTests
 {

@@ -2,7 +2,7 @@ using Kestrun.Jwt;
 using Microsoft.IdentityModel.Tokens;
 using Xunit;
 
-namespace KestrunTests.Jwt;
+namespace Kestrun.Tests.Jwt;
 
 public class JwtBuilderResultTests
 {

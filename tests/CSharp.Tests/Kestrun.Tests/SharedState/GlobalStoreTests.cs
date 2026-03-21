@@ -1,7 +1,7 @@
 using Kestrun.SharedState;
 using Xunit;
 
-namespace KestrunTests.SharedState;
+namespace Kestrun.Tests.SharedState;
 
 [Collection("SharedStateSerial")] // Prevent parallel execution due to global state
 public class GlobalStoreTests : IDisposable

@@ -14,7 +14,7 @@ using MongoDB.Bson;
 using PeterO.Cbor;
 using Xunit;
 
-namespace KestrunTests.Languages;
+namespace Kestrun.Tests.Languages;
 
 public class ParameterForInjectionInfoTests
 {

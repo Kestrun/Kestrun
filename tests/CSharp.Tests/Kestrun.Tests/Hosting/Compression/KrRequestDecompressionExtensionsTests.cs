@@ -10,7 +10,7 @@ using Moq;
 using Serilog.Events;
 using Xunit;
 
-namespace KestrunTests.Hosting.Compression;
+namespace Kestrun.Tests.Hosting.Compression;
 
 public class KrRequestDecompressionExtensionsTests
 {

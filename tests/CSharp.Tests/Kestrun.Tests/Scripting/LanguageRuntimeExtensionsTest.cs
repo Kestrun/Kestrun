@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Kestrun.Scripting;
 
-namespace KestrunTests.Scripting;
+namespace Kestrun.Tests.Scripting;
 
 public class LanguageRuntimeExtensionsTest
 {

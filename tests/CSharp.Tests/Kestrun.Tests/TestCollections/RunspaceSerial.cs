@@ -1,6 +1,6 @@
 using Xunit;
 
-namespace KestrunTests.TestCollections;
+namespace Kestrun.Tests.TestCollections;
 
 [CollectionDefinition("RunspaceSerial", DisableParallelization = true)]
 public class RunspaceSerial : ICollectionFixture<object>

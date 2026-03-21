@@ -1,7 +1,7 @@
 using Kestrun.Authentication;
 using Xunit;
 
-namespace KestrunTests.Authentication;
+namespace Kestrun.Tests.Authentication;
 
 public sealed class AuthenticationDefaultsTests
 {

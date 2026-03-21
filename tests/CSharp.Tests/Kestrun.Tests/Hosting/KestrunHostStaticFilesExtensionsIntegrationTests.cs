@@ -6,7 +6,7 @@ using Xunit;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.Builder;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 /// <summary>
 /// Higher-level integration style tests that build the <see cref="KestrunHost"/> and exercise the static files

@@ -5,7 +5,7 @@ using Microsoft.Extensions.FileProviders;
 using Moq;
 using Xunit;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 public class KestrunHost_StaticFilesTests
 {

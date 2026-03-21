@@ -8,7 +8,7 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Xunit;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 // Kestrun uses Razor runtime compilation intentionally to support
 // PowerShell-backed Razor pages (dynamic execution model).

@@ -3,7 +3,7 @@ using Serilog;
 using Serilog.Core;
 using Serilog.Events;
 
-namespace KestrunTests.Logging;
+namespace Kestrun.Tests.Logging;
 
 // Ensures Serilog is configured at Debug level for the entire C# test run,
 // so code guarded by Log.IsEnabled(LogEventLevel.Debug) is covered.

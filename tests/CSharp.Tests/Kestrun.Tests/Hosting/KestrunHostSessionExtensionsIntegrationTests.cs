@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Kestrun.Scripting;
 using Kestrun.Utilities;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 /// <summary>
 /// Integration tests for session middleware and distributed memory cache using a live in-process server.

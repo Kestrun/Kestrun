@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Xunit;
 using Kestrun.Runtime;
 
-namespace KestrunTests.Utilities;
+namespace Kestrun.Tests.Utilities;
 
 public class VariablesMapTests
 {

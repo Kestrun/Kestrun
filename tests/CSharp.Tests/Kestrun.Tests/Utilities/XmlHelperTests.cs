@@ -3,7 +3,7 @@ using System.Collections;
 using System.Xml.Linq;
 using Xunit;
 
-namespace KestrunTests.Utilities;
+namespace Kestrun.Tests.Utilities;
 
 public class XmlHelperTests
 {

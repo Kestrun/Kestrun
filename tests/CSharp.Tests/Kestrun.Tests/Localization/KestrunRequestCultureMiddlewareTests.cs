@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Xunit;
 
-namespace KestrunTests.Localization;
+namespace Kestrun.Tests.Localization;
 
 public class KestrunRequestCultureMiddlewareTests
 {

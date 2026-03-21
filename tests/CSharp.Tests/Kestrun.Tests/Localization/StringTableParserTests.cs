@@ -2,7 +2,7 @@ using System.Text.Json;
 using Kestrun.Localization;
 using Xunit;
 
-namespace KestrunTests.Localization;
+namespace Kestrun.Tests.Localization;
 
 public class StringTableParserTests
 {

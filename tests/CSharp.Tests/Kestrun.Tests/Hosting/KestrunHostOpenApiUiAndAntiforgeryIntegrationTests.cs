@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Builder;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 [Collection("SharedStateSerial")]
 public sealed class KestrunHostOpenApiUiAndAntiforgeryIntegrationTests

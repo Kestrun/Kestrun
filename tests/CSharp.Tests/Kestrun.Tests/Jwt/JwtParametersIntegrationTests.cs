@@ -3,7 +3,7 @@ using System.Security.Cryptography.X509Certificates;
 using Kestrun.Jwt;
 using Xunit;
 
-namespace KestrunTests.Jwt;
+namespace Kestrun.Tests.Jwt;
 
 public class JwtParametersIntegrationTests
 {

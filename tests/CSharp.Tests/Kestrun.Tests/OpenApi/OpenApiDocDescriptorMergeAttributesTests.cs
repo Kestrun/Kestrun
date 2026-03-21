@@ -2,7 +2,7 @@ using System.Reflection;
 using Kestrun.OpenApi;
 using Xunit;
 
-namespace KestrunTests.OpenApi;
+namespace Kestrun.Tests.OpenApi;
 
 public sealed class OpenApiDocDescriptorMergeAttributesTests
 {

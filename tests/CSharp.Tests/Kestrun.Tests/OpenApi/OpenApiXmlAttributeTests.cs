@@ -7,7 +7,7 @@ using Serilog.Core;
 using Serilog.Events;
 using Xunit;
 
-namespace KestrunTests.OpenApi;
+namespace Kestrun.Tests.OpenApi;
 
 /// <summary>
 /// Tests for OpenApiXmlAttribute and XML metadata serialization in OpenAPI schemas.

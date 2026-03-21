@@ -2,7 +2,7 @@ using Kestrun.Utilities.Yaml;
 using Xunit;
 using YamlDotNet.RepresentationModel;
 
-namespace KestrunTests.YamlUtilities;
+namespace Kestrun.Tests.YamlUtilities;
 
 public class YamlHelperAndLoaderTests
 {

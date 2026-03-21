@@ -9,7 +9,7 @@ using Kestrun.Utilities;
 using Microsoft.OpenApi;
 using Xunit;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 [Collection("SharedStateSerial")]
 public class KestrunHostFormRouteExtensionsTests
@@ -72,7 +72,9 @@ public class KestrunHostFormRouteExtensionsTests
         Assert.Contains("Bearer", routeOptions.RequireSchemes);
         Assert.Contains("AdminOnly", routeOptions.RequirePolicies);
 
-        var metadata = Assert.IsType<OpenAPIPathMetadata>(routeOptions.OpenAPI[HttpVerb.Post]);
+        Assert.NotNull(routeOptions.OpenAPI);
+        Assert.True(routeOptions.OpenAPI!.TryGetValue(HttpVerb.Post, out var postMetadata));
+        var metadata = Assert.IsType<OpenAPIPathMetadata>(postMetadata);
         Assert.Equal("UploadForm", metadata.OperationId);
         Assert.Equal("Upload a multipart payload.", metadata.Summary);
         Assert.Equal("Uploads files and form fields.", metadata.Description);
@@ -80,6 +82,7 @@ public class KestrunHostFormRouteExtensionsTests
         var documentIds = Assert.IsType<string[]>(metadata.DocumentId);
         Assert.Equal(["forms-doc"], documentIds);
         var requestBody = Assert.IsType<Microsoft.OpenApi.OpenApiRequestBody>(metadata.RequestBody);
+        Assert.NotNull(requestBody.Content);
         Assert.Contains("multipart/form-data", requestBody.Content.Keys);
         Assert.Contains("application/x-www-form-urlencoded", requestBody.Content.Keys);
     }
@@ -136,25 +139,38 @@ public class KestrunHostFormRouteExtensionsTests
         var requestBody = Assert.IsType<Microsoft.OpenApi.OpenApiRequestBody>(InvokePrivate("BuildOpenApiRequestBody", options));
         Assert.True(requestBody.Required);
 
-        var multipart = Assert.IsType<Microsoft.OpenApi.OpenApiMediaType>(requestBody.Content["multipart/form-data"]);
-        var urlEncoded = Assert.IsType<Microsoft.OpenApi.OpenApiMediaType>(requestBody.Content["application/x-www-form-urlencoded"]);
+        Assert.NotNull(requestBody.Content);
+        Assert.True(requestBody.Content.TryGetValue("multipart/form-data", out var multipartMediaType));
+        Assert.True(requestBody.Content.TryGetValue("application/x-www-form-urlencoded", out var urlEncodedMediaType));
+        var multipart = Assert.IsType<Microsoft.OpenApi.OpenApiMediaType>(multipartMediaType);
+        var urlEncoded = Assert.IsType<Microsoft.OpenApi.OpenApiMediaType>(urlEncodedMediaType);
 
         var multipartObject = Assert.IsType<Microsoft.OpenApi.OpenApiSchema>(multipart.Schema);
         Assert.Equal(JsonSchemaType.Object, multipartObject.Type);
-        Assert.Contains("file", multipartObject.Required!);
-        var fileSchema = Assert.IsType<Microsoft.OpenApi.OpenApiSchema>(multipartObject.Properties["file"]);
-        var tagsSchema = Assert.IsType<Microsoft.OpenApi.OpenApiSchema>(multipartObject.Properties["tags"]);
+        var multipartRequired = Assert.IsAssignableFrom<ICollection<string>>(multipartObject.Required);
+        Assert.Contains("file", multipartRequired);
+
+        var multipartProperties = Assert.IsAssignableFrom<IDictionary<string, Microsoft.OpenApi.IOpenApiSchema>>(multipartObject.Properties);
+        Assert.True(multipartProperties.TryGetValue("file", out var fileSchemaNode));
+        Assert.True(multipartProperties.TryGetValue("tags", out var tagsSchemaNode));
+        var fileSchema = Assert.IsType<Microsoft.OpenApi.OpenApiSchema>(fileSchemaNode);
+        var tagsSchema = Assert.IsType<Microsoft.OpenApi.OpenApiSchema>(tagsSchemaNode);
         Assert.Equal("binary", fileSchema.Format);
         Assert.Equal(JsonSchemaType.Array, tagsSchema.Type);
-        Assert.Equal("string", tagsSchema.Items!.Type.ToString().ToLowerInvariant());
+        var tagsItemSchema = Assert.IsType<Microsoft.OpenApi.OpenApiSchema>(tagsSchema.Items);
+        Assert.Equal(JsonSchemaType.String, tagsItemSchema.Type);
 
         var urlEncodedObject = Assert.IsType<Microsoft.OpenApi.OpenApiSchema>(urlEncoded.Schema);
         Assert.Equal(JsonSchemaType.Object, urlEncodedObject.Type);
-        var urlEncodedFileSchema = Assert.IsType<Microsoft.OpenApi.OpenApiSchema>(urlEncodedObject.Properties["file"]);
+        Assert.NotNull(urlEncodedObject.Properties);
+        Assert.True(urlEncodedObject.Properties.TryGetValue("file", out var urlEncodedFileSchemaNode));
+        var urlEncodedFileSchema = Assert.IsType<Microsoft.OpenApi.OpenApiSchema>(urlEncodedFileSchemaNode);
         Assert.Null(urlEncodedFileSchema.Format);
         Assert.NotNull(multipart.Encoding);
         var multipartEncoding = Assert.IsType<Dictionary<string, Microsoft.OpenApi.OpenApiEncoding>>(multipart.Encoding);
-        Assert.Equal("image/png", multipartEncoding["file"].ContentType);
+        Assert.True(multipartEncoding.TryGetValue("file", out var fileEncoding));
+        var nonNullFileEncoding = Assert.IsType<Microsoft.OpenApi.OpenApiEncoding>(fileEncoding);
+        Assert.Equal("image/png", nonNullFileEncoding.ContentType);
     }
 
     [Fact]

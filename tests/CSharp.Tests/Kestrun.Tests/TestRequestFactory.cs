@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Serilog;
 
-namespace KestrunTests;
+namespace Kestrun.Tests;
 
 /// <summary>
 /// Test-only factory for creating KestrunRequest instances via its non-public constructor.

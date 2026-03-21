@@ -17,7 +17,7 @@ using System.Management.Automation;
 using System.Management.Automation.Runspaces;
 using Serilog;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 [Collection("SharedStateSerial")]
 public class KestrunHostAuthExtensionsTests
@@ -534,7 +534,7 @@ public class KestrunHostAuthExtensionsTests
             ClientId = "oidc-client",
             ClientSecret = "oidc-secret",
             Authority = "https://example.invalid",
-            JwkJson = "{\"kty\":\"oct\",\"k\":\"AQAB\"}",
+            JwkJson = /*lang=json,strict*/ "{\"kty\":\"oct\",\"k\":\"AQAB\"}",
         };
         options.Scope.Add("openid");
 
@@ -550,8 +550,9 @@ public class KestrunHostAuthExtensionsTests
 
     [Fact]
     [Trait("Category", "Hosting")]
-    public void GetSupportedScopes_WithLocalOidcMetadata_ReturnsPolicies()
+    public async Task GetSupportedScopes_WithLocalOidcMetadata_ReturnsPolicies()
     {
+        var cancellationToken = TestContext.Current.CancellationToken;
         var listener = new HttpListener();
         var port = GetFreeTcpPort();
         var prefix = $"http://127.0.0.1:{port}/";
@@ -584,7 +585,7 @@ public class KestrunHostAuthExtensionsTests
                     }
                     else if (requestPath.Contains("/jwks", StringComparison.Ordinal))
                     {
-                        body = "{\"keys\":[]}";
+                        body = /*lang=json,strict*/ "{\"keys\":[]}";
                     }
                     else
                     {
@@ -595,7 +596,7 @@ public class KestrunHostAuthExtensionsTests
                     context.Response.StatusCode = 200;
                     context.Response.ContentType = "application/json";
                     context.Response.ContentLength64 = responseBytes.Length;
-                    await context.Response.OutputStream.WriteAsync(responseBytes, 0, responseBytes.Length);
+                    await context.Response.OutputStream.WriteAsync(responseBytes, cancellationToken);
                     context.Response.Close();
                 }
             }
@@ -603,7 +604,7 @@ public class KestrunHostAuthExtensionsTests
             {
                 // Listener teardown path.
             }
-        });
+        }, cancellationToken);
 
         try
         {
@@ -619,7 +620,7 @@ public class KestrunHostAuthExtensionsTests
         finally
         {
             listener.Stop();
-            serveTask.GetAwaiter().GetResult();
+            await serveTask;
         }
     }
 
@@ -627,10 +628,11 @@ public class KestrunHostAuthExtensionsTests
     [Trait("Category", "Hosting")]
     public async Task LoggingHttpMessageHandler_CapturesTokenResponse_AndPreservesStream()
     {
+        var cancellationToken = TestContext.Current.CancellationToken;
         var handlerType = typeof(KestrunHostAuthnExtensions).GetNestedType("LoggingHttpMessageHandler", BindingFlags.NonPublic);
         Assert.NotNull(handlerType);
 
-        const string payload = "{\"access_token\":\"abc123\",\"token_type\":\"Bearer\"}";
+        const string payload = /*lang=json,strict*/ "{\"access_token\":\"abc123\",\"token_type\":\"Bearer\"}";
         using var inner = new StubMessageHandler(_ =>
         {
             var response = new HttpResponseMessage(HttpStatusCode.OK)
@@ -644,8 +646,8 @@ public class KestrunHostAuthExtensionsTests
         using var loggingHandler = (HttpMessageHandler)Activator.CreateInstance(handlerType!, inner, logger)!;
         using var client = new HttpClient(loggingHandler) { BaseAddress = new Uri("https://example.invalid/") };
 
-        using var response = await client.PostAsync("connect/token", new StringContent("grant_type=client_credentials", Encoding.UTF8, "application/x-www-form-urlencoded"));
-        var body = await response.Content.ReadAsStringAsync();
+        using var response = await client.PostAsync("connect/token", new StringContent("grant_type=client_credentials", Encoding.UTF8, "application/x-www-form-urlencoded"), cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
 
         Assert.Equal(payload, body);
 
@@ -658,10 +660,11 @@ public class KestrunHostAuthExtensionsTests
     [Trait("Category", "Hosting")]
     public async Task LoggingHttpMessageHandler_LogsAndPreservesNonTokenResponses()
     {
+        var cancellationToken = TestContext.Current.CancellationToken;
         var handlerType = typeof(KestrunHostAuthnExtensions).GetNestedType("LoggingHttpMessageHandler", BindingFlags.NonPublic);
         Assert.NotNull(handlerType);
 
-        const string payload = "{\"status\":\"ok\"}";
+        const string payload = /*lang=json,strict*/ "{\"status\":\"ok\"}";
         using var inner = new StubMessageHandler(_ =>
         {
             var response = new HttpResponseMessage(HttpStatusCode.OK)
@@ -680,8 +683,8 @@ public class KestrunHostAuthExtensionsTests
             Content = new StringContent("client=demo", Encoding.UTF8, "application/x-www-form-urlencoded")
         };
 
-        using var response = await client.SendAsync(request);
-        var body = await response.Content.ReadAsStringAsync();
+        using var response = await client.SendAsync(request, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
         Assert.Equal(payload, body);
     }
 

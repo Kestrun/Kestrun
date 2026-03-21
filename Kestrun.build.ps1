@@ -740,7 +740,7 @@ Add-BuildTask 'Normalize-LineEndings' {
             # Replace CRLF with LF
             $text = $text -replace "`r`n", "`n"
             # Write back with UTF-8 (no BOM, cross-platform friendly)
-            [System.IO.File]::WriteAllText($_.FullName, $text, (New-Object System.Text.UTF8Encoding($false)))
+            [System.IO.File]::WriteAllText($OutputPath, $output, ([System.Text.UTF8Encoding]::new($false)))
             Write-Host "Normalized line endings in $($_.FullName)"
         }
 }

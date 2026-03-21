@@ -240,7 +240,7 @@ Step-by-step guides to build and ship with Kestrun. This index lists runnable sa
 | PowerShell Version | Install (Run Samples) | Notes |
 |--------------------|-----------------------|-------|
 | 7.4 / 7.5 | [.NET 8 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) | Bundles base runtime + ASP.NET Core |
-| 7.6 (RC) | [.NET 10 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | Release candidate - may update before GA |
+| 7.6 | [.NET 10 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | Bundles base runtime + ASP.NET Core |
 
 If you already have the **.NET SDK** for those versions installed you don't need to install the runtime separately.
 
@@ -253,7 +253,7 @@ Verify (optional):
 dotnet --list-runtimes | Where-Object { $_ -match 'Microsoft.(AspNetCore|NETCore).App' }
 ```
 
-You should see `Microsoft.AspNetCore.App 8.0.x` (and 10.0.x if using PS 7.6 RC).
+You should see `Microsoft.AspNetCore.App 8.0.x` (and 10.0.x if using PowerShell 7.6 ).
 
 ## Quick start: run the samples
 
@@ -365,5 +365,5 @@ if ($PSCmdlet.ShouldProcess($OutputPath, 'Write generated tutorial index')) {
     if (-not (Test-Path -LiteralPath $outDir)) {
         [void](New-Item -ItemType Directory -Path $outDir -Force)
     }
-    [System.IO.File]::WriteAllText($OutputPath, $output, [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($OutputPath, $output, ([System.Text.UTF8Encoding]::new($false)))
 }

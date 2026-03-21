@@ -247,7 +247,7 @@ For `service install`:
 - If both `Service.psd1` and CLI provide a service log path, `--service-log-path` overrides descriptor `ServiceLogPath`.
 - Content-root installs create bundles at `<deployment-root>/<Name>/`.
 - `PreservePaths` is an optional string array of relative file/folder paths to keep from the currently installed application during `service update --package`.
-- `PreservePaths` entries must stay inside the service application root (no absolute paths, no `..` traversal).
+- `PreservePaths` entries must be relative and resolve inside the service application root (absolute paths and root-escaping paths are rejected).
 
 Example `Service.psd1` with `PreservePaths`:
 
@@ -309,7 +309,7 @@ Use this flow when you want a repeatable package artifact for install/update.
 ```powershell
 # Create/update Service.psd1 in your app root
 $newDescriptorParams = @{
-  Path = '.\MyServiceApp\Service.psd1'
+  Path = '.\MyServiceApp'
   Name = 'MuseumService'
   Description = 'Museum API service bundle'
   Version = [Version]'1.2.0'
@@ -328,7 +328,7 @@ New-KrServicePackage -SourceFolder .\MyServiceApp -OutputPath .\museum-service-1
 # Inspect descriptor contents from an existing package
 $tmp = Join-Path $env:TEMP ("kestrun-krpack-inspect-" + [guid]::NewGuid().ToString('N'))
 Expand-Archive -LiteralPath .\museum-service-1.2.0.krpack -DestinationPath $tmp -Force
-Get-KrServiceDescriptor -Path (Join-Path $tmp 'Service.psd1')
+Get-KrServiceDescriptor -Path $tmp
 
 # Optional integrity hash for distribution/sign-off
 Get-FileHash .\museum-service-1.2.0.krpack -Algorithm SHA256
@@ -342,7 +342,7 @@ $tmp = Join-Path $env:TEMP ("kestrun-krpack-edit-" + [guid]::NewGuid().ToString(
 Expand-Archive -LiteralPath .\museum-service-1.2.0.krpack -DestinationPath $tmp -Force
 
 $setDescriptorParams = @{
-  Path = (Join-Path $tmp 'Service.psd1')
+  Path = $tmp
   Version = [Version]'1.2.1'
   Description = 'Museum API service bundle v1.2.1'
   EntryPoint = './Service.ps1'
@@ -354,6 +354,8 @@ New-KrServicePackage -SourceFolder $tmp -OutputPath .\museum-service-1.2.1.krpac
 ```
 
 `Service.psd1` in `.krpack` is format `1.0`; `FormatVersion` and `EntryPoint` are required.
+`-Path` for descriptor cmdlets may be the descriptor file path or the containing directory.
+`EntryPoint` must be a relative path that resolves to an existing file inside the descriptor directory.
 
 ## Dedicated service-host direct run
 
@@ -407,6 +409,16 @@ dotnet tool uninstall --local Kestrun.Tool
 dotnet tool install --local Kestrun.Tool --add-source .\artifacts\nuget --ignore-failed-sources --prerelease
 dotnet tool restore
 ```
+
+## Troubleshooting (Windows service remove cleanup)
+
+`dotnet kestrun service remove --name <service>` now waits for service stop and retries bundle cleanup before warning.
+
+If you still see a warning like `Failed to remove service bundle ... file is being used by another process`:
+
+- Wait a few seconds for process teardown to complete.
+- Re-run `dotnet kestrun service remove --name <service>` to finish bundle cleanup.
+- If needed, stop any process still using files under `%ProgramData%\Kestrun\Services\<service>` and remove the folder.
 
 ## Troubleshooting (Linux)
 

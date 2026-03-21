@@ -1,10 +1,11 @@
-﻿<#
+<#
 .SYNOPSIS
     Reads a Service.psd1 descriptor file.
 .DESCRIPTION
     Reads Service.psd1 and returns a normalized object with FormatVersion, Name, Description, Version, EntryPoint, ServiceLogPath, and PreservePaths.
 .PARAMETER Path
-    Descriptor path. Defaults to Service.psd1 in the current directory.
+    Descriptor path. Accepts either a descriptor file path or a directory path.
+    When a directory path is provided, Service.psd1 is appended automatically.
 .EXAMPLE
     Get-KrServiceDescriptor
 #>
@@ -19,6 +20,10 @@ function Get-KrServiceDescriptor {
     )
 
     $fullPath = [System.IO.Path]::GetFullPath($Path)
+    if (Test-Path -LiteralPath $fullPath -PathType Container) {
+        $fullPath = Join-Path -Path $fullPath -ChildPath 'Service.psd1'
+    }
+
     if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) {
         throw "Descriptor file not found: $fullPath"
     }

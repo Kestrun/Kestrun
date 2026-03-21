@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Creates a Service.psd1 descriptor file.
 .DESCRIPTION
@@ -6,7 +6,8 @@
     Required keys are FormatVersion, Name, Description, Version, and EntryPoint.
     Optional keys are ServiceLogPath and PreservePaths.
 .PARAMETER Path
-    Target descriptor path. Defaults to Service.psd1 in the current directory.
+    Target descriptor path. Accepts either a descriptor file path or a directory path.
+    When a directory path is provided, Service.psd1 is appended automatically.
 .PARAMETER Name
     Immutable service name value written to the descriptor.
 .PARAMETER Description
@@ -63,6 +64,14 @@ function New-KrServiceDescriptor {
     )
 
     $fullPath = [System.IO.Path]::GetFullPath($Path)
+    if (Test-Path -LiteralPath $fullPath -PathType Container) {
+        $fullPath = Join-Path -Path $fullPath -ChildPath 'Service.psd1'
+    }
+
+    if ([System.IO.Path]::GetExtension($fullPath) -ne '.psd1') {
+        throw "Path must target a .psd1 descriptor file or an existing directory: $fullPath"
+    }
+
     if ((Test-Path -LiteralPath $fullPath) -and -not $Force) {
         throw "Descriptor file already exists: $fullPath. Use -Force to overwrite."
     }
@@ -76,6 +85,21 @@ function New-KrServiceDescriptor {
     $escapedDescription = $Description.Replace("'", "''")
     $escapedVersion = $Version.ToString().Replace("'", "''")
     $resolvedEntryPoint = if ([string]::IsNullOrWhiteSpace($EntryPoint)) { 'Service.ps1' } else { $EntryPoint }
+
+    if ([System.IO.Path]::IsPathRooted($resolvedEntryPoint)) {
+        throw "EntryPoint must be a relative path under the descriptor directory: $resolvedEntryPoint"
+    }
+
+    $entryPointPath = [System.IO.Path]::GetFullPath((Join-Path -Path $directory -ChildPath $resolvedEntryPoint))
+    $descriptorRootWithSeparator = if ($directory.EndsWith([System.IO.Path]::DirectorySeparatorChar)) { $directory } else { $directory + [System.IO.Path]::DirectorySeparatorChar }
+    if (-not $entryPointPath.StartsWith($descriptorRootWithSeparator, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "EntryPoint must resolve to a file under descriptor path: $resolvedEntryPoint"
+    }
+
+    if (-not (Test-Path -LiteralPath $entryPointPath -PathType Leaf)) {
+        throw "EntryPoint file not found under descriptor path: $resolvedEntryPoint"
+    }
+
     $escapedEntryPoint = $resolvedEntryPoint.Replace("'", "''")
 
     $contentLines = [System.Collections.Generic.List[string]]::new()

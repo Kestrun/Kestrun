@@ -1,11 +1,12 @@
-﻿<#
+<#
 .SYNOPSIS
     Updates a Service.psd1 descriptor file.
 .DESCRIPTION
     Updates Description, Version, EntryPoint, ServiceLogPath, and PreservePaths values in Service.psd1.
     Name is immutable and cannot be changed by this cmdlet.
 .PARAMETER Path
-    Descriptor path. Defaults to Service.psd1 in the current directory.
+    Descriptor path. Accepts either a descriptor file path or a directory path.
+    When a directory path is provided, Service.psd1 is appended automatically.
 .PARAMETER Description
     New description value.
 .PARAMETER Version
@@ -126,6 +127,21 @@ function Set-KrServiceDescriptor {
         }
 
         throw 'Service descriptor is missing a valid EntryPoint. Update the descriptor or pass -EntryPoint with a non-empty value.'
+    }
+
+    if ([System.IO.Path]::IsPathRooted($nextEntryPoint)) {
+        throw "EntryPoint must be a relative path under the descriptor directory: $nextEntryPoint"
+    }
+
+    $descriptorDirectory = [System.IO.Path]::GetDirectoryName($current.Path)
+    $entryPointPath = [System.IO.Path]::GetFullPath((Join-Path -Path $descriptorDirectory -ChildPath $nextEntryPoint))
+    $descriptorRootWithSeparator = if ($descriptorDirectory.EndsWith([System.IO.Path]::DirectorySeparatorChar)) { $descriptorDirectory } else { $descriptorDirectory + [System.IO.Path]::DirectorySeparatorChar }
+    if (-not $entryPointPath.StartsWith($descriptorRootWithSeparator, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "EntryPoint must resolve to a file under descriptor path: $nextEntryPoint"
+    }
+
+    if (-not (Test-Path -LiteralPath $entryPointPath -PathType Leaf)) {
+        throw "EntryPoint file not found under descriptor path: $nextEntryPoint"
     }
 
     $escapedName = $current.Name.Replace("'", "''")

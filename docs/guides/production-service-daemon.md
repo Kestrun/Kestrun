@@ -43,10 +43,12 @@ The package embeds `Service.psd1` metadata and app content used by `service inst
 ## Create `Service.psd1`
 
 Use `New-KrServiceDescriptor` to generate a valid descriptor in your service folder.
+`-Path` can point to the service directory; `Service.psd1` is appended automatically.
+`-EntryPoint` must resolve to an existing file under that service directory.
 
 ```powershell
 New-KrServiceDescriptor `
-  -Path .\MyServiceApp\Service.psd1 `
+  -Path .\MyServiceApp `
   -Name 'my-service' `
   -Description 'Production Kestrun service' `
   -Version 1.2.0 `
@@ -64,7 +66,7 @@ Get-KrServiceDescriptor -Path .\MyServiceApp\Service.psd1
 Update descriptor fields later (without changing `Name`):
 
 ```powershell
-Set-KrServiceDescriptor -Path .\MyServiceApp\Service.psd1 -Version 1.2.1 -Description 'Production Kestrun service (patched)'
+Set-KrServiceDescriptor -Path .\MyServiceApp -Version 1.2.1 -Description 'Production Kestrun service (patched)'
 ```
 
 ## Service Descriptor Basics (`Service.psd1`)
@@ -96,7 +98,8 @@ Example:
 }
 ```
 
-`PreservePaths` values must be relative paths inside the app root (no absolute paths and no `..` traversal). During `service update --package`, those paths are
+`PreservePaths` values must be relative paths that resolve inside the app root (absolute paths and root-escaping paths are rejected).
+During `service update --package`, those paths are
 staged from the current install and restored after the package content is applied.
 
 ## Build a `.krpack` (All `New-KrServicePackage` Options)

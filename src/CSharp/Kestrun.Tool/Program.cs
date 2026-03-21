@@ -1071,6 +1071,13 @@ internal static partial class Program
                 operationLogPath,
                 command.ServiceName);
         }
+        else if (!WaitForWindowsServiceToStopOrDisappear(command.ServiceName!, timeoutMs: 15000))
+        {
+            WriteServiceOperationLog(
+                $"Service '{command.ServiceName}' did not reach STOPPED/deleted state before delete attempt.",
+                operationLogPath,
+                command.ServiceName);
+        }
 
         var deleteResult = RunProcess("sc.exe", ["delete", command.ServiceName!]);
         if (deleteResult.ExitCode != 0)
@@ -1083,6 +1090,42 @@ internal static partial class Program
 
         Console.WriteLine($"Removed Windows service '{command.ServiceName}'.");
         return 0;
+    }
+
+    /// <summary>
+    /// Waits until a Windows service reaches STOPPED state or is no longer present in SCM.
+    /// </summary>
+    /// <param name="serviceName">Service name.</param>
+    /// <param name="timeoutMs">Maximum wait time in milliseconds.</param>
+    /// <param name="pollIntervalMs">Polling interval in milliseconds.</param>
+    /// <returns>True when the service is stopped or deleted before timeout.</returns>
+    private static bool WaitForWindowsServiceToStopOrDisappear(string serviceName, int timeoutMs = 15000, int pollIntervalMs = 300)
+    {
+        var timeout = TimeSpan.FromMilliseconds(Math.Max(timeoutMs, pollIntervalMs));
+        var deadline = DateTime.UtcNow + timeout;
+
+        while (DateTime.UtcNow <= deadline)
+        {
+            var queryResult = RunProcess("sc.exe", ["query", serviceName], writeStandardOutput: false);
+            var diagnostics = $"{queryResult.Output}\n{queryResult.Error}";
+
+            if (queryResult.ExitCode == 0)
+            {
+                if (diagnostics.Contains("STOPPED", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            else if (diagnostics.Contains("1060", StringComparison.OrdinalIgnoreCase)
+                || diagnostics.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            Thread.Sleep(pollIntervalMs);
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -3235,7 +3278,14 @@ internal static partial class Program
             var serviceRoot = Path.Combine(candidateRoot, serviceDirectoryName);
             try
             {
-                TryDeleteDirectoryWithRetry(serviceRoot);
+                if (OperatingSystem.IsWindows())
+                {
+                    TryDeleteDirectoryWithRetry(serviceRoot, maxAttempts: 15, initialDelayMs: 250);
+                }
+                else
+                {
+                    TryDeleteDirectoryWithRetry(serviceRoot);
+                }
             }
             catch (Exception ex)
             {

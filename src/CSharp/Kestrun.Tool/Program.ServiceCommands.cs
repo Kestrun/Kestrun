@@ -2114,8 +2114,7 @@ internal static partial class Program
 
         var candidatePath = candidate.TrimEnd(Path.DirectorySeparatorChar);
         if (string.IsNullOrWhiteSpace(candidatePath)
-            || string.Equals(candidatePath, ".", StringComparison.Ordinal)
-            || candidatePath.Split(Path.DirectorySeparatorChar).Any(static segment => string.Equals(segment, "..", StringComparison.Ordinal)))
+            || string.Equals(candidatePath, ".", StringComparison.Ordinal))
         {
             error = $"Service descriptor '{ServiceDescriptorFileName}' PreservePaths entry '{rawPath}' is invalid.";
             return false;

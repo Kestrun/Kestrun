@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Validates and processes a service descriptor hashtable.
 .DESCRIPTION

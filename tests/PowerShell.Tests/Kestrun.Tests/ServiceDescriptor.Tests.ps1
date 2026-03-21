@@ -1,10 +1,30 @@
-﻿param()
+param()
 
 BeforeAll {
     . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
 }
 
 Describe 'Service descriptor cmdlets' {
+    It 'New-KrServiceDescriptor accepts directory path and auto-appends Service.psd1' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-descriptor-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $scriptPath = Join-Path $tempRoot 'Service.ps1'
+        $descriptorPath = Join-Path $tempRoot 'Service.psd1'
+
+        try {
+            $null = New-Item -ItemType Directory -Path $tempRoot -Force
+            Set-Content -LiteralPath $scriptPath -Value "Write-Output 'descriptor'" -Encoding utf8NoBOM
+
+            $created = New-KrServiceDescriptor -Path $tempRoot -Name 'demo' -Description 'Demo service' -Version ([Version]'1.2.0')
+
+            Test-Path -LiteralPath $descriptorPath | Should -BeTrue
+            $created.Path | Should -Be $descriptorPath
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
     It 'New-KrServiceDescriptor creates a descriptor and Get-KrServiceDescriptor reads it' {
         $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-descriptor-{0}' -f [Guid]::NewGuid().ToString('N'))
         $descriptorPath = Join-Path $tempRoot 'Service.psd1'
@@ -35,6 +55,44 @@ Describe 'Service descriptor cmdlets' {
         }
     }
 
+    It 'New-KrServiceDescriptor fails when EntryPoint file is missing under descriptor path' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-descriptor-{0}' -f [Guid]::NewGuid().ToString('N'))
+
+        try {
+            $null = New-Item -ItemType Directory -Path $tempRoot -Force
+
+            {
+                New-KrServiceDescriptor -Path $tempRoot -Name 'demo' -Description 'Demo service' -Version ([Version]'1.2.0') -EntryPoint './missing.ps1'
+            } | Should -Throw -ExpectedMessage 'EntryPoint file not found under descriptor path: ./missing.ps1'
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'New-KrServiceDescriptor fails when EntryPoint resolves outside descriptor path' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-descriptor-{0}' -f [Guid]::NewGuid().ToString('N'))
+
+        try {
+            $null = New-Item -ItemType Directory -Path $tempRoot -Force
+            Set-Content -LiteralPath (Join-Path $tempRoot '..\outside.ps1') -Value "Write-Output 'outside'" -Encoding utf8NoBOM
+
+            {
+                New-KrServiceDescriptor -Path $tempRoot -Name 'demo' -Description 'Demo service' -Version ([Version]'1.2.0') -EntryPoint '..\outside.ps1'
+            } | Should -Throw
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+
+            $outsidePath = Join-Path $tempRoot '..\outside.ps1'
+            if (Test-Path -LiteralPath $outsidePath) {
+                Remove-Item -LiteralPath $outsidePath -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
     It 'Set-KrServiceDescriptor updates allowed fields and keeps Name unchanged' {
         $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-descriptor-{0}' -f [Guid]::NewGuid().ToString('N'))
         $descriptorPath = Join-Path $tempRoot 'Service.psd1'
@@ -54,6 +112,66 @@ Describe 'Service descriptor cmdlets' {
 
             $preserveCleared = Set-KrServiceDescriptor -Path $descriptorPath -ClearPreservePaths
             @($preserveCleared.PreservePaths) | Should -Be @()
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'Get-KrServiceDescriptor accepts directory path and reads Service.psd1' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-descriptor-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $descriptorPath = Join-Path $tempRoot 'Service.psd1'
+        $scriptPath = Join-Path $tempRoot 'Service.ps1'
+
+        try {
+            $null = New-Item -ItemType Directory -Path $tempRoot -Force
+            Set-Content -LiteralPath $scriptPath -Value "Write-Output 'descriptor'" -Encoding utf8NoBOM
+            $null = New-KrServiceDescriptor -Path $descriptorPath -Name 'demo' -Description 'Demo service' -Version ([Version]'1.2.0')
+
+            $read = Get-KrServiceDescriptor -Path $tempRoot
+            $read.Path | Should -Be $descriptorPath
+            $read.Name | Should -Be 'demo'
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'Set-KrServiceDescriptor accepts directory path and updates descriptor' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-descriptor-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $descriptorPath = Join-Path $tempRoot 'Service.psd1'
+        $scriptPath = Join-Path $tempRoot 'Service.ps1'
+
+        try {
+            $null = New-Item -ItemType Directory -Path $tempRoot -Force
+            Set-Content -LiteralPath $scriptPath -Value "Write-Output 'descriptor'" -Encoding utf8NoBOM
+            $null = New-KrServiceDescriptor -Path $descriptorPath -Name 'demo' -Description 'Demo service' -Version ([Version]'1.2.0')
+
+            $updated = Set-KrServiceDescriptor -Path $tempRoot -Version ([Version]'1.2.1') -Description 'Updated service'
+            $updated.Version | Should -Be '1.2.1'
+            $updated.Description | Should -Be 'Updated service'
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'Set-KrServiceDescriptor fails when EntryPoint file is missing under descriptor path' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-descriptor-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $descriptorPath = Join-Path $tempRoot 'Service.psd1'
+        $scriptPath = Join-Path $tempRoot 'Service.ps1'
+
+        try {
+            $null = New-Item -ItemType Directory -Path $tempRoot -Force
+            Set-Content -LiteralPath $scriptPath -Value "Write-Output 'descriptor'" -Encoding utf8NoBOM
+            $null = New-KrServiceDescriptor -Path $descriptorPath -Name 'demo' -Description 'Demo service' -Version ([Version]'1.2.0')
+
+            {
+                Set-KrServiceDescriptor -Path $tempRoot -EntryPoint './missing.ps1'
+            } | Should -Throw -ExpectedMessage 'EntryPoint file not found under descriptor path: ./missing.ps1'
         } finally {
             if (Test-Path -LiteralPath $tempRoot) {
                 Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue

@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Creates a Kestrun service package (.krpack).
 .DESCRIPTION

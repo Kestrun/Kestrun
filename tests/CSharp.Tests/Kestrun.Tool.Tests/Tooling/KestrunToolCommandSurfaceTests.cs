@@ -591,7 +591,7 @@ public class KestrunToolCommandSurfaceTests
             File.WriteAllText(runtimeSourcePath, "runtime-binary", Encoding.UTF8);
             StageDedicatedServicePayloadLayout(tempRoot, runtimeRid);
 
-            var scriptPath = Path.Combine(tempRoot, "server.ps1");
+            var scriptPath = Path.Combine(tempRoot, "Service.ps1");
             File.WriteAllText(scriptPath, "Write-Output 'hello'", Encoding.UTF8);
 
             var bundleRoot = Path.Combine(tempRoot, "bundle-root");
@@ -914,10 +914,10 @@ public class KestrunToolCommandSurfaceTests
 
     public static IEnumerable<object[]> ServiceInstallOptionsRequiringContentRootData()
     {
-        yield return [new[] { "service", "install", "--name", "demo", "--script", "server.ps1", "--content-root-checksum", "abcdef" }, "--content-root-checksum requires --content-root."];
-        yield return [new[] { "service", "install", "--name", "demo", "--script", "server.ps1", "--content-root-bearer-token", "token-value" }, "--content-root-bearer-token requires --content-root."];
-        yield return [new[] { "service", "install", "--name", "demo", "--script", "server.ps1", "--content-root-ignore-certificate" }, "--content-root-ignore-certificate requires --content-root."];
-        yield return [new[] { "service", "install", "--name", "demo", "--script", "server.ps1", "--content-root-header", "x-api-key:abc" }, "--content-root-header requires --content-root."];
+        yield return [new[] { "service", "install", "--name", "demo", "--script", "Service.ps1", "--content-root-checksum", "abcdef" }, "--content-root-checksum requires --content-root."];
+        yield return [new[] { "service", "install", "--name", "demo", "--script", "Service.ps1", "--content-root-bearer-token", "token-value" }, "--content-root-bearer-token requires --content-root."];
+        yield return [new[] { "service", "install", "--name", "demo", "--script", "Service.ps1", "--content-root-ignore-certificate" }, "--content-root-ignore-certificate requires --content-root."];
+        yield return [new[] { "service", "install", "--name", "demo", "--script", "Service.ps1", "--content-root-header", "x-api-key:abc" }, "--content-root-header requires --content-root."];
     }
 
     public static IEnumerable<object[]> ServiceUpdateFailbackRejectsContentRootOptionsData()
@@ -931,7 +931,7 @@ public class KestrunToolCommandSurfaceTests
 
     public static IEnumerable<object[]> ServiceActionUnknownOptionData()
     {
-        yield return [new[] { "service", "install", "--name", "demo", "--script", "server.ps1", "--unknown" }];
+        yield return [new[] { "service", "install", "--name", "demo", "--script", "Service.ps1", "--unknown" }];
         yield return [new[] { "service", "update", "--name", "demo", "--unknown" }];
         yield return [new[] { "service", "remove", "--name", "demo", "--unknown" }];
         yield return [new[] { "service", "start", "--name", "demo", "--unknown" }];
@@ -1078,11 +1078,11 @@ public class KestrunToolCommandSurfaceTests
 
             File.WriteAllText(Path.Combine(sourceRoot, "config", "settings.json"), "new-config", Encoding.UTF8);
             File.WriteAllText(Path.Combine(sourceRoot, "logs", "new.log"), "new-log", Encoding.UTF8);
-            File.WriteAllText(Path.Combine(sourceRoot, "server.ps1"), "Write-Output 'new'", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(sourceRoot, "Service.ps1"), "Write-Output 'new'", Encoding.UTF8);
 
             File.WriteAllText(Path.Combine(targetRoot, "config", "settings.json"), "old-config", Encoding.UTF8);
             File.WriteAllText(Path.Combine(targetRoot, "logs", "old.log"), "old-log", Encoding.UTF8);
-            File.WriteAllText(Path.Combine(targetRoot, "server.ps1"), "Write-Output 'old'", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(targetRoot, "Service.ps1"), "Write-Output 'old'", Encoding.UTF8);
 
             var (Success, Error) = InvokeTryReplaceDirectoryFromSource(sourceRoot, targetRoot, ["config/settings.json", "logs/"]);
 
@@ -1090,7 +1090,40 @@ public class KestrunToolCommandSurfaceTests
             Assert.True(string.IsNullOrWhiteSpace(Error));
             Assert.Equal("old-config", File.ReadAllText(Path.Combine(targetRoot, "config", "settings.json"), Encoding.UTF8));
             Assert.Equal("old-log", File.ReadAllText(Path.Combine(targetRoot, "logs", "old.log"), Encoding.UTF8));
-            Assert.Equal("Write-Output 'new'", File.ReadAllText(Path.Combine(targetRoot, "server.ps1"), Encoding.UTF8));
+            Assert.Equal("Write-Output 'new'", File.ReadAllText(Path.Combine(targetRoot, "Service.ps1"), Encoding.UTF8));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryReplaceDirectoryFromSource_WithTraversingPreservePathInsideRoot_PreservesTargetContent()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            var sourceRoot = Path.Combine(tempRoot, "source");
+            var targetRoot = Path.Combine(tempRoot, "target");
+            _ = Directory.CreateDirectory(Path.Combine(sourceRoot, "config"));
+            _ = Directory.CreateDirectory(Path.Combine(targetRoot, "config"));
+
+            File.WriteAllText(Path.Combine(sourceRoot, "Service.ps1"), "Write-Output 'new'", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(sourceRoot, "secrets.json"), "new-secret", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(targetRoot, "Service.ps1"), "Write-Output 'old'", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(targetRoot, "secrets.json"), "old-secret", Encoding.UTF8);
+
+            var (Success, Error) = InvokeTryReplaceDirectoryFromSource(sourceRoot, targetRoot, ["config/../secrets.json"]);
+
+            Assert.True(Success, Error);
+            Assert.True(string.IsNullOrWhiteSpace(Error));
+            Assert.Equal("old-secret", File.ReadAllText(Path.Combine(targetRoot, "secrets.json"), Encoding.UTF8));
+            Assert.Equal("Write-Output 'new'", File.ReadAllText(Path.Combine(targetRoot, "Service.ps1"), Encoding.UTF8));
         }
         finally
         {
@@ -1337,7 +1370,7 @@ public class KestrunToolCommandSurfaceTests
             _ = Directory.CreateDirectory(tempRoot);
             Environment.CurrentDirectory = tempRoot;
 
-            var scriptPath = Path.Combine(tempRoot, "server.ps1");
+            var scriptPath = Path.Combine(tempRoot, "Service.ps1");
             File.WriteAllText(scriptPath, "Write-Output 'hello'", Encoding.UTF8);
 
             var (Success, parsedCommand, parseError) = InvokeTryParseArguments([
@@ -1346,7 +1379,7 @@ public class KestrunToolCommandSurfaceTests
                 "--name",
                 "demo",
                 "--script",
-                "server.ps1",
+                "Service.ps1",
             ]);
 
             Assert.True(Success);
@@ -1354,8 +1387,8 @@ public class KestrunToolCommandSurfaceTests
 
             var result = InvokeTryResolveServiceScriptSource(parsedCommand!);
             Assert.True(result.Success, result.Error);
-            Assert.Equal(Path.GetFullPath("server.ps1"), Path.GetFullPath(result.FullScriptPath));
-            Assert.Equal("server.ps1", result.RelativeScriptPath);
+            Assert.Equal(Path.GetFullPath("Service.ps1"), Path.GetFullPath(result.FullScriptPath));
+            Assert.Equal("Service.ps1", result.RelativeScriptPath);
             Assert.True(string.IsNullOrWhiteSpace(result.FullContentRoot));
         }
         finally
@@ -1378,7 +1411,7 @@ public class KestrunToolCommandSurfaceTests
             "--name",
             "demo",
             "--script",
-            "server.ps1",
+            "Service.ps1",
             "--content-root-bearer-token",
             "token-value",
         ]);
@@ -1439,7 +1472,7 @@ public class KestrunToolCommandSurfaceTests
         {
             var contentRoot = Path.Combine(tempRoot, "content");
             _ = Directory.CreateDirectory(contentRoot);
-            File.WriteAllText(Path.Combine(contentRoot, "server.ps1"), "Write-Output 'hello'", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(contentRoot, "Service.ps1"), "Write-Output 'hello'", Encoding.UTF8);
             File.WriteAllText(
                 Path.Combine(contentRoot, "Service.psd1"),
                 "@{`n    Name = 'demo'`n    Version = '1.2.0'`n}",
@@ -1477,7 +1510,7 @@ public class KestrunToolCommandSurfaceTests
         {
             var contentRoot = Path.Combine(tempRoot, "content");
             _ = Directory.CreateDirectory(contentRoot);
-            File.WriteAllText(Path.Combine(contentRoot, "server.ps1"), "Write-Output 'hello'", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(contentRoot, "Service.ps1"), "Write-Output 'hello'", Encoding.UTF8);
             File.WriteAllText(
                 Path.Combine(contentRoot, "Service.psd1"),
                 "@{`n    Name = 'demo'`n    Description = 'Demo service'`n    Version = '1.2.0-beta1'`n}",
@@ -1515,7 +1548,7 @@ public class KestrunToolCommandSurfaceTests
         {
             var contentRoot = Path.Combine(tempRoot, "content");
             _ = Directory.CreateDirectory(contentRoot);
-            File.WriteAllText(Path.Combine(contentRoot, "server.ps1"), "Write-Output 'hello'", Encoding.UTF8);
+            File.WriteAllText(Path.Combine(contentRoot, "Service.ps1"), "Write-Output 'hello'", Encoding.UTF8);
             File.WriteAllText(Path.Combine(contentRoot, "Service.ps1"), "Write-Output 'hello'", Encoding.UTF8);
             File.WriteAllText(
                 Path.Combine(contentRoot, "Service.psd1"),
@@ -1611,7 +1644,7 @@ public class KestrunToolCommandSurfaceTests
             _ = Directory.CreateDirectory(contentRoot);
             File.WriteAllText(
                 Path.Combine(contentRoot, "Service.psd1"),
-                $"@{{`n    Name = 'demo'`n    Description = 'Demo service'`n    Version = '1.2.0'`n    Script = '{Path.Combine(contentRoot, "server.ps1")}'`n}}",
+                $"@{{`n    Name = 'demo'`n    Description = 'Demo service'`n    Version = '1.2.0'`n    Script = '{Path.Combine(contentRoot, "Service.ps1")}'`n}}",
                 Encoding.UTF8);
 
             var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
@@ -1722,7 +1755,7 @@ public class KestrunToolCommandSurfaceTests
             File.WriteAllText(runtimeSourcePath, "runtime-binary", Encoding.UTF8);
             StageDedicatedServicePayloadLayout(tempRoot, runtimeRid);
 
-            var scriptPath = Path.Combine(tempRoot, "server.ps1");
+            var scriptPath = Path.Combine(tempRoot, "Service.ps1");
             File.WriteAllText(scriptPath, "Write-Output 'hello'", Encoding.UTF8);
 
             var bundleRoot = Path.Combine(tempRoot, "bundle-root");
@@ -1850,7 +1883,7 @@ public class KestrunToolCommandSurfaceTests
             var zipPath = Path.Combine(tempRoot, "app.zip");
             CreateZipArchive(zipPath, new Dictionary<string, string>
             {
-                ["server.ps1"] = "Write-Output 'hello'",
+                ["Service.ps1"] = "Write-Output 'hello'",
             });
 
             var (_, parsedCommand, parseError) = InvokeTryParseArguments([
@@ -2211,7 +2244,7 @@ public class KestrunToolCommandSurfaceTests
             var zipPath = Path.Combine(tempRoot, "app.zip");
             CreateZipArchive(zipPath, new Dictionary<string, string>
             {
-                ["server.ps1"] = "Write-Output 'hello'",
+                ["Service.ps1"] = "Write-Output 'hello'",
             });
 
             var (_, parsedCommand, parseError) = InvokeTryParseArguments([
@@ -2246,7 +2279,7 @@ public class KestrunToolCommandSurfaceTests
             var zipPath = Path.Combine(tempRoot, "app.zip");
             CreateZipArchive(zipPath, new Dictionary<string, string>
             {
-                ["server.ps1"] = "Write-Output 'hello'",
+                ["Service.ps1"] = "Write-Output 'hello'",
             });
 
             var (_, parsedCommand, parseError) = InvokeTryParseArguments([
@@ -2343,7 +2376,7 @@ public class KestrunToolCommandSurfaceTests
     public void BuildWindowsServiceHostArguments_UsesBundledManifestPath()
     {
         var runnerPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "runtime", "Kestrun.Runner.dll"));
-        var bundledScriptPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "Application", "server.ps1"));
+        var bundledScriptPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "Application", "Service.ps1"));
         var bundledManifestPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "bundle", "module", "Kestrun.psd1"));
 
         var args = (IReadOnlyList<string>)Invoke(
@@ -2450,7 +2483,7 @@ public class KestrunToolCommandSurfaceTests
         var plist = InvokeBuildLaunchdPlist(
             "com.kestrun.demo",
             "/opt/kestrun/demo",
-            ["/usr/local/bin/kestrun-service-host", "--run", "server.ps1"],
+            ["/usr/local/bin/kestrun-service-host", "--run", "Service.ps1"],
             "svc-kestrun");
 
         Assert.Contains("<key>UserName</key>", plist, StringComparison.Ordinal);
@@ -2464,7 +2497,7 @@ public class KestrunToolCommandSurfaceTests
         var plist = InvokeBuildLaunchdPlist(
             "com.kestrun.demo",
             "/opt/kestrun/demo",
-            ["/usr/local/bin/kestrun-service-host", "--run", "server.ps1"],
+            ["/usr/local/bin/kestrun-service-host", "--run", "Service.ps1"],
             null);
 
         Assert.DoesNotContain("<key>UserName</key>", plist, StringComparison.Ordinal);

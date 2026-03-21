@@ -33,7 +33,7 @@ Kestrun — PowerShell brains. Kestrel speed.
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/download/dotnet/10.0)
 [![PowerShell 7.4](https://img.shields.io/badge/PowerShell-7.4-blue)](https://github.com/PowerShell/PowerShell/releases/tag/v7.4.0)
 [![PowerShell 7.5](https://img.shields.io/badge/PowerShell-7.5-blue)](https://github.com/PowerShell/PowerShell/releases/tag/v7.5.0)
-[![PowerShell 7.6](https://img.shields.io/badge/PowerShell-7.6(rc)-blue)](https://github.com/PowerShell/PowerShell/releases/tag/v7.6.0-rc-1)
+[![PowerShell 7.6](https://img.shields.io/badge/PowerShell-7.6-blue)](https://github.com/PowerShell/PowerShell/releases/tag/v7.6.0)
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 [![Contributions](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -91,7 +91,7 @@ You can find guides, API references, and usage examples to help you get started 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) **AND**
   [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
   (solution multi-targets net8.0 + net10.0; net9.0 available via `-Frameworks` parameter)
-- **PowerShell 7.4+** (7.4 / 7.5 run on .NET 8; 7.6 preview runs on .NET 10)
+- **PowerShell 7.4+** (7.4 / 7.5 run on .NET 8; 7.6 runs on .NET 10)
 
 **Invoke-Build** and **Pester** PowerShell modules:
 
@@ -107,7 +107,7 @@ matching the PowerShell version you are using:
 | PowerShell Version | Install (Run-only) | Rationale |
 |--------------------|--------------------|-----------|
 | 7.4 / 7.5 | [.NET 8 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) | Bundles Microsoft.NETCore.App + Microsoft.AspNetCore.App 8.x |
-| 7.6 (rc) | [.NET 10 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | rc runtime aligning with PS 7.6 build |
+| 7.6 (rc) | [.NET 10 ASP.NET Core Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | Runtime aligning with PS 7.6 build |
 
 Installing the **.NET SDK** already gives you the corresponding runtimes. For run-only scenarios the
 **ASP.NET Core Runtime** alone is sufficient (it includes the base .NET runtime).

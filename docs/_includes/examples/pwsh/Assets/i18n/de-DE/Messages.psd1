@@ -1,4 +1,4 @@
-﻿@{
+@{
     # German localization strings
     Hello = "Hallo"
     Labels = @{

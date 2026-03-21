@@ -1,4 +1,4 @@
-﻿@{
+@{
     # Italian localization strings
     Hello = "Ciao"
     Labels = @{

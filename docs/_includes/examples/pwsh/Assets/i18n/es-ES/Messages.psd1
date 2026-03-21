@@ -1,4 +1,4 @@
-﻿@{
+@{
     # Spanish localization strings
     Hello = "Hola"
     Labels = @{

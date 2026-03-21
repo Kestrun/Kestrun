@@ -1,4 +1,4 @@
-﻿@{
+@{
     # English string table
     Hello = 'Hello'
     Labels = @{

@@ -1,4 +1,4 @@
-﻿@{
+@{
     # Be explicit
     IncludeDefaultRules = $true
 

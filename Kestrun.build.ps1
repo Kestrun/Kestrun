@@ -731,9 +731,9 @@ Add-BuildTask Update-Module {
 }
 
 Add-BuildTask 'Normalize-LineEndings' {
-    Write-Host '🔄 Normalizing line endings to LF in .ps1, .psm1, and .cs files...'
+    Write-Host '🔄 Normalizing line endings to LF in .ps1, .psm1, .cs, .md, and .psd1 files...'
 
-    Get-ChildItem -Recurse -Include *.ps1, *.psm1, *.cs |
+    Get-ChildItem -Recurse -Include *.ps1, *.psm1, *.cs, *.md, *.psd1 |
         Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } |
         ForEach-Object {
             $text = Get-Content -Raw -Path $_.FullName

@@ -1,4 +1,4 @@
-﻿@{
+@{
     # Italian string table
     Hello = 'Ciao'
     Labels = @{

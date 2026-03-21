@@ -1,4 +1,4 @@
-﻿@{
+@{
     # English localization strings
     Hello = "Hello"
     Labels = @{

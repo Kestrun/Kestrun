@@ -1,4 +1,4 @@
-﻿@{
+@{
     # Spanish string table
     Hello = "Hola"
     Labels = @{

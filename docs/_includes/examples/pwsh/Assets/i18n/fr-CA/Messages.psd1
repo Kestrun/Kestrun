@@ -1,4 +1,4 @@
-﻿@{
+@{
     # French localization strings
     Hello = "Bonjour du Canada !"
     Page = @{

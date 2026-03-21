@@ -1,4 +1,4 @@
-﻿@{
+@{
     # French string table
     Hello = "Bonjour"
     Labels = @{

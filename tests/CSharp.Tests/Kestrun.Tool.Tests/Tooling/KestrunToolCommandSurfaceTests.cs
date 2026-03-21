@@ -13,6 +13,7 @@ namespace Kestrun.Tool.Tests.Tooling;
 public class KestrunToolCommandSurfaceTests
 {
     private static readonly Type ProgramType = ResolveProgramType();
+    private static readonly Type ModuleStorageScopeType = ProgramType.GetNestedType("ModuleStorageScope", BindingFlags.NonPublic)!;
 
     [Fact]
     [Trait("Category", "Tooling")]
@@ -370,6 +371,131 @@ public class KestrunToolCommandSurfaceTests
     {
         var comparison = (int)Invoke("CompareModuleVersionValues", "1.0.0-beta4", "1.0.0-beta3");
         Assert.True(comparison > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryGetInstalledModuleVersionText_FallsBackToParentDirectoryVersion()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            var versionDirectory = Path.Combine(tempRoot, "1.2.3");
+            _ = Directory.CreateDirectory(versionDirectory);
+
+            var manifestPath = Path.Combine(versionDirectory, "Kestrun.psd1");
+            File.WriteAllText(manifestPath, "not-a-manifest", Encoding.UTF8);
+
+            var (success, versionText) = InvokeTryGetInstalledModuleVersionText(manifestPath);
+
+            Assert.True(success);
+            Assert.Equal("1.2.3", versionText);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryGetLatestInstalledModuleVersionText_ResolvesVersionFromLocalScope()
+    {
+        var localScope = Enum.Parse(ModuleStorageScopeType, "Local", ignoreCase: false);
+        var modulePath = Assert.IsType<string>(Invoke("GetPowerShellModulePath", localScope));
+        var moduleRoot = Path.Combine(modulePath, "Kestrun");
+        var versionFolder = Path.Combine(moduleRoot, "9999.0.0");
+        var manifestPath = Path.Combine(versionFolder, "Kestrun.psd1");
+
+        _ = Directory.CreateDirectory(versionFolder);
+        File.WriteAllText(
+            manifestPath,
+            "@{\n    ModuleVersion = '9999.0.0'\n}",
+            Encoding.UTF8);
+
+        try
+        {
+            var (success, versionText) = InvokeTryGetLatestInstalledModuleVersionText(localScope);
+            Assert.True(success);
+            Assert.Equal("9999.0.0", versionText);
+        }
+        finally
+        {
+            if (Directory.Exists(versionFolder))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(versionFolder, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseVersionValue_HandlesValidAndInvalidInputs()
+    {
+        var (successStable, stableVersion) = InvokeTryParseVersionValue("1.2.3");
+        Assert.True(successStable);
+        Assert.Equal("1.2.3", stableVersion);
+
+        var (successPre, prereleaseVersion) = InvokeTryParseVersionValue("2.0.0-beta4");
+        Assert.True(successPre);
+        Assert.Equal("2.0.0", prereleaseVersion);
+
+        var (successInvalid, invalidVersion) = InvokeTryParseVersionValue("abc");
+        Assert.False(successInvalid);
+        Assert.Equal("0.0", invalidVersion);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void WriteWarningToLogOrConsole_WritesToConfiguredLogFile()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-warning-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var logPath = Path.Combine(tempRoot, "service.log");
+
+            InvokeVoid("WriteWarningToLogOrConsole", "test-warning-message", logPath);
+
+            var text = File.ReadAllText(logPath, Encoding.UTF8);
+            Assert.Contains("test-warning-message", text, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void GalleryVersionHelpers_ReturnEitherVersionsOrErrorMessage()
+    {
+        var (versionsSuccess, versions, versionsError) = InvokeTryGetGalleryModuleVersions();
+        if (versionsSuccess)
+        {
+            Assert.NotEmpty(versions);
+            Assert.True(versions.All(static v => !string.IsNullOrWhiteSpace(v)));
+        }
+        else
+        {
+            Assert.True(!string.IsNullOrWhiteSpace(versionsError));
+        }
+
+        var (latestSuccess, latestVersion, latestError) = InvokeTryGetLatestGalleryVersionString();
+        if (latestSuccess)
+        {
+            Assert.True(!string.IsNullOrWhiteSpace(latestVersion));
+        }
+        else
+        {
+            Assert.True(!string.IsNullOrWhiteSpace(latestError));
+        }
     }
 
     [Fact]
@@ -2636,6 +2762,62 @@ public class KestrunToolCommandSurfaceTests
         var success = InvokeRequiredBool(method, values);
         var version = values[1]?.ToString() ?? string.Empty;
         return (success, version);
+    }
+
+    private static (bool Success, string Version) InvokeTryGetInstalledModuleVersionText(string manifestPath)
+    {
+        var method = GetRequiredProgramMethod("TryGetInstalledModuleVersionText");
+
+        var values = new object?[] { manifestPath, null };
+        var success = InvokeRequiredBool(method, values);
+        var version = values[1]?.ToString() ?? string.Empty;
+        return (success, version);
+    }
+
+    private static (bool Success, string Version) InvokeTryGetLatestInstalledModuleVersionText(object scope)
+    {
+        var method = GetRequiredProgramMethod("TryGetLatestInstalledModuleVersionText");
+
+        var values = new object?[] { scope, null };
+        var success = InvokeRequiredBool(method, values);
+        var version = values[1]?.ToString() ?? string.Empty;
+        return (success, version);
+    }
+
+    private static (bool Success, string VersionText) InvokeTryParseVersionValue(string? rawValue)
+    {
+        var method = GetRequiredProgramMethod("TryParseVersionValue");
+
+        var values = new object?[] { rawValue, null };
+        var success = InvokeRequiredBool(method, values);
+        var version = values[1] is Version parsedVersion
+            ? parsedVersion.ToString()
+            : values[1]?.ToString() ?? string.Empty;
+        return (success, version);
+    }
+
+    private static (bool Success, IReadOnlyList<string> Versions, string Error) InvokeTryGetGalleryModuleVersions()
+    {
+        var method = GetRequiredProgramMethod("TryGetGalleryModuleVersions");
+
+        var values = new object?[] { null, null };
+        var success = InvokeRequiredBool(method, values);
+        var versions = values[0] is System.Collections.IEnumerable enumerable
+            ? enumerable.Cast<object>().Select(static item => item?.ToString() ?? string.Empty).ToList()
+            : [];
+        var error = values[1]?.ToString() ?? string.Empty;
+        return (success, versions, error);
+    }
+
+    private static (bool Success, string Version, string Error) InvokeTryGetLatestGalleryVersionString()
+    {
+        var method = GetRequiredProgramMethod("TryGetLatestGalleryVersionString");
+
+        var values = new object?[] { null, null };
+        var success = InvokeRequiredBool(method, values);
+        var version = values[0]?.ToString() ?? string.Empty;
+        var error = values[1]?.ToString() ?? string.Empty;
+        return (success, version, error);
     }
 
     private static (bool Success, string Error) InvokeTryValidateInstallAction(string moduleRoot, string scopeToken)

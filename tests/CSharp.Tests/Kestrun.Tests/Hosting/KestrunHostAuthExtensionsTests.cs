@@ -1,5 +1,9 @@
 using System.Security.Claims;
 using System.Text;
+using System.Net;
+using System.Net.Http;
+using System.Net.Sockets;
+using System.Reflection;
 using Kestrun.Authentication;
 using Kestrun.Claims;
 using Kestrun.Hosting;
@@ -11,6 +15,7 @@ using Xunit;
 using Microsoft.AspNetCore.Http;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using Serilog;
 
 namespace KestrunTests.Hosting;
 
@@ -479,5 +484,228 @@ public class KestrunHostAuthExtensionsTests
 
         var claims = await options.IssueClaims!(ctx, "client1");
         Assert.Contains(claims, c => c.Type == ClaimTypes.Name && c.Value == "client1");
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void OAuth2_Adds_Scheme_And_DefaultPolicyFromScopes()
+    {
+        var host = new KestrunHost("TestApp");
+        var options = new OAuth2Options
+        {
+            ClientId = "client-id",
+            ClientSecret = "secret",
+            AuthorizationEndpoint = "https://auth.example/authorize",
+            TokenEndpoint = "https://auth.example/token",
+        };
+        options.Scope.Add("openid");
+        options.Scope.Add("profile");
+
+        _ = host.AddOAuth2Authentication("OAuth2X", "OAuth2 X", options);
+        _ = host.Build();
+
+        Assert.True(host.HasAuthScheme("OAuth2X"));
+        Assert.True(host.HasAuthPolicy("openid"));
+        Assert.True(host.HasAuthPolicy("profile"));
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void OAuth2_Throws_When_ClientIdMissing()
+    {
+        var host = new KestrunHost("TestApp");
+        var options = new OAuth2Options
+        {
+            ClientId = "",
+            AuthorizationEndpoint = "https://auth.example/authorize",
+            TokenEndpoint = "https://auth.example/token",
+        };
+
+        _ = Assert.Throws<ArgumentException>(() => host.AddOAuth2Authentication("OAuth2MissingClient", configureOptions: options));
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void OpenIdConnect_WithJwkJson_ConfiguresEventsType()
+    {
+        var host = new KestrunHost("TestApp");
+        var options = new OidcOptions
+        {
+            ClientId = "oidc-client",
+            ClientSecret = "oidc-secret",
+            Authority = "https://example.invalid",
+            JwkJson = "{\"kty\":\"oct\",\"k\":\"AQAB\"}",
+        };
+        options.Scope.Add("openid");
+
+        _ = host.AddOpenIdConnectAuthentication("OidcX", "OIDC X", options);
+        var app = host.Build();
+
+        var monitor = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions>>();
+        var configured = monitor.Get("OidcX");
+
+        Assert.True(host.HasAuthScheme("OidcX"));
+        Assert.Equal(typeof(OidcEvents), configured.EventsType);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void GetSupportedScopes_WithLocalOidcMetadata_ReturnsPolicies()
+    {
+        var listener = new HttpListener();
+        var port = GetFreeTcpPort();
+        var prefix = $"http://127.0.0.1:{port}/";
+        listener.Prefixes.Add(prefix);
+        listener.Start();
+
+        var metadata = $$"""
+            {
+              "issuer": "{{prefix.TrimEnd('/')}}",
+              "authorization_endpoint": "{{prefix}}authorize",
+              "token_endpoint": "{{prefix}}token",
+              "jwks_uri": "{{prefix}}jwks",
+              "scopes_supported": ["openid", "profile", "email"]
+            }
+            """;
+
+        var serveTask = Task.Run(async () =>
+        {
+            try
+            {
+                for (var i = 0; i < 3 && listener.IsListening; i++)
+                {
+                    var context = await listener.GetContextAsync();
+                    var requestPath = context.Request.Url?.AbsolutePath ?? string.Empty;
+                    string body;
+
+                    if (requestPath.Contains("/.well-known/openid-configuration", StringComparison.Ordinal))
+                    {
+                        body = metadata;
+                    }
+                    else if (requestPath.Contains("/jwks", StringComparison.Ordinal))
+                    {
+                        body = "{\"keys\":[]}";
+                    }
+                    else
+                    {
+                        body = "{}";
+                    }
+
+                    var responseBytes = Encoding.UTF8.GetBytes(body);
+                    context.Response.StatusCode = 200;
+                    context.Response.ContentType = "application/json";
+                    context.Response.ContentLength64 = responseBytes.Length;
+                    await context.Response.OutputStream.WriteAsync(responseBytes, 0, responseBytes.Length);
+                    context.Response.Close();
+                }
+            }
+            catch
+            {
+                // Listener teardown path.
+            }
+        });
+
+        try
+        {
+            var method = typeof(KestrunHostAuthnExtensions).GetMethod("GetSupportedScopes", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(method);
+
+            var claimPolicy = method!.Invoke(null, [prefix.TrimEnd('/'), Serilog.Log.Logger]) as ClaimPolicyConfig;
+            Assert.NotNull(claimPolicy);
+            Assert.Contains("openid", claimPolicy!.PolicyNames);
+            Assert.Contains("profile", claimPolicy.PolicyNames);
+            Assert.Contains("email", claimPolicy.PolicyNames);
+        }
+        finally
+        {
+            listener.Stop();
+            serveTask.GetAwaiter().GetResult();
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public async Task LoggingHttpMessageHandler_CapturesTokenResponse_AndPreservesStream()
+    {
+        var handlerType = typeof(KestrunHostAuthnExtensions).GetNestedType("LoggingHttpMessageHandler", BindingFlags.NonPublic);
+        Assert.NotNull(handlerType);
+
+        const string payload = "{\"access_token\":\"abc123\",\"token_type\":\"Bearer\"}";
+        using var inner = new StubMessageHandler(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(payload, Encoding.UTF8, "application/json")
+            };
+            return response;
+        });
+
+        var logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Sink(new NullSink()).CreateLogger();
+        using var loggingHandler = (HttpMessageHandler)Activator.CreateInstance(handlerType!, inner, logger)!;
+        using var client = new HttpClient(loggingHandler) { BaseAddress = new Uri("https://example.invalid/") };
+
+        using var response = await client.PostAsync("connect/token", new StringContent("grant_type=client_credentials", Encoding.UTF8, "application/x-www-form-urlencoded"));
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(payload, body);
+
+        var lastBodyProperty = handlerType!.GetProperty("LastTokenResponseBody", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(lastBodyProperty);
+        Assert.Equal(payload, lastBodyProperty!.GetValue(null)?.ToString());
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public async Task LoggingHttpMessageHandler_LogsAndPreservesNonTokenResponses()
+    {
+        var handlerType = typeof(KestrunHostAuthnExtensions).GetNestedType("LoggingHttpMessageHandler", BindingFlags.NonPublic);
+        Assert.NotNull(handlerType);
+
+        const string payload = "{\"status\":\"ok\"}";
+        using var inner = new StubMessageHandler(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(payload, Encoding.UTF8, "application/json")
+            };
+            return response;
+        });
+
+        var logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Sink(new NullSink()).CreateLogger();
+        using var loggingHandler = (HttpMessageHandler)Activator.CreateInstance(handlerType!, inner, logger)!;
+        using var client = new HttpClient(loggingHandler) { BaseAddress = new Uri("https://example.invalid/") };
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "userinfo")
+        {
+            Content = new StringContent("client=demo", Encoding.UTF8, "application/x-www-form-urlencoded")
+        };
+
+        using var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Equal(payload, body);
+    }
+
+    private static int GetFreeTcpPort()
+    {
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        return port;
+    }
+
+    private sealed class StubMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder = responder;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(_responder(request));
+    }
+
+    private sealed class NullSink : Serilog.Core.ILogEventSink
+    {
+        public void Emit(Serilog.Events.LogEvent logEvent)
+        {
+        }
     }
 }

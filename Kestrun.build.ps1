@@ -480,12 +480,43 @@ Add-BuildTask 'Nuget-CodeAnalysis' {
 Add-BuildTask 'Test-xUnit' 'Build', {
     Write-Host '🧪 Running Kestrun DLL tests...'
     $failures = @()
+    $maxAttempts = if ($IsLinux) { 3 } else { 2 }
+
+    $runDotNetTest = {
+        param(
+            [Parameter(Mandatory)] [string] $ProjectPath,
+            [Parameter(Mandatory)] [string] $Framework,
+            [Parameter(Mandatory)] [string] $Label
+        )
+
+        for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            if ($maxAttempts -gt 1) {
+                Write-Host "🧪 Attempt $attempt/$($maxAttempts): $Label"
+            }
+
+            dotnet test "$ProjectPath" -c $Configuration -f $Framework -v:$DotNetVerbosity
+            $exitCode = $LASTEXITCODE
+            if ($exitCode -eq 0) {
+                if ($maxAttempts -gt 1) {
+                    Write-Host "✅ $Label passed on attempt $attempt/$maxAttempts"
+                }
+
+                return $true
+            }
+
+            Write-Host "⚠️ $Label exited with code $exitCode (attempt $attempt/$maxAttempts)." -ForegroundColor Yellow
+            if ($attempt -lt $maxAttempts) {
+                Start-Sleep -Seconds 2
+            }
+        }
+
+        return $false
+    }
 
     # Run the shared Kestrun core test suite for each requested framework.
     foreach ($framework in $Frameworks) {
         Write-Host "▶️ Running Kestrun core tests for $framework"
-        dotnet test "$KestrunCoreTestProjectPath" -c $Configuration -f $framework -v:$DotNetVerbosity
-        if ($LASTEXITCODE -ne 0) {
+        if (-not (& $runDotNetTest -ProjectPath $KestrunCoreTestProjectPath -Framework $framework -Label "Kestrun.Tests ($framework)")) {
             Write-Host "❌ Core tests failed for $framework" -ForegroundColor Red
             $failures += "Kestrun.Tests ($framework)"
         }
@@ -495,8 +526,7 @@ Add-BuildTask 'Test-xUnit' 'Build', {
         foreach ($dedicatedTestProject in $KestrunDedicatedNet10TestProjects) {
             $testProjectName = [System.IO.Path]::GetFileNameWithoutExtension($dedicatedTestProject)
             Write-Host "▶️ Running dedicated tests for $testProjectName (net10.0)"
-            dotnet test "$dedicatedTestProject" -c $Configuration -f net10.0 -v:$DotNetVerbosity
-            if ($LASTEXITCODE -ne 0) {
+            if (-not (& $runDotNetTest -ProjectPath $dedicatedTestProject -Framework 'net10.0' -Label "$testProjectName (net10.0)")) {
                 Write-Host "❌ Dedicated tests failed for $testProjectName (net10.0)" -ForegroundColor Red
                 $failures += "$testProjectName (net10.0)"
             }

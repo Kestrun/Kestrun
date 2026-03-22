@@ -13,7 +13,6 @@ namespace Kestrun.Tool.Tests.Tooling;
 public class KestrunToolCommandSurfaceTests
 {
     private static readonly Type ProgramType = ResolveProgramType();
-    private static readonly Type ModuleStorageScopeType = ProgramType.GetNestedType("ModuleStorageScope", BindingFlags.NonPublic)!;
 
     [Fact]
     [Trait("Category", "Tooling")]
@@ -404,29 +403,28 @@ public class KestrunToolCommandSurfaceTests
     [Trait("Category", "Tooling")]
     public void TryGetLatestInstalledModuleVersionText_ResolvesVersionFromLocalScope()
     {
-        var localScope = Enum.Parse(ModuleStorageScopeType, "Local", ignoreCase: false);
-        var modulePath = Assert.IsType<string>(Invoke("GetPowerShellModulePath", localScope));
-        var moduleRoot = Path.Combine(modulePath, "Kestrun");
-        var versionFolder = Path.Combine(moduleRoot, "9999.0.0");
-        var manifestPath = Path.Combine(versionFolder, "Kestrun.psd1");
-
-        _ = Directory.CreateDirectory(versionFolder);
-        File.WriteAllText(
-            manifestPath,
-            "@{\n    ModuleVersion = '9999.0.0'\n}",
-            Encoding.UTF8);
-
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
         try
         {
-            var (success, versionText) = InvokeTryGetLatestInstalledModuleVersionText(localScope);
+            var moduleRoot = Path.Combine(tempRoot, "Kestrun");
+            var versionFolder = Path.Combine(moduleRoot, "9999.0.0");
+            var manifestPath = Path.Combine(versionFolder, "Kestrun.psd1");
+
+            _ = Directory.CreateDirectory(versionFolder);
+            File.WriteAllText(
+                manifestPath,
+                "@{\n    ModuleVersion = '9999.0.0'\n}",
+                Encoding.UTF8);
+
+            var (success, versionText) = InvokeTryGetLatestInstalledModuleVersionTextFromModuleRoot(moduleRoot);
             Assert.True(success);
             Assert.Equal("9999.0.0", versionText);
         }
         finally
         {
-            if (Directory.Exists(versionFolder))
+            if (Directory.Exists(tempRoot))
             {
-                _ = InvokeTryDeleteDirectoryWithRetry(versionFolder, maxAttempts: 20, initialDelayMs: 50);
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
             }
         }
     }
@@ -2782,11 +2780,11 @@ public class KestrunToolCommandSurfaceTests
         return (success, version);
     }
 
-    private static (bool Success, string Version) InvokeTryGetLatestInstalledModuleVersionText(object scope)
+    private static (bool Success, string Version) InvokeTryGetLatestInstalledModuleVersionTextFromModuleRoot(string moduleRoot)
     {
-        var method = GetRequiredProgramMethod("TryGetLatestInstalledModuleVersionText");
+        var method = GetRequiredProgramMethod("TryGetLatestInstalledModuleVersionTextFromModuleRoot");
 
-        var values = new object?[] { scope, null };
+        var values = new object?[] { moduleRoot, null };
         var success = InvokeRequiredBool(method, values);
         var version = values[1]?.ToString() ?? string.Empty;
         return (success, version);

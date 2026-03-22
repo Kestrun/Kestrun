@@ -4350,10 +4350,20 @@ internal static partial class Program
     /// <returns>True when an installed version was found in the scope.</returns>
     private static bool TryGetLatestInstalledModuleVersionText(ModuleStorageScope scope, out string versionText)
     {
-        versionText = string.Empty;
-
         var modulePath = GetPowerShellModulePath(scope);
         var moduleRoot = Path.Combine(modulePath, ModuleName);
+        return TryGetLatestInstalledModuleVersionTextFromModuleRoot(moduleRoot, out versionText);
+    }
+
+    /// <summary>
+    /// Attempts to read the latest installed module version text from a specific module root path.
+    /// </summary>
+    /// <param name="moduleRoot">Root directory containing versioned module folders.</param>
+    /// <param name="versionText">Installed semantic version text when available.</param>
+    /// <returns>True when an installed version was found in the module root.</returns>
+    private static bool TryGetLatestInstalledModuleVersionTextFromModuleRoot(string moduleRoot, out string versionText)
+    {
+        versionText = string.Empty;
         var records = GetInstalledModuleRecords(moduleRoot);
         if (records.Count == 0)
         {
@@ -4443,9 +4453,17 @@ internal static partial class Program
             return false;
         }
 
-        versions.Sort(CompareModuleVersionValues);
-        version = versions[^1];
-        return true;
+        var latestVersion = versions[0];
+        for (var index = 1; index < versions.Count; index++)
+        {
+            if (CompareModuleVersionValues(versions[index], latestVersion) > 0)
+            {
+                latestVersion = versions[index];
+            }
+        }
+
+        version = latestVersion;
+        return !string.IsNullOrWhiteSpace(version);
     }
 
     /// <summary>

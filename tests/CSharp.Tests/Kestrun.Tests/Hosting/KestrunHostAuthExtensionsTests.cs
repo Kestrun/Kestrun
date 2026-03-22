@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using System.Text;
 using System.Net;
-using System.Net.Http;
 using System.Net.Sockets;
 using System.Reflection;
 using Kestrun.Authentication;
@@ -43,7 +42,7 @@ public class KestrunHostAuthExtensionsTests
             AuthenticationType.Certificate,
             out var opts));
         Assert.NotNull(opts);
-        Assert.Equal(host, opts!.Host);
+        Assert.Equal(host, opts.Host);
     }
 
     [Fact]
@@ -553,11 +552,7 @@ public class KestrunHostAuthExtensionsTests
     public async Task GetSupportedScopes_WithLocalOidcMetadata_ReturnsPolicies()
     {
         var cancellationToken = TestContext.Current.CancellationToken;
-        var listener = new HttpListener();
-        var port = GetFreeTcpPort();
-        var prefix = $"http://127.0.0.1:{port}/";
-        listener.Prefixes.Add(prefix);
-        listener.Start();
+        var (listener, prefix) = StartHttpListenerWithRetry();
 
         var metadata = $$"""
             {
@@ -577,21 +572,9 @@ public class KestrunHostAuthExtensionsTests
                 {
                     var context = await listener.GetContextAsync();
                     var requestPath = context.Request.Url?.AbsolutePath ?? string.Empty;
-                    string body;
-
-                    if (requestPath.Contains("/.well-known/openid-configuration", StringComparison.Ordinal))
-                    {
-                        body = metadata;
-                    }
-                    else if (requestPath.Contains("/jwks", StringComparison.Ordinal))
-                    {
-                        body = /*lang=json,strict*/ "{\"keys\":[]}";
-                    }
-                    else
-                    {
-                        body = "{}";
-                    }
-
+                    var body = requestPath.Contains("/.well-known/openid-configuration", StringComparison.Ordinal)
+                        ? metadata
+                        : requestPath.Contains("/jwks", StringComparison.Ordinal) ? /*lang=json,strict*/ "{\"keys\":[]}" : "{}";
                     var responseBytes = Encoding.UTF8.GetBytes(body);
                     context.Response.StatusCode = 200;
                     context.Response.ContentType = "application/json";
@@ -611,9 +594,9 @@ public class KestrunHostAuthExtensionsTests
             var method = typeof(KestrunHostAuthnExtensions).GetMethod("GetSupportedScopes", BindingFlags.NonPublic | BindingFlags.Static);
             Assert.NotNull(method);
 
-            var claimPolicy = method!.Invoke(null, [prefix.TrimEnd('/'), Serilog.Log.Logger]) as ClaimPolicyConfig;
+            var claimPolicy = method.Invoke(null, [prefix.TrimEnd('/'), Log.Logger]) as ClaimPolicyConfig;
             Assert.NotNull(claimPolicy);
-            Assert.Contains("openid", claimPolicy!.PolicyNames);
+            Assert.Contains("openid", claimPolicy.PolicyNames);
             Assert.Contains("profile", claimPolicy.PolicyNames);
             Assert.Contains("email", claimPolicy.PolicyNames);
         }
@@ -688,13 +671,42 @@ public class KestrunHostAuthExtensionsTests
         Assert.Equal(payload, body);
     }
 
-    private static int GetFreeTcpPort()
+    private static (HttpListener Listener, string Prefix) StartHttpListenerWithRetry(int maxAttempts = 8)
     {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
+        HttpListenerException? lastException = null;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            var prefix = $"http://127.0.0.1:{FindAvailablePort()}/";
+            var listener = new HttpListener();
+            listener.Prefixes.Add(prefix);
+
+            try
+            {
+                listener.Start();
+                return (listener, prefix);
+            }
+            catch (HttpListenerException ex)
+            {
+                listener.Close();
+                lastException = ex;
+            }
+            catch
+            {
+                listener.Close();
+                throw;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Failed to start test HttpListener after {maxAttempts} attempts.",
+            lastException);
+    }
+
+    private static int FindAvailablePort()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
+        return ((IPEndPoint)listener.LocalEndpoint).Port;
     }
 
     private sealed class StubMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler

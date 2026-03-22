@@ -67,7 +67,7 @@ public sealed class ParameterForInjectionInfoPrivateHelperTests
         Assert.NotNull(target.Tags);
         Assert.Equal(["alpha", "beta"], target.Tags);
         Assert.NotNull(target.File);
-        Assert.Equal("demo.txt", target.File!.OriginalFileName);
+        Assert.Equal("demo.txt", target.File.OriginalFileName);
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public sealed class ParameterForInjectionInfoPrivateHelperTests
 
         var stringParam = CreateParameter("item", JsonSchemaType.String);
         var simpleValue = Invoke("ConvertFormToValue", new Dictionary<string, string> { ["item"] = "42" }, stringParam);
-        Assert.Equal("item", Assert.IsType<string>(simpleValue));
+        Assert.Equal("42", Assert.IsType<string>(simpleValue));
 
         var objectParam = CreateParameter("item", JsonSchemaType.Object);
         var objectValue = Assert.IsType<Hashtable>(Invoke("ConvertFormToValue", form, objectParam));

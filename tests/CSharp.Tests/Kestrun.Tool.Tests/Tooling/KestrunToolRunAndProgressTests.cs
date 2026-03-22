@@ -132,14 +132,26 @@ public class KestrunToolRunAndProgressTests
     [Trait("Category", "Tooling")]
     public void ExecuteScriptViaServiceHost_WhenHostBinaryMissing_ReturnsOne()
     {
-        var scriptPath = Path.Combine(Path.GetTempPath(), "run.ps1");
-        var modulePath = Path.Combine(Path.GetTempPath(), "Kestrun.psd1");
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tool-run-{Guid.NewGuid():N}");
+        var scriptPath = Path.Combine(tempRoot, "run.ps1");
+        var modulePath = Path.Combine(tempRoot, "Kestrun.psd1");
 
-        File.WriteAllText(scriptPath, "Write-Output 'ok'", System.Text.Encoding.UTF8);
-        File.WriteAllText(modulePath, "@{}", System.Text.Encoding.UTF8);
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            File.WriteAllText(scriptPath, "Write-Output 'ok'", System.Text.Encoding.UTF8);
+            File.WriteAllText(modulePath, "@{}", System.Text.Encoding.UTF8);
 
-        var result = Assert.IsType<int>(InvokeProgramMethod("ExecuteScriptViaServiceHost", scriptPath, Array.Empty<string>(), modulePath));
-        Assert.Equal(1, result);
+            var result = Assert.IsType<int>(InvokeProgramMethod("ExecuteScriptViaServiceHost", scriptPath, Array.Empty<string>(), modulePath));
+            Assert.Equal(1, result);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
     }
 
     [Fact]

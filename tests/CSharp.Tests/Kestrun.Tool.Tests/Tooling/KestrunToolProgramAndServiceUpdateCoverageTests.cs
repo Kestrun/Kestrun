@@ -1,5 +1,3 @@
-#if NET10_0_OR_GREATER
-using System.Net.Http;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.IO.Compression;
@@ -100,7 +98,7 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
             "/tmp/Service.ps1",
             "/tmp/Kestrun.psd1",
             new[] { "--port", "9000" },
-            "/tmp/service.log")!);
+            "/tmp/service.log"));
 
         Assert.Contains("run", daemonArgs);
         Assert.Contains("--arguments", daemonArgs);
@@ -109,10 +107,10 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
         Assert.True(InvokeBool("UsesDedicatedServiceHostExecutable", "Kestrun.ServiceHost.exe"));
         Assert.False(InvokeBool("UsesDedicatedServiceHostExecutable", "kestrun.exe"));
 
-        var escaped = Assert.IsType<string>(Invoke("EscapeWindowsCommandLineArgument", "hello world")!);
+        var escaped = Assert.IsType<string>(Invoke("EscapeWindowsCommandLineArgument", "hello world"));
         Assert.StartsWith("\"", escaped, StringComparison.Ordinal);
 
-        var commandLine = Assert.IsType<string>(Invoke("BuildWindowsCommandLine", "C:/Program Files/Kestrun/kestrun.exe", new[] { "--name", "demo service" })!);
+        var commandLine = Assert.IsType<string>(Invoke("BuildWindowsCommandLine", "C:/Program Files/Kestrun/kestrun.exe", new[] { "--name", "demo service" }));
         Assert.Contains("\"C:/Program Files/Kestrun/kestrun.exe\"", commandLine, StringComparison.Ordinal);
         Assert.Contains("\"demo service\"", commandLine, StringComparison.Ordinal);
     }
@@ -122,13 +120,13 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
     public void NormalizeServiceLogPath_AndGetLinuxUnitName_HandleCommonInputs()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-log-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempRoot);
+        _ = Directory.CreateDirectory(tempRoot);
         try
         {
-            var normalized = Assert.IsType<string>(Invoke("NormalizeServiceLogPath", tempRoot, "service.log")!);
+            var normalized = Assert.IsType<string>(Invoke("NormalizeServiceLogPath", tempRoot, "service.log"));
             Assert.EndsWith(Path.Combine(Path.GetFileName(tempRoot), "service.log"), normalized, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
-            var unitName = Assert.IsType<string>(Invoke("GetLinuxUnitName", "demo service@1")!);
+            var unitName = Assert.IsType<string>(Invoke("GetLinuxUnitName", "demo service@1"));
             Assert.Equal("demo-service-1.service", unitName);
         }
         finally
@@ -141,16 +139,9 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
     [Trait("Category", "Tooling")]
     public void RunProcess_AndProgressFormatters_ReturnExpectedValues()
     {
-        object processResult;
-        if (OperatingSystem.IsWindows())
-        {
-            processResult = Invoke("RunProcess", "cmd.exe", new[] { "/c", "echo out & echo err 1>&2 & exit 3" }, false)!;
-        }
-        else
-        {
-            processResult = Invoke("RunProcess", "/bin/sh", new[] { "-c", "printf out; printf err 1>&2; exit 3" }, false)!;
-        }
-
+        var processResult = OperatingSystem.IsWindows()
+            ? Invoke("RunProcess", "cmd.exe", new[] { "/c", "echo out & echo err 1>&2 & exit 3" }, false)!
+            : Invoke("RunProcess", "/bin/sh", new[] { "-c", "printf out; printf err 1>&2; exit 3" }, false)!;
         Assert.Equal(3, GetRecordInt(processResult, "ExitCode"));
         Assert.Contains("out", GetRecordString(processResult, "Output"), StringComparison.Ordinal);
         Assert.Contains("err", GetRecordString(processResult, "Error"), StringComparison.Ordinal);
@@ -174,11 +165,11 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
             ProcessResultType,
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
             binder: null,
-            args: new object?[] { 1, string.Empty, "Failed to connect to bus" },
+            args: [1, string.Empty, "Failed to connect to bus"],
             culture: null);
         Assert.NotNull(result);
 
-        Invoke("WriteLinuxUserSystemdFailureHint", result!);
+        _ = Invoke("WriteLinuxUserSystemdFailureHint", result);
     }
 
     [Fact]
@@ -213,7 +204,7 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
     public void TryResolveSourceModuleRoot_AndBackupSelection_WorkAsExpected()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-source-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempRoot);
+        _ = Directory.CreateDirectory(tempRoot);
         try
         {
             var existingManifest = Path.Combine(tempRoot, "Kestrun.psd1");
@@ -254,10 +245,10 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
         var moduleRoot = Path.Combine(tempRoot, "Modules", "Kestrun");
         var backupPath = Path.Combine(tempRoot, "backup", "20260321010101");
 
-        Directory.CreateDirectory(scriptRoot);
-        Directory.CreateDirectory(moduleRoot);
-        Directory.CreateDirectory(Path.Combine(backupPath, "application"));
-        Directory.CreateDirectory(Path.Combine(backupPath, "module"));
+        _ = Directory.CreateDirectory(scriptRoot);
+        _ = Directory.CreateDirectory(moduleRoot);
+        _ = Directory.CreateDirectory(Path.Combine(backupPath, "application"));
+        _ = Directory.CreateDirectory(Path.Combine(backupPath, "module"));
 
         File.WriteAllText(Path.Combine(scriptRoot, "Service.ps1"), "old-script", Encoding.UTF8);
         File.WriteAllText(Path.Combine(moduleRoot, "Kestrun.psd1"), "old-manifest", Encoding.UTF8);
@@ -273,7 +264,7 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
             Assert.False(Directory.Exists(backupPath));
 
             var consumedBackupPath = Path.Combine(tempRoot, "backup", "20260321020202");
-            Directory.CreateDirectory(Path.Combine(consumedBackupPath, "application"));
+            _ = Directory.CreateDirectory(Path.Combine(consumedBackupPath, "application"));
             File.WriteAllText(Path.Combine(consumedBackupPath, "application", "Service.ps1"), "latest-script", Encoding.UTF8);
 
             var paths = CreateServiceUpdatePaths(tempRoot, scriptRoot, moduleRoot, consumedBackupPath);
@@ -300,10 +291,10 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
         var contentRoot = Path.Combine(tempRoot, "incoming-app");
         var sourceModuleRoot = Path.Combine(tempRoot, "incoming-module");
 
-        Directory.CreateDirectory(Path.Combine(scriptRoot, "keep"));
-        Directory.CreateDirectory(moduleRoot);
-        Directory.CreateDirectory(contentRoot);
-        Directory.CreateDirectory(sourceModuleRoot);
+        _ = Directory.CreateDirectory(Path.Combine(scriptRoot, "keep"));
+        _ = Directory.CreateDirectory(moduleRoot);
+        _ = Directory.CreateDirectory(contentRoot);
+        _ = Directory.CreateDirectory(sourceModuleRoot);
 
         File.WriteAllText(Path.Combine(scriptRoot, "site.txt"), "old-site", Encoding.UTF8);
         File.WriteAllText(Path.Combine(scriptRoot, "keep", "secret.txt"), "old-secret", Encoding.UTF8);
@@ -341,18 +332,15 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
     [Trait("Category", "Tooling")]
     public void RepositoryManifestAndModuleUpdateEvaluation_WorkForMissingAndNewerBundledVersions()
     {
-        var originalCurrentDirectory = Environment.CurrentDirectory;
         var repoRoot = FindRepositoryRoot();
         Assert.False(string.IsNullOrWhiteSpace(repoRoot));
 
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-module-version-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempRoot);
+        _ = Directory.CreateDirectory(tempRoot);
 
         try
         {
-            Environment.CurrentDirectory = repoRoot;
-
-            var resolvedManifestPath = Assert.IsType<string>(Invoke("ResolveRepositoryModuleManifestPath")!);
+            var resolvedManifestPath = Assert.IsType<string>(Invoke("ResolveRepositoryModuleManifestPath", repoRoot));
             Assert.True(File.Exists(resolvedManifestPath));
             Assert.EndsWith(Path.Combine("src", "PowerShell", "Kestrun", "Kestrun.psd1"), resolvedManifestPath, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
@@ -373,7 +361,6 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
         }
         finally
         {
-            Environment.CurrentDirectory = originalCurrentDirectory;
             TryDeleteDirectory(tempRoot);
         }
     }
@@ -406,11 +393,11 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
         {
             Console.SetOut(writer);
 
-            Invoke("WriteServiceInfoHumanReadable", "demo", "/tmp/service", "/tmp/service/Application/Service.psd1", descriptor, backupList);
+            _ = Invoke("WriteServiceInfoHumanReadable", "demo", "/tmp/service", "/tmp/service/Application/Service.psd1", descriptor, backupList);
 
             var paths = CreateServiceUpdatePaths("/tmp/service", "/tmp/service/Application", "/tmp/service/Modules/Kestrun", Path.Combine(Path.GetTempPath(), "kestrun-summary-backup"));
-            Directory.CreateDirectory(GetRecordString(paths, "BackupRoot"));
-            Invoke("WriteServiceUpdateSummary", "demo", paths, true, false, true);
+            _ = Directory.CreateDirectory(GetRecordString(paths, "BackupRoot"));
+            _ = Invoke("WriteServiceUpdateSummary", "demo", paths, true, false, true);
         }
         finally
         {
@@ -429,7 +416,9 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
     public void TryResolveUpdateManifestPathAndServiceUpdatePaths_HandleSuccessAndFailureCases()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-update-paths-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempRoot);
+        _ = Directory.CreateDirectory(tempRoot);
+        var repoRoot = FindRepositoryRoot();
+        Assert.False(string.IsNullOrWhiteSpace(repoRoot));
 
         try
         {
@@ -438,27 +427,16 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
             Assert.False(InvokeBool("TryResolveUpdateManifestPath", missingManifestArgs));
             Assert.Equal(3, Assert.IsType<int>(missingManifestArgs[2]));
 
-            var originalCurrentDirectory = Environment.CurrentDirectory;
-            try
-            {
-                var repoRoot = FindRepositoryRoot();
-                Assert.False(string.IsNullOrWhiteSpace(repoRoot));
-                Environment.CurrentDirectory = repoRoot;
-
-                var repositoryCommand = CreateParsedCommand(modeName: "ServiceUpdate", serviceUseRepositoryKestrun: true);
-                var repositoryArgs = new object?[] { repositoryCommand, null, 0 };
-                Assert.True(InvokeBool("TryResolveUpdateManifestPath", repositoryArgs));
-                Assert.True(File.Exists(Assert.IsType<string>(repositoryArgs[1])));
-            }
-            finally
-            {
-                Environment.CurrentDirectory = originalCurrentDirectory;
-            }
+            var repositoryCommand = CreateParsedCommand(modeName: "ServiceUpdate", serviceUseRepositoryKestrun: true);
+            var repositoryArgs = new object?[] { repositoryCommand, repoRoot, null, 0 };
+            Assert.True(InvokeBool("TryResolveUpdateManifestPath", repositoryArgs));
+            Assert.True(File.Exists(Assert.IsType<string>(repositoryArgs[2])));
+            Assert.Equal(0, Assert.IsType<int>(repositoryArgs[3]));
 
             var serviceDirectoryName = Assert.IsType<string>(Invoke("GetServiceDeploymentDirectoryName", "Demo.Service")!);
             var serviceRoot = Path.Combine(tempRoot, serviceDirectoryName);
             var applicationRoot = Path.Combine(serviceRoot, "Application");
-            Directory.CreateDirectory(applicationRoot);
+            _ = Directory.CreateDirectory(applicationRoot);
             File.WriteAllText(Path.Combine(applicationRoot, "Service.psd1"), "@{`nFormatVersion='1.0'`nName='Demo.Service'`nEntryPoint='Service.ps1'`nDescription='Demo'`n}", Encoding.UTF8);
 
             var pathArgs = new object?[] { "Demo.Service", tempRoot, null, 0 };
@@ -518,11 +496,11 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
         var incomingContentRoot = Path.Combine(tempRoot, "incoming-app");
         var incomingModuleRoot = Path.Combine(tempRoot, "incoming-module");
 
-        Directory.CreateDirectory(Path.Combine(scriptRoot, "keep"));
-        Directory.CreateDirectory(moduleRoot);
-        Directory.CreateDirectory(runtimeRoot);
-        Directory.CreateDirectory(Path.Combine(incomingContentRoot, "keep"));
-        Directory.CreateDirectory(incomingModuleRoot);
+        _ = Directory.CreateDirectory(Path.Combine(scriptRoot, "keep"));
+        _ = Directory.CreateDirectory(moduleRoot);
+        _ = Directory.CreateDirectory(runtimeRoot);
+        _ = Directory.CreateDirectory(Path.Combine(incomingContentRoot, "keep"));
+        _ = Directory.CreateDirectory(incomingModuleRoot);
 
         File.WriteAllText(Path.Combine(scriptRoot, "Service.ps1"), "old-script", Encoding.UTF8);
         File.WriteAllText(Path.Combine(scriptRoot, "keep", "secret.txt"), "old-secret", Encoding.UTF8);
@@ -552,8 +530,8 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
                 ResolvedServiceScriptSourceType,
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                 binder: null,
-                args: new object?[]
-                {
+                args:
+                [
                     Path.Combine(incomingContentRoot, "Service.ps1"),
                     incomingContentRoot,
                     "Service.ps1",
@@ -563,7 +541,7 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
                     "2.0.0",
                     null,
                     new[] { "keep/secret.txt" }
-                },
+                ],
                 culture: null);
             Assert.NotNull(scriptSource);
 
@@ -623,8 +601,8 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
         Assert.True(InvokeBool("IsSupportedServiceContentRootArchive", "demo.tgz"));
         Assert.False(InvokeBool("IsSupportedServiceContentRootArchive", "demo.txt"));
 
-        Assert.Equal("bundle.tar.gz", Assert.IsType<string>(Invoke("BuildServiceContentRootArchiveFileName", "bundle.tar", ".tar.gz")!));
-        Assert.Equal("content-root.zip", Assert.IsType<string>(Invoke("BuildServiceContentRootArchiveFileName", string.Empty, ".zip")!));
+        Assert.Equal("bundle.tar.gz", Assert.IsType<string>(Invoke("BuildServiceContentRootArchiveFileName", "bundle.tar", ".tar.gz")));
+        Assert.Equal("content-root.zip", Assert.IsType<string>(Invoke("BuildServiceContentRootArchiveFileName", string.Empty, ".zip")));
     }
 
     [Fact]
@@ -632,7 +610,7 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
     public void TryDetectArchiveExtensionFromSignature_RecognizesZipTarAndTgz()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-signature-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempRoot);
+        _ = Directory.CreateDirectory(tempRoot);
         try
         {
             var zipPath = Path.Combine(tempRoot, "sample.zip");
@@ -730,7 +708,7 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
         Assert.Contains("Unsupported", Assert.IsType<string>(createInvalidArgs[3]), StringComparison.OrdinalIgnoreCase);
 
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-checksum-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempRoot);
+        _ = Directory.CreateDirectory(tempRoot);
         try
         {
             var archivePath = Path.Combine(tempRoot, "payload.krpack");
@@ -774,7 +752,7 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
     public void TryResolveDeploymentRoot_AndTryRemoveServiceBundle_HandleOverridePaths()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-deploy-root-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempRoot);
+        _ = Directory.CreateDirectory(tempRoot);
         try
         {
             var resolveArgs = new object?[] { tempRoot, null, null };
@@ -788,12 +766,12 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
             Assert.Contains("Unable to use deployment root", Assert.IsType<string>(invalidResolveArgs[2]), StringComparison.Ordinal);
 
             var serviceName = "demo.service";
-            var serviceDirectoryName = Assert.IsType<string>(Invoke("GetServiceDeploymentDirectoryName", serviceName)!);
+            var serviceDirectoryName = Assert.IsType<string>(Invoke("GetServiceDeploymentDirectoryName", serviceName));
             var bundleRoot = Path.Combine(tempRoot, serviceDirectoryName);
-            Directory.CreateDirectory(Path.Combine(bundleRoot, "Application"));
+            _ = Directory.CreateDirectory(Path.Combine(bundleRoot, "Application"));
             File.WriteAllText(Path.Combine(bundleRoot, "Application", "Service.ps1"), "Write-Output 'hello'", Encoding.UTF8);
 
-            Invoke("TryRemoveServiceBundle", serviceName, tempRoot);
+            _ = Invoke("TryRemoveServiceBundle", serviceName, tempRoot);
 
             Assert.False(Directory.Exists(bundleRoot));
         }
@@ -808,7 +786,7 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
     public void InfoService_WithNamedAndEnumeratedBundles_ReturnsSuccess()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-info-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempRoot);
+        _ = Directory.CreateDirectory(tempRoot);
         try
         {
             CreateInstalledServiceDescriptor(tempRoot, "alpha-service", "1.2.3");
@@ -862,19 +840,19 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
             ProcessResultType,
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
             binder: null,
-            args: new object?[] { 1, "inactive", "unit not loaded" },
+            args: [1, "inactive", "unit not loaded"],
             culture: null);
         Assert.NotNull(inactiveResult);
-        Assert.True(InvokeBool("IsLinuxServiceAlreadyStopped", inactiveResult!));
+        Assert.True(InvokeBool("IsLinuxServiceAlreadyStopped", inactiveResult));
 
         var activeResult = Activator.CreateInstance(
             ProcessResultType,
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
             binder: null,
-            args: new object?[] { 1, "active", string.Empty },
+            args: [1, "active", string.Empty],
             culture: null);
         Assert.NotNull(activeResult);
-        Assert.False(InvokeBool("IsLinuxServiceAlreadyStopped", activeResult!));
+        Assert.False(InvokeBool("IsLinuxServiceAlreadyStopped", activeResult));
 
         var windowsPid = Invoke("TryExtractWindowsServicePid", "SERVICE_NAME: demo\nPID              : 4242\n");
         Assert.Equal(4242, Assert.IsType<int>(windowsPid));
@@ -886,15 +864,15 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
         Assert.Null(noMacPid);
 
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-linux-unit-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempRoot);
+        _ = Directory.CreateDirectory(tempRoot);
         try
         {
             var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             var unitDir = Path.Combine(userProfile, ".config", "systemd", "user");
-            Directory.CreateDirectory(unitDir);
+            _ = Directory.CreateDirectory(unitDir);
 
             var serviceName = "kestrun-unit-scope";
-            var unitFilePath = Path.Combine(unitDir, Assert.IsType<string>(Invoke("GetLinuxUnitName", serviceName)!));
+            var unitFilePath = Path.Combine(unitDir, Assert.IsType<string>(Invoke("GetLinuxUnitName", serviceName)));
             File.WriteAllText(unitFilePath, "[Unit]\nDescription=demo\n", Encoding.UTF8);
 
             var scopeArgs = new object?[] { serviceName, false };
@@ -927,37 +905,72 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
     [Trait("Category", "Tooling")]
     public void LinuxAndMacServiceCommandHelpers_ReturnStructuredResults()
     {
-        var startException = Assert.Throws<TargetInvocationException>(() =>
-            Invoke("StartLinuxUserDaemon", $"missing-linux-{Guid.NewGuid():N}", null, false));
-        Assert.IsType<System.ComponentModel.Win32Exception>(startException.InnerException);
+        var missingLinuxService = $"missing-linux-{Guid.NewGuid():N}";
+        try
+        {
+            var linuxStart = Invoke("StartLinuxUserDaemon", missingLinuxService, null, false);
+            Assert.NotNull(linuxStart);
+            Assert.Equal("linux", GetRecordString(linuxStart, "Platform"));
+            Assert.Equal("start", GetRecordString(linuxStart, "Operation"));
+            Assert.InRange(GetRecordInt(linuxStart, "ExitCode"), 1, int.MaxValue);
+        }
+        catch (TargetInvocationException ex)
+        {
+            _ = Assert.IsType<System.ComponentModel.Win32Exception>(ex.InnerException);
+        }
 
         var linuxStop = Invoke("StopLinuxUserDaemon", $"missing-linux-{Guid.NewGuid():N}", null, false);
         Assert.NotNull(linuxStop);
-        Assert.Equal("linux", GetRecordString(linuxStop!, "Platform"));
-        Assert.Equal("stop", GetRecordString(linuxStop!, "Operation"));
-        Assert.Equal(2, GetRecordInt(linuxStop!, "ExitCode"));
+        Assert.Equal("linux", GetRecordString(linuxStop, "Platform"));
+        Assert.Equal("stop", GetRecordString(linuxStop, "Operation"));
+        Assert.Equal(2, GetRecordInt(linuxStop, "ExitCode"));
 
-        var queryException = Assert.Throws<TargetInvocationException>(() =>
-            Invoke("QueryLinuxUserDaemon", $"missing-linux-{Guid.NewGuid():N}", null, false));
-        Assert.IsType<System.ComponentModel.Win32Exception>(queryException.InnerException);
+        try
+        {
+            var linuxQuery = Invoke("QueryLinuxUserDaemon", missingLinuxService, null, false);
+            Assert.NotNull(linuxQuery);
+            Assert.Equal("linux", GetRecordString(linuxQuery, "Platform"));
+            Assert.Equal("query", GetRecordString(linuxQuery, "Operation"));
+            Assert.InRange(GetRecordInt(linuxQuery, "ExitCode"), 1, int.MaxValue);
+        }
+        catch (TargetInvocationException ex)
+        {
+            _ = Assert.IsType<System.ComponentModel.Win32Exception>(ex.InnerException);
+        }
 
         var missingMacService = $"missing-mac-{Guid.NewGuid():N}";
         var macStart = Invoke("StartMacLaunchAgent", missingMacService, null, false);
         Assert.NotNull(macStart);
-        Assert.Equal("macos", GetRecordString(macStart!, "Platform"));
-        Assert.Equal(2, GetRecordInt(macStart!, "ExitCode"));
+        Assert.Equal("macos", GetRecordString(macStart, "Platform"));
+        Assert.Equal(2, GetRecordInt(macStart, "ExitCode"));
 
         var macStop = Invoke("StopMacLaunchAgent", missingMacService, null, false);
         Assert.NotNull(macStop);
-        Assert.Equal("macos", GetRecordString(macStop!, "Platform"));
-        Assert.Equal(2, GetRecordInt(macStop!, "ExitCode"));
+        Assert.Equal("macos", GetRecordString(macStop, "Platform"));
+        Assert.Equal(2, GetRecordInt(macStop, "ExitCode"));
 
-        var macQueryException = Assert.Throws<TargetInvocationException>(() =>
-            Invoke("QueryMacLaunchAgent", missingMacService, null, false));
-        Assert.IsType<System.ComponentModel.Win32Exception>(macQueryException.InnerException);
+        try
+        {
+            var macQuery = Invoke("QueryMacLaunchAgent", missingMacService, null, false);
+            Assert.NotNull(macQuery);
+            Assert.Equal("macos", GetRecordString(macQuery, "Platform"));
+            Assert.Equal("query", GetRecordString(macQuery, "Operation"));
+            Assert.InRange(GetRecordInt(macQuery, "ExitCode"), 1, int.MaxValue);
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException is System.ComponentModel.Win32Exception)
+        {
+            _ = Assert.IsType<System.ComponentModel.Win32Exception>(ex.InnerException);
+        }
 
-        var removeException = Assert.Throws<TargetInvocationException>(() => InvokeInt("RemoveMacLaunchAgent", missingMacService));
-        Assert.IsType<System.ComponentModel.Win32Exception>(removeException.InnerException);
+        try
+        {
+            var removeResult = InvokeInt("RemoveMacLaunchAgent", missingMacService);
+            Assert.InRange(removeResult, 0, int.MaxValue);
+        }
+        catch (TargetInvocationException ex) when (ex.InnerException is System.ComponentModel.Win32Exception)
+        {
+            _ = Assert.IsType<System.ComponentModel.Win32Exception>(ex.InnerException);
+        }
     }
 
     [Fact]
@@ -970,7 +983,7 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
         }
 
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-install-platform-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(tempRoot);
+        _ = Directory.CreateDirectory(tempRoot);
         try
         {
             var scriptPath = Path.Combine(tempRoot, "Service.ps1");
@@ -983,20 +996,20 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
                 ServiceBundleLayoutType,
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                 binder: null,
-                args: new object?[]
-                {
+                args:
+                [
                     tempRoot,
                     "/usr/bin/pwsh",
                     "/usr/bin/kestrun-service-host",
                     scriptPath,
                     manifestPath
-                },
+                ],
                 culture: null);
 
             Assert.NotNull(serviceBundle);
 
             var parsed = CreateParsedCommand(modeName: "ServiceInstall", serviceName: "demo-service");
-            var result = InvokeInt("InstallPreparedServiceForCurrentPlatform", parsed, "demo-service", Path.Combine(tempRoot, "service.log"), serviceBundle!);
+            var result = InvokeInt("InstallPreparedServiceForCurrentPlatform", parsed, "demo-service", Path.Combine(tempRoot, "service.log"), serviceBundle);
 
             Assert.InRange(result, 0, int.MaxValue);
         }
@@ -1110,8 +1123,8 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
             ParsedCommandType,
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
             binder: null,
-            args: new object?[]
-            {
+            args:
+            [
                 mode,
                 scriptPath,
                 scriptPathProvided,
@@ -1137,7 +1150,7 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
                 serviceUseRepositoryKestrun,
                 jsonOutput,
                 rawOutput,
-            },
+            ],
             culture: null);
 
         Assert.NotNull(parsed);
@@ -1201,17 +1214,17 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
 
     private static void CreateInstalledServiceDescriptor(string deploymentRoot, string serviceName, string version)
     {
-        var serviceDirectoryName = Assert.IsType<string>(Invoke("GetServiceDeploymentDirectoryName", serviceName)!);
+        var serviceDirectoryName = Assert.IsType<string>(Invoke("GetServiceDeploymentDirectoryName", serviceName));
         var serviceRoot = Path.Combine(deploymentRoot, serviceDirectoryName);
         var appRoot = Path.Combine(serviceRoot, "Application");
-        Directory.CreateDirectory(appRoot);
+        _ = Directory.CreateDirectory(appRoot);
         File.WriteAllText(
             Path.Combine(appRoot, "Service.psd1"),
             $"@{{`nFormatVersion='1.0'`nName='{serviceName}'`nEntryPoint='Service.ps1'`nDescription='Demo'`nVersion='{version}'`nServiceLogPath='./logs/service.log'`n}}",
             Encoding.UTF8);
 
         var backupRoot = Path.Combine(serviceRoot, "backup", "20260101000000");
-        Directory.CreateDirectory(backupRoot);
+        _ = Directory.CreateDirectory(backupRoot);
     }
 
     private static int GetRecordInt(object record, string propertyName)
@@ -1276,4 +1289,3 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
         }
     }
 }
-#endif

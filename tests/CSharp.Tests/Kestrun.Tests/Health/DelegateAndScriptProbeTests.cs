@@ -3,7 +3,6 @@ using System.Management.Automation;
 using System.Reflection;
 using Kestrun.Health;
 using Kestrun.Hosting;
-using Kestrun.Languages;
 using Kestrun.Scripting;
 using Xunit;
 
@@ -91,7 +90,7 @@ public class DelegateAndScriptProbeTests
 
         Assert.True(success);
         Assert.NotNull(result);
-        Assert.Equal(ProbeStatus.Degraded, result!.Status);
+        Assert.Equal(ProbeStatus.Degraded, result.Status);
         Assert.Equal("warn", result.Description);
     }
 
@@ -112,10 +111,10 @@ public class DelegateAndScriptProbeTests
 
         Assert.True(success);
         Assert.NotNull(result);
-        Assert.Equal(ProbeStatus.Healthy, result!.Status);
+        Assert.Equal(ProbeStatus.Healthy, result.Status);
         Assert.Equal("all good", result.Description);
         Assert.NotNull(result.Data);
-        Assert.Equal(3, result.Data!["count"]);
+        Assert.Equal(3, result.Data["count"]);
         Assert.False(result.Data.ContainsKey(" "));
         var nested = Assert.IsAssignableFrom<IReadOnlyList<object?>>(result.Data["nested"]);
         Assert.Equal(2, nested.Count);
@@ -127,7 +126,7 @@ public class DelegateAndScriptProbeTests
         using var host = new KestrunHost("Tests", Serilog.Log.Logger);
 
         var exception = Assert.Throws<TargetInvocationException>(() => CreatePowerShellScriptProbe(host, "   ", () => null!));
-        Assert.IsType<ArgumentException>(exception.InnerException);
+        _ = Assert.IsType<ArgumentException>(exception.InnerException);
     }
 
     [Fact]
@@ -136,10 +135,10 @@ public class DelegateAndScriptProbeTests
         using var host = new KestrunHost("Tests", Serilog.Log.Logger);
 
         var native = Assert.Throws<TargetInvocationException>(() => InvokeScriptProbeFactoryCreate(host, ScriptLanguage.Native, "return 1"));
-        Assert.IsType<NotSupportedException>(native.InnerException);
+        _ = Assert.IsType<NotSupportedException>(native.InnerException);
 
         var python = Assert.Throws<TargetInvocationException>(() => InvokeScriptProbeFactoryCreate(host, ScriptLanguage.Python, "return 1"));
-        Assert.IsType<NotImplementedException>(python.InnerException);
+        _ = Assert.IsType<NotImplementedException>(python.InnerException);
     }
 
     [Fact]
@@ -148,10 +147,10 @@ public class DelegateAndScriptProbeTests
         using var host = new KestrunHost("Tests", Serilog.Log.Logger);
 
         var badCode = Assert.Throws<TargetInvocationException>(() => InvokeScriptProbeFactoryCreate(host, ScriptLanguage.CSharp, "   "));
-        Assert.IsType<ArgumentException>(badCode.InnerException);
+        _ = Assert.IsType<ArgumentException>(badCode.InnerException);
 
         var badAccessor = Assert.Throws<TargetInvocationException>(() => InvokeScriptProbeFactoryCreate(host, ScriptLanguage.PowerShell, "Get-Date", runspaceAccessor: null));
-        Assert.IsType<ArgumentNullException>(badAccessor.InnerException);
+        _ = Assert.IsType<ArgumentNullException>(badAccessor.InnerException);
     }
 
     private static object CreatePowerShellScriptProbe(KestrunHost host, string script, Func<KestrunRunspacePoolManager> poolAccessor)

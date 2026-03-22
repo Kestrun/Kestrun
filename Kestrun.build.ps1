@@ -480,6 +480,14 @@ Add-BuildTask 'Nuget-CodeAnalysis' {
 Add-BuildTask 'Test-xUnit' 'Build', {
     Write-Host '🧪 Running Kestrun DLL tests...'
     $maxAttempts = 2
+    $xunitConsoleVerbosity = switch ($DotNetVerbosity) {
+        'diagnostic' { 'detailed' }
+        'detailed' { 'detailed' }
+        'normal' { 'normal' }
+        'minimal' { 'minimal' }
+        'quiet' { 'quiet' }
+        default { 'normal' }
+    }
 
     $runDotNetTest = {
         param(
@@ -493,7 +501,7 @@ Add-BuildTask 'Test-xUnit' 'Build', {
                 Write-Host "🧪 Attempt $attempt/$($maxAttempts): $Label"
             }
 
-            dotnet test "$ProjectPath" -c $Configuration -f $Framework -v:$DotNetVerbosity
+            dotnet test "$ProjectPath" -c $Configuration -f $Framework -v:$DotNetVerbosity --logger "console;verbosity=$xunitConsoleVerbosity" | Out-Host
             $exitCode = $LASTEXITCODE
             if ($exitCode -eq 0) {
                 if ($maxAttempts -gt 1) {

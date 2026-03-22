@@ -79,7 +79,7 @@ param(
     [Parameter(Mandatory = $false)]
     [string]
     [ValidateSet('quiet', 'minimal' , 'normal', 'detailed', 'diagnostic')]
-    $DotNetVerbosity = 'detailed',
+    $DotNetVerbosity = 'normal',
     [Parameter(Mandatory = $false)]
     [switch]$SignModule
 )
@@ -567,7 +567,7 @@ Add-BuildTask 'Test-xUnit' 'Build', {
     $xunitConsoleVerbosity = switch ($DotNetVerbosity) {
         'diagnostic' { 'minimal' }
         'detailed' { 'minimal' }
-        'normal' { 'minimal' }
+        'normal' { 'normal' }
         'minimal' { 'minimal' }
         'quiet' { 'quiet' }
         default { 'minimal' }

@@ -4446,9 +4446,19 @@ internal static partial class Program
     /// <param name="errorText">Error details when discovery fails.</param>
     /// <returns>True when latest gallery version was discovered.</returns>
     private static bool TryGetLatestGalleryVersionString(out string version, out string errorText)
+        => TryGetLatestGalleryVersionStringFromClient(GalleryHttpClient, out version, out errorText);
+
+    /// <summary>
+    /// Attempts to query the latest Kestrun module version string from PowerShell Gallery using the specified HTTP client.
+    /// </summary>
+    /// <param name="httpClient">HTTP client used for the gallery request.</param>
+    /// <param name="version">Latest gallery version string when available.</param>
+    /// <param name="errorText">Error details when discovery fails.</param>
+    /// <returns>True when latest gallery version was discovered.</returns>
+    private static bool TryGetLatestGalleryVersionStringFromClient(HttpClient httpClient, out string version, out string errorText)
     {
         version = string.Empty;
-        if (!TryGetGalleryModuleVersions(out var versions, out errorText))
+        if (!TryGetGalleryModuleVersionsFromClient(httpClient, out var versions, out errorText))
         {
             return false;
         }
@@ -4473,6 +4483,16 @@ internal static partial class Program
     /// <param name="errorText">Error details when discovery fails.</param>
     /// <returns>True when at least one version was discovered.</returns>
     private static bool TryGetGalleryModuleVersions(out List<string> versions, out string errorText)
+        => TryGetGalleryModuleVersionsFromClient(GalleryHttpClient, out versions, out errorText);
+
+    /// <summary>
+    /// Queries all available Kestrun module versions from PowerShell Gallery using the specified HTTP client.
+    /// </summary>
+    /// <param name="httpClient">HTTP client used for the gallery request.</param>
+    /// <param name="versions">Discovered gallery versions.</param>
+    /// <param name="errorText">Error details when discovery fails.</param>
+    /// <returns>True when at least one version was discovered.</returns>
+    private static bool TryGetGalleryModuleVersionsFromClient(HttpClient httpClient, out List<string> versions, out string errorText)
     {
         versions = [];
         errorText = string.Empty;
@@ -4480,7 +4500,7 @@ internal static partial class Program
         try
         {
             var requestUri = $"{PowerShellGalleryApiBaseUri}/FindPackagesById()?id='{Uri.EscapeDataString(ModuleName)}'";
-            using var response = GalleryHttpClient.GetAsync(requestUri).GetAwaiter().GetResult();
+            using var response = httpClient.GetAsync(requestUri).GetAwaiter().GetResult();
             if (!response.IsSuccessStatusCode)
             {
                 var reason = string.IsNullOrWhiteSpace(response.ReasonPhrase)
@@ -4497,6 +4517,29 @@ internal static partial class Program
                 return false;
             }
 
+            return TryParseGalleryModuleVersions(content, out versions, out errorText);
+        }
+        catch (Exception ex)
+        {
+            errorText = ex.Message;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Parses gallery feed XML and extracts module versions.
+    /// </summary>
+    /// <param name="content">Gallery feed XML payload.</param>
+    /// <param name="versions">Discovered gallery versions.</param>
+    /// <param name="errorText">Error details when parsing fails.</param>
+    /// <returns>True when at least one version was discovered.</returns>
+    private static bool TryParseGalleryModuleVersions(string content, out List<string> versions, out string errorText)
+    {
+        versions = [];
+        errorText = string.Empty;
+
+        try
+        {
             var document = XDocument.Parse(content);
             var discoveredVersions = document.Descendants()
                 .Where(static element => string.Equals(element.Name.LocalName, "Version", StringComparison.OrdinalIgnoreCase))

@@ -479,8 +479,7 @@ Add-BuildTask 'Nuget-CodeAnalysis' {
 # XUnit tests
 Add-BuildTask 'Test-xUnit' 'Build', {
     Write-Host '🧪 Running Kestrun DLL tests...'
-    $failures = @()
-    $maxAttempts = if ($IsLinux) { 3 } else { 2 }
+    $maxAttempts = 2
 
     $runDotNetTest = {
         param(
@@ -518,7 +517,7 @@ Add-BuildTask 'Test-xUnit' 'Build', {
         Write-Host "▶️ Running Kestrun core tests for $framework"
         if (-not (& $runDotNetTest -ProjectPath $KestrunCoreTestProjectPath -Framework $framework -Label "Kestrun.Tests ($framework)")) {
             Write-Host "❌ Core tests failed for $framework" -ForegroundColor Red
-            $failures += "Kestrun.Tests ($framework)"
+            throw "Test-xUnit failed for targets: Kestrun.Tests ($framework)"
         }
     }
 
@@ -528,16 +527,13 @@ Add-BuildTask 'Test-xUnit' 'Build', {
             Write-Host "▶️ Running dedicated tests for $testProjectName (net10.0)"
             if (-not (& $runDotNetTest -ProjectPath $dedicatedTestProject -Framework 'net10.0' -Label "$testProjectName (net10.0)")) {
                 Write-Host "❌ Dedicated tests failed for $testProjectName (net10.0)" -ForegroundColor Red
-                $failures += "$testProjectName (net10.0)"
+                throw "Test-xUnit failed for targets: $testProjectName (net10.0)"
             }
         }
     } else {
         Write-Host 'ℹ️ Skipping dedicated Tool/ServiceHost/Runner tests because net10.0 is not in -Frameworks.' -ForegroundColor Yellow
     }
 
-    if ($failures.Count -gt 0) {
-        throw "Test-xUnit failed for targets: $($failures -join ', ')"
-    }
 }
 
 # Formatting source code

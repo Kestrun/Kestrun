@@ -1,4 +1,3 @@
-#if NET10_0_OR_GREATER
 using System.IO.Compression;
 using System.Formats.Tar;
 using System.Net;
@@ -472,28 +471,63 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
-    public void GalleryVersionHelpers_ReturnEitherVersionsOrErrorMessage()
+    public void TryGetGalleryModuleVersionsFromClient_ReturnsVersions_FromStubbedResponse()
     {
-        var (versionsSuccess, versions, versionsError) = InvokeTryGetGalleryModuleVersions();
-        if (versionsSuccess)
-        {
-            Assert.NotEmpty(versions);
-            Assert.True(versions.All(static v => !string.IsNullOrWhiteSpace(v)));
-        }
-        else
-        {
-            Assert.True(!string.IsNullOrWhiteSpace(versionsError));
-        }
+        const string payload = """
+<feed>
+  <entry><Version>1.0.0</Version></entry>
+  <entry><Version>1.2.0-beta1</Version></entry>
+  <entry><Version>1.2.0-beta1</Version></entry>
+  <entry><Version>1.1.0</Version></entry>
+</feed>
+""";
 
-        var (latestSuccess, latestVersion, latestError) = InvokeTryGetLatestGalleryVersionString();
-        if (latestSuccess)
-        {
-            Assert.True(!string.IsNullOrWhiteSpace(latestVersion));
-        }
-        else
-        {
-            Assert.True(!string.IsNullOrWhiteSpace(latestError));
-        }
+        var (success, versions, error) = InvokeTryGetGalleryModuleVersionsFromClient(HttpStatusCode.OK, payload);
+
+        Assert.True(success, error);
+        Assert.Equal(["1.0.0", "1.2.0-beta1", "1.1.0"], versions);
+        Assert.True(string.IsNullOrWhiteSpace(error));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryGetGalleryModuleVersionsFromClient_ReturnsError_WhenHttpFails()
+    {
+        var (success, versions, error) = InvokeTryGetGalleryModuleVersionsFromClient(HttpStatusCode.ServiceUnavailable, string.Empty, "Service Unavailable");
+
+        Assert.False(success);
+        Assert.Empty(versions);
+        Assert.Contains("HTTP 503", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryGetLatestGalleryVersionStringFromClient_ReturnsHighestVersion_FromStubbedResponse()
+    {
+        const string payload = """
+<feed>
+  <entry><Version>1.2.0-beta4</Version></entry>
+  <entry><Version>1.1.0</Version></entry>
+  <entry><Version>2.0.0</Version></entry>
+</feed>
+""";
+
+        var (success, version, error) = InvokeTryGetLatestGalleryVersionStringFromClient(HttpStatusCode.OK, payload);
+
+        Assert.True(success, error);
+        Assert.Equal("2.0.0", version);
+        Assert.True(string.IsNullOrWhiteSpace(error));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseGalleryModuleVersions_ReturnsError_WhenXmlInvalid()
+    {
+        var (success, versions, error) = InvokeTryParseGalleryModuleVersions("<feed><Version>1.0.0</feed>");
+
+        Assert.False(success);
+        Assert.Empty(versions);
+        Assert.False(string.IsNullOrWhiteSpace(error));
     }
 
     [Fact]
@@ -2802,28 +2836,61 @@ public class KestrunToolCommandSurfaceTests
         return (success, version);
     }
 
-    private static (bool Success, IReadOnlyList<string> Versions, string Error) InvokeTryGetGalleryModuleVersions()
+    private static (bool Success, IReadOnlyList<string> Versions, string Error) InvokeTryGetGalleryModuleVersionsFromClient(HttpStatusCode statusCode, string content, string reasonPhrase = "OK")
     {
-        var method = GetRequiredProgramMethod("TryGetGalleryModuleVersions");
+        var method = GetRequiredProgramMethod("TryGetGalleryModuleVersionsFromClient");
 
-        var values = new object?[] { null, null };
+        using var httpClient = CreateStubHttpClient(statusCode, content, reasonPhrase);
+
+        var values = new object?[] { httpClient, null, null };
         var success = InvokeRequiredBool(method, values);
-        var versions = values[0] is System.Collections.IEnumerable enumerable
+        var versions = values[1] is System.Collections.IEnumerable enumerable
             ? enumerable.Cast<object>().Select(static item => item?.ToString() ?? string.Empty).ToList()
             : [];
-        var error = values[1]?.ToString() ?? string.Empty;
+        var error = values[2]?.ToString() ?? string.Empty;
         return (success, versions, error);
     }
 
-    private static (bool Success, string Version, string Error) InvokeTryGetLatestGalleryVersionString()
+    private static (bool Success, string Version, string Error) InvokeTryGetLatestGalleryVersionStringFromClient(HttpStatusCode statusCode, string content, string reasonPhrase = "OK")
     {
-        var method = GetRequiredProgramMethod("TryGetLatestGalleryVersionString");
+        var method = GetRequiredProgramMethod("TryGetLatestGalleryVersionStringFromClient");
 
-        var values = new object?[] { null, null };
+        using var httpClient = CreateStubHttpClient(statusCode, content, reasonPhrase);
+
+        var values = new object?[] { httpClient, null, null };
         var success = InvokeRequiredBool(method, values);
-        var version = values[0]?.ToString() ?? string.Empty;
-        var error = values[1]?.ToString() ?? string.Empty;
+        var version = values[1]?.ToString() ?? string.Empty;
+        var error = values[2]?.ToString() ?? string.Empty;
         return (success, version, error);
+    }
+
+    private static (bool Success, IReadOnlyList<string> Versions, string Error) InvokeTryParseGalleryModuleVersions(string content)
+    {
+        var method = GetRequiredProgramMethod("TryParseGalleryModuleVersions");
+
+        var values = new object?[] { content, null, null };
+        var success = InvokeRequiredBool(method, values);
+        var versions = values[1] is System.Collections.IEnumerable enumerable
+            ? enumerable.Cast<object>().Select(static item => item?.ToString() ?? string.Empty).ToList()
+            : [];
+        var error = values[2]?.ToString() ?? string.Empty;
+        return (success, versions, error);
+    }
+
+    private static HttpClient CreateStubHttpClient(HttpStatusCode statusCode, string content, string reasonPhrase)
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(statusCode)
+        {
+            ReasonPhrase = reasonPhrase,
+            Content = new StringContent(content, Encoding.UTF8, "application/atom+xml"),
+        });
+        return new HttpClient(handler, disposeHandler: true);
+    }
+
+    private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responseFactory) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(responseFactory(request));
     }
 
     private static (bool Success, string Error) InvokeTryValidateInstallAction(string moduleRoot, string scopeToken)
@@ -3323,4 +3390,3 @@ public class KestrunToolCommandSurfaceTests
         return assembly.GetType("Kestrun.Tool.Program", throwOnError: true, ignoreCase: false)!;
     }
 }
-#endif

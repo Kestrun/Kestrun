@@ -12,10 +12,25 @@ namespace Kestrun.Tests.Hosting;
 [Collection("SharedStateSerial")]
 public class KestrunHostEnableConfigurationTests
 {
+    private static string GetSafeStartDirectory()
+    {
+        try
+        {
+            return Directory.GetCurrentDirectory();
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or DirectoryNotFoundException
+                                   or FileNotFoundException)
+        {
+            return AppContext.BaseDirectory;
+        }
+    }
+
     private static string LocateDevModule()
     {
         // Walk upwards to find src/PowerShell/Kestrun/Kestrun.psm1 from current directory
-        var current = Directory.GetCurrentDirectory();
+        var current = GetSafeStartDirectory();
         while (!string.IsNullOrEmpty(current))
         {
             var candidate = Path.Combine(current, "src", "PowerShell", "Kestrun", "Kestrun.psm1");
@@ -36,7 +51,7 @@ public class KestrunHostEnableConfigurationTests
     private static KestrunHost CreateTestHost(string name = "TestHost")
     {
         var module = LocateDevModule();
-        var root = Directory.GetCurrentDirectory();
+        var root = GetSafeStartDirectory();
         return new KestrunHost(name, Log.Logger, root, [module]);
     }
 
@@ -261,7 +276,7 @@ public class KestrunHostEnableConfigurationTests
             .CreateLogger();
 
         var module = LocateDevModule();
-        var root = Directory.GetCurrentDirectory();
+        var root = GetSafeStartDirectory();
         using var host = new KestrunHost("TestHost", testLogger, root, [module]);
 
         // Act

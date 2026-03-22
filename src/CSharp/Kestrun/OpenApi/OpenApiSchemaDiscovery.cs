@@ -76,21 +76,4 @@ public static class OpenApiSchemaDiscovery
         return t == typeof(KrFormData)
             || t == typeof(KrMultipart);
     }
-
-#if EXTENDED_OPENAPI
-
-   private static Type[] GetTypesWithAttribute(System.Reflection.Assembly[] assemblies, Type attributeType)
-    {
-        return [.. assemblies.SelectMany(GetLoadableTypes)
-            .Where(t => t.IsClass && !t.IsAbstract && t.IsDefined(attributeType, true))];
-    }
-    private static Type[] GetTypesWithKind(System.Reflection.Assembly[] assemblies, OpenApiModelKind kind)
-    {
-        return [.. assemblies.SelectMany(GetLoadableTypes)
-            .Where(t => t.IsClass && !t.IsAbstract &&
-                t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
-                 .OfType<OpenApiModelKindAttribute>()
-                 .Any(a => a.Kind == kind))];
-    }
-#endif
 }

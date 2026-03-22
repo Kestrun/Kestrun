@@ -18,7 +18,7 @@ public sealed class KestrunHostOpenApiUiAndAntiforgeryIntegrationTests
     public async Task OpenApiMapRoute_AndUiRoutes_ServeExpectedPayloads()
     {
         using var logger = new LoggerConfiguration().CreateLogger();
-        var host = new KestrunHost("TestOpenApiUi", logger, AppContext.BaseDirectory);
+        using var host = new KestrunHost("TestOpenApiUi", logger, AppContext.BaseDirectory);
         host.ConfigureListener(0, IPAddress.Loopback, useConnectionLogging: false);
         EnsureUserExExample(host);
         host.EnableConfiguration();
@@ -59,7 +59,7 @@ public sealed class KestrunHostOpenApiUiAndAntiforgeryIntegrationTests
     public async Task AddAntiforgeryTokenRoute_ReturnsJsonTokenPayload()
     {
         using var logger = new LoggerConfiguration().CreateLogger();
-        var host = new KestrunHost("TestAntiforgery", logger, AppContext.BaseDirectory);
+        using var host = new KestrunHost("TestAntiforgery", logger, AppContext.BaseDirectory);
         host.ConfigureListener(0, IPAddress.Loopback, useConnectionLogging: false);
         _ = host.AddAntiforgery();
         host.EnableConfiguration();
@@ -91,7 +91,7 @@ public sealed class KestrunHostOpenApiUiAndAntiforgeryIntegrationTests
     public void AddAntiforgeryTokenRoute_WhenConfigurationNotEnabled_Throws()
     {
         using var logger = new LoggerConfiguration().CreateLogger();
-        var host = new KestrunHost("TestAntiforgeryNoConfig", logger, AppContext.BaseDirectory);
+        using var host = new KestrunHost("TestAntiforgeryNoConfig", logger, AppContext.BaseDirectory);
 
         var exception = Assert.Throws<InvalidOperationException>(() => host.AddAntiforgeryTokenRoute());
         Assert.Contains("Build()", exception.Message, StringComparison.Ordinal);
@@ -102,7 +102,7 @@ public sealed class KestrunHostOpenApiUiAndAntiforgeryIntegrationTests
     public void AddSwaggerUiRoute_WithNonGetVerb_ThrowsArgumentException()
     {
         using var logger = new LoggerConfiguration().CreateLogger();
-        var host = new KestrunHost("TestSwaggerVerbValidation", logger, AppContext.BaseDirectory);
+        using var host = new KestrunHost("TestSwaggerVerbValidation", logger, AppContext.BaseDirectory);
         host.EnableConfiguration();
 
         var options = new MapRouteOptions
@@ -122,10 +122,17 @@ public sealed class KestrunHostOpenApiUiAndAntiforgeryIntegrationTests
         Assert.NotNull(appField);
         var app = Assert.IsType<WebApplication>(appField.GetValue(host));
 
-        var port = app.Urls.Select(url => new Uri(url).Port).First();
+        var listenerUri = app.Urls.Select(static url => new Uri(url)).First();
+        var baseAddress = new UriBuilder(listenerUri)
+        {
+            Path = "/",
+            Query = string.Empty,
+            Fragment = string.Empty
+        }.Uri;
+
         return new HttpClient
         {
-            BaseAddress = new Uri($"http://localhost:{port}/")
+            BaseAddress = baseAddress
         };
     }
 

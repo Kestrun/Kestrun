@@ -132,6 +132,11 @@ public class KestrunToolRunAndProgressTests
     [Trait("Category", "Tooling")]
     public void ExecuteScriptViaServiceHost_WhenHostBinaryMissing_ReturnsOne()
     {
+        if (TryResolveDedicatedServiceHostExecutablePath(out var discoveredHostPath))
+        {
+            Assert.Skip($"Dedicated service-host is discoverable on this machine: {discoveredHostPath}");
+        }
+
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tool-run-{Guid.NewGuid():N}");
         var scriptPath = Path.Combine(tempRoot, "run.ps1");
         var modulePath = Path.Combine(tempRoot, "Kestrun.psd1");
@@ -252,6 +257,19 @@ public class KestrunToolRunAndProgressTests
         _ = Assert.IsType<bool>(success);
 
         return ((bool)success, values[1], values[2]?.ToString() ?? string.Empty);
+    }
+
+    private static bool TryResolveDedicatedServiceHostExecutablePath(out string executablePath)
+    {
+        var method = GetProgramMethod("TryResolveDedicatedServiceHostExecutableFromToolDistribution");
+        var values = new object?[] { null };
+        var result = method.Invoke(null, values);
+
+        Assert.NotNull(result);
+        _ = Assert.IsType<bool>(result);
+
+        executablePath = values[0]?.ToString() ?? string.Empty;
+        return (bool)result;
     }
 
     private static string GetParsedCommandField(object parsedCommand, string fieldName)

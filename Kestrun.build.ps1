@@ -564,14 +564,6 @@ Add-BuildTask 'Test-xUnit' 'Build', {
         'quiet' { 'quiet' }
         default { 'minimal' }
     }
-    $xunitConsoleVerbosity = switch ($DotNetVerbosity) {
-        'diagnostic' { 'minimal' }
-        'detailed' { 'minimal' }
-        'normal' { 'normal' }
-        'minimal' { 'minimal' }
-        'quiet' { 'quiet' }
-        default { 'minimal' }
-    }
 
     $runDotNetTest = {
         param(
@@ -588,9 +580,9 @@ Add-BuildTask 'Test-xUnit' 'Build', {
                 Write-Host "🧪 Attempt $attempt/$($maxAttempts): $Label"
             }
 
-            $attemptLoggerVerbosity = if ($attempt -eq $maxAttempts) { 'normal' } else { $xunitConsoleVerbosity }
-            if ($attempt -eq $maxAttempts -and $maxAttempts -gt 1) {
-                Write-Host "ℹ️ Final attempt uses console verbosity '$attemptLoggerVerbosity' to include failed-test details."
+            $attemptLoggerVerbosity = if ($attempt -eq 1) { 'minimal' } else { 'normal' }
+            if ($attempt -gt 1) {
+                Write-Host "ℹ️ Retry attempt uses console verbosity '$attemptLoggerVerbosity' to include failed-test details."
             }
 
             $attemptTrxName = "$projectName.$Framework.attempt$attempt.trx"

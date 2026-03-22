@@ -505,7 +505,12 @@ Add-BuildTask 'Test-xUnit' 'Build', {
                 Write-Host "🧪 Attempt $attempt/$($maxAttempts): $Label"
             }
 
-            dotnet test "$ProjectPath" -c $Configuration -f $Framework -v:$dotnetTestVerbosity --logger "console;verbosity=$xunitConsoleVerbosity" --nologo | Out-Host
+            $attemptLoggerVerbosity = if ($attempt -eq $maxAttempts) { 'normal' } else { $xunitConsoleVerbosity }
+            if ($attempt -eq $maxAttempts -and $maxAttempts -gt 1) {
+                Write-Host "ℹ️ Final attempt uses console verbosity '$attemptLoggerVerbosity' to include failed-test details."
+            }
+
+            dotnet test "$ProjectPath" -c $Configuration -f $Framework -v:$dotnetTestVerbosity --logger "console;verbosity=$attemptLoggerVerbosity" --nologo | Out-Host
             $exitCode = $LASTEXITCODE
             if ($exitCode -eq 0) {
                 if ($maxAttempts -gt 1) {

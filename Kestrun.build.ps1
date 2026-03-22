@@ -481,8 +481,8 @@ Add-BuildTask 'Test-xUnit' 'Build', {
     Write-Host '🧪 Running Kestrun DLL tests...'
     $maxAttempts = 2
     $xunitConsoleVerbosity = switch ($DotNetVerbosity) {
-        'diagnostic' { 'detailed' }
-        'detailed' { 'detailed' }
+        'diagnostic' { 'normal' }
+        'detailed' { 'normal' }
         'normal' { 'normal' }
         'minimal' { 'minimal' }
         'quiet' { 'quiet' }

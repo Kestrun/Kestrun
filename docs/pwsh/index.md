@@ -30,4 +30,5 @@ Kestrun's PowerShell docs are organized to help you move from first run to produ
 
 ## Suggested improvements
 
-If you notice a missing cross-link, unclear example, or broken navigation flow, the docs live under `/docs` in the repository and can be improved alongside the examples they reference.
+If you notice a missing cross-link, unclear example, or broken navigation flow, the docs live under `/docs`
+in the repository and can be improved alongside the examples they reference.

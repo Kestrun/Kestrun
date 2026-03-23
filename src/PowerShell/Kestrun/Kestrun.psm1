@@ -111,8 +111,18 @@ try {
     $funcs = Get-ChildItem Function: | Where-Object { $sysfuncs -notcontains $_ }
 
     if ($inRouteRunspace) {
-        # set the function by context to the current runspace
-        $funcs = Get-KrCommandsByContext -AnyOf Runtime -Functions $funcs
+        # Set command scope to runtime functions when the helper is available.
+        # In rare CI/import-order edge cases this helper may not be loaded yet.
+        if (-not (Get-Command -Name 'Get-KrCommandsByContext' -CommandType Function -ErrorAction SilentlyContinue)) {
+            $commandByContextPath = Join-Path -Path $moduleRootPath -ChildPath 'Private' -AdditionalChildPath 'Assembly', 'Get-KrCommandByContext.ps1'
+            if (Test-Path -LiteralPath $commandByContextPath) {
+                . $commandByContextPath
+            }
+        }
+
+        if (Get-Command -Name 'Get-KrCommandsByContext' -CommandType Function -ErrorAction SilentlyContinue) {
+            $funcs = Get-KrCommandsByContext -AnyOf Runtime -Functions $funcs
+        }
     }
 
     $aliases = Get-ChildItem Alias: | Where-Object { $sysaliases -notcontains $_ }

@@ -24,7 +24,7 @@ public sealed class KestrunHostOpenApiUiAndAntiforgeryIntegrationTests
         host.EnableConfiguration();
 
         _ = host.AddOpenApiMapRoute(new OpenApiMapRouteOptions(new MapRouteOptions()));
-        _ = host.AddSwaggerUiRoute(new MapRouteOptions(), new Uri("http://localhost/openapi/v3.0/openapi.json"));
+        _ = host.AddSwaggerUiRoute(new MapRouteOptions(), new Uri("/openapi/v3.0/openapi.json", UriKind.Relative));
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
         await host.StartAsync(cts.Token);

@@ -22,9 +22,9 @@ Core goals:
 | Security | Antiforgery (CSRF), HSTS, HTTPS Redirection | [Antiforgery](./1.Antiforgery), [HTTPS Redirection](./3.Https-Redirection), [HSTS](./4.Https-Hsts) |
 | Static Content | File Server | [File Server & Directory Browsing](/pwsh/tutorial/3.static/2.File-Server) |
 | Responses | Caching helpers | [Responses: Caching & Revalidation](/pwsh/tutorial/9.Responses/8.Caching) |
-| Logging | Sinks / enrichment | [Logging section](/pwsh/tutorial/5.logging/index) |
-| AuthN/Z | Schemes & policies | [Authentication section](/pwsh/tutorial/8.authentication/index) |
-| Sessions | Session state | [Sessions chapter](/pwsh/tutorial/19.Sessions/index) |
+| Logging | Sinks / enrichment | [Logging section](/pwsh/tutorial/5.logging/) |
+| AuthN/Z | Schemes & policies | [Authentication section](/pwsh/tutorial/8.authentication/) |
+| Sessions | Session state | [Sessions chapter](/pwsh/tutorial/19.Sessions/) |
 | Event streaming | SSE + Broadcast SSE | See [SSE](./9.Sse) and [SSE Broadcast](./10.SseBroadcast) |
 | Security | Host Filtering | [Tutorial](./6.Host-Filtering) |
 | Security | CORS | [Tutorial](./8.Cors) |

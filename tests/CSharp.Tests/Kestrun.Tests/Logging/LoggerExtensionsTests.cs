@@ -4,7 +4,7 @@ using Serilog.Core;
 using Serilog.Events;
 using Xunit;
 
-namespace KestrunTests.Logging;
+namespace Kestrun.Tests.Logging;
 
 public class LoggerExtensionsTests
 {

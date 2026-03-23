@@ -2,7 +2,7 @@ using Kestrun.Hosting;
 using Kestrun.Languages;
 using Xunit;
 
-namespace KestrunTests.Languages;
+namespace Kestrun.Tests.Languages;
 
 /// <summary>
 /// Regression tests for VBNetDelegateBuilder Linux handling of deleted assembly files.

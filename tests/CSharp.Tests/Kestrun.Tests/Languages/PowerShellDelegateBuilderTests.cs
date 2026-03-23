@@ -10,7 +10,7 @@ using System.Management.Automation.Runspaces;
 using System.Text;
 using Xunit;
 
-namespace KestrunTests.Languages;
+namespace Kestrun.Tests.Languages;
 
 public class PowerShellDelegateBuilderTests
 {

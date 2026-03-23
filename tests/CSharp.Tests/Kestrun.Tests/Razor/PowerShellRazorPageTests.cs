@@ -9,7 +9,7 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Xunit;
 
-namespace KestrunTests.Razor;
+namespace Kestrun.Tests.Razor;
 
 public class PowerShellRazorPageTests
 {

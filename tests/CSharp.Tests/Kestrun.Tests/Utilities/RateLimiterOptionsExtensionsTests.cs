@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.RateLimiting;
 using Xunit;
 
-namespace KestrunTests.Utilities;
+namespace Kestrun.Tests.Utilities;
 
 /// <summary>
 /// Tests for <see cref="Kestrun.Utilities.RateLimiterOptionsExtensions"/> class.

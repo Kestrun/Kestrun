@@ -5,7 +5,7 @@ using Serilog.Core;
 using Serilog.Events;
 using Xunit;
 
-namespace KestrunTests.Localization;
+namespace Kestrun.Tests.Localization;
 
 public class KestrunLocalizationStoreTests
 {

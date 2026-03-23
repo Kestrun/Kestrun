@@ -10,7 +10,7 @@ using Moq;
 using Serilog.Events;
 using Xunit;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 /// <summary>
 /// Tests for KestrunHttpMiddlewareExtensions internal helper methods and method overloads.

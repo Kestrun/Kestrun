@@ -646,7 +646,17 @@ public static class RunnerRuntime
     /// <returns>True when the file name is pwsh or pwsh.exe.</returns>
     private static bool IsPowerShellExecutablePath(string path)
     {
-        var fileName = Path.GetFileName(path);
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var trimmedPath = path.TrimEnd('/', '\\');
+        var separatorIndex = trimmedPath.LastIndexOfAny(['/', '\\']);
+        var fileName = separatorIndex >= 0
+            ? trimmedPath[(separatorIndex + 1)..]
+            : trimmedPath;
+
         return string.Equals(fileName, "pwsh", StringComparison.OrdinalIgnoreCase)
             || string.Equals(fileName, "pwsh.exe", StringComparison.OrdinalIgnoreCase);
     }

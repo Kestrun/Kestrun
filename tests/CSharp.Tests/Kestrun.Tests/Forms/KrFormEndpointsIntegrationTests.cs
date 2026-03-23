@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Forms;
+namespace Kestrun.Tests.Forms;
 
 public class KrFormEndpointsIntegrationTests
 {

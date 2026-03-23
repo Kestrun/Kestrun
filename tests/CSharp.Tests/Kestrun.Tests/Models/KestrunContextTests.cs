@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Xunit;
 
-namespace KestrunTests.Models;
+namespace Kestrun.Tests.Models;
 
 public class KestrunContextTests
 {

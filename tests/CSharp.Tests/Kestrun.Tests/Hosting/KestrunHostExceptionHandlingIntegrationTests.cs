@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Builder;
 using Kestrun.Utilities;
 using Microsoft.AspNetCore.Http;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 /// <summary>
 /// Integration-style tests for Kestrun exception handling behaviors using a live in-process server.

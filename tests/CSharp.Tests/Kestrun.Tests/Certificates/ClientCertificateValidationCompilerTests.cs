@@ -7,7 +7,7 @@ using Kestrun.Scripting;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Certificates;
+namespace Kestrun.Tests.Certificates;
 
 public sealed class ClientCertificateValidationCompilerTests
 {

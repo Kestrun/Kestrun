@@ -4,7 +4,7 @@ using System.Management.Automation;
 using Kestrun.Utilities.Yaml;
 using Xunit;
 
-namespace KestrunTests.YamlUtilities;
+namespace Kestrun.Tests.YamlUtilities;
 
 public class YamlEmittersAndConvertersTests
 {

@@ -1,7 +1,7 @@
 using Kestrun.Health;
 using Xunit;
 
-namespace KestrunTests.Health;
+namespace Kestrun.Tests.Health;
 
 public class HealthProbeRunnerTests
 {

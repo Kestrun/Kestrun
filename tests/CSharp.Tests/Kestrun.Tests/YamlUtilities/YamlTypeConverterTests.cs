@@ -6,7 +6,7 @@ using Xunit;
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
 
-namespace KestrunTests.YamlUtilities;
+namespace Kestrun.Tests.YamlUtilities;
 
 public class YamlTypeConverterTests
 {

@@ -12,7 +12,7 @@ using Microsoft.AspNetCore.HttpsPolicy;
 using Moq;
 using Xunit;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 public class KestrunHttpMiddlewareExtensionsTests
 {

@@ -2,7 +2,7 @@ using Kestrun.Hosting.Options;
 using Kestrun.Scripting;
 using Xunit;
 
-namespace KestrunTests.Hosting.Options;
+namespace Kestrun.Tests.Hosting.Options;
 
 public class LanguageOptionsTests
 {

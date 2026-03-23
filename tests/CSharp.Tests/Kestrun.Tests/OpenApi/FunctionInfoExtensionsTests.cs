@@ -2,7 +2,7 @@ using System.Management.Automation;
 using Kestrun.OpenApi;
 using Xunit;
 
-namespace KestrunTests.OpenApi;
+namespace Kestrun.Tests.OpenApi;
 
 /// <summary>
 /// Tests for FunctionInfoExtensions.

@@ -6,7 +6,7 @@ using Xunit;
 using Microsoft.CodeAnalysis.Scripting;
 using Kestrun.Hosting;
 
-namespace KestrunTests.Scheduling;
+namespace Kestrun.Tests.Scheduling;
 
 public class RoslynJobFactoryTests
 {

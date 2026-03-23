@@ -1,7 +1,7 @@
 using Kestrun.Callback;
 using Xunit;
 
-namespace KestrunTests.Callback;
+namespace Kestrun.Tests.Callback;
 
 public class InMemoryCallbackDispatcherTests
 {

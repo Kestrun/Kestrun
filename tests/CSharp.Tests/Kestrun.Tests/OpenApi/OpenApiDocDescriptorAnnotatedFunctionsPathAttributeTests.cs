@@ -5,7 +5,7 @@ using Kestrun.OpenApi;
 using Kestrun.Utilities;
 using Xunit;
 
-namespace KestrunTests.OpenApi;
+namespace Kestrun.Tests.OpenApi;
 
 [Trait("Category", "OpenApi")]
 public sealed class OpenApiDocDescriptorAnnotatedFunctionsPathAttributeTests

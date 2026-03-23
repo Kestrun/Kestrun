@@ -5,7 +5,7 @@ using Microsoft.OpenApi;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.OpenApi;
+namespace Kestrun.Tests.OpenApi;
 
 [Trait("Category", "OpenApi")]
 public sealed class OpenApiDocDescriptorParameterPowerShellTests

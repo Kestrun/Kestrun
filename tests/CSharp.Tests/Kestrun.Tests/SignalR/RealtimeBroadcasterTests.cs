@@ -4,7 +4,7 @@ using Moq;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.SignalR;
+namespace Kestrun.Tests.SignalR;
 
 /// <summary>
 /// Comprehensive tests for RealtimeBroadcaster.

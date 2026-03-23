@@ -8,7 +8,7 @@ using Serilog.Core;
 using Serilog.Events;
 using Xunit;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 public class CreateRunspacePoolTests
 {

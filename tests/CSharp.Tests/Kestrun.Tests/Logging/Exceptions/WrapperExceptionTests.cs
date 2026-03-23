@@ -1,7 +1,7 @@
 using Kestrun.Logging.Exceptions;
 using Xunit;
 
-namespace KestrunTests.Logging.Exceptions;
+namespace Kestrun.Tests.Logging.Exceptions;
 
 /// <summary>
 /// Tests for <see cref="WrapperException"/> class.

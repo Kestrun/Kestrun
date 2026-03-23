@@ -5,7 +5,7 @@ using Serilog;
 using Serilog.Core;
 using Xunit;
 
-namespace KestrunTests.Scheduling;
+namespace Kestrun.Tests.Scheduling;
 
 public class JobFactoryTests
 {

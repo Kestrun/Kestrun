@@ -5,7 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace KestrunTests.Razor;
+namespace Kestrun.Tests.Razor;
 
 public class PwshKestrunModelTests
 {

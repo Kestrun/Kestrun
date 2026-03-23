@@ -2,7 +2,7 @@ using System.Reflection;
 using Kestrun.Utilities;
 using Xunit;
 
-namespace KestrunTests.Utilities;
+namespace Kestrun.Tests.Utilities;
 
 public class PowerShellModuleLocatorMoreTests
 {

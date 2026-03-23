@@ -1,7 +1,7 @@
 using Kestrun.Models;
 using Xunit;
 
-namespace KestrunTests.Models;
+namespace Kestrun.Tests.Models;
 
 public class ContentDispositionOptionsTests
 {

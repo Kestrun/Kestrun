@@ -3,7 +3,7 @@ using Kestrun.Hosting;
 using Microsoft.CodeAnalysis;
 using Xunit;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 public class KestrunHostScriptValidationExtensionsTests
 {

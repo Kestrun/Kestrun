@@ -3,7 +3,7 @@ using Kestrun.Models;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Callback;
+namespace Kestrun.Tests.Callback;
 
 public class CallbackRequestFactoryTests
 {

@@ -3,7 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Kestrun.Utilities;
 using Xunit;
 
-namespace KestrunTests.Utilities;
+namespace Kestrun.Tests.Utilities;
 
 [Collection("SharedStateSerial")]
 public class AssemblyAutoLoaderResolveTests

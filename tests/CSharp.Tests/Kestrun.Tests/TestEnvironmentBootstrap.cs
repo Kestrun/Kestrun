@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 
-namespace KestrunTests;
+namespace Kestrun.Tests;
 
 internal static class TestEnvironmentBootstrap
 {

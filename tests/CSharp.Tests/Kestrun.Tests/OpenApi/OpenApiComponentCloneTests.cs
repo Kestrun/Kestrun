@@ -4,7 +4,7 @@ using Microsoft.OpenApi;
 using Moq;
 using Xunit;
 
-namespace KestrunTests.OpenApi;
+namespace Kestrun.Tests.OpenApi;
 
 public sealed class OpenApiComponentCloneTests
 {

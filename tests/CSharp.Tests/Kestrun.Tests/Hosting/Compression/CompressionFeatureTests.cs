@@ -12,7 +12,7 @@ using Xunit;
 using Kestrun.Hosting;
 using Moq;
 
-namespace KestrunTests.Hosting.Compression;
+namespace Kestrun.Tests.Hosting.Compression;
 
 /// <summary>
 /// Tests covering new compression feature surface (provider, service registration, endpoint metadata, and options flag).

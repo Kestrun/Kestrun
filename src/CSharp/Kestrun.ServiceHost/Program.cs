@@ -915,7 +915,13 @@ internal static class Program
         }
 
         var invalidChars = Path.GetInvalidFileNameChars();
-        var sanitized = new string([.. value.Select(c => invalidChars.Contains(c) ? '-' : c)])
+        var sanitized = new string([..
+            value.Select(c =>
+                c < 32
+                || invalidChars.Contains(c)
+                || c is '<' or '>' or ':' or '"' or '/' or '\\' or '|' or '?' or '*'
+                    ? '-'
+                    : c)])
             .Trim();
         return string.IsNullOrWhiteSpace(sanitized) ? "default" : sanitized;
     }

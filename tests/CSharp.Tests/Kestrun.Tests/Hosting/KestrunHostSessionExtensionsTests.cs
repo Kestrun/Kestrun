@@ -5,7 +5,7 @@ using Moq;
 using Xunit;
 using Microsoft.Extensions.Caching.Distributed;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 public class KestrunHostSessionExtensionsTests
 {

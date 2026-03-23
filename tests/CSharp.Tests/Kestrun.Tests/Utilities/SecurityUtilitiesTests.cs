@@ -1,7 +1,6 @@
-using Kestrun;
 using Xunit;
 
-namespace KestrunTests.Utilities;
+namespace Kestrun.Tests.Utilities;
 
 public class SecurityUtilitiesTests
 {

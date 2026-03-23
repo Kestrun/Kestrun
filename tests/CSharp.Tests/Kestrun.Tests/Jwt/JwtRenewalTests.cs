@@ -1,7 +1,7 @@
 using Kestrun.Jwt;
 using Xunit;
 
-namespace KestrunTests.Jwt;
+namespace Kestrun.Tests.Jwt;
 
 public class JwtRenewalTests
 {

@@ -4,7 +4,7 @@ using System.Security.Cryptography.X509Certificates;
 using Kestrun.Certificates;
 using Xunit;
 
-namespace KestrunTests.Certificates;
+namespace Kestrun.Tests.Certificates;
 
 public sealed class ClientCertificateValidationCallbacksTests
 {

@@ -1,11 +1,10 @@
-using Kestrun;
 using Kestrun.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Serilog;
 using Xunit;
 using System.Reflection;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 [Collection("SharedStateSerial")]
 public class KestrunHostFollowUpTests

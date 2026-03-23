@@ -4,7 +4,7 @@ using Kestrun.Scripting;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Scripting;
+namespace Kestrun.Tests.Scripting;
 
 [Trait("Category", "Scripting")]
 [Collection("RunspaceSerial")]

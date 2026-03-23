@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Xunit;
 
-namespace KestrunTests.Scripting;
+namespace Kestrun.Tests.Scripting;
 
 [Trait("Category", "Scripting")]
 public sealed class LanguageRuntimePipelineTests

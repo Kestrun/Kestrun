@@ -5,7 +5,7 @@ using Serilog.Core;
 using Serilog.Events;
 using Xunit;
 
-namespace KestrunTests.Logging;
+namespace Kestrun.Tests.Logging;
 
 [Collection("SharedStateSerial")] // modifies Log.Logger and shared registry
 public class LoggerManagerTests

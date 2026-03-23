@@ -4,7 +4,7 @@ using Kestrun.Hosting;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Scheduling;
+namespace Kestrun.Tests.Scheduling;
 
 // Disable parallel execution for all scheduler tests to reduce timing contention on CI runners.
 [CollectionDefinition("SchedulerTests", DisableParallelization = true)]

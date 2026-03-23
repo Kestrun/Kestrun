@@ -1,7 +1,7 @@
 using Kestrun.Hosting;
 using Xunit;
 
-namespace KestrunTests.SharedState;
+namespace Kestrun.Tests.SharedState;
 
 public class SharedStateTests
 {

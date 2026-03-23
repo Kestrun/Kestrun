@@ -1,7 +1,7 @@
 using Kestrun.Hosting.Options;
 using Xunit;
 
-namespace KestrunTests.Hosting.Options;
+namespace Kestrun.Tests.Hosting.Options;
 
 public class AuthKeyComparerTests
 {

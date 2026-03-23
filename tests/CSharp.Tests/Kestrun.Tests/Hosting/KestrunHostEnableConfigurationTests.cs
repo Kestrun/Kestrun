@@ -3,7 +3,7 @@ using Serilog;
 using Serilog.Events;
 using Xunit;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 /// <summary>
 /// Tests for the refactored EnableConfiguration method helpers in KestrunHost.
@@ -12,31 +12,69 @@ namespace KestrunTests.Hosting;
 [Collection("SharedStateSerial")]
 public class KestrunHostEnableConfigurationTests
 {
+    private static string GetSafeStartDirectory()
+    {
+        try
+        {
+            return Directory.GetCurrentDirectory();
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or DirectoryNotFoundException
+                                   or FileNotFoundException)
+        {
+            return AppContext.BaseDirectory;
+        }
+    }
+
     private static string LocateDevModule()
     {
-        // Walk upwards to find src/PowerShell/Kestrun/Kestrun.psm1 from current directory
-        var current = Directory.GetCurrentDirectory();
-        while (!string.IsNullOrEmpty(current))
+        // Walk upward from likely roots (cwd + test base dir) to find src/PowerShell/Kestrun/Kestrun.psm1.
+        foreach (var root in EnumerateModuleSearchRoots())
         {
-            var candidate = Path.Combine(current, "src", "PowerShell", "Kestrun", "Kestrun.psm1");
-            if (File.Exists(candidate))
+            var current = root;
+            while (!string.IsNullOrEmpty(current))
             {
-                return candidate;
+                var candidate = Path.Combine(current, "src", "PowerShell", "Kestrun", "Kestrun.psm1");
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+
+                var parent = Path.GetDirectoryName(current);
+                if (parent == null)
+                {
+                    break;
+                }
+
+                current = parent;
             }
-            var parent = Path.GetDirectoryName(current);
-            if (parent == null)
-            {
-                break;
-            }
-            current = parent;
         }
+
         throw new FileNotFoundException("Unable to locate dev Kestrun.psm1 in repo");
+    }
+
+    private static IEnumerable<string> EnumerateModuleSearchRoots()
+    {
+        var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            GetSafeStartDirectory(),
+            AppContext.BaseDirectory
+        };
+
+        foreach (var root in roots)
+        {
+            if (!string.IsNullOrWhiteSpace(root))
+            {
+                yield return root;
+            }
+        }
     }
 
     private static KestrunHost CreateTestHost(string name = "TestHost")
     {
         var module = LocateDevModule();
-        var root = Directory.GetCurrentDirectory();
+        var root = GetSafeStartDirectory();
         return new KestrunHost(name, Log.Logger, root, [module]);
     }
 
@@ -261,7 +299,7 @@ public class KestrunHostEnableConfigurationTests
             .CreateLogger();
 
         var module = LocateDevModule();
-        var root = Directory.GetCurrentDirectory();
+        var root = GetSafeStartDirectory();
         using var host = new KestrunHost("TestHost", testLogger, root, [module]);
 
         // Act

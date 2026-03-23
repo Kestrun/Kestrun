@@ -41,13 +41,13 @@ Invoke-Build Test-Pester
 Use standard xUnit filters via `dotnet test` directly:
 
 ```powershell
-dotnet test .\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj -t --list-tests
+dotnet test .\tests\CSharp.Tests\Kestrun.Tests\Kestrun.Tests.csproj -t --list-tests
 ```
 
 Example trait/class filter:
 
 ```powershell
-dotnet test .\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj -f net9.0 --filter "FullyQualifiedName~Routing"
+dotnet test .\tests\CSharp.Tests\Kestrun.Tests\Kestrun.Tests.csproj -f net9.0 --filter "FullyQualifiedName~Routing"
 ```
 
 ## Pester Configuration

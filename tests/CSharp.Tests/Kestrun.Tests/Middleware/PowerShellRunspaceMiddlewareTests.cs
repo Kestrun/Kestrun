@@ -12,7 +12,7 @@ using Serilog.Core;
 using Serilog.Events;
 using Microsoft.AspNetCore.Http.Features;
 
-namespace KestrunTests.Middleware;
+namespace Kestrun.Tests.Middleware;
 
 [Collection("SharedStateSerial")] // Avoid races with global Serilog Log.Logger
 public class PowerShellRunspaceMiddlewareTests

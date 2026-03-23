@@ -1,7 +1,7 @@
 using Kestrun.Forms;
 using Xunit;
 
-namespace KestrunTests.Forms;
+namespace Kestrun.Tests.Forms;
 
 public sealed class FormHelperBuildFormPartRulesTests
 {

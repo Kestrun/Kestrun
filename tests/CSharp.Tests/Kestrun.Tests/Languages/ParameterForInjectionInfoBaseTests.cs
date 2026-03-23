@@ -3,7 +3,7 @@ using Kestrun.Languages;
 using Microsoft.OpenApi;
 using Xunit;
 
-namespace KestrunTests.Languages;
+namespace Kestrun.Tests.Languages;
 
 public class ParameterForInjectionInfoBaseTests
 {

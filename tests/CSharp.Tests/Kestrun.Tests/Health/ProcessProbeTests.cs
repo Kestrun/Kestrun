@@ -3,7 +3,7 @@ using Xunit;
 using System.Runtime.InteropServices;
 using System.Globalization;
 
-namespace KestrunTests.Health;
+namespace Kestrun.Tests.Health;
 
 public class ProcessProbeTests
 {
@@ -81,14 +81,11 @@ public class ProcessProbeTests
         var probe = new ProcessProbe("proctimeout", ["live"], file, args, TimeSpan.FromMilliseconds(500));
         var result = await probe.CheckAsync(TestContext.Current.CancellationToken);
         Assert.Equal(ProbeStatus.Degraded, result.Status);
+        Assert.Contains("timed out", result.Description, StringComparison.OrdinalIgnoreCase);
+
         if (result.Data is { } data && data.TryGetValue("stdout", out var captured) && captured is string s)
         {
             Assert.Contains("starting", s);
-        }
-        else
-        {
-            // Fallback: we still expect description to mention timeout, but stdout capture should ideally exist.
-            Assert.Fail("Expected stdout data to be captured on timeout");
         }
     }
 }

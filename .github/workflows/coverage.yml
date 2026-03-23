@@ -265,6 +265,11 @@ jobs:
               with:
                   persist-credentials: false
 
+            - name: 🧰 Install PowerShell
+              uses: ./.github/actions/Install-PowerShell
+              with:
+                  Version: latest
+
             - name: 🧰 Setup .NET
               uses: actions/setup-dotnet@740310365d5065c44c30d213e7963107ebfd22d5
               with:
@@ -340,7 +345,7 @@ jobs:
                     -Framework "net10.0" `
                     -Configuration "Release" `
                     -TestProjects @(
-                        ".\tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj",
+                        ".\tests\CSharp.Tests\Kestrun.Tests\Kestrun.Tests.csproj",
                         ".\tests\CSharp.Tests\Kestrun.Tool.Tests\Kestrun.Tool.Tests.csproj",
                         ".\tests\CSharp.Tests\Kestrun.ServiceHost.Tests\Kestrun.ServiceHost.Tests.csproj",
                         ".\tests\CSharp.Tests\Kestrun.Runner.Tests\Kestrun.Runner.Tests.csproj"

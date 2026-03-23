@@ -6,7 +6,7 @@ using System.Text;
 using System.Management.Automation;
 using Xunit;
 
-namespace KestrunTests.Models;
+namespace Kestrun.Tests.Models;
 
 public partial class KestrunResponseTests
 {
@@ -91,7 +91,7 @@ public partial class KestrunResponseTests
         var ctx = MakeCtx();
         ctx.MapRouteOptions.DefaultResponseContentType = new Dictionary<string, ICollection<ContentTypeWithSchema>>
         {
-            ["200"] = [new("application/json", "KestrunTests.Models.MissingSchemaType")]
+            ["200"] = [new("application/json", "Kestrun.Tests.Models.MissingSchemaType")]
         };
 
         var res = ctx.Response;

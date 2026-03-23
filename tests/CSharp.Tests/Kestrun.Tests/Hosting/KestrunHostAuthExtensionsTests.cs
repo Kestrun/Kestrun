@@ -1,5 +1,8 @@
 using System.Security.Claims;
 using System.Text;
+using System.Net;
+using System.Net.Sockets;
+using System.Reflection;
 using Kestrun.Authentication;
 using Kestrun.Claims;
 using Kestrun.Hosting;
@@ -11,8 +14,9 @@ using Xunit;
 using Microsoft.AspNetCore.Http;
 using System.Management.Automation;
 using System.Management.Automation.Runspaces;
+using Serilog;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 [Collection("SharedStateSerial")]
 public class KestrunHostAuthExtensionsTests
@@ -38,7 +42,7 @@ public class KestrunHostAuthExtensionsTests
             AuthenticationType.Certificate,
             out var opts));
         Assert.NotNull(opts);
-        Assert.Equal(host, opts!.Host);
+        Assert.Equal(host, opts.Host);
     }
 
     [Fact]
@@ -479,5 +483,244 @@ public class KestrunHostAuthExtensionsTests
 
         var claims = await options.IssueClaims!(ctx, "client1");
         Assert.Contains(claims, c => c.Type == ClaimTypes.Name && c.Value == "client1");
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void OAuth2_Adds_Scheme_And_DefaultPolicyFromScopes()
+    {
+        var host = new KestrunHost("TestApp");
+        var options = new OAuth2Options
+        {
+            ClientId = "client-id",
+            ClientSecret = "secret",
+            AuthorizationEndpoint = "https://auth.example/authorize",
+            TokenEndpoint = "https://auth.example/token",
+        };
+        options.Scope.Add("openid");
+        options.Scope.Add("profile");
+
+        _ = host.AddOAuth2Authentication("OAuth2X", "OAuth2 X", options);
+        _ = host.Build();
+
+        Assert.True(host.HasAuthScheme("OAuth2X"));
+        Assert.True(host.HasAuthPolicy("openid"));
+        Assert.True(host.HasAuthPolicy("profile"));
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void OAuth2_Throws_When_ClientIdMissing()
+    {
+        var host = new KestrunHost("TestApp");
+        var options = new OAuth2Options
+        {
+            ClientId = "",
+            AuthorizationEndpoint = "https://auth.example/authorize",
+            TokenEndpoint = "https://auth.example/token",
+        };
+
+        _ = Assert.Throws<ArgumentException>(() => host.AddOAuth2Authentication("OAuth2MissingClient", configureOptions: options));
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void OpenIdConnect_WithJwkJson_ConfiguresEventsType()
+    {
+        var host = new KestrunHost("TestApp");
+        var options = new OidcOptions
+        {
+            ClientId = "oidc-client",
+            ClientSecret = "oidc-secret",
+            Authority = "https://example.invalid",
+            JwkJson = /*lang=json,strict*/ "{\"kty\":\"oct\",\"k\":\"AQAB\"}",
+        };
+        options.Scope.Add("openid");
+
+        _ = host.AddOpenIdConnectAuthentication("OidcX", "OIDC X", options);
+        var app = host.Build();
+
+        var monitor = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions>>();
+        var configured = monitor.Get("OidcX");
+
+        Assert.True(host.HasAuthScheme("OidcX"));
+        Assert.Equal(typeof(OidcEvents), configured.EventsType);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public async Task GetSupportedScopes_WithLocalOidcMetadata_ReturnsPolicies()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var (listener, prefix) = StartHttpListenerWithRetry();
+
+        var metadata = $$"""
+            {
+              "issuer": "{{prefix.TrimEnd('/')}}",
+              "authorization_endpoint": "{{prefix}}authorize",
+              "token_endpoint": "{{prefix}}token",
+              "jwks_uri": "{{prefix}}jwks",
+              "scopes_supported": ["openid", "profile", "email"]
+            }
+            """;
+
+        var serveTask = Task.Run(async () =>
+        {
+            try
+            {
+                for (var i = 0; i < 3 && listener.IsListening; i++)
+                {
+                    var context = await listener.GetContextAsync();
+                    var requestPath = context.Request.Url?.AbsolutePath ?? string.Empty;
+                    var body = requestPath.Contains("/.well-known/openid-configuration", StringComparison.Ordinal)
+                        ? metadata
+                        : requestPath.Contains("/jwks", StringComparison.Ordinal) ? /*lang=json,strict*/ "{\"keys\":[]}" : "{}";
+                    var responseBytes = Encoding.UTF8.GetBytes(body);
+                    context.Response.StatusCode = 200;
+                    context.Response.ContentType = "application/json";
+                    context.Response.ContentLength64 = responseBytes.Length;
+                    await context.Response.OutputStream.WriteAsync(responseBytes, cancellationToken);
+                    context.Response.Close();
+                }
+            }
+            catch
+            {
+                // Listener teardown path.
+            }
+        }, cancellationToken);
+
+        try
+        {
+            var method = typeof(KestrunHostAuthnExtensions).GetMethod("GetSupportedScopes", BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.NotNull(method);
+
+            var claimPolicy = method.Invoke(null, [prefix.TrimEnd('/'), Log.Logger]) as ClaimPolicyConfig;
+            Assert.NotNull(claimPolicy);
+            Assert.Contains("openid", claimPolicy.PolicyNames);
+            Assert.Contains("profile", claimPolicy.PolicyNames);
+            Assert.Contains("email", claimPolicy.PolicyNames);
+        }
+        finally
+        {
+            listener.Stop();
+            await serveTask;
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public async Task LoggingHttpMessageHandler_CapturesTokenResponse_AndPreservesStream()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var handlerType = typeof(KestrunHostAuthnExtensions).GetNestedType("LoggingHttpMessageHandler", BindingFlags.NonPublic);
+        Assert.NotNull(handlerType);
+
+        const string payload = /*lang=json,strict*/ "{\"access_token\":\"abc123\",\"token_type\":\"Bearer\"}";
+        using var inner = new StubMessageHandler(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(payload, Encoding.UTF8, "application/json")
+            };
+            return response;
+        });
+
+        var logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Sink(new NullSink()).CreateLogger();
+        using var loggingHandler = (HttpMessageHandler)Activator.CreateInstance(handlerType!, inner, logger)!;
+        using var client = new HttpClient(loggingHandler) { BaseAddress = new Uri("https://example.invalid/") };
+
+        using var response = await client.PostAsync("connect/token", new StringContent("grant_type=client_credentials", Encoding.UTF8, "application/x-www-form-urlencoded"), cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        Assert.Equal(payload, body);
+
+        var lastBodyProperty = handlerType!.GetProperty("LastTokenResponseBody", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(lastBodyProperty);
+        Assert.Equal(payload, lastBodyProperty!.GetValue(null)?.ToString());
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public async Task LoggingHttpMessageHandler_LogsAndPreservesNonTokenResponses()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var handlerType = typeof(KestrunHostAuthnExtensions).GetNestedType("LoggingHttpMessageHandler", BindingFlags.NonPublic);
+        Assert.NotNull(handlerType);
+
+        const string payload = /*lang=json,strict*/ "{\"status\":\"ok\"}";
+        using var inner = new StubMessageHandler(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(payload, Encoding.UTF8, "application/json")
+            };
+            return response;
+        });
+
+        var logger = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Sink(new NullSink()).CreateLogger();
+        using var loggingHandler = (HttpMessageHandler)Activator.CreateInstance(handlerType!, inner, logger)!;
+        using var client = new HttpClient(loggingHandler) { BaseAddress = new Uri("https://example.invalid/") };
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "userinfo")
+        {
+            Content = new StringContent("client=demo", Encoding.UTF8, "application/x-www-form-urlencoded")
+        };
+
+        using var response = await client.SendAsync(request, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        Assert.Equal(payload, body);
+    }
+
+    private static (HttpListener Listener, string Prefix) StartHttpListenerWithRetry(int maxAttempts = 8)
+    {
+        HttpListenerException? lastException = null;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            var prefix = $"http://127.0.0.1:{FindAvailablePort()}/";
+            var listener = new HttpListener();
+            listener.Prefixes.Add(prefix);
+
+            try
+            {
+                listener.Start();
+                return (listener, prefix);
+            }
+            catch (HttpListenerException ex)
+            {
+                listener.Close();
+                lastException = ex;
+            }
+            catch
+            {
+                listener.Close();
+                throw;
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Failed to start test HttpListener after {maxAttempts} attempts.",
+            lastException);
+    }
+
+    private static int FindAvailablePort()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        return ((IPEndPoint)listener.LocalEndpoint).Port;
+    }
+
+    private sealed class StubMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder = responder;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(_responder(request));
+    }
+
+    private sealed class NullSink : Serilog.Core.ILogEventSink
+    {
+        public void Emit(Serilog.Events.LogEvent logEvent)
+        {
+        }
     }
 }

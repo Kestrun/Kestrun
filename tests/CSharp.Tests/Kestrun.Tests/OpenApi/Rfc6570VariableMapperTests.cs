@@ -2,7 +2,7 @@ using Kestrun.OpenApi;
 using Microsoft.AspNetCore.Http;
 using Xunit;
 
-namespace KestrunTests.OpenApi;
+namespace Kestrun.Tests.OpenApi;
 
 /// <summary>
 /// Tests for the RFC 6570 variable mapper that converts ASP.NET route values to RFC 6570 variables.

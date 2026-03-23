@@ -6,7 +6,7 @@ using Serilog;
 using Xunit;
 using Xunit.Sdk;
 
-namespace KestrunTests.Sse;
+namespace Kestrun.Tests.Sse;
 
 public class InMemorySseBroadcasterTests
 {

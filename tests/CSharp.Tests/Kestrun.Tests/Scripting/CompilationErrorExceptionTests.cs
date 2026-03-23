@@ -4,7 +4,7 @@ using Microsoft.CodeAnalysis;
 using System.Collections.Immutable;
 using Xunit;
 
-namespace KestrunTests.Scripting;
+namespace Kestrun.Tests.Scripting;
 
 public class CompilationErrorExceptionTests
 {

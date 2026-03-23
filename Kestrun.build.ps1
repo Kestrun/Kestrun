@@ -79,7 +79,7 @@ param(
     [Parameter(Mandatory = $false)]
     [string]
     [ValidateSet('quiet', 'minimal' , 'normal', 'detailed', 'diagnostic')]
-    $DotNetVerbosity = 'normal',
+    $DotNetVerbosity = 'detailed',
     [Parameter(Mandatory = $false)]
     [switch]$SignModule
 )
@@ -152,7 +152,7 @@ $KestrunProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestr
 $KestrunAnnotationsProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Annotations/Kestrun.Annotations.csproj'
 $KestrunToolProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
 $KestrunServiceHostProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.ServiceHost/Kestrun.ServiceHost.csproj'
-$KestrunCoreTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Tests/Kestrun.Tests.csproj'
+$KestrunCoreTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Tests/KestrunTests.csproj'
 $KestrunToolTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Tool.Tests/Kestrun.Tool.Tests.csproj'
 $KestrunServiceHostTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.ServiceHost.Tests/Kestrun.ServiceHost.Tests.csproj'
 $KestrunRunnerTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Runner.Tests/Kestrun.Runner.Tests.csproj'
@@ -479,172 +479,15 @@ Add-BuildTask 'Nuget-CodeAnalysis' {
 # XUnit tests
 Add-BuildTask 'Test-xUnit' 'Build', {
     Write-Host '🧪 Running Kestrun DLL tests...'
-    $maxAttempts = 2
-    $xunitResultsDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'TestResults'
-    if (-not (Test-Path -Path $xunitResultsDirectory)) {
-        New-Item -Path $xunitResultsDirectory -ItemType Directory -Force | Out-Null
-    }
-
-    function Get-FailedTestFullyQualifiedNames {
-        param(
-            [Parameter(Mandatory)]
-            [string] $TrxPath
-        )
-
-        if (-not (Test-Path -Path $TrxPath)) {
-            return @()
-        }
-
-        try {
-            [xml]$trx = Get-Content -Path $TrxPath -Raw -ErrorAction Stop
-        } catch {
-            return @()
-        }
-
-        $idToFullyQualifiedName = @{}
-        foreach ($unitTest in @($trx.TestRun.TestDefinitions.UnitTest)) {
-            $id = [string]$unitTest.id
-            if ([string]::IsNullOrWhiteSpace($id)) {
-                continue
-            }
-
-            $className = [string]$unitTest.TestMethod.className
-            $methodName = [string]$unitTest.TestMethod.name
-            if ([string]::IsNullOrWhiteSpace($className) -or [string]::IsNullOrWhiteSpace($methodName)) {
-                continue
-            }
-
-            $idToFullyQualifiedName[$id] = "$className.$methodName"
-        }
-
-        $failed = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
-        foreach ($result in @($trx.TestRun.Results.UnitTestResult)) {
-            if (-not [string]::Equals([string]$result.outcome, 'Failed', [System.StringComparison]::OrdinalIgnoreCase)) {
-                continue
-            }
-
-            $resultTestId = [string]$result.testId
-            if (-not [string]::IsNullOrWhiteSpace($resultTestId) -and $idToFullyQualifiedName.ContainsKey($resultTestId)) {
-                $null = $failed.Add($idToFullyQualifiedName[$resultTestId])
-                continue
-            }
-
-            $fallbackName = [string]$result.testName
-            if (-not [string]::IsNullOrWhiteSpace($fallbackName)) {
-                $null = $failed.Add($fallbackName)
-            }
-        }
-
-        return @($failed)
-    }
-
-    function Build-TestFilterExpression {
-        param(
-            [Parameter(Mandatory)]
-            [string[]] $FullyQualifiedNames
-        )
-
-        $terms = @()
-        foreach ($name in $FullyQualifiedNames) {
-            if ([string]::IsNullOrWhiteSpace($name)) {
-                continue
-            }
-
-            $terms += "FullyQualifiedName=$($name.Replace("'", "''"))"
-        }
-
-        if ($terms.Count -eq 0) {
-            return $null
-        }
-
-        return "($($terms -join '|'))"
-    }
-
-    $dotnetTestVerbosity = switch ($DotNetVerbosity) {
-        'quiet' { 'quiet' }
-        default { 'minimal' }
-    }
-
-    $runDotNetTest = {
-        param(
-            [Parameter(Mandatory)] [string] $ProjectPath,
-            [Parameter(Mandatory)] [string] $Framework,
-            [Parameter(Mandatory)] [string] $Label
-        )
-
-        $projectName = [System.IO.Path]::GetFileNameWithoutExtension($ProjectPath)
-        $retryFilter = $null
-
-        for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-            if ($maxAttempts -gt 1) {
-                Write-Host "🧪 Attempt $attempt/$($maxAttempts): $Label"
-            }
-
-            $attemptLoggerVerbosity = if ($attempt -eq 1) { 'minimal' } else { 'normal' }
-            if ($attempt -gt 1) {
-                Write-Host "ℹ️ Retry attempt uses console verbosity '$attemptLoggerVerbosity' to include failed-test details."
-            }
-
-            $attemptTrxName = "$projectName.$Framework.attempt$attempt.trx"
-            $attemptTrxPath = Join-Path -Path $xunitResultsDirectory -ChildPath $attemptTrxName
-
-            $dotnetTestArgs = @(
-                'test',
-                $ProjectPath,
-                '-c',
-                $Configuration,
-                '-f',
-                $Framework,
-                '--no-build',
-                "-v:$dotnetTestVerbosity",
-                '--logger',
-                "console;verbosity=$attemptLoggerVerbosity",
-                '--logger',
-                "trx;LogFileName=$attemptTrxName",
-                '--results-directory',
-                $xunitResultsDirectory,
-                '--nologo'
-            )
-
-            if (-not [string]::IsNullOrWhiteSpace($retryFilter)) {
-                Write-Host '↻ Rerunning failed tests only.'
-                $dotnetTestArgs += @('--filter', $retryFilter)
-            }
-
-            & dotnet @dotnetTestArgs | Out-Host
-            $exitCode = $LASTEXITCODE
-            if ($exitCode -eq 0) {
-                if ($maxAttempts -gt 1) {
-                    Write-Host "✅ $Label passed on attempt $attempt/$maxAttempts"
-                }
-
-                return $true
-            }
-
-            Write-Host "⚠️ $Label exited with code $exitCode (attempt $attempt/$maxAttempts)." -ForegroundColor Yellow
-            if ($attempt -lt $maxAttempts) {
-                $failedTests = Get-FailedTestFullyQualifiedNames -TrxPath $attemptTrxPath
-                if ($failedTests.Count -gt 0) {
-                    $retryFilter = Build-TestFilterExpression -FullyQualifiedNames $failedTests
-                    Write-Host "↻ Next attempt will run $($failedTests.Count) failed test(s)."
-                } else {
-                    $retryFilter = $null
-                    Write-Host 'ℹ️ Failed-test list unavailable; next attempt will run the full test set.'
-                }
-
-                Start-Sleep -Seconds 2
-            }
-        }
-
-        return $false
-    }
+    $failures = @()
 
     # Run the shared Kestrun core test suite for each requested framework.
     foreach ($framework in $Frameworks) {
         Write-Host "▶️ Running Kestrun core tests for $framework"
-        if (-not (& $runDotNetTest -ProjectPath $KestrunCoreTestProjectPath -Framework $framework -Label "Kestrun.Tests ($framework)")) {
+        dotnet test "$KestrunCoreTestProjectPath" -c $Configuration -f $framework -v:$DotNetVerbosity
+        if ($LASTEXITCODE -ne 0) {
             Write-Host "❌ Core tests failed for $framework" -ForegroundColor Red
-            throw "Test-xUnit failed for targets: Kestrun.Tests ($framework)"
+            $failures += "KestrunTests ($framework)"
         }
     }
 
@@ -652,15 +495,19 @@ Add-BuildTask 'Test-xUnit' 'Build', {
         foreach ($dedicatedTestProject in $KestrunDedicatedNet10TestProjects) {
             $testProjectName = [System.IO.Path]::GetFileNameWithoutExtension($dedicatedTestProject)
             Write-Host "▶️ Running dedicated tests for $testProjectName (net10.0)"
-            if (-not (& $runDotNetTest -ProjectPath $dedicatedTestProject -Framework 'net10.0' -Label "$testProjectName (net10.0)")) {
+            dotnet test "$dedicatedTestProject" -c $Configuration -f net10.0 -v:$DotNetVerbosity
+            if ($LASTEXITCODE -ne 0) {
                 Write-Host "❌ Dedicated tests failed for $testProjectName (net10.0)" -ForegroundColor Red
-                throw "Test-xUnit failed for targets: $testProjectName (net10.0)"
+                $failures += "$testProjectName (net10.0)"
             }
         }
     } else {
         Write-Host 'ℹ️ Skipping dedicated Tool/ServiceHost/Runner tests because net10.0 is not in -Frameworks.' -ForegroundColor Yellow
     }
 
+    if ($failures.Count -gt 0) {
+        throw "Test-xUnit failed for targets: $($failures -join ', ')"
+    }
 }
 
 # Formatting source code

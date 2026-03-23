@@ -85,7 +85,7 @@ jobs:
             - name: Run PSScriptAnalyzer with settings
               id: pssa
               uses: microsoft/psscriptanalyzer-action@v1.1
-              continue-on-error: true # don’t fail the job if PSSA crashes before producing SARIF
+              continue-on-error: false # don’t fail the job if PSSA crashes before producing SARIF
               with:
                   path: .\src\PowerShell\Kestrun
                   recurse: true

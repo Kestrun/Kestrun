@@ -265,6 +265,11 @@ jobs:
               with:
                   persist-credentials: false
 
+            - name: 🧰 Install PowerShell
+              uses: ./.github/actions/Install-PowerShell
+              with:
+                  Version: latest
+
             - name: 🧰 Setup .NET
               uses: actions/setup-dotnet@740310365d5065c44c30d213e7963107ebfd22d5
               with:

@@ -17,20 +17,20 @@ Core goals:
 
 ## Current Status
 
-| Area | Middleware Available | Notes |
+| Area | Middleware Available | Notes and Links |
 |------|----------------------|-------|
-| Security | Antiforgery (CSRF), HSTS, HTTPS Redirection | Production ready |
-| Static Content | File Server | Directory browsing + headers |
-| Responses | Caching helpers | Per-route directives; see the Responses caching chapter |
-| Logging | Sinks / enrichment | See the Logging section |
-| AuthN/Z | Schemes & policies | See the Authentication section |
-| Sessions | Session state | See the Sessions chapter |
+| Security | Antiforgery (CSRF), HSTS, HTTPS Redirection | [Antiforgery](./1.Antiforgery), [HTTPS Redirection](./3.Https-Redirection), [HSTS](./4.Https-Hsts) |
+| Static Content | File Server | [File Server & Directory Browsing](/pwsh/tutorial/3.static/2.File-Server) |
+| Responses | Caching helpers | [Responses: Caching & Revalidation](/pwsh/tutorial/9.Responses/8.Caching) |
+| Logging | Sinks / enrichment | [Logging section](/pwsh/tutorial/5.logging/index) |
+| AuthN/Z | Schemes & policies | [Authentication section](/pwsh/tutorial/8.authentication/index) |
+| Sessions | Session state | [Sessions chapter](/pwsh/tutorial/19.Sessions/index) |
 | Event streaming | SSE + Broadcast SSE | See [SSE](./9.Sse) and [SSE Broadcast](./10.SseBroadcast) |
 | Security | Host Filtering | [Tutorial](./6.Host-Filtering) |
 | Security | CORS | [Tutorial](./8.Cors) |
+| Security | Rate Limiting (policy-based) | Implemented; see [Routing guide](/guides/routing) |
+| Compression | Response Compression | [Tutorial](./2.Compression) + [Guide](/guides/compression) |
 | Compression | Request Decompression (`Content-Encoding`) | [Tutorial](./11.Request-Decompression) |
-| Upcoming | Rate Limiting | Planned |
-| Upcoming | Compression | Planned |
 
 ## Quick Start: Antiforgery
 
@@ -65,8 +65,9 @@ Planned middleware will appear here as they are implemented. Contributions are w
 |---------|--------|----------|
 | Antiforgery | ✅ Implemented | Tutorial + deeper guide planned |
 | HSTS & HTTPS Redirection | ✅ Implemented | [Tutorial](./4.Https-Hsts) + [Guide](/guides/hsts) |
-| Rate Limiting | ⏳ Planned | TBD |
-| Compression | ⏳ Planned | [Tutorial](./2.Compression) |
+| Rate Limiting | ✅ Implemented | Policy-based today; dedicated tutorial TBD |
+| Response Compression | ✅ Implemented | [Tutorial](./2.Compression) + [Guide](/guides/compression) |
+| Request Decompression | ✅ Implemented | [Tutorial](./11.Request-Decompression) |
 | CORS | ✅ Implemented | [Tutorial](./8.Cors) + [Guide](/guides/cors) |
 | Request Metrics | Ideation | TBD |
 

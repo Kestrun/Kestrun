@@ -5,7 +5,7 @@ using Kestrun.Models;
 using Microsoft.AspNetCore.Http;
 using Xunit;
 
-namespace KestrunTests.Jwt;
+namespace Kestrun.Tests.Jwt;
 
 public class JwtAdditionalBuilderTests
 {

@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Cors.Infrastructure;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Middleware;
+namespace Kestrun.Tests.Middleware;
 
 public class CorsConfigurationTests
 {

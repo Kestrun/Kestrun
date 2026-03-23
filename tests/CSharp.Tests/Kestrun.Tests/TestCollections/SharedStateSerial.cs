@@ -1,6 +1,6 @@
 using Xunit;
 
-namespace KestrunTests.TestCollections;
+namespace Kestrun.Tests.TestCollections;
 
 [CollectionDefinition("SharedStateSerial", DisableParallelization = true)]
 public class SharedStateSerialCollection

@@ -3,7 +3,7 @@ using Kestrun.Languages;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Languages;
+namespace Kestrun.Tests.Languages;
 
 public sealed class ParameterForInjectionInfoFormPayloadTests
 {

@@ -1,7 +1,6 @@
 using System.Net;
 using Xunit;
 using Serilog;
-using Kestrun;
 using Kestrun.Utilities;
 // Add the following using if MapRouteOptions is in another namespace
 using Kestrun.Hosting;
@@ -9,7 +8,7 @@ using Kestrun.Hosting.Options;
 using Kestrun.Scripting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 [Collection("SharedStateSerial")]
 public class KestrunHostTest

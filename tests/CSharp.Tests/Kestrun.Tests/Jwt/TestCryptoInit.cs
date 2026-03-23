@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using Microsoft.IdentityModel.Tokens;
 
-namespace KestrunTests.Jwt;
+namespace Kestrun.Tests.Jwt;
 
 internal static class TestCryptoInit
 {

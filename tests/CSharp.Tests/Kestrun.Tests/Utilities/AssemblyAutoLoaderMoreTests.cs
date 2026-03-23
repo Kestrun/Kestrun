@@ -2,7 +2,7 @@ using System.Text;
 using Kestrun.Utilities;
 using Xunit;
 
-namespace KestrunTests.Utilities;
+namespace Kestrun.Tests.Utilities;
 
 [Collection("SharedStateSerial")]
 public class AssemblyAutoLoaderMoreTests

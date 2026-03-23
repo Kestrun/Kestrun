@@ -4,7 +4,7 @@ using YamlDotNet.RepresentationModel;
 using YamlDotNet.Core;
 using System.Numerics;
 
-namespace KestrunTests;
+namespace Kestrun.Tests;
 
 public class YamlScalarConversionTests
 {

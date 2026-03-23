@@ -6,7 +6,7 @@ using Serilog;
 using Serilog.Core;
 using Xunit;
 
-namespace KestrunTests.Tasks;
+namespace Kestrun.Tests.Tasks;
 
 public class KestrunTaskServiceAllTests
 {

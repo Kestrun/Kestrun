@@ -1,6 +1,6 @@
 using Xunit;
 
-namespace KestrunTests.TestCollections;
+namespace Kestrun.Tests.TestCollections;
 
 [CollectionDefinition("Languages")]
 public class LanguagesCollection : ICollectionFixture<object> { }

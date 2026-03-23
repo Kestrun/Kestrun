@@ -5,7 +5,7 @@ using Serilog;
 using Xunit;
 using System.Management.Automation;
 
-namespace KestrunTests.Languages;
+namespace Kestrun.Tests.Languages;
 
 [Collection("SharedStateSerial")]
 public class VBNetAndPowerShellDelegateBuilderTests

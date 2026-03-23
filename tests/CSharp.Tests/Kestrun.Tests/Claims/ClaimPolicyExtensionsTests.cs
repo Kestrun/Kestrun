@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 using Xunit;
 
-namespace KestrunTests.Claims;
+namespace Kestrun.Tests.Claims;
 
 public class ClaimPolicyExtensionsTests
 {

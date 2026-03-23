@@ -3,7 +3,7 @@ using Kestrun.Hosting;
 using Kestrun.Utilities;
 using Xunit;
 
-namespace KestrunTests.Utilities;
+namespace Kestrun.Tests.Utilities;
 
 /// <summary>
 /// Tests for <see cref="HostingExtensions"/> class.

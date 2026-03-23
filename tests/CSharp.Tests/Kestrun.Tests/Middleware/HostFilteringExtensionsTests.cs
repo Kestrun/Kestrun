@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Middleware;
+namespace Kestrun.Tests.Middleware;
 
 public class HostFilteringExtensionsTests
 {

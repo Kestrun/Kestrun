@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Languages;
+namespace Kestrun.Tests.Languages;
 
 [Collection("SharedStateSerial")]
 public class CSharpDelegateBuilderTests

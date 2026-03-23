@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Xunit;
 
-namespace KestrunTests.Claims;
+namespace Kestrun.Tests.Claims;
 
 public class ClaimPolicyPostConfigurerTests
 {

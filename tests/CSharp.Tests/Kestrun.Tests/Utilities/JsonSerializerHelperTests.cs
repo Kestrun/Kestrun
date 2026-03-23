@@ -2,7 +2,7 @@ using System.Text.Json;
 using Kestrun.Utilities.Json;
 using Xunit;
 
-namespace KestrunTests.Utilities;
+namespace Kestrun.Tests.Utilities;
 
 public class JsonSerializerHelperTests
 {

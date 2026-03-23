@@ -3,7 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Xunit;
 
-namespace KestrunTests.Certificates;
+namespace Kestrun.Tests.Certificates;
 
 public class JwkJsonTests
 {

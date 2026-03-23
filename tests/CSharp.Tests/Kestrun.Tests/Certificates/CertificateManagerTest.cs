@@ -8,7 +8,7 @@ using Xunit;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
-namespace KestrunTests.Certificates;
+namespace Kestrun.Tests.Certificates;
 
 public class CertificateManagerTest
 {

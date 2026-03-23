@@ -3,7 +3,7 @@ using Kestrun.Hosting;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Forms;
+namespace Kestrun.Tests.Forms;
 
 public sealed class KrFormOptionsNestedRulesTests
 {

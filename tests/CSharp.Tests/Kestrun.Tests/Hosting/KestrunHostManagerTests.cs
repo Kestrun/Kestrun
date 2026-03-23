@@ -1,9 +1,8 @@
-using Kestrun;
 using Kestrun.Hosting;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 [Collection("SharedStateSerial")]
 public class KestrunHostManagerTests

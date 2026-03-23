@@ -8,7 +8,7 @@ using Xunit;
 using System.Management.Automation;
 using JobInfo = Kestrun.Scheduling.JobInfo;
 
-namespace KestrunTests.Scheduling;
+namespace Kestrun.Tests.Scheduling;
 
 [Collection("SchedulerTests")]
 public class SchedulerServiceTests

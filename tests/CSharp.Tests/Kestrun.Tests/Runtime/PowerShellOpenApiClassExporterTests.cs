@@ -3,7 +3,7 @@ using System.Reflection.Emit;
 using Kestrun.Runtime;
 using Xunit;
 
-namespace KestrunTests.Runtime;
+namespace Kestrun.Tests.Runtime;
 
 public class PowerShellOpenApiClassExporterTests
 {

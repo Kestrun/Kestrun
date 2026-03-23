@@ -2,7 +2,7 @@ using Kestrun.Health;
 using Xunit;
 using System.Net;
 
-namespace KestrunTests.Health;
+namespace Kestrun.Tests.Health;
 
 public class HttpProbeTests
 {

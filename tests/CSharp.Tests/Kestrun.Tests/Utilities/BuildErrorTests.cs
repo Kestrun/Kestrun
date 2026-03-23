@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Xunit;
 using Kestrun.Utilities;
 
-namespace KestrunTests.Utilities;
+namespace Kestrun.Tests.Utilities;
 
 public class BuildErrorTests
 {

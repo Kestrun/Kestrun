@@ -2,7 +2,7 @@ using Kestrun.Utilities;
 using System.Collections;
 using Xunit;
 
-namespace KestrunTests.Utilities;
+namespace Kestrun.Tests.Utilities;
 
 public class ObjectToDictionaryConverterTests
 {

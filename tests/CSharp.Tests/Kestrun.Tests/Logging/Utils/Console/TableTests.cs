@@ -1,7 +1,7 @@
 using Kestrun.Logging.Utils.Console;
 using Xunit;
 
-namespace KestrunTests.Logging.Utils.Console;
+namespace Kestrun.Tests.Logging.Utils.Console;
 
 /// <summary>
 /// Tests for <see cref="Padding"/> class.

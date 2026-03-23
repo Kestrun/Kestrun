@@ -2,7 +2,7 @@ using Kestrun.Health;
 using Kestrun.Scripting;
 using Xunit;
 
-namespace KestrunTests.Health;
+namespace Kestrun.Tests.Health;
 
 public class HealthEndpointOptionsTests
 {

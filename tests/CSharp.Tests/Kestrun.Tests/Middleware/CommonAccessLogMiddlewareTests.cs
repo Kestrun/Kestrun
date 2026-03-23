@@ -9,7 +9,7 @@ using Serilog.Events;
 using Xunit;
 using Microsoft.Extensions.Options;
 
-namespace KestrunTests.Middleware;
+namespace Kestrun.Tests.Middleware;
 
 public class CommonAccessLogMiddlewareTests
 {

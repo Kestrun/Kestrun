@@ -4,7 +4,7 @@ using Serilog;
 using System.Collections;
 using Xunit;
 
-namespace KestrunTests.Models;
+namespace Kestrun.Tests.Models;
 
 public class WriteFormUrlEncodedResponseTests
 {

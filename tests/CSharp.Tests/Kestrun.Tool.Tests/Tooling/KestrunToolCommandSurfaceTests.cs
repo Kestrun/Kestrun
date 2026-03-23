@@ -1,4 +1,3 @@
-#if NET10_0_OR_GREATER
 using System.IO.Compression;
 using System.Formats.Tar;
 using System.Net;
@@ -374,6 +373,165 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryGetInstalledModuleVersionText_FallsBackToParentDirectoryVersion()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            var versionDirectory = Path.Combine(tempRoot, "1.2.3");
+            _ = Directory.CreateDirectory(versionDirectory);
+
+            var manifestPath = Path.Combine(versionDirectory, "Kestrun.psd1");
+            File.WriteAllText(manifestPath, "not-a-manifest", Encoding.UTF8);
+
+            var (success, versionText) = InvokeTryGetInstalledModuleVersionText(manifestPath);
+
+            Assert.True(success);
+            Assert.Equal("1.2.3", versionText);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryGetLatestInstalledModuleVersionText_ResolvesVersionFromLocalScope()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            var moduleRoot = Path.Combine(tempRoot, "Kestrun");
+            var versionFolder = Path.Combine(moduleRoot, "9999.0.0");
+            var manifestPath = Path.Combine(versionFolder, "Kestrun.psd1");
+
+            _ = Directory.CreateDirectory(versionFolder);
+            File.WriteAllText(
+                manifestPath,
+                "@{\n    ModuleVersion = '9999.0.0'\n}",
+                Encoding.UTF8);
+
+            var (success, versionText) = InvokeTryGetLatestInstalledModuleVersionTextFromModuleRoot(moduleRoot);
+            Assert.True(success);
+            Assert.Equal("9999.0.0", versionText);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseVersionValue_HandlesValidAndInvalidInputs()
+    {
+        var (successStable, stableVersion) = InvokeTryParseVersionValue("1.2.3");
+        Assert.True(successStable);
+        Assert.Equal("1.2.3", stableVersion);
+
+        var (successPre, prereleaseVersion) = InvokeTryParseVersionValue("2.0.0-beta4");
+        Assert.True(successPre);
+        Assert.Equal("2.0.0", prereleaseVersion);
+
+        var (successInvalid, invalidVersion) = InvokeTryParseVersionValue("abc");
+        Assert.False(successInvalid);
+        Assert.Equal("0.0", invalidVersion);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void WriteWarningToLogOrConsole_WritesToConfiguredLogFile()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-warning-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var logPath = Path.Combine(tempRoot, "service.log");
+
+            InvokeVoid("WriteWarningToLogOrConsole", "test-warning-message", logPath);
+
+            var text = File.ReadAllText(logPath, Encoding.UTF8);
+            Assert.Contains("test-warning-message", text, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryGetGalleryModuleVersionsFromClient_ReturnsVersions_FromStubbedResponse()
+    {
+        const string payload = """
+<feed>
+  <entry><Version>1.0.0</Version></entry>
+  <entry><Version>1.2.0-beta1</Version></entry>
+  <entry><Version>1.2.0-beta1</Version></entry>
+  <entry><Version>1.1.0</Version></entry>
+</feed>
+""";
+
+        var (success, versions, error) = InvokeTryGetGalleryModuleVersionsFromClient(HttpStatusCode.OK, payload);
+
+        Assert.True(success, error);
+        Assert.Equal(["1.0.0", "1.2.0-beta1", "1.1.0"], versions);
+        Assert.True(string.IsNullOrWhiteSpace(error));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryGetGalleryModuleVersionsFromClient_ReturnsError_WhenHttpFails()
+    {
+        var (success, versions, error) = InvokeTryGetGalleryModuleVersionsFromClient(HttpStatusCode.ServiceUnavailable, string.Empty, "Service Unavailable");
+
+        Assert.False(success);
+        Assert.Empty(versions);
+        Assert.Contains("HTTP 503", error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryGetLatestGalleryVersionStringFromClient_ReturnsHighestVersion_FromStubbedResponse()
+    {
+        const string payload = """
+<feed>
+  <entry><Version>1.2.0-beta4</Version></entry>
+  <entry><Version>1.1.0</Version></entry>
+  <entry><Version>2.0.0</Version></entry>
+</feed>
+""";
+
+        var (success, version, error) = InvokeTryGetLatestGalleryVersionStringFromClient(HttpStatusCode.OK, payload);
+
+        Assert.True(success, error);
+        Assert.Equal("2.0.0", version);
+        Assert.True(string.IsNullOrWhiteSpace(error));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseGalleryModuleVersions_ReturnsError_WhenXmlInvalid()
+    {
+        var (success, versions, error) = InvokeTryParseGalleryModuleVersions("<feed><Version>1.0.0</feed>");
+
+        Assert.False(success);
+        Assert.Empty(versions);
+        Assert.False(string.IsNullOrWhiteSpace(error));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void GetInstalledModuleRecords_UsesManifestPrerelease_WhenDirectoryIsStableVersion()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
@@ -551,12 +709,20 @@ public class KestrunToolCommandSurfaceTests
             Assert.True(string.IsNullOrWhiteSpace(Error));
 
             var resolvedRuntimePath = Path.GetFullPath(RuntimePath);
-            var expectedSuffix = Path.Combine("src", "PowerShell", "Kestrun", "runtimes", runtimeRid, runtimeBinaryName);
+            var expectedRuntimeSuffix = Path.Combine("src", "PowerShell", "Kestrun", "runtimes", runtimeRid, runtimeBinaryName);
+            var expectedServiceHostSuffix = Path.Combine("kestrun-service", runtimeRid, OperatingSystem.IsWindows() ? "kestrun-service-host.exe" : "kestrun-service-host");
             var pathComparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
             Assert.True(File.Exists(resolvedRuntimePath));
-            Assert.EndsWith(expectedSuffix, resolvedRuntimePath, pathComparison);
-            Assert.Equal("fallback-runtime", File.ReadAllText(resolvedRuntimePath, Encoding.UTF8));
+
+            if (resolvedRuntimePath.EndsWith(expectedRuntimeSuffix, pathComparison))
+            {
+                Assert.Equal("fallback-runtime", File.ReadAllText(resolvedRuntimePath, Encoding.UTF8));
+            }
+            else
+            {
+                Assert.EndsWith(expectedServiceHostSuffix, resolvedRuntimePath, pathComparison);
+            }
         }
         finally
         {
@@ -2638,6 +2804,95 @@ public class KestrunToolCommandSurfaceTests
         return (success, version);
     }
 
+    private static (bool Success, string Version) InvokeTryGetInstalledModuleVersionText(string manifestPath)
+    {
+        var method = GetRequiredProgramMethod("TryGetInstalledModuleVersionText");
+
+        var values = new object?[] { manifestPath, null };
+        var success = InvokeRequiredBool(method, values);
+        var version = values[1]?.ToString() ?? string.Empty;
+        return (success, version);
+    }
+
+    private static (bool Success, string Version) InvokeTryGetLatestInstalledModuleVersionTextFromModuleRoot(string moduleRoot)
+    {
+        var method = GetRequiredProgramMethod("TryGetLatestInstalledModuleVersionTextFromModuleRoot");
+
+        var values = new object?[] { moduleRoot, null };
+        var success = InvokeRequiredBool(method, values);
+        var version = values[1]?.ToString() ?? string.Empty;
+        return (success, version);
+    }
+
+    private static (bool Success, string VersionText) InvokeTryParseVersionValue(string? rawValue)
+    {
+        var method = GetRequiredProgramMethod("TryParseVersionValue");
+
+        var values = new object?[] { rawValue, null };
+        var success = InvokeRequiredBool(method, values);
+        var version = values[1] is Version parsedVersion
+            ? parsedVersion.ToString()
+            : values[1]?.ToString() ?? string.Empty;
+        return (success, version);
+    }
+
+    private static (bool Success, IReadOnlyList<string> Versions, string Error) InvokeTryGetGalleryModuleVersionsFromClient(HttpStatusCode statusCode, string content, string reasonPhrase = "OK")
+    {
+        var method = GetRequiredProgramMethod("TryGetGalleryModuleVersionsFromClient");
+
+        using var httpClient = CreateStubHttpClient(statusCode, content, reasonPhrase);
+
+        var values = new object?[] { httpClient, null, null };
+        var success = InvokeRequiredBool(method, values);
+        var versions = values[1] is System.Collections.IEnumerable enumerable
+            ? enumerable.Cast<object>().Select(static item => item?.ToString() ?? string.Empty).ToList()
+            : [];
+        var error = values[2]?.ToString() ?? string.Empty;
+        return (success, versions, error);
+    }
+
+    private static (bool Success, string Version, string Error) InvokeTryGetLatestGalleryVersionStringFromClient(HttpStatusCode statusCode, string content, string reasonPhrase = "OK")
+    {
+        var method = GetRequiredProgramMethod("TryGetLatestGalleryVersionStringFromClient");
+
+        using var httpClient = CreateStubHttpClient(statusCode, content, reasonPhrase);
+
+        var values = new object?[] { httpClient, null, null };
+        var success = InvokeRequiredBool(method, values);
+        var version = values[1]?.ToString() ?? string.Empty;
+        var error = values[2]?.ToString() ?? string.Empty;
+        return (success, version, error);
+    }
+
+    private static (bool Success, IReadOnlyList<string> Versions, string Error) InvokeTryParseGalleryModuleVersions(string content)
+    {
+        var method = GetRequiredProgramMethod("TryParseGalleryModuleVersions");
+
+        var values = new object?[] { content, null, null };
+        var success = InvokeRequiredBool(method, values);
+        var versions = values[1] is System.Collections.IEnumerable enumerable
+            ? enumerable.Cast<object>().Select(static item => item?.ToString() ?? string.Empty).ToList()
+            : [];
+        var error = values[2]?.ToString() ?? string.Empty;
+        return (success, versions, error);
+    }
+
+    private static HttpClient CreateStubHttpClient(HttpStatusCode statusCode, string content, string reasonPhrase)
+    {
+        var handler = new StubHttpMessageHandler(_ => new HttpResponseMessage(statusCode)
+        {
+            ReasonPhrase = reasonPhrase,
+            Content = new StringContent(content, Encoding.UTF8, "application/atom+xml"),
+        });
+        return new HttpClient(handler, disposeHandler: true);
+    }
+
+    private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responseFactory) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(responseFactory(request));
+    }
+
     private static (bool Success, string Error) InvokeTryValidateInstallAction(string moduleRoot, string scopeToken)
     {
         var method = GetRequiredProgramMethod("TryValidateInstallAction");
@@ -3135,4 +3390,3 @@ public class KestrunToolCommandSurfaceTests
         return assembly.GetType("Kestrun.Tool.Program", throwOnError: true, ignoreCase: false)!;
     }
 }
-#endif

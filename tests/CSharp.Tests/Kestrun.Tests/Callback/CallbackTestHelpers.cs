@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace KestrunTests.Callback;
+namespace Kestrun.Tests.Callback;
 
 /// <summary>
 /// HTTP message handler that captures sent requests for inspection.

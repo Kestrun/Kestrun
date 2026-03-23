@@ -2,7 +2,7 @@ using Kestrun.Utilities.Yaml;
 using Xunit;
 using System.Numerics;
 
-namespace KestrunTests;
+namespace Kestrun.Tests;
 
 public class YamlIntParsingTests
 {

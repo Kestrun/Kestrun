@@ -4,7 +4,7 @@ using Microsoft.OpenApi;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.OpenApi;
+namespace Kestrun.Tests.OpenApi;
 
 public sealed class OpenApiDocDescriptorComponentsTests
 {

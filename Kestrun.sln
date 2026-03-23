@@ -5,7 +5,7 @@ VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kestrun", "src\CSharp\Kestrun\Kestrun.csproj", "{2DC5C603-9907-9D28-5F02-DC85B2C9099B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KestrunTests", "tests\CSharp.Tests\Kestrun.Tests\KestrunTests.csproj", "{9370B831-8AFA-4D0B-9A82-6CA24A331A18}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kestrun.Tests", "tests\CSharp.Tests\Kestrun.Tests\Kestrun.Tests.csproj", "{9370B831-8AFA-4D0B-9A82-6CA24A331A18}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "examples", "examples", "{2DBD2DD7-5202-4B2C-BA7B-9FAA8F47484B}"
 EndProject

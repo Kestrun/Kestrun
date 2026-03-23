@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Http;
 using System.Text;
 using Xunit;
 
-namespace KestrunTests.Models;
+namespace Kestrun.Tests.Models;
 
 public class KestrunRequestTests
 {

@@ -3,7 +3,7 @@ using System.Management.Automation;
 using Microsoft.OpenApi;
 using Xunit;
 
-namespace KestrunTests.OpenApi;
+namespace Kestrun.Tests.OpenApi;
 
 public class PowerShellAttributesTests
 {

@@ -20,6 +20,11 @@ internal static partial class Program
             return 1;
         }
 
+        if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+        {
+            TryEnsureServiceRuntimeExecutablePermissions(serviceHostExecutablePath);
+        }
+
         var runnerExecutablePath = ResolveCurrentProcessPathOrFallback(serviceHostExecutablePath);
         var hostArguments = BuildDedicatedServiceHostRunArguments(
             runnerExecutablePath,
@@ -39,29 +44,37 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int RunForegroundProcess(string fileName, IReadOnlyList<string> arguments)
     {
-        var startInfo = new ProcessStartInfo
+        try
         {
-            FileName = fileName,
-            UseShellExecute = false,
-            RedirectStandardOutput = false,
-            RedirectStandardError = false,
-            CreateNoWindow = false,
-        };
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = fileName,
+                UseShellExecute = false,
+                RedirectStandardOutput = false,
+                RedirectStandardError = false,
+                CreateNoWindow = false,
+            };
 
-        foreach (var argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
+            foreach (var argument in arguments)
+            {
+                startInfo.ArgumentList.Add(argument);
+            }
+
+            using var process = Process.Start(startInfo);
+            if (process is null)
+            {
+                Console.Error.WriteLine($"Failed to start process: {fileName}");
+                return 1;
+            }
+
+            process.WaitForExit();
+            return process.ExitCode;
         }
-
-        using var process = Process.Start(startInfo);
-        if (process is null)
+        catch (Exception ex)
         {
-            Console.Error.WriteLine($"Failed to start process: {fileName}");
+            Console.Error.WriteLine($"Failed to start process '{fileName}': {ex.Message}");
             return 1;
         }
-
-        process.WaitForExit();
-        return process.ExitCode;
     }
 
     /// <summary>

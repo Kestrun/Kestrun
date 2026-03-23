@@ -2,7 +2,7 @@ using System.Management.Automation;
 using Kestrun.Utilities;
 using Xunit;
 
-namespace KestrunTests.Utilities;
+namespace Kestrun.Tests.Utilities;
 
 /// <summary>
 /// Tests for <see cref="PowerShellInvokeExtensions"/> class.

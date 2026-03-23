@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Xunit;
 
-namespace KestrunTests.Languages;
+namespace Kestrun.Tests.Languages;
 
 public class CsGlobalsTests
 {

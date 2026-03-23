@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Xunit;
 using Kestrun.Hosting.Options;
 
-namespace KestrunTests.Hosting;
+namespace Kestrun.Tests.Hosting;
 
 public class KestrelOptionsExtensionsTest
 {

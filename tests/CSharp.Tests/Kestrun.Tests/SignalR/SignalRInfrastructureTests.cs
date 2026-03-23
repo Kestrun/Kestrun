@@ -1,7 +1,7 @@
 using Kestrun.SignalR;
 using Xunit;
 
-namespace KestrunTests.SignalR;
+namespace Kestrun.Tests.SignalR;
 
 /// <summary>
 /// Tests for SignalR integration infrastructure.

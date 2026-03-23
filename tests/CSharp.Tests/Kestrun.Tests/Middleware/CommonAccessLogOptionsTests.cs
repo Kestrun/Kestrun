@@ -2,7 +2,7 @@ using Kestrun.Middleware;
 using Serilog.Events;
 using Xunit;
 
-namespace KestrunTests.Middleware;
+namespace Kestrun.Tests.Middleware;
 
 public class CommonAccessLogOptionsTests
 {

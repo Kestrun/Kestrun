@@ -5,7 +5,7 @@ using Kestrun.OpenApi;
 using Microsoft.OpenApi;
 using Xunit;
 
-namespace KestrunTests.OpenApi;
+namespace Kestrun.Tests.OpenApi;
 
 public sealed class OpenApiDocDescriptorAnnotatedFunctionsHelpersTests
 {

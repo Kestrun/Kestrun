@@ -1,6 +1,6 @@
 using Xunit;
 
-namespace KestrunTests.TestCollections;
+namespace Kestrun.Tests.TestCollections;
 
 // Some tests intentionally or incidentally affect the process current working directory (CWD).
 // Because CWD is process-global, parallel test execution can cause cross-test interference

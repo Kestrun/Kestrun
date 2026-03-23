@@ -3122,10 +3122,9 @@ public class ParameterForInjectionInfo : ParameterForInjectionInfoBase
             return null;
         }
 
-        // If the parameter is a simple type, return the first key if there's only one key-value pair
-        // and it's a simple type (not an object or array)
+        // If the parameter is a scalar/array schema, use the single form field value.
         return param.Type is JsonSchemaType.Integer or JsonSchemaType.Number or JsonSchemaType.Boolean or JsonSchemaType.Array or JsonSchemaType.String
-            ? form.Count == 1 ? form.First().Key : null
+            ? form.Count == 1 ? form.First().Value : null
             : ConvertFormToHashtable(form);
     }
 

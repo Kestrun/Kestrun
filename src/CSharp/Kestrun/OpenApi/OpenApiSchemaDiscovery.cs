@@ -19,16 +19,7 @@ public static class OpenApiSchemaDiscovery
         var assemblies = GetRelevantAssemblies();
         return new OpenApiComponentSet
         {
-            SchemaTypes = GetSchemaTypes(assemblies),
-#if EXTENDED_OPENAPI
-            RequestBodyTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiRequestBodyComponentAttribute)),
-            ResponseTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiResponseComponentAttribute)),
-            ParameterTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiParameterComponentAttribute)),
-            HeaderTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiHeaderAttribute)),
-            SecuritySchemeTypes = GetTypesWithAttribute(assemblies, typeof(OpenApiSecuritySchemeComponent)),
-            CallbackTypes = GetTypesWithKind(assemblies, OpenApiModelKind.Callback),
-            PathItemTypes = GetTypesWithKind(assemblies, OpenApiModelKind.PathItem)
-#endif
+            SchemaTypes = GetSchemaTypes(assemblies)
         };
     }
 
@@ -44,7 +35,7 @@ public static class OpenApiSchemaDiscovery
     {
         var primitivesAssembly = typeof(OpenApiString).Assembly;
 
-        return [.. assemblies.SelectMany(asm => asm.GetTypes())
+        return [.. assemblies.SelectMany(GetLoadableTypes)
             .Where(t => t.IsClass && !t.IsAbstract &&
                     t.IsDefined(typeof(OpenApiSchemaComponent), true) &&
                     !IsFormPayloadBaseType(t) &&
@@ -53,27 +44,27 @@ public static class OpenApiSchemaDiscovery
                     !(t.Assembly == primitivesAssembly && typeof(IOpenApiScalar).IsAssignableFrom(t)))];
     }
 
+    /// <summary>
+    /// Returns all loadable types from an assembly, even when some types fail to load.
+    /// </summary>
+    /// <param name="assembly">Assembly to enumerate types from.</param>
+    /// <returns>Loadable types discovered in the assembly.</returns>
+    private static IEnumerable<Type> GetLoadableTypes(System.Reflection.Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (System.Reflection.ReflectionTypeLoadException ex)
+        {
+            return ex.Types.Where(t => t is not null).Cast<Type>();
+        }
+    }
+
     private static bool IsFormPayloadBaseType(Type t)
     {
         // Avoid emitting base form payload schemas unless explicitly referenced.
         return t == typeof(KrFormData)
             || t == typeof(KrMultipart);
     }
-
-#if EXTENDED_OPENAPI
-
-   private static Type[] GetTypesWithAttribute(System.Reflection.Assembly[] assemblies, Type attributeType)
-    {
-        return [.. assemblies.SelectMany(asm => asm.GetTypes())
-            .Where(t => t.IsClass && !t.IsAbstract && t.IsDefined(attributeType, true))];
-    }
-    private static Type[] GetTypesWithKind(System.Reflection.Assembly[] assemblies, OpenApiModelKind kind)
-    {
-        return [.. assemblies.SelectMany(asm => asm.GetTypes())
-            .Where(t => t.IsClass && !t.IsAbstract &&
-                t.GetCustomAttributes(typeof(OpenApiModelKindAttribute), true)
-                 .OfType<OpenApiModelKindAttribute>()
-                 .Any(a => a.Kind == kind))];
-    }
-#endif
 }

@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xunit;
 
-namespace KestrunTests.Models;
+namespace Kestrun.Tests.Models;
 
 [Trait("Category", "Models")]
 public sealed class KestrunContextBroadcastTests

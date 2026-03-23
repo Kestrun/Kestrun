@@ -4,7 +4,7 @@ using Kestrun.Callback;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Callback;
+namespace Kestrun.Tests.Callback;
 
 public class InMemoryCallbackDispatchWorkerTests
 {

@@ -3,7 +3,7 @@ using Kestrun.Hosting.Options;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Xunit;
 
-namespace KestrunTests.Hosting.Options;
+namespace Kestrun.Tests.Hosting.Options;
 
 public class ListenerOptionsTests
 {

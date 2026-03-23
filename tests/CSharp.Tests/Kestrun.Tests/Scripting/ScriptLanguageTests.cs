@@ -1,7 +1,7 @@
 using Kestrun.Scripting;
 using Xunit;
 
-namespace KestrunTests.Scripting;
+namespace Kestrun.Tests.Scripting;
 
 [Trait("Category", "Scripting")]
 public class ScriptLanguageTests

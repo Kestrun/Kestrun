@@ -1402,13 +1402,23 @@ internal static partial class Program
     /// <param name="manifestPath">Resolved manifest path.</param>
     /// <param name="exitCode">Exit code when resolution fails.</param>
     /// <returns>True when manifest resolution succeeds.</returns>
-    private static bool TryResolveUpdateManifestPath(ParsedCommand command, out string manifestPath, out int exitCode)
+    private static bool TryResolveUpdateManifestPath(ParsedCommand command, out string manifestPath, out int exitCode) => TryResolveUpdateManifestPath(command, Environment.CurrentDirectory, out manifestPath, out exitCode);
+
+    /// <summary>
+    /// Resolves the manifest path to use for service module update, using an explicit repository search root when requested.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <param name="repositorySearchRoot">Directory used to discover repository-local module manifests.</param>
+    /// <param name="manifestPath">Resolved manifest path.</param>
+    /// <param name="exitCode">Exit code when resolution fails.</param>
+    /// <returns>True when manifest resolution succeeds.</returns>
+    private static bool TryResolveUpdateManifestPath(ParsedCommand command, string repositorySearchRoot, out string manifestPath, out int exitCode)
     {
         manifestPath = string.Empty;
         exitCode = 0;
 
         var resolvedManifestPath = command.ServiceUseRepositoryKestrun
-            ? ResolveRepositoryModuleManifestPath()
+            ? ResolveRepositoryModuleManifestPath(repositorySearchRoot)
             : LocateModuleManifest(command.KestrunManifestPath, command.KestrunFolder);
 
         if (resolvedManifestPath is null)
@@ -1520,9 +1530,16 @@ internal static partial class Program
     /// Resolves the repository-local Kestrun manifest path by scanning current directory ancestors.
     /// </summary>
     /// <returns>Absolute manifest path when found; otherwise null.</returns>
-    private static string? ResolveRepositoryModuleManifestPath()
+    private static string? ResolveRepositoryModuleManifestPath() => ResolveRepositoryModuleManifestPath(Environment.CurrentDirectory);
+
+    /// <summary>
+    /// Resolves the repository-local Kestrun manifest path by scanning ancestors starting from the specified directory.
+    /// </summary>
+    /// <param name="startDirectory">Directory to begin repository ancestor scanning from.</param>
+    /// <returns>Absolute manifest path when found; otherwise null.</returns>
+    private static string? ResolveRepositoryModuleManifestPath(string startDirectory)
     {
-        foreach (var parent in EnumerateDirectoryAndParents(Environment.CurrentDirectory))
+        foreach (var parent in EnumerateDirectoryAndParents(startDirectory))
         {
             var candidate = Path.Combine(parent, "src", "PowerShell", ModuleName, ModuleManifestFileName);
             if (File.Exists(candidate))

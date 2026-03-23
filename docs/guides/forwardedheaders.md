@@ -37,9 +37,10 @@ In ASP.NET Core, the Forwarded Headers middleware reads these headers and update
 
 Register Forwarded Headers before calling `Enable-KrConfiguration` and restrict trust to your proxy addresses or networks.
 
-In plain ASP.NET Core apps, `UseForwardedHeaders()` is usually placed near the start of the middleware pipeline. Kestrun's built-in
-pipeline currently applies forwarded headers after routing, CORS, and exception handling, so route handlers still see the corrected
-scheme, host, client IP, and path base, but earlier built-in middleware does not.
+In plain ASP.NET Core apps, `UseForwardedHeaders()` is usually placed near the start of the middleware pipeline. In Kestrun, forwarded
+headers are applied late in the pipeline: they run after routing, CORS, and exception-handling middleware have executed, but
+immediately before your route/endpoint handlers run. This means handlers see the corrected scheme, host, client IP, and path base,
+while those earlier built-in middleware components operate on the original values.
 
 ### PowerShell
 

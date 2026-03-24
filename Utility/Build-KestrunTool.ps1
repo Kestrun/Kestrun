@@ -526,11 +526,27 @@ foreach ($runtimeIdentifier in $RuntimeIdentifiers) {
         Remove-Item -Path $serviceHostPublishPath -Recurse -Force -ErrorAction SilentlyContinue
     }
 
-    dotnet publish "$KestrunServiceHostProjectPath" -c $Configuration -r $runtimeIdentifier `
-        --self-contained true /p:DebugSymbols=false /p:DebugType=None /p:Version=$Version /p:InformationalVersion=$InformationalVersion `
-        -o "$serviceHostPublishPath" -v:$DotNetVerbosity
-    if ($LASTEXITCODE -ne 0) {
-        throw "dotnet publish failed for ServiceHost runtime '$runtimeIdentifier'."
+    $publishAttemptCount = 3
+    $publishDelaySeconds = 5
+    $publishSucceeded = $false
+    for ($publishAttempt = 1; $publishAttempt -le $publishAttemptCount; $publishAttempt++) {
+        if ($publishAttempt -gt 1) {
+            Write-Warning "Retrying dotnet publish for runtime '$runtimeIdentifier' (attempt $publishAttempt of $publishAttemptCount)..."
+            Start-Sleep -Seconds $publishDelaySeconds
+        }
+
+        dotnet publish "$KestrunServiceHostProjectPath" -c $Configuration -r $runtimeIdentifier `
+            --self-contained true /p:DebugSymbols=false /p:DebugType=None /p:Version=$Version /p:InformationalVersion=$InformationalVersion `
+            -o "$serviceHostPublishPath" -v:$DotNetVerbosity
+
+        if ($LASTEXITCODE -eq 0) {
+            $publishSucceeded = $true
+            break
+        }
+    }
+
+    if (-not $publishSucceeded) {
+        throw "dotnet publish failed for ServiceHost runtime '$runtimeIdentifier' after $publishAttemptCount attempts."
     }
 
     $serviceHostPublishedBinaryCandidates = if ($runtimeIdentifier -like 'win-*') {

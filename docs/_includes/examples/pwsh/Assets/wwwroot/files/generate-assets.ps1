@@ -5,7 +5,7 @@
 
 $ErrorActionPreference = 'Stop'
 
-$here = Split-Path -Parent $MyInvocation.MyCommand.Path
+$here = Split-Path -Parent -Path $MyInvocation.MyCommand.Path
 
 # Tiny 10x10 PNG (same as existing)
 $pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAIUlEQVQoU2NkQAKMgmEY/0eMGRgYGJqA8Y8RjhgFo2E0GgAAgDEfA9Nn3IkAAAAASUVORK5CYII='

@@ -5,9 +5,9 @@ try {
     # This allows the script to be run from any location
     $ScriptPath = (Split-Path -Parent -Path $MyInvocation.MyCommand.Path)
     # Determine the script path and Kestrun module path
-    $powerShellExamplesPath = (Split-Path -Parent ($ScriptPath))
+    $powerShellExamplesPath = (Split-Path -Parent -Path $ScriptPath)
     # Determine the script path and Kestrun module path
-    $examplesPath = (Split-Path -Parent ($powerShellExamplesPath))
+    $examplesPath = (Split-Path -Parent -Path $powerShellExamplesPath)
     # Get the parent directory of the examples path
     # This is useful for locating the Kestrun module
     $kestrunPath = Split-Path -Parent -Path $examplesPath

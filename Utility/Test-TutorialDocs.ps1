@@ -76,9 +76,9 @@ function Resolve-DocLinkTarget {
     $hasAnyExtension = [System.IO.Path]::HasExtension($clean)
 
     if ($clean.StartsWith('/')) {
-        $base = Join-Path $DocsRoot ($clean.TrimStart('/') -replace '/', '\\')
+        $base = Join-Path -Path $DocsRoot -ChildPath ($clean.TrimStart('/') -replace '/', '\\')
     } else {
-        $base = Join-Path (Split-Path -Parent $FromFile) ($clean -replace '/', '\\')
+        $base = Join-Path -Path (Split-Path -Parent -Path $FromFile) -ChildPath ($clean -replace '/', '\\')
     }
 
     if ($hasAnyExtension -and -not $result.HasMdExtension) {
@@ -382,6 +382,19 @@ try {
         return $map
     }
 
+    <#
+        .SYNOPSIS
+        Resolves a tutorial footer link to its text and href.
+        .DESCRIPTION
+        Given a footer link value and a reference map, returns a custom object with the link text and href.
+        Handles both inline and reference-style links.
+        .PARAMETER Value
+        The footer link value.
+        .PARAMETER RefMap
+        A hashtable mapping reference keys to URLs.
+        .OUTPUTS
+        A custom object with properties Text and Href.
+    #>
     function Resolve-TutorialFooterLink {
         param(
             [string]$Value,

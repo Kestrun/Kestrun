@@ -24,9 +24,9 @@ Write-Debug '[TutorialHelper] Loading helper script' -Verbose
 function Get-ProjectRootDirectory {
     [CmdletBinding()]
     param()
-    $root = (Get-Item (Split-Path -Parent $PSCommandPath))
+    $root = (Get-Item (Split-Path -Parent -Path $PSCommandPath))
     while ($root -and -not (Test-Path (Join-Path $root.FullName 'Kestrun.sln'))) {
-        $parent = Get-Item (Split-Path -Parent $root.FullName) -ErrorAction SilentlyContinue
+        $parent = Get-Item (Split-Path -Parent -Path $root.FullName) -ErrorAction SilentlyContinue
         if (-not $parent -or $parent.FullName -eq $root.FullName) { break }
         $root = $parent
     }
@@ -46,9 +46,9 @@ function Get-ProjectRootDirectory {
 function Get-TutorialExamplesDirectory {
     [CmdletBinding()]
     param()
-    $root = (Get-Item (Split-Path -Parent $PSCommandPath))
+    $root = (Get-Item (Split-Path -Parent -Path $PSCommandPath))
     while ($root -and -not (Test-Path (Join-Path $root.FullName 'Kestrun.sln'))) {
-        $parent = Get-Item (Split-Path -Parent $root.FullName) -ErrorAction SilentlyContinue
+        $parent = Get-Item (Split-Path -Parent -Path $root.FullName) -ErrorAction SilentlyContinue
         if (-not $parent -or $parent.FullName -eq $root.FullName) { break }
         $root = $parent
     }
@@ -71,9 +71,9 @@ function Get-TutorialExamplesDirectory {
 function Get-KestrunModulePath {
     [CmdletBinding()]
     param()
-    $root = (Get-Item (Split-Path -Parent $PSCommandPath))
+    $root = (Get-Item (Split-Path -Parent -Path $PSCommandPath))
     while ($root -and -not (Test-Path (Join-Path $root.FullName 'Kestrun.sln'))) {
-        $parent = Get-Item (Split-Path -Parent $root.FullName) -ErrorAction SilentlyContinue
+        $parent = Get-Item (Split-Path -Parent -Path $root.FullName) -ErrorAction SilentlyContinue
         if (-not $parent -or $parent.FullName -eq $root.FullName) { break }
         $root = $parent
     }
@@ -233,7 +233,7 @@ function Start-ExampleScript {
         } else {
             $path = Get-ExampleScriptPath -Name $Name
         }
-        $scriptDir = Split-Path -Parent $path
+        $scriptDir = Split-Path -Parent -Path $path
         $originalLocation = Get-Location
         # Push current location so relative file references (Assets/...) resolve inside example
         Push-Location -Path $scriptDir

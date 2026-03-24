@@ -16,7 +16,7 @@ Describe 'Example 8.8 Client Certificate Authentication' -Tag 'Tutorial', 'Slow'
         # Import the client certificate that was created by the running script.
         # Start-ExampleScript executes a temp-copied script, so $PSCommandPath (and the basename used
         # for output files) is randomized. Locate the generated PFX instead of guessing its name.
-        $runRoot = Split-Path -Parent $script:instance.TempPath
+        $runRoot = Split-Path -Parent -Path $script:instance.TempPath
         $certDir = Join-Path -Path $runRoot -ChildPath 'certs'
         $runBaseName = [System.IO.Path]::GetFileNameWithoutExtension($script:instance.TempPath)
         $expectedClientPfxPath = Join-Path -Path $certDir -ChildPath "$runBaseName-client-cert.pfx"

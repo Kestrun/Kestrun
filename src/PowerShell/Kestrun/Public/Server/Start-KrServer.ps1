@@ -68,23 +68,38 @@ function Start-KrServer {
         # Start the Kestrel server
         if ( -not $effectiveQuiet ) {
             Write-Host "Starting Kestrun server '$($Server.ApplicationName)' ..."
+            Write-KrLog -Level Information -Message "Starting Kestrun server '{ApplicationName}' ..." -Values $Server.ApplicationName
         }
+
+        $writeStartupError = {
+            param([Exception]$Exception)
+            if (-not $effectiveQuiet) {
+                $errorMessage = "Failed to start Kestrun server '$($Server.ApplicationName)'."
+                if ($Exception -and -not [string]::IsNullOrWhiteSpace($Exception.Message)) {
+                    $errorMessage = "$errorMessage $($Exception.Message)"
+                }
+                Write-Error -Message $errorMessage -Category OperationStopped -ErrorId 'KestrunServerStartupFailed'
+                Write-KrLog -Level Error -Message $errorMessage
+            }
+        }
+
         $startupTask = $null
         try {
             $startupTask = $Server.StartAsync()
         } catch {
-            if (-not $effectiveQuiet) {
-                Write-Host "Failed to start Kestrun server '$($Server.ApplicationName)'." -ForegroundColor Red
-            }
+            & $writeStartupError $_.Exception
             throw
         }
 
         if ($NoWait.IsPresent) {
             # Preserve the -NoWait contract: return immediately after startup is initiated.
             if ($startupTask.IsFaulted) {
-                if (-not $effectiveQuiet) {
-                    Write-Host "Failed to start Kestrun server '$($Server.ApplicationName)'." -ForegroundColor Red
+                $startupException = if ($startupTask.Exception -and $startupTask.Exception.InnerException) {
+                    $startupTask.Exception.InnerException
+                } else {
+                    $startupTask.Exception
                 }
+                & $writeStartupError $startupException
                 if ($startupTask.Exception -and $startupTask.Exception.InnerException) {
                     throw $startupTask.Exception.InnerException
                 }
@@ -99,9 +114,7 @@ function Start-KrServer {
                 # Block until startup completes so bind/config errors surface immediately.
                 $startupTask.GetAwaiter().GetResult()
             } catch {
-                if (-not $effectiveQuiet) {
-                    Write-Host "Failed to start Kestrun server '$($Server.ApplicationName)'." -ForegroundColor Red
-                }
+                & $writeStartupError $_.Exception
                 throw
             }
 

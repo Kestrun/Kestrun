@@ -48,7 +48,21 @@ Start-KrServer
                 "Import-Module '$kestrunModulePath'; . '$conflictScript' -Port $($instance.Port)"
             ) -PassThru -RedirectStandardOutput $conflictStdOut -RedirectStandardError $conflictStdErr
 
-            $null = $process.WaitForExit(20000)
+            $exited = $process.WaitForExit(20000)
+            if (-not $exited) {
+                try {
+                    if (-not $process.HasExited) {
+                        $process | Stop-Process -Force -ErrorAction SilentlyContinue
+                    }
+                } catch {
+                    # Ignore cleanup failures while building timeout diagnostics.
+                }
+
+                $stdout = if (Test-Path $conflictStdOut) { Get-Content -Path $conflictStdOut -Raw } else { '' }
+                $stderr = if (Test-Path $conflictStdErr) { Get-Content -Path $conflictStdErr -Raw } else { '' }
+                throw "Timeout waiting for conflict script process to exit within 20000 ms.`nStdOut:`n$stdout`nStdErr:`n$stderr"
+            }
+
             $process.ExitCode | Should -Not -Be 0
 
             $stdout = if (Test-Path $conflictStdOut) { Get-Content -Path $conflictStdOut -Raw } else { '' }
@@ -57,12 +71,13 @@ Start-KrServer
             $stdout | Should -Not -Match 'Kestrun server started successfully\.'
             ($stdout + "`n" + $stderr) | Should -Match 'Failed to bind to address|Address already in use|Only one usage of each socket address'
 
-            Remove-Item -Path $conflictScript, $conflictStdOut, $conflictStdErr -Force -ErrorAction SilentlyContinue
         } finally {
             if ($instance) {
                 Stop-ExampleScript -Instance $instance
                 Write-KrExampleInstanceOnFailure -Instance $instance
             }
+
+            Remove-Item -Path $conflictScript, $conflictStdOut, $conflictStdErr -Force -ErrorAction SilentlyContinue
         }
     }
 }

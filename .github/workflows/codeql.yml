@@ -85,7 +85,28 @@ jobs:
         - name: Install PSScriptAnalyzer + SARIF converter
           shell: pwsh
           run: |
-               $ErrorActionPreference = 'Continue'
+            Install-PSResource -Name PSScriptAnalyzer -Scope CurrentUser -TrustRepository
+            # Show ALL installed versions (for debugging)
+            Write-Host "=== Installed versions ==="
+            Get-Module PSScriptAnalyzer -ListAvailable |
+            Sort-Object Version -Descending |
+            Format-Table Name, Version, Path
+
+            # Force import the latest one
+            $module = Get-Module PSScriptAnalyzer -ListAvailable |
+            Sort-Object Version -Descending |
+            Select-Object -First 1
+
+            Import-Module $module.Path -Force
+
+            # Show the version actually loaded in the session
+            Write-Host "=== Loaded version ==="
+            Get-Module PSScriptAnalyzer | Format-List Name, Version, Path
+
+        - name: Run PSScriptAnalyzer and emit SARIF
+          shell: pwsh
+          run: |
+                $ErrorActionPreference = 'Continue'
 
                 $files = Get-ChildItem .\src\PowerShell\Kestrun -Recurse -File -Include *.ps1,*.psd1,*.psm1 |
                 Where-Object { $_.FullName -notlike '*\Kestrun.psm1' }
@@ -136,27 +157,6 @@ jobs:
                 # Optional: still enforce error diagnostics
                 if ($allResults | Where-Object Severity -eq 'Error') {
                 throw "PSScriptAnalyzer found error-level issues."
-                }
-
-        - name: Run PSScriptAnalyzer and emit SARIF
-          shell: pwsh
-          run: |
-                $ErrorActionPreference = 'Stop'
-
-                $files = Get-ChildItem .\src\PowerShell\Kestrun -Recurse -File -Include *.ps1,*.psd1,*.psm1 |
-                Where-Object { $_.FullName -notlike '*\Kestrun.psm1' }
-
-                $allResults = foreach ($file in $files) {
-                Invoke-ScriptAnalyzer `
-                    -Path $file.FullName `
-                    -Settings .\PSScriptAnalyzerSettings.psd1 `
-                    -Severity @('Error','Warning','Information')
-                }
-
-                @($allResults) | ConvertTo-Sarif | Out-File -Encoding utf8 pssa.sarif
-
-                if ($allResults | Where-Object Severity -eq 'Error') {
-                    throw "PSScriptAnalyzer found error-level issues."
                 }
 
         - name: ⬆️ Upload PSSA SARIF

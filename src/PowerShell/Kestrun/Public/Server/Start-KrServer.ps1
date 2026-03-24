@@ -67,7 +67,6 @@ function Start-KrServer {
                     $errorMessage = "$errorMessage $($Exception.Message)"
                 }
 
-                Write-Error -Message $errorMessage -Category OperationStopped -ErrorId 'KestrunServerStartupFailed'
                 Write-KrLog -Level Error -Message $errorMessage
             }
         }

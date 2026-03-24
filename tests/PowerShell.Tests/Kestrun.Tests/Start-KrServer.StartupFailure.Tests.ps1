@@ -33,7 +33,7 @@ New-KrServer -Name 'StartKrServerPortConflict'
 Add-KrEndpoint -Port `$Port -IPAddress ([IPAddress]::Loopback)
 
 Enable-KrConfiguration
-Start-KrServer -NoWait
+Start-KrServer
 "@ | Set-Content -Path $conflictScript -Encoding UTF8
 
             $pwshExecutable = (Get-Process -Id $PID -ErrorAction Stop).Path

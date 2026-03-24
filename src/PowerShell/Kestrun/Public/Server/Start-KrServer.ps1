@@ -69,35 +69,63 @@ function Start-KrServer {
         if ( -not $effectiveQuiet ) {
             Write-Host "Starting Kestrun server '$($Server.ApplicationName)' ..."
         }
+        $startupTask = $null
         try {
-            # Block until startup completes so bind/config errors surface immediately.
-            $Server.StartAsync().GetAwaiter().GetResult()
+            $startupTask = $Server.StartAsync()
         } catch {
             if (-not $effectiveQuiet) {
                 Write-Host "Failed to start Kestrun server '$($Server.ApplicationName)'." -ForegroundColor Red
             }
             throw
         }
-        if ($writeConsole) {
-            Write-Host 'Kestrun server started successfully.'
-            foreach ($listener in $Server.Options.Listeners) {
-                if ($listener.X509Certificate) {
-                    Write-Host "Listening on https://$($listener.IPAddress):$($listener.Port) with protocols: $($listener.Protocols)"
-                } else {
-                    Write-Host "Listening on http://$($listener.IPAddress):$($listener.Port) with protocols: $($listener.Protocols)"
+
+        if ($NoWait.IsPresent) {
+            # Preserve the -NoWait contract: return immediately after startup is initiated.
+            if ($startupTask.IsFaulted) {
+                if (-not $effectiveQuiet) {
+                    Write-Host "Failed to start Kestrun server '$($Server.ApplicationName)'." -ForegroundColor Red
                 }
-                if ($listener.X509Certificate) {
-                    Write-Host "Using certificate: $($listener.X509Certificate.Subject)"
-                } else {
-                    Write-Host 'No certificate configured. Running in HTTP mode.'
+                if ($startupTask.Exception -and $startupTask.Exception.InnerException) {
+                    throw $startupTask.Exception.InnerException
                 }
-                if ($listener.UseConnectionLogging) {
-                    Write-Host 'Connection logging is enabled.'
-                } else {
-                    Write-Host 'Connection logging is disabled.'
-                }
+                throw $startupTask.Exception
             }
-            Write-Host 'Press Ctrl+C to stop the server.'
+
+            if ($writeConsole) {
+                Write-Host 'Kestrun server startup initiated (NoWait).'
+            }
+        } else {
+            try {
+                # Block until startup completes so bind/config errors surface immediately.
+                $startupTask.GetAwaiter().GetResult()
+            } catch {
+                if (-not $effectiveQuiet) {
+                    Write-Host "Failed to start Kestrun server '$($Server.ApplicationName)'." -ForegroundColor Red
+                }
+                throw
+            }
+
+            if ($writeConsole) {
+                Write-Host 'Kestrun server started successfully.'
+                foreach ($listener in $Server.Options.Listeners) {
+                    if ($listener.X509Certificate) {
+                        Write-Host "Listening on https://$($listener.IPAddress):$($listener.Port) with protocols: $($listener.Protocols)"
+                    } else {
+                        Write-Host "Listening on http://$($listener.IPAddress):$($listener.Port) with protocols: $($listener.Protocols)"
+                    }
+                    if ($listener.X509Certificate) {
+                        Write-Host "Using certificate: $($listener.X509Certificate.Subject)"
+                    } else {
+                        Write-Host 'No certificate configured. Running in HTTP mode.'
+                    }
+                    if ($listener.UseConnectionLogging) {
+                        Write-Host 'Connection logging is enabled.'
+                    } else {
+                        Write-Host 'Connection logging is disabled.'
+                    }
+                }
+                Write-Host 'Press Ctrl+C to stop the server.'
+            }
         }
         if (-not $NoWait.IsPresent) {
             # Intercept Ctrl+C and gracefully stop the Kestrun server

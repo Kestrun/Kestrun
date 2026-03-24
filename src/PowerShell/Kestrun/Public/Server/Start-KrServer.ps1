@@ -57,6 +57,20 @@ function Start-KrServer {
         } catch {
             Write-KrLog -Level Information -Message 'No console available; running in non-interactive mode.'
         }
+
+        $writeStartupFailureBanner = {
+            param([Exception]$Exception)
+
+            if (-not $effectiveQuiet) {
+                $errorMessage = "Failed to start Kestrun server '$($Server.ApplicationName)'."
+                if ($Exception -and -not [string]::IsNullOrWhiteSpace($Exception.Message)) {
+                    $errorMessage = "$errorMessage $($Exception.Message)"
+                }
+
+                Write-Error -Message $errorMessage -Category OperationStopped -ErrorId 'KestrunServerStartupFailed'
+                Write-KrLog -Level Error -Message $errorMessage
+            }
+        }
     }
     process {
         # Generate OpenAPI documents if not already generated
@@ -71,23 +85,11 @@ function Start-KrServer {
             Write-KrLog -Level Information -Message "Starting Kestrun server '{ApplicationName}' ..." -Values $Server.ApplicationName
         }
 
-        $writeStartupError = {
-            param([Exception]$Exception)
-            if (-not $effectiveQuiet) {
-                $errorMessage = "Failed to start Kestrun server '$($Server.ApplicationName)'."
-                if ($Exception -and -not [string]::IsNullOrWhiteSpace($Exception.Message)) {
-                    $errorMessage = "$errorMessage $($Exception.Message)"
-                }
-                Write-Error -Message $errorMessage -Category OperationStopped -ErrorId 'KestrunServerStartupFailed'
-                Write-KrLog -Level Error -Message $errorMessage
-            }
-        }
-
         $startupTask = $null
         try {
             $startupTask = $Server.StartAsync()
         } catch {
-            & $writeStartupError $_.Exception
+            & $writeStartupFailureBanner $_.Exception
             throw
         }
 
@@ -99,7 +101,7 @@ function Start-KrServer {
                 } else {
                     $startupTask.Exception
                 }
-                & $writeStartupError $startupException
+                & $writeStartupFailureBanner $startupException
                 if ($startupTask.Exception -and $startupTask.Exception.InnerException) {
                     throw $startupTask.Exception.InnerException
                 }
@@ -114,7 +116,7 @@ function Start-KrServer {
                 # Block until startup completes so bind/config errors surface immediately.
                 $startupTask.GetAwaiter().GetResult()
             } catch {
-                & $writeStartupError $_.Exception
+                & $writeStartupFailureBanner $_.Exception
                 throw
             }
 

@@ -6,6 +6,10 @@ BeforeAll {
 
 Describe 'Start-KrServer startup failure handling' -Tag 'Integration' {
     It 'throws when the listener port is already in use' {
+        $conflictScript = $null
+        $conflictStdOut = $null
+        $conflictStdErr = $null
+
         $instance = Start-ExampleScript -Scriptblock {
             param(
                 [int]$Port = 5000,
@@ -77,7 +81,11 @@ Start-KrServer
                 Write-KrExampleInstanceOnFailure -Instance $instance
             }
 
-            Remove-Item -Path $conflictScript, $conflictStdOut, $conflictStdErr -Force -ErrorAction SilentlyContinue
+            foreach ($tempFile in @($conflictScript, $conflictStdOut, $conflictStdErr)) {
+                if (-not [string]::IsNullOrWhiteSpace($tempFile) -and (Test-Path -Path $tempFile)) {
+                    Remove-Item -Path $tempFile -Force -ErrorAction SilentlyContinue
+                }
+            }
         }
     }
 }

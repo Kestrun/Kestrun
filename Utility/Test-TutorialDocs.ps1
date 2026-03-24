@@ -251,7 +251,7 @@ Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
         if (-not $nav) { $failures += "[FrontMatter] $rel missing nav_order" }
 
         # 4) H1 must match title
-        $h1 = Normalize-YamlScalar -Value ([regex]::Match($text, '^#\s+(.+)$', 'Multiline')).Groups[1].Value
+        $h1 = ([regex]::Match($text, '^#\s+(.+)$', 'Multiline')).Groups[1].Value.Trim()
         if ($h1 -ne $title) { $failures += "[H1] $rel H1 does not match title '$title'" }
     }
 

@@ -69,7 +69,15 @@ function Start-KrServer {
         if ( -not $effectiveQuiet ) {
             Write-Host "Starting Kestrun server '$($Server.ApplicationName)' ..."
         }
-        $Server.StartAsync() | Out-Null
+        try {
+            # Block until startup completes so bind/config errors surface immediately.
+            $Server.StartAsync().GetAwaiter().GetResult()
+        } catch {
+            if (-not $effectiveQuiet) {
+                Write-Host "Failed to start Kestrun server '$($Server.ApplicationName)'." -ForegroundColor Red
+            }
+            throw
+        }
         if ($writeConsole) {
             Write-Host 'Kestrun server started successfully.'
             foreach ($listener in $Server.Options.Listeners) {

@@ -73,36 +73,42 @@ jobs:
 
     # --- PowerShell via PSScriptAnalyzer -> SARIF upload ---
     powershell-analysis:
-        name: PowerShell (PSScriptAnalyzer)
-        runs-on: windows-latest
-        needs: lint
-        permissions:
-            contents: read
-            security-events: write
-        steps:
-            - uses: actions/checkout@v6.0.2
+      name: PowerShell (PSScriptAnalyzer)
+      runs-on: windows-latest
+      needs: lint
+      permissions:
+        contents: read
+        security-events: write
+      steps:
+        - uses: actions/checkout@v6.0.2
 
-            - name: Run PSScriptAnalyzer with settings
-              id: pssa
-              uses: microsoft/psscriptanalyzer-action@v1.1
-              continue-on-error: false # don’t fail the job if PSSA crashes before producing SARIF
-              with:
-                  path: .\src\PowerShell\Kestrun
-                  recurse: true
-                  settings: ./PSScriptAnalyzerSettings.psd1
-                  output: pssa.sarif
+        - name: Install PSScriptAnalyzer + SARIF converter
+          shell: pwsh
+          run: |
+            Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+            # The SARIF cmdlets are provided by PSScriptAnalyzer >= 1.21 (ConvertTo-Sarif).
+            # If your environment is older, update explicitly:
+            Update-Module PSScriptAnalyzer -Force
 
-            - name: ⬆️ Upload PSSA SARIF
-              if: hashFiles('pssa.sarif') != ''
-              uses: github/codeql-action/upload-sarif@v4
-              with:
-                  sarif_file: pssa.sarif
-                  category: powershell
+        - name: Run PSScriptAnalyzer and emit SARIF
+          shell: pwsh
+          run: |
+            $results = Invoke-ScriptAnalyzer `
+              -Path .\src\PowerShell\Kestrun `
+              -Recurse `
+              -Settings .\PSScriptAnalyzerSettings.psd1 `
+              -Severity @('Error','Warning','Information')
 
-            - name: ❗ Fail on PSSA errors
-              if: always() && hashFiles('pssa.sarif') != '' # only if SARIF was created
-              shell: pwsh
-              run: |
-                  $sarif = Get-Content pssa.sarif -Raw | ConvertFrom-Json
-                  $errors = @($sarif.runs.results | Where-Object { $_.level -eq 'error' })
-                  if ($errors.Count) { Write-Error "PSScriptAnalyzer found $($errors.Count) error-level issues." }
+            # Always produce a sarif file (even if results is empty)
+            $results | ConvertTo-Sarif | Out-File -Encoding utf8 pssa.sarif
+
+            # Optionally fail if any error-level diagnostics exist
+            if ($results | Where-Object Severity -eq 'Error') {
+              throw "PSScriptAnalyzer found error-level issues."
+            }
+
+        - name: ⬆️ Upload PSSA SARIF
+          uses: github/codeql-action/upload-sarif@v4
+          with:
+            sarif_file: pssa.sarif
+            category: powershell

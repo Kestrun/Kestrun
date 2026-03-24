@@ -73,109 +73,108 @@ jobs:
 
     # --- PowerShell via PSScriptAnalyzer -> SARIF upload ---
     powershell-analysis:
-      name: PowerShell (PSScriptAnalyzer)
-      runs-on: windows-latest
-      needs: lint
-      permissions:
-        contents: read
-        security-events: write
-      steps:
-        - uses: actions/checkout@v6.0.2
+        name: PowerShell (PSScriptAnalyzer)
+        runs-on: windows-latest
+        needs: lint
+        permissions:
+            contents: read
+            security-events: write
+        steps:
+            - uses: actions/checkout@v6.0.2
 
-        - name: Install PSScriptAnalyzer + SARIF converter
-          shell: pwsh
-          run: |
-            Install-PSResource -Name PSScriptAnalyzer -Scope CurrentUser -TrustRepository
-            Install-PSResource -Name ConvertToSARIF -Scope CurrentUser -TrustRepository
+            - name: Install PSScriptAnalyzer + SARIF converter
+              shell: pwsh
+              run: |
+                  Install-PSResource -Name PSScriptAnalyzer -Scope CurrentUser -TrustRepository
+                  Install-PSResource -Name ConvertToSARIF -Scope CurrentUser -TrustRepository
 
-            # Show ALL installed versions (for debugging)
-            Write-Host "=== Installed versions ==="
-            Get-Module -Name ConvertToSARIF,PSScriptAnalyzer -ListAvailable |
-            Sort-Object Version -Descending |
-            Format-Table Name, Version, Path
+                  # Show ALL installed versions (for debugging)
+                  Write-Host "=== Installed versions ==="
+                  Get-Module -Name ConvertToSARIF,PSScriptAnalyzer -ListAvailable |
+                  Sort-Object Version -Descending |
+                  Format-Table Name, Version, Path
 
+            - name: Run PSScriptAnalyzer and emit SARIF
+              shell: pwsh
+              run: |
+                  Import-Module PSScriptAnalyzer -Force
+                  Import-Module ConvertToSARIF -Force
 
-        - name: Run PSScriptAnalyzer and emit SARIF
-          shell: pwsh
-          run: |
-                Import-Module PSScriptAnalyzer -Force
-                Import-Module ConvertToSARIF -Force
+                  Write-Host "=== Loaded modules ==="
+                  Get-Module PSScriptAnalyzer, ConvertToSARIF | Format-Table Name, Version, Path
 
-                Write-Host "=== Loaded modules ==="
-                Get-Module PSScriptAnalyzer, ConvertToSARIF | Format-Table Name, Version, Path
+                  $ErrorActionPreference = 'Continue'
 
-                $ErrorActionPreference = 'Continue'
+                  $files = Get-ChildItem .\src\PowerShell\Kestrun -Recurse -File -Include *.ps1,*.psd1,*.psm1 |
+                  Where-Object { $_.FullName -notlike '*\Kestrun.psm1' }
 
-                $files = Get-ChildItem .\src\PowerShell\Kestrun -Recurse -File -Include *.ps1,*.psd1,*.psm1 |
-                Where-Object { $_.FullName -notlike '*\Kestrun.psm1' }
+                  $allResults = @()
+                  $crashedFiles = @()
 
-                $allResults = @()
-                $crashedFiles = @()
+                  foreach ($file in $files) {
+                  Write-Host "🔍 Analyzing: $($file.FullName)"
 
-                foreach ($file in $files) {
-                Write-Host "🔍 Analyzing: $($file.FullName)"
+                  try {
+                      $res = Invoke-ScriptAnalyzer `
+                      -Path $file.FullName `
+                      -Settings .\PSScriptAnalyzerSettings.psd1 `
+                      -Severity @('Error','Warning','Information') `
+                      -ErrorAction Stop
 
-                try {
-                    $res = Invoke-ScriptAnalyzer `
-                    -Path $file.FullName `
-                    -Settings .\PSScriptAnalyzerSettings.psd1 `
-                    -Severity @('Error','Warning','Information') `
-                    -ErrorAction Stop
+                      if ($res) {
+                      $allResults += $res
+                      }
+                  }
+                  catch {
+                      Write-Host "💥 CRASHED on file:"
+                      Write-Host $file.FullName
 
-                    if ($res) {
-                    $allResults += $res
-                    }
-                }
-                catch {
-                    Write-Host "💥 CRASHED on file:"
-                    Write-Host $file.FullName
+                      $_ | Format-List * -Force
 
-                    $_ | Format-List * -Force
+                      $crashedFiles += $file.FullName
+                  }
+                  }
+                  Write-Host " === Analysis complete ==="
+                  Write-Host "Total issues found: $($allResults.Count)"
+                  Write-Host "Total files analyzed: $($files.Count)"
+                  Write-Host "Total files crashed: $($crashedFiles.Count)"
 
-                    $crashedFiles += $file.FullName
-                }
-                }
-                Write-Host " === Analysis complete ==="
-                Write-Host "Total issues found: $($allResults.Count)"
-                Write-Host "Total files analyzed: $($files.Count)"
-                Write-Host "Total files crashed: $($crashedFiles.Count)"
+                  Write-Host "=== Emitting SARIF ==="
+                  # Always produce SARIF (even partial)
+                  @($allResults) | ConvertTo-Sarif -FilePath pssa.sarif
+                  Write-Host "SARIF emitted to pssa.sarif"
 
-                Write-Host "=== Emitting SARIF ==="
-                # Always produce SARIF (even partial)
-                @($allResults) | ConvertTo-Sarif -FilePath pssa.sarif
-                Write-Host "SARIF emitted to pssa.sarif"
+                  Write-Host "=== Issue summary by severity ==="
+                  $allResults |
+                      Group-Object Severity |
+                      ForEach-Object {
+                          $severityGroup = $_
+                          Write-Host "Severity: $($severityGroup.Name) - Count: $($severityGroup.Count)"
 
-                Write-Host "=== Issue summary by severity ==="
-                $allResults |
-                    Group-Object Severity |
-                    ForEach-Object {
-                        $severityGroup = $_
-                        Write-Host "Severity: $($severityGroup.Name) - Count: $($severityGroup.Count)"
+                          $severityGroup.Group |
+                              Group-Object ScriptName |
+                              ForEach-Object {
+                                  Write-Host "  File: $($_.Name) - Count: $($_.Count)"
+                              }
+                      }
 
-                        $severityGroup.Group |
-                            Group-Object ScriptName |
-                            ForEach-Object {
-                                Write-Host "  File: $($_.Name) - Count: $($_.Count)"
-                            }
-                    }
+                  if ($crashedFiles.Count -gt 0) {
+                      Write-Host "Files causing PSScriptAnalyzer crash:"
+                      $crashedFiles | ForEach-Object { Write-Host " - $_" }
+                  }
 
-                if ($crashedFiles.Count -gt 0) {
-                    Write-Host "Files causing PSScriptAnalyzer crash:"
-                    $crashedFiles | ForEach-Object { Write-Host " - $_" }
-                }
+                  # Optional: fail build if crashes happened
+                  if ($crashedFiles.Count -gt 0) {
+                      throw "PSScriptAnalyzer crashed on $($crashedFiles.Count) file(s)."
+                  }
 
-                # Optional: fail build if crashes happened
-                if ($crashedFiles.Count -gt 0) {
-                    throw "PSScriptAnalyzer crashed on $($crashedFiles.Count) file(s)."
-                }
+                  # Optional: still enforce error diagnostics
+                  if ($allResults | Where-Object Severity -eq 'Error') {
+                      throw "PSScriptAnalyzer found error-level issues."
+                  }
 
-                # Optional: still enforce error diagnostics
-                if ($allResults | Where-Object Severity -eq 'Error') {
-                    throw "PSScriptAnalyzer found error-level issues."
-                }
-
-        - name: ⬆️ Upload PSSA SARIF
-          uses: github/codeql-action/upload-sarif@v4
-          with:
-            sarif_file: pssa.sarif
-            category: powershell
+            - name: ⬆️ Upload PSSA SARIF
+              uses: github/codeql-action/upload-sarif@v4
+              with:
+                  sarif_file: pssa.sarif
+                  category: powershell

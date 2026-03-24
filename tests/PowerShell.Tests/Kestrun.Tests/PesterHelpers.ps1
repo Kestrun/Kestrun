@@ -289,7 +289,7 @@ Start-KrServer
         }
     }
 
-    # This becomes: pwsh -NoLogo -NoProfile -Command "Import-Module Kestrun; . 'C:\...\myscript.ps1'"
+    # This becomes: <current-pwsh> -NoLogo -NoProfile -Command "Import-Module Kestrun; . 'C:\...\myscript.ps1'"
     $argList = @(
         '-NoLogo'
         '-NoProfile'
@@ -297,9 +297,14 @@ Start-KrServer
         "Import-Module '$kestrunModulePath'; . '$scriptToRun' -Port $Port"
     )
 
+    $pwshExecutable = (Get-Process -Id $PID -ErrorAction Stop).Path
+    if ([string]::IsNullOrWhiteSpace($pwshExecutable)) {
+        $pwshExecutable = (Get-Command pwsh -ErrorAction Stop).Source
+    }
+
     # Create process start parameters
     $param = @{
-        FilePath = 'pwsh'
+        FilePath = $pwshExecutable
         WorkingDirectory = $scriptDir
         ArgumentList = $argList
         PassThru = $true
@@ -399,7 +404,16 @@ Start-KrServer
     The object returned by Start-ExampleScript representing the running instance to stop.
 #>
 function Stop-ExampleScript {
-    [CmdletBinding(SupportsShouldProcess)] param([Parameter(Mandatory)]$Instance)
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory)]
+        $Instance
+    )
+    $processId = $null
+    if ($null -ne $Instance.Process -and $Instance.Process.PSObject.Properties.Match('Id').Count -gt 0) {
+        $processId = [int]$Instance.Process.Id
+    }
+
     $shutdown = "http://127.0.0.1:$($Instance.Port)/shutdown"
     try { Invoke-WebRequest -Uri $shutdown -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop | Out-Null } catch {
         try {
@@ -410,13 +424,55 @@ function Stop-ExampleScript {
             Write-Debug "Shutdown failed: $($_.Exception.Message)"
         }
     } finally {
-        if (-not $Instance.Process.HasExited) { $Instance.Process | Stop-Process -Force }
-        $p = [pscustomobject]@{
-            Id = $Instance.Process.Id
-            HasExited = $Instance.Process.HasExited
-            ExitCode = $Instance.Process.ExitCode
+        if ($processId) {
+            $liveProcess = Get-Process -Id $processId -ErrorAction SilentlyContinue
+            if ($liveProcess) {
+                # Give graceful shutdown a short chance before forcing termination.
+                $null = $liveProcess.WaitForExit(3000)
+            }
+
+            $liveProcess = Get-Process -Id $processId -ErrorAction SilentlyContinue
+            if ($liveProcess) {
+                try {
+                    $liveProcess.Kill($true)
+                } catch {
+                    Write-Debug "Kill(processTree) failed for PID $processId, falling back to Stop-Process: $($_.Exception.Message)"
+                    Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+                }
+            }
+
+            $deadline = [DateTime]::UtcNow.AddSeconds(5)
+            while (([DateTime]::UtcNow -lt $deadline) -and (Get-Process -Id $processId -ErrorAction SilentlyContinue)) {
+                Start-Sleep -Milliseconds 100
+            }
+
+            if (Get-Process -Id $processId -ErrorAction SilentlyContinue) {
+                Write-Warning "Process PID $processId is still running after forced termination attempts."
+            }
         }
-        $Instance.Process.Dispose()
+
+        $p = [pscustomobject]@{
+            Id = $processId
+            HasExited = $null
+            ExitCode = $null
+        }
+        if ($null -ne $Instance.Process) {
+            try {
+                $p.HasExited = $Instance.Process.HasExited
+                if ($p.HasExited) {
+                    $p.ExitCode = $Instance.Process.ExitCode
+                }
+            } catch {
+                Write-Debug "Unable to capture final process status for PID ${processId}: $($_.Exception.Message)"
+            }
+
+            try {
+                $Instance.Process.Dispose()
+            } catch {
+                Write-Debug "Dispose failed for PID ${processId}: $($_.Exception.Message)"
+            }
+        }
+
         $Instance.Process = $p
         Remove-Item -Path $Instance.TempPath -Force -ErrorAction SilentlyContinue
         if ($Instance.PushedLocation) {
@@ -2640,7 +2696,7 @@ function Write-KrExampleInstanceOnFailure {
         'unknown-example'
     }
 
-    $diagDir = Join-Path -Path "TestResults" -ChildPath "Diagnostics" -AdditionalChildPath $safeBaseName
+    $diagDir = Join-Path -Path 'TestResults' -ChildPath 'Diagnostics' -AdditionalChildPath $safeBaseName
     New-Item -ItemType Directory -Force -Path $diagDir | Out-Null
 
     Write-Host ''

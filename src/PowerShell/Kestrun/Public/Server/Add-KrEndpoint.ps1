@@ -65,7 +65,7 @@ function Add-KrEndpoint {
         [switch]$SelfSignedCert,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'x509Certificate')]
-        [System.Security.Cryptography.X509Certificates.X509Certificate2]$X509Certificate = $null,
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$X509Certificate,
 
         [Parameter(ParameterSetName = 'x509Certificate')]
         [Parameter(ParameterSetName = 'CertFile')]
@@ -141,4 +141,3 @@ function Add-KrEndpoint {
         }
     }
 }
-

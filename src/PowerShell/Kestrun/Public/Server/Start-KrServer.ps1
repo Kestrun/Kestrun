@@ -57,6 +57,19 @@ function Start-KrServer {
         } catch {
             Write-KrLog -Level Information -Message 'No console available; running in non-interactive mode.'
         }
+
+        $writeStartupFailureBanner = {
+            param([Exception]$Exception)
+
+            if (-not $effectiveQuiet) {
+                $errorMessage = "Failed to start Kestrun server '$($Server.ApplicationName)'."
+                if ($Exception -and -not [string]::IsNullOrWhiteSpace($Exception.Message)) {
+                    $errorMessage = "$errorMessage $($Exception.Message)"
+                }
+
+                Write-KrLog -Level Error -Message $errorMessage
+            }
+        }
     }
     process {
         # Generate OpenAPI documents if not already generated
@@ -68,28 +81,77 @@ function Start-KrServer {
         # Start the Kestrel server
         if ( -not $effectiveQuiet ) {
             Write-Host "Starting Kestrun server '$($Server.ApplicationName)' ..."
+            Write-KrLog -Level Information -Message "Starting Kestrun server '{ApplicationName}' ..." -Values $Server.ApplicationName
         }
-        $Server.StartAsync() | Out-Null
-        if ($writeConsole) {
-            Write-Host 'Kestrun server started successfully.'
-            foreach ($listener in $Server.Options.Listeners) {
-                if ($listener.X509Certificate) {
-                    Write-Host "Listening on https://$($listener.IPAddress):$($listener.Port) with protocols: $($listener.Protocols)"
-                } else {
-                    Write-Host "Listening on http://$($listener.IPAddress):$($listener.Port) with protocols: $($listener.Protocols)"
-                }
-                if ($listener.X509Certificate) {
-                    Write-Host "Using certificate: $($listener.X509Certificate.Subject)"
-                } else {
-                    Write-Host 'No certificate configured. Running in HTTP mode.'
-                }
-                if ($listener.UseConnectionLogging) {
-                    Write-Host 'Connection logging is enabled.'
-                } else {
-                    Write-Host 'Connection logging is disabled.'
-                }
+
+        $startupTask = $null
+        try {
+            $startupTask = $Server.StartAsync()
+        } catch {
+            $originalException = $_.Exception
+            $displayException = if ($originalException -and $originalException.InnerException) {
+                $originalException.InnerException
+            } else {
+                $originalException
             }
-            Write-Host 'Press Ctrl+C to stop the server.'
+            & $writeStartupFailureBanner $displayException
+            throw
+        }
+
+        if ($NoWait.IsPresent) {
+            # Preserve the -NoWait contract: return immediately after startup is initiated.
+            if ($startupTask.IsFaulted) {
+                $startupException = if ($startupTask.Exception -and $startupTask.Exception.InnerException) {
+                    $startupTask.Exception.InnerException
+                } else {
+                    $startupTask.Exception
+                }
+                & $writeStartupFailureBanner $startupException
+                if ($startupTask.Exception -and $startupTask.Exception.InnerException) {
+                    throw $startupTask.Exception.InnerException
+                }
+                throw $startupTask.Exception
+            }
+
+            if ($writeConsole) {
+                Write-Host 'Kestrun server startup initiated (NoWait).'
+            }
+        } else {
+            try {
+                # Block until startup completes so bind/config errors surface immediately.
+                $startupTask.GetAwaiter().GetResult()
+            } catch {
+                $originalException = $_.Exception
+                $displayException = if ($originalException -and $originalException.InnerException) {
+                    $originalException.InnerException
+                } else {
+                    $originalException
+                }
+                & $writeStartupFailureBanner $displayException
+                throw
+            }
+
+            if ($writeConsole) {
+                Write-Host 'Kestrun server started successfully.'
+                foreach ($listener in $Server.Options.Listeners) {
+                    if ($listener.X509Certificate) {
+                        Write-Host "Listening on https://$($listener.IPAddress):$($listener.Port) with protocols: $($listener.Protocols)"
+                    } else {
+                        Write-Host "Listening on http://$($listener.IPAddress):$($listener.Port) with protocols: $($listener.Protocols)"
+                    }
+                    if ($listener.X509Certificate) {
+                        Write-Host "Using certificate: $($listener.X509Certificate.Subject)"
+                    } else {
+                        Write-Host 'No certificate configured. Running in HTTP mode.'
+                    }
+                    if ($listener.UseConnectionLogging) {
+                        Write-Host 'Connection logging is enabled.'
+                    } else {
+                        Write-Host 'Connection logging is disabled.'
+                    }
+                }
+                Write-Host 'Press Ctrl+C to stop the server.'
+            }
         }
         if (-not $NoWait.IsPresent) {
             # Intercept Ctrl+C and gracefully stop the Kestrun server
@@ -141,4 +203,3 @@ function Start-KrServer {
         }
     }
 }
-

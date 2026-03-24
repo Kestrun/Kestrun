@@ -52,7 +52,7 @@ param([int]`$Port)
         $deadline = [DateTime]::UtcNow.AddSeconds(10)
         while ([DateTime]::UtcNow -lt $deadline -and $null -eq $resp) {
             try {
-                $resp = Invoke-TestRequest -UnixSocket $script:socketPath -Method Get -Uri 'http://localhost/ux' -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop
+                $resp = Invoke-TestRequest -UnixSocket $script:socketPath -Method Get -Uri 'http://localhost/ux' -UseBasicParsing -ErrorAction Stop
             } catch {
                 Start-Sleep -Milliseconds 200
             }

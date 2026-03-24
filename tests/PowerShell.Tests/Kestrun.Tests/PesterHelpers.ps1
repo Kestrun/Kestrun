@@ -185,9 +185,12 @@ function Get-ExampleScriptPath {
     -ConnectionTimeoutSeconds 5
     -OperationTimeoutSeconds 10
     Any legacy -TimeoutSec argument is removed to avoid conflicting timeout behavior.
+    On timeout, retries once only for safe methods by default (GET/HEAD/OPTIONS/TRACE/QUERY),
+    unless -RetryOnTimeout is explicitly specified.
 #>
 function Invoke-TestRequest {
     param(
+        [switch]$RetryOnTimeout,
         [Parameter(ValueFromRemainingArguments = $true)]
         [object[]]$RemainingArguments
     )
@@ -253,6 +256,17 @@ function Invoke-TestRequest {
         [void]$invokeParams.Remove('StatusCodeVariable')
     }
 
+    $effectiveMethod = 'GET'
+    if ($invokeParams.Contains('Method')) {
+        $effectiveMethod = [string]$invokeParams['Method']
+    } elseif ($invokeParams.Contains('CustomMethod')) {
+        $effectiveMethod = [string]$invokeParams['CustomMethod']
+    }
+    $effectiveMethod = $effectiveMethod.ToUpperInvariant()
+
+    $retrySafeMethods = @('GET', 'HEAD', 'OPTIONS', 'TRACE', 'QUERY')
+    $allowRetryOnTimeout = $RetryOnTimeout.IsPresent -or ($retrySafeMethods -contains $effectiveMethod)
+
     $invokeOnce = {
         $response = Invoke-WebRequest @invokeParams @positionalArgs
         if ($sessionVariableName) {
@@ -284,6 +298,10 @@ function Invoke-TestRequest {
         }
 
         if (-not $timeoutDetected) {
+            throw
+        }
+
+        if (-not $allowRetryOnTimeout) {
             throw
         }
 

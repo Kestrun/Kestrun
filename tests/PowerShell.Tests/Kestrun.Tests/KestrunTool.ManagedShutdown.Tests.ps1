@@ -82,7 +82,7 @@ Start-KrServer -Server `$server
         }
 
         try {
-            $response = Invoke-TestRequest -Uri "http://127.0.0.1:$($script:port)/online" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+            $response = Invoke-TestRequest -Uri "http://127.0.0.1:$($script:port)/online" -UseBasicParsing -ErrorAction Stop
             if ($response.StatusCode -eq 200) {
                 $script:isReady = $true
                 break

@@ -103,6 +103,67 @@ jobs:
             Write-Host "=== Loaded version ==="
             Get-Module PSScriptAnalyzer | Format-List Name, Version, Path
 
+        - name: Run PSScriptAnalyzer and isolate crash
+          shell: pwsh
+          run: |
+            $ErrorActionPreference = 'Stop'
+
+            Write-Host "=== Loaded PSScriptAnalyzer ==="
+            Get-Module PSScriptAnalyzer | Format-List Name,Version,Path
+
+            Write-Host "=== Test 1: no settings file ==="
+            try {
+            Invoke-ScriptAnalyzer `
+                -Path .\src\PowerShell\Kestrun `
+                -Recurse `
+                -Severity @('Error','Warning','Information') | Out-Null
+            Write-Host "OK: no-settings run succeeded"
+            }
+            catch {
+            Write-Host "FAIL: no-settings run crashed"
+            $_ | Format-List * -Force
+            throw
+            }
+
+            Write-Host "=== Test 2: minimal settings ==="
+            $minimalSettings = @{
+            IncludeDefaultRules = $true
+            ExcludeRules = @(
+                'PSAvoidUsingWriteHost'
+                'PSUseBOMForUnicodeEncodedFile'
+            )
+            }
+
+            $minimalPath = Join-Path $PWD 'PSSA.Minimal.psd1'
+            $minimalSettings | Export-PowerShellDataFile -Path $minimalPath
+
+            try {
+            Invoke-ScriptAnalyzer `
+                -Path .\src\PowerShell\Kestrun `
+                -Recurse `
+                -Settings $minimalPath `
+                -Severity @('Error','Warning','Information') | Out-Null
+            Write-Host "OK: minimal-settings run succeeded"
+            }
+            catch {
+            Write-Host "FAIL: minimal-settings run crashed"
+            $_ | Format-List * -Force
+            throw
+            }
+
+            Write-Host "=== Test 3: full settings ==="
+            $results = Invoke-ScriptAnalyzer `
+            -Path .\src\PowerShell\Kestrun `
+            -Recurse `
+            -Settings .\PSScriptAnalyzerSettings.psd1 `
+            -Severity @('Error','Warning','Information')
+
+            @($results) | ConvertTo-Sarif | Out-File -Encoding utf8 pssa.sarif
+
+            if ($results | Where-Object Severity -eq 'Error') {
+            throw "PSScriptAnalyzer found error-level issues."
+            }
+
         - name: Run PSScriptAnalyzer and emit SARIF
           shell: pwsh
           run: |

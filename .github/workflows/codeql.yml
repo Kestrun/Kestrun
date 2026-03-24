@@ -146,9 +146,18 @@ jobs:
                 Write-Host "SARIF emitted to pssa.sarif"
 
                 Write-Host "=== Issue summary by severity ==="
-                Write-Host $AllResults | Group-Object Severity | ForEach-Object {
-                    Write-Host "Severity: $($_.Name) - Count: $($_.Count)"
-                }
+                $AllResults |
+                    Group-Object Severity |
+                    ForEach-Object {
+                        $severityGroup = $_
+                        Write-Host "Severity: $($severityGroup.Name) - Count: $($severityGroup.Count)"
+
+                        $severityGroup.Group |
+                            Group-Object ScriptName |
+                            ForEach-Object {
+                                Write-Host "  File: $($_.Name) - Count: $($_.Count)"
+                            }
+                    }
 
                 if ($crashedFiles.Count -gt 0) {
                     Write-Host "Files causing PSScriptAnalyzer crash:"

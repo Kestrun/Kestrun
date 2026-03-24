@@ -88,7 +88,7 @@ function Start-KrServer {
         try {
             $startupTask = $Server.StartAsync()
         } catch {
-             $exception = $_.Exception
+            $exception = $_.Exception
             if ($exception -and $exception.InnerException) {
                 $exception = $exception.InnerException
             }

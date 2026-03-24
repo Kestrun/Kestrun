@@ -4,7 +4,11 @@ BeforeDiscovery {
     try {
         $path = $PSCommandPath
 
-        $kestrunPath = Join-Path -Path (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $path)))) -ChildPath 'src' -AdditionalChildPath 'PowerShell', 'Kestrun'
+        $rootPath = Split-Path -Parent -Path $path
+        for ($i = 0; $i -lt 3; $i++) {
+            $rootPath = Split-Path -Parent -Path $rootPath
+        }
+        $kestrunPath = Join-Path -Path $rootPath -ChildPath 'src' -AdditionalChildPath 'PowerShell', 'Kestrun'
 
         # Import the Kestrun module from the source path if it exists, otherwise from installed modules
         if (Test-Path -Path "$($kestrunPath)/Kestrun.psm1" -PathType Leaf) {

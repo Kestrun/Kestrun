@@ -525,9 +525,9 @@ runs:
                 }
                 if ($candidates) {
                   $previewBin = $candidates | Select-Object -First 1
-                  $previewDir = Split-Path $previewBin -Parent
+                  $previewDir = Split-Path -Path $previewBin -Parent
                   Add-Content -Path $env:GITHUB_PATH -Value $previewDir
-                  $env:PATH = "$previewDir;$env:PATH"
+                  $env:PATH = "$previewDir$([IO.Path]::PathSeparator)$env:PATH"
                   Write-Host "Preview path added to PATH: $previewDir"
                 } else {
                   Write-Warning "Could not locate PowerShell Preview binary; leaving system default."

@@ -69,7 +69,7 @@ function Install-ReportGenerator {
         dotnet tool install -g dotnet-reportgenerator-globaltool | Out-Host
     }
     # ensure current session PATH includes toolDir
-    $toolDir = Split-Path $rg
+    $toolDir = Split-Path -Parent -Path $rg
     $sep = [IO.Path]::PathSeparator
     if (-not ($env:PATH -split $sep | Where-Object { $_ -eq $toolDir })) {
         $env:PATH = "$toolDir$sep$env:PATH"
@@ -682,7 +682,7 @@ function Sync-PowerShellDll {
                 }
 
                 $targetPath = $_.FullName.Replace($srcFramework, $destFramework)
-                $targetDir = Split-Path $targetPath -Parent
+                $targetDir = Split-Path -Path $targetPath -Parent
 
                 if (-not (Test-Path $targetDir)) {
                     New-Item -ItemType Directory -Path $targetDir -Force | Out-Null

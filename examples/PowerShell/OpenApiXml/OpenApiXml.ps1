@@ -12,11 +12,11 @@ param()
 try {
     # Get the path of the current script
     $ScriptPath = (Split-Path -Parent -Path $MyInvocation.MyCommand.Path)
-    $powerShellExamplesPath = (Split-Path -Parent ($ScriptPath))
-    $examplesPath = (Split-Path -Parent ($powerShellExamplesPath))
+    $powerShellExamplesPath = (Split-Path -Parent -Path $ScriptPath)
+    $examplesPath = (Split-Path -Parent -Path $powerShellExamplesPath)
     $kestrunPath = Split-Path -Parent -Path $examplesPath
     $kestrunModulePath = "$kestrunPath/src/PowerShell/Kestrun/Kestrun.psm1"
-    
+
     # Import the Kestrun module
     if (Test-Path -Path $kestrunModulePath -PathType Leaf) {
         Import-Module $kestrunModulePath -Force -ErrorAction Stop
@@ -72,15 +72,15 @@ class Product {
 # Add a route that returns XML using the Product class
 $server | Add-KrMapRoute -Verbs Get -Pattern '/products/{id}' -ScriptBlock {
     $id = Get-KrRequestRouteParam -Name 'id'
-    
+
     # Create a product instance using PowerShell class
     $product = [Product]@{
         Id = [int]$id
         Name = "Sample Product $id"
         Price = 19.99
-        Items = @("Item1", "Item2", "Item3")
+        Items = @('Item1', 'Item2', 'Item3')
     }
-    
+
     # Return as XML
     Write-KrXmlResponse -Object $product -StatusCode 200
 }

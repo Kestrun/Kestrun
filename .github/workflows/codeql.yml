@@ -103,124 +103,26 @@ jobs:
             Write-Host "=== Loaded version ==="
             Get-Module PSScriptAnalyzer | Format-List Name, Version, Path
 
-        - name: Run PSScriptAnalyzer and isolate crash
-          shell: pwsh
-          run: |
-            $ErrorActionPreference = 'Stop'
-
-            Write-Host "=== Loaded PSScriptAnalyzer ==="
-            Get-Module PSScriptAnalyzer | Format-List Name,Version,Path
-
-            Write-Host "=== Test 1: no settings file ==="
-            try {
-            Invoke-ScriptAnalyzer `
-                -Path .\src\PowerShell\Kestrun `
-                -Recurse `
-                -ExcludeRule AvoidReservedCharInCmdlet `
-                -Severity @('Error','Warning','Information') | Out-Null
-            Write-Host "OK: no-settings run succeeded"
-            }
-            catch {
-            Write-Host "FAIL: no-settings run crashed"
-            $_ | Format-List * -Force
-            throw
-            }
-
-            Write-Host "=== Test 2: minimal settings ==="
-            $minimalSettings = @{
-            IncludeDefaultRules = $true
-            ExcludeRules = @(
-                'PSAvoidUsingWriteHost'
-                'PSUseBOMForUnicodeEncodedFile'
-                'AvoidReservedCharInCmdlet'
-            )
-            }
-
-            $minimalPath = Join-Path $PWD 'PSSA.Minimal.psd1'
-            $minimalSettings | Export-PowerShellDataFile -Path $minimalPath
-
-            try {
-            Invoke-ScriptAnalyzer `
-                -Path .\src\PowerShell\Kestrun `
-                -Recurse `
-                -Settings $minimalPath `
-                -Severity @('Error','Warning','Information') | Out-Null
-            Write-Host "OK: minimal-settings run succeeded"
-            }
-            catch {
-            Write-Host "FAIL: minimal-settings run crashed"
-            $_ | Format-List * -Force
-            throw
-            }
-
-            Write-Host "=== Test 3: full settings ==="
-            $results = Invoke-ScriptAnalyzer `
-            -Path .\src\PowerShell\Kestrun `
-            -Recurse `
-            -Settings .\PSScriptAnalyzerSettings.psd1 `
-            -Severity @('Error','Warning','Information')
-
-            @($results) | ConvertTo-Sarif | Out-File -Encoding utf8 pssa.sarif
-
-            if ($results | Where-Object Severity -eq 'Error') {
-            throw "PSScriptAnalyzer found error-level issues."
-            }
-
         - name: Run PSScriptAnalyzer and emit SARIF
           shell: pwsh
           run: |
-            $ErrorActionPreference = 'Stop'
+                $ErrorActionPreference = 'Stop'
 
-            Write-Host "=== Discovering installed PSScriptAnalyzer versions ==="
-            $all = Get-Module PSScriptAnalyzer -ListAvailable |
-            Sort-Object Version -Descending
+                $files = Get-ChildItem .\src\PowerShell\Kestrun -Recurse -File -Include *.ps1,*.psd1,*.psm1 |
+                Where-Object { $_.FullName -notlike '*\Kestrun.psm1' }
 
-            if (-not $all) {
-            throw "PSScriptAnalyzer is not installed."
-            }
+                $allResults = foreach ($file in $files) {
+                Invoke-ScriptAnalyzer `
+                    -Path $file.FullName `
+                    -Settings .\PSScriptAnalyzerSettings.psd1 `
+                    -Severity @('Error','Warning','Information')
+                }
 
-            $latest = $all | Select-Object -First 1
+                @($allResults) | ConvertTo-Sarif | Out-File -Encoding utf8 pssa.sarif
 
-            $all | Format-Table Name, Version, Path
-
-            Write-Host "=== Forcing latest version ==="
-            Write-Host "Using version: $($latest.Version)"
-            Write-Host "From path: $($latest.Path)"
-
-            # Remove any already loaded version (important!)
-            Remove-Module PSScriptAnalyzer -ErrorAction SilentlyContinue -Force
-
-            # Import EXACT version
-            Import-Module $latest.Path -Force
-
-            # Validate loaded version
-            $loaded = Get-Module PSScriptAnalyzer
-
-            if (-not $loaded) {
-            throw "Failed to load PSScriptAnalyzer."
-            }
-
-            if ($loaded.Version -ne $latest.Version) {
-            throw "Wrong PSScriptAnalyzer version loaded. Expected $($latest.Version), got $($loaded.Version)"
-            }
-
-            Write-Host "=== Loaded version ==="
-            $loaded | Format-List Name, Version, Path
-
-            # --- Run analyzer ---
-            $results = Invoke-ScriptAnalyzer `
-              -Path .\src\PowerShell\Kestrun `
-              -Recurse `
-              -Settings .\PSScriptAnalyzerSettings.psd1 `
-              -Severity @('Error','Warning','Information')
-
-            # Always produce a sarif file (even if results is empty)
-            $results | ConvertTo-Sarif | Out-File -Encoding utf8 pssa.sarif
-
-            # Optionally fail if any error-level diagnostics exist
-            if ($results | Where-Object Severity -eq 'Error') {
-              throw "PSScriptAnalyzer found error-level issues."
-            }
+                if ($allResults | Where-Object Severity -eq 'Error') {
+                throw "PSScriptAnalyzer found error-level issues."
+                }
 
         - name: ⬆️ Upload PSSA SARIF
           uses: github/codeql-action/upload-sarif@v4

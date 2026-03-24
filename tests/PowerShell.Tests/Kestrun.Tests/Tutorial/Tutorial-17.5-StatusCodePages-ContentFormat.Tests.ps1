@@ -26,13 +26,13 @@ Describe 'Tutorial 17.5-StatusCodePages-ContentFormat' -Tag 'Tutorial' {
     It 'Template error page returns HTML with status placeholder filled' {
         $base = $script:instance.Url
         # Simply verify the error route returns a 500 status (body may vary by client)
-        $r = Invoke-WebRequest -Uri "$base/error" -UseBasicParsing -TimeoutSec 12 -ErrorAction SilentlyContinue -SkipHttpErrorCheck
+        $r = Invoke-TestRequest -Uri "$base/error" -UseBasicParsing -TimeoutSec 12 -ErrorAction SilentlyContinue -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 500
     }
 
     It 'Unmapped route returns 404 (ContentFormat configured)' {
         $base = $script:instance.Url
-        $r = Invoke-WebRequest -Uri "$base/missing" -UseBasicParsing -TimeoutSec 12 -ErrorAction SilentlyContinue -SkipHttpErrorCheck
+        $r = Invoke-TestRequest -Uri "$base/missing" -UseBasicParsing -TimeoutSec 12 -ErrorAction SilentlyContinue -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 404
     }
 }

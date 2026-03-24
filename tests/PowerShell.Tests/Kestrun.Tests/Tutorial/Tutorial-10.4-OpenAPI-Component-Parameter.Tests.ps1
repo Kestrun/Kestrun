@@ -17,7 +17,7 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
     }
 
     It 'List Products (GET Default)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/v1/products" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
         $json.page | Should -Be 1
@@ -26,7 +26,7 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
     }
 
     It 'List Products (All Parameters)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products?page=3&limit=30&sortBy=price&category=electronics&minPrice=100&maxPrice=5000" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/v1/products?page=3&limit=30&sortBy=price&category=electronics&minPrice=100&maxPrice=5000" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
         $json.page | Should -Be 3
@@ -34,7 +34,7 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
     }
 
     It 'List Products (GET Paged)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products?page=2&limit=5" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/v1/products?page=2&limit=5" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
         $json.page | Should -Be 2
@@ -43,7 +43,7 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
     }
 
     It 'Get Product by Id (GET)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products/1" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/v1/products/1" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
         $json.id | Should -Be 1
@@ -51,7 +51,7 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
     }
 
     It 'Get Product by Id (GET Not Found)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products/999999" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/v1/products/999999" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 404
         $json = $result.Content | ConvertFrom-Json
         $json.message | Should -Be 'Product not found'
@@ -65,7 +65,7 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
             tags = @('usb-c', 'dock')
         } | ConvertTo-Json -Compress
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products?dryRun=true" -Method Post -ContentType 'application/json' -Body $body -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/v1/products?dryRun=true" -Method Post -ContentType 'application/json' -Body $body -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 201
         $json = $result.Content | ConvertFrom-Json
         $json.id | Should -Be 0
@@ -79,7 +79,7 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
             price = 159.99
         } | ConvertTo-Json -Compress
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/products?dryRun=true" -Method Post -ContentType 'application/json' -Body $body -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/v1/products?dryRun=true" -Method Post -ContentType 'application/json' -Body $body -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 422
         $json = $result.Content | ConvertFrom-Json
         $json.status | Should -Be 422
@@ -87,7 +87,7 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
     }
 
     It 'List Categories (GET Default includeCounts=true)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/categories" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/v1/categories" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
 
@@ -97,7 +97,7 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
     }
 
     It 'List Categories (GET includeCounts=false)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/categories?includeCounts=false" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/v1/categories?includeCounts=false" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
 
@@ -108,24 +108,24 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
     }
 
     It 'Swagger UI route responds' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/docs/swagger" -MaximumRedirection 5 -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/docs/swagger" -MaximumRedirection 5 -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -BeIn @(200, 301, 302)
     }
 
     It 'ReDoc route responds' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/docs/redoc" -MaximumRedirection 5 -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/docs/redoc" -MaximumRedirection 5 -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -BeIn @(200, 301, 302)
     }
 
     It 'Check OpenAPI Parameters' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $json = $result.Content | ConvertFrom-Json
         $json.components.parameters.page | Should -Not -BeNullOrEmpty
         $json.components.parameters.limit | Should -Not -BeNullOrEmpty
     }
 
     It 'Check OpenAPI Parameter Extensions' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $json = $result.Content | ConvertFrom-Json
 
         $json.components.parameters.myCategory.'x-kestrun-demo'.kind | Should -Be 'catalog-context'
@@ -134,7 +134,7 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
     }
 
     It 'OpenAPI includes specific client-error responses for POST /v1/products' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
 
         $json = $result.Content | ConvertFrom-Json
@@ -154,7 +154,7 @@ Describe 'Example 10.4 OpenAPI Component Parameter' -Tag 'OpenApi', 'Tutorial', 
     }
 
     It 'OpenAPI includes all example paths' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
 
         $json = $result.Content | ConvertFrom-Json

@@ -28,7 +28,7 @@ Describe 'Tutorial 10.20 - OpenAPI SSE (PowerShell)' -Tag 'Tutorial' {
         $invokeParams = @{ Uri = $uri; Method = 'Get'; UseBasicParsing = $true; TimeoutSec = 15; Headers = @{ Accept = 'text/event-stream' } }
         if ($script:instance.Https) { $invokeParams.SkipCertificateCheck = $true }
 
-        $resp = Invoke-WebRequest @invokeParams
+        $resp = Invoke-TestRequest @invokeParams
         $resp.StatusCode | Should -Be 200
         ($resp.Headers['Content-Type'] -join '') | Should -Match 'text/event-stream'
         $resp.Content | Should -Match 'event:\s*connected'

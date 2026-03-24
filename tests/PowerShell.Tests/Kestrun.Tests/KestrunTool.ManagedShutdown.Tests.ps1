@@ -38,6 +38,16 @@ Start-KrServer -Server `$server
 
     Set-Content -Path $script:tempScript -Value $scriptContent -Encoding UTF8
 
+    $moduleRoot = Join-Path $script:root 'src/PowerShell'
+    $pathSeparator = [IO.Path]::PathSeparator
+    $childEnvironment = @{
+        PSModulePath = "$moduleRoot$pathSeparator$($env:PSModulePath)"
+        PATH = $env:PATH
+    }
+    if ($env:DOTNET_ROOT) {
+        $childEnvironment['DOTNET_ROOT'] = $env:DOTNET_ROOT
+    }
+
     if ($script:useLauncher) {
         $escapedLauncher = $script:kestrunLauncher.Replace("'", "''")
         $escapedScript = $script:tempScript.Replace("'", "''")
@@ -48,7 +58,7 @@ Start-KrServer -Server `$server
             '-NoProfile',
             '-Command',
             $kestrunInvoke
-        ) -PassThru -RedirectStandardOutput $script:stdOut -RedirectStandardError $script:stdErr
+        ) -PassThru -RedirectStandardOutput $script:stdOut -RedirectStandardError $script:stdErr -Environment $childEnvironment
     } else {
         $script:process = Start-Process -FilePath 'dotnet' -ArgumentList @(
             'run',
@@ -59,10 +69,11 @@ Start-KrServer -Server `$server
             $script:tempScript,
             '--arguments',
             "$($script:port)"
-        ) -PassThru -RedirectStandardOutput $script:stdOut -RedirectStandardError $script:stdErr
+        ) -PassThru -RedirectStandardOutput $script:stdOut -RedirectStandardError $script:stdErr -Environment $childEnvironment
     }
 
-    $deadline = [DateTime]::UtcNow.AddSeconds(25)
+    $startupBudgetSeconds = if ($script:useLauncher) { 25 } else { 90 }
+    $deadline = [DateTime]::UtcNow.AddSeconds($startupBudgetSeconds)
     $script:isReady = $false
 
     while ([DateTime]::UtcNow -lt $deadline -and -not $script:isReady) {
@@ -71,7 +82,7 @@ Start-KrServer -Server `$server
         }
 
         try {
-            $response = Invoke-WebRequest -Uri "http://127.0.0.1:$($script:port)/online" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+            $response = Invoke-TestRequest -Uri "http://127.0.0.1:$($script:port)/online" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
             if ($response.StatusCode -eq 200) {
                 $script:isReady = $true
                 break
@@ -115,7 +126,7 @@ Describe 'KestrunTool managed shutdown' {
             throw "kestrun-managed test server did not become ready. stdout:`n$stdout`n---`nstderr:`n$stderr"
         }
 
-        $shutdownResponse = Invoke-WebRequest -Uri "http://127.0.0.1:$($script:port)/shutdown" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+        $shutdownResponse = Invoke-TestRequest -Uri "http://127.0.0.1:$($script:port)/shutdown" -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
         $shutdownResponse.StatusCode | Should -Be 202
 
         $script:process.WaitForExit(15000) | Should -BeTrue
@@ -262,7 +273,7 @@ Start-KrServer -Server `$server
                 }
 
                 try {
-                    $probe2 = Invoke-WebRequest -Uri "http://127.0.0.1:$port2/online" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
+                    $probe2 = Invoke-TestRequest -Uri "http://127.0.0.1:$port2/online" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop
                     if ($probe2.StatusCode -eq 200) {
                         $ready2 = $true
                     }

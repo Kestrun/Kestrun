@@ -18,7 +18,7 @@ Describe 'Example 10.8 OpenAPI Document Info' -Tag 'OpenApi', 'Tutorial', 'Slow'
     }
 
     It 'Check /info route output' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/info" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/info" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json -AsHashtable
 
@@ -34,7 +34,7 @@ Describe 'Example 10.8 OpenAPI Document Info' -Tag 'OpenApi', 'Tutorial', 'Slow'
     }
 
     It 'Check OpenAPI 3.0 Info' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.0/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.0/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json -AsHashtable
 
@@ -74,7 +74,7 @@ Describe 'Example 10.8 OpenAPI Document Info' -Tag 'OpenApi', 'Tutorial', 'Slow'
     }
 
     It 'Check OpenAPI 3.1 Info' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json -AsHashtable
 
@@ -114,7 +114,7 @@ Describe 'Example 10.8 OpenAPI Document Info' -Tag 'OpenApi', 'Tutorial', 'Slow'
     }
 
     It 'Check OpenAPI 3.2 Info' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.2/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.2/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json -AsHashtable
 

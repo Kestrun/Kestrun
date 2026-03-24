@@ -28,7 +28,7 @@ Describe 'Example 22.10 Url-Encoded OpenAPI forms' -Tag 'Tutorial', 'multipart/f
 
     It 'Rejects when required name field is missing' {
         $body = 'role=admin'
-        $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/form" -ContentType 'application/x-www-form-urlencoded' -Body $body -SkipHttpErrorCheck
+        $resp = Invoke-TestRequest -Method Post -Uri "$($script:instance.Url)/form" -ContentType 'application/x-www-form-urlencoded' -Body $body -SkipHttpErrorCheck
         $resp.StatusCode | Should -Be 400
     }
 }

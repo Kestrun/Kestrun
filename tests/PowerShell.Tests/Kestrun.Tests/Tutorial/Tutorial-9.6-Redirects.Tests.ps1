@@ -19,7 +19,7 @@ Describe 'Example 9.6-Redirects' -Tag 'Tutorial', 'Redirects', 'Slow' {
         $resp = $null
         try {
             # Prevent auto-follow to external site
-            $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -MaximumRedirection 0 -ErrorAction Stop
+            $resp = Invoke-TestRequest -Uri $url -UseBasicParsing -MaximumRedirection 0 -ErrorAction Stop
         } catch {
             if ($_.Exception.Response) { $resp = $_.Exception.Response } else { throw }
         }

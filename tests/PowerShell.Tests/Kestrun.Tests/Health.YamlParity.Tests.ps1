@@ -2,7 +2,7 @@
 Validates that numeric probe data remains numeric in YAML health response.
 Strategy:
   * Spin up server with YAML response preference.
-  * Retrieve raw YAML via Invoke-WebRequest (Invoke-RestMethod would try to parse JSON only; YAML stays string anyway but WebRequest gives us .Content).
+  * Retrieve raw YAML via Invoke-TestRequest (Invoke-RestMethod would try to parse JSON only; YAML stays string anyway but WebRequest gives us .Content).
   * Parse with ConvertFrom-Yaml (PowerShell 7+ builtin) then assert numeric node types.
   * Mirror JSON numeric test semantics (intVal integer, floatVal floating point).
 #>
@@ -49,7 +49,7 @@ Describe 'Validates numeric probe data representation in YAML health response' -
 
 
     It 'GET /healthz returns numeric probe data as numbers in YAML' {
-        $resp = Invoke-WebRequest -Uri "$( $script:instance.Url)/healthz" -Headers @{ Accept = 'application/yaml' } -SkipHttpErrorCheck
+        $resp = Invoke-TestRequest -Uri "$( $script:instance.Url)/healthz" -Headers @{ Accept = 'application/yaml' } -SkipHttpErrorCheck
         $resp | Should -Not -BeNullOrEmpty
         $resp.Content | Should -Not -BeNullOrEmpty
         $yamlText = [string]::new($resp.Content)

@@ -8,7 +8,7 @@ function Test-DuendeAuthorityAvailable {
     param()
 
     try {
-        $probe = Invoke-WebRequest -Uri 'https://demo.duendesoftware.com/.well-known/openid-configuration' -SkipHttpErrorCheck -TimeoutSec 8
+        $probe = Invoke-TestRequest -Uri 'https://demo.duendesoftware.com/.well-known/openid-configuration' -SkipHttpErrorCheck -TimeoutSec 8
         return ($probe.StatusCode -eq 200)
     } catch {
         return $false
@@ -30,7 +30,7 @@ Describe 'Example 8.11 Authentication (OpenID Connect - Duende Demo)' -Tag 'Tuto
     }
 
     It 'GET / returns OIDC landing page' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/" -SkipCertificateCheck -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 200
         $result.Headers.'Content-Type' | Should -Be 'text/html; charset=utf-8'

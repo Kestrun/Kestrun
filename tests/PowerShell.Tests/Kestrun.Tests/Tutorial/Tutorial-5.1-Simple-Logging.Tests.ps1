@@ -14,21 +14,21 @@ Describe 'Example 5.1-Simple-Logging' {
     }
 
     It 'hello-powershell returns Hello, World!' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/hello-powershell" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/hello-powershell" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Be 'Hello, World!'
     }
 
     It 'hello-csharp returns Hello, World!' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/hello-csharp" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/hello-csharp" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Be 'Hello, World!'
     }
 
     It 'Writes log file with expected entries' {
         # Trigger both routes to ensure entries
-        Invoke-WebRequest -Uri "$($script:instance.Url)/hello-powershell" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
-        Invoke-WebRequest -Uri "$($script:instance.Url)/hello-csharp" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
+        Invoke-TestRequest -Uri "$($script:instance.Url)/hello-powershell" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
+        Invoke-TestRequest -Uri "$($script:instance.Url)/hello-csharp" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
         $dir = $script:instance.ScriptDirectory
         $logDir = Join-Path $dir 'logs'
         $logPath = Join-Path $logDir 'sample.log'

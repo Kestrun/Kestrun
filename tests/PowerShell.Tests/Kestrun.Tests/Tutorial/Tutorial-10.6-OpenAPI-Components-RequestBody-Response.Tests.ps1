@@ -24,7 +24,7 @@ Describe 'Example 10.6 OpenAPI Components RequestBody & Response' -Tag 'OpenApi'
             shippingAddress = '123 Main St'
         } | ConvertTo-Json
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/orders" -Method Post -Body $body -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/orders" -Method Post -Body $body -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 201
         $json = $result.Content | ConvertFrom-Json
         $json.productId | Should -Be 101
@@ -33,21 +33,21 @@ Describe 'Example 10.6 OpenAPI Components RequestBody & Response' -Tag 'OpenApi'
     }
 
     It 'Get Order (GET)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/orders/$($script:orderId)" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/orders/$($script:orderId)" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
         $json.orderId | Should -Be $script:orderId
     }
 
     It 'Check OpenAPI Components' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $json = $result.Content | ConvertFrom-Json
         $json.components.requestBodies.CreateOrderRequestBody | Should -Not -BeNullOrEmpty
         $json.components.responses.OrderResponseDefault | Should -Not -BeNullOrEmpty
     }
 
     It 'Check OpenAPI Component Extensions' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $json = $result.Content | ConvertFrom-Json
 
         $json.components.requestBodies.CreateOrderRequestBody.'x-kestrun-demo'.kind | Should -Be 'request'

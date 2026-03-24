@@ -28,7 +28,7 @@ Describe 'Example 15.7-Forwarded-Header' {
             'X-Forwarded-Prefix' = '/myapp'
         }
 
-        $resp = Invoke-WebRequest -Uri $uri -TimeoutSec 8 -Method Get -Headers $headers -ErrorAction Stop
+        $resp = Invoke-TestRequest -Uri $uri -TimeoutSec 8 -Method Get -Headers $headers -ErrorAction Stop
         $resp.StatusCode | Should -Be 200
 
         $obj = $resp.Content | ConvertFrom-Json

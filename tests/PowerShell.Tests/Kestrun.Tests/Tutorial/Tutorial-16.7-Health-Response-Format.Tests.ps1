@@ -19,7 +19,7 @@ Describe 'Example 16.7-Health-Response-Format' -Tag 'Tutorial', 'Health' {
     Context 'Auto(Json) format' {
         It 'GET /healthz (JSON) includes Database and Cache probes for core tag' {
             $headers = @{ Accept = 'application/json' }
-            $resp = Invoke-WebRequest -Uri "$( $script:instance.Url)/healthz" -UseBasicParsing -TimeoutSec 10 -Method Get -Headers $headers -SkipHttpErrorCheck
+            $resp = Invoke-TestRequest -Uri "$( $script:instance.Url)/healthz" -UseBasicParsing -TimeoutSec 10 -Method Get -Headers $headers -SkipHttpErrorCheck
             ($resp.StatusCode -eq 200 -or $resp.StatusCode -eq 503) | Should -BeTrue
             $parsed = $resp.Content | ConvertFrom-Json
             $probes = @()
@@ -34,7 +34,7 @@ Describe 'Example 16.7-Health-Response-Format' -Tag 'Tutorial', 'Health' {
     Context 'YAML format' {
         It 'GET /healthz (Yaml) includes database and cache keys' {
             $headers = @{ Accept = 'application/yaml' }
-            $resp = Invoke-WebRequest -Uri "$( $script:instance.Url)/healthz" -UseBasicParsing -TimeoutSec 10 -Method Get -Headers $headers -SkipHttpErrorCheck
+            $resp = Invoke-TestRequest -Uri "$( $script:instance.Url)/healthz" -UseBasicParsing -TimeoutSec 10 -Method Get -Headers $headers -SkipHttpErrorCheck
             ($resp.StatusCode -eq 200 -or $resp.StatusCode -eq 503) | Should -BeTrue
             $body = [string]::new($resp.Content)
             # Normalize potential numeric-line YAML edge cases via helper if needed
@@ -47,7 +47,7 @@ Describe 'Example 16.7-Health-Response-Format' -Tag 'Tutorial', 'Health' {
     Context 'XML format' {
         It 'GET /healthz (Xml) includes Database and Cache elements' {
             $headers = @{ Accept = 'application/xml' }
-            $resp = Invoke-WebRequest -Uri "$( $script:instance.Url)/healthz" -UseBasicParsing -TimeoutSec 10 -Method Get -Headers $headers -SkipHttpErrorCheck
+            $resp = Invoke-TestRequest -Uri "$( $script:instance.Url)/healthz" -UseBasicParsing -TimeoutSec 10 -Method Get -Headers $headers -SkipHttpErrorCheck
             ($resp.StatusCode -eq 200 -or $resp.StatusCode -eq 503) | Should -BeTrue
             $xml = [xml]$resp.Content
             $xml | Should -Not -BeNullOrEmpty

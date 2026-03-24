@@ -17,7 +17,7 @@ Describe 'Example 10.2 OpenAPI Component Schema' -Tag 'OpenApi', 'Tutorial', 'Sl
     }
 
     It 'List Employees (GET)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/employees" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/employees" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
 
@@ -42,7 +42,7 @@ Describe 'Example 10.2 OpenAPI Component Schema' -Tag 'OpenApi', 'Tutorial', 'Sl
             note = 'Please email the receipt.'
         } | ConvertTo-Json -Depth 10
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/tickets/purchase" -Method Post `
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/tickets/purchase" -Method Post `
             -Body $body -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 201
         $json = $result.Content | ConvertFrom-Json
@@ -65,7 +65,7 @@ Describe 'Example 10.2 OpenAPI Component Schema' -Tag 'OpenApi', 'Tutorial', 'Sl
             visitDates = @('2026-01-14')
         } | ConvertTo-Json -Depth 10
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/tickets/purchase" -Method Post `
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/tickets/purchase" -Method Post `
             -Body $body -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 422
         $json = $result.Content | ConvertFrom-Json
@@ -74,7 +74,7 @@ Describe 'Example 10.2 OpenAPI Component Schema' -Tag 'OpenApi', 'Tutorial', 'Sl
     }
 
     It 'Check OpenAPI Schemas' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $json = $result.Content | ConvertFrom-Json
 
         $json.components.schemas.Date | Should -Not -BeNullOrEmpty

@@ -26,7 +26,7 @@ Describe 'Tutorial 15.11 - Request Decompression (PowerShell)' -Tag 'Tutorial' {
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
         $compressed = New-GzipBinaryData -data $bytes
 
-        $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/api/echo" `
+        $resp = Invoke-TestRequest -Method Post -Uri "$($script:instance.Url)/api/echo" `
             -ContentType 'application/json' `
             -Headers @{ 'Content-Encoding' = 'gzip' } `
             -Body $compressed
@@ -48,7 +48,7 @@ Describe 'Tutorial 15.11 - Request Decompression (PowerShell)' -Tag 'Tutorial' {
             $bytes = [System.IO.File]::ReadAllBytes($tmpFile)
             $compressed = New-GzipBinaryData -data $bytes
 
-            $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/api/text" `
+            $resp = Invoke-TestRequest -Method Post -Uri "$($script:instance.Url)/api/text" `
                 -ContentType 'text/plain' `
                 -Headers @{ 'Content-Encoding' = 'gzip' } `
                 -Body $compressed

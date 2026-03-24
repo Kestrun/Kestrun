@@ -18,7 +18,7 @@ Describe 'Tutorial 12.3 Scheduling Report' -Tag 'Tutorial' {
 
     It '/schedule/report lists jobs' {
         $base = $script:instance.Url
-        $resp = Invoke-WebRequest -Uri "$base/schedule/report" -UseBasicParsing -TimeoutSec 10
+        $resp = Invoke-TestRequest -Uri "$base/schedule/report" -UseBasicParsing -TimeoutSec 10
         $resp.StatusCode | Should -Be 200
         $json = $resp.Content | ConvertFrom-Json
         $names = @($json.jobs | ForEach-Object { $_.name })
@@ -33,7 +33,7 @@ Describe 'Tutorial 12.3 Scheduling Report' -Tag 'Tutorial' {
         foreach ($tz in $candidates) {
             try {
                 $enc = [System.Uri]::EscapeDataString($tz)
-                $resp = Invoke-WebRequest -Uri "$base/schedule/report?tz=$enc" -UseBasicParsing -TimeoutSec 10
+                $resp = Invoke-TestRequest -Uri "$base/schedule/report?tz=$enc" -UseBasicParsing -TimeoutSec 10
                 if ($resp.StatusCode -eq 200) {
                     $json = $resp.Content | ConvertFrom-Json
                     $json | Should -Not -BeNullOrEmpty

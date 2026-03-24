@@ -33,7 +33,7 @@ Describe 'Example 8.10 Authentication (GitHub OAuth)' -Tag 'Tutorial', 'Auth', '
     }
 
     It 'GET / returns public GitHub auth landing page' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/" -SkipCertificateCheck -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 200
         $result.Headers.'Content-Type' | Should -Be 'text/html; charset=utf-8'

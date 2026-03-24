@@ -25,7 +25,7 @@ Describe 'Example 10.9 Component Header' -Tag 'Tutorial', 'OpenApi', 'Slow' {
             email = 'jane.doe@example.com'
         } | ConvertTo-Json
 
-        $create = Invoke-WebRequest -Uri "$($script:instance.Url)/users" -Method Post -Body $createBody -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+        $create = Invoke-TestRequest -Uri "$($script:instance.Url)/users" -Method Post -Body $createBody -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
         $create.StatusCode | Should -Be 201
 
         $created = $create.Content | ConvertFrom-Json
@@ -40,24 +40,24 @@ Describe 'Example 10.9 Component Header' -Tag 'Tutorial', 'OpenApi', 'Slow' {
         $create.Headers['X-RateLimit-Reset'] | Should -Not -BeNullOrEmpty
 
         # Get (2nd throttle-counted call)
-        $get = Invoke-WebRequest -Uri "$($script:instance.Url)/users/$id" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
+        $get = Invoke-TestRequest -Uri "$($script:instance.Url)/users/$id" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
         $get.StatusCode | Should -Be 200
         $get.Headers['X-Correlation-Id'] | Should -Not -BeNullOrEmpty
         $get.Headers['ETag'] | Should -Not -BeNullOrEmpty
 
         # Delete (not throttle-counted)
-        $delete = Invoke-WebRequest -Uri "$($script:instance.Url)/users/$id" -Method Delete -SkipCertificateCheck -SkipHttpErrorCheck
+        $delete = Invoke-TestRequest -Uri "$($script:instance.Url)/users/$id" -Method Delete -SkipCertificateCheck -SkipHttpErrorCheck
         $delete.StatusCode | Should -Be 204
         $delete.Headers['X-Correlation-Id'] | Should -Not -BeNullOrEmpty
 
         # Get after delete (3rd throttle-counted call, should still be allowed)
-        $getMissing = Invoke-WebRequest -Uri "$($script:instance.Url)/users/$id" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
+        $getMissing = Invoke-TestRequest -Uri "$($script:instance.Url)/users/$id" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
         $getMissing.StatusCode | Should -Be 404
         $getMissing.Headers['X-Error-Code'] | Should -Be 'USER_NOT_FOUND'
     }
 
     It 'OpenAPI document contains header components' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
 
@@ -71,7 +71,7 @@ Describe 'Example 10.9 Component Header' -Tag 'Tutorial', 'OpenApi', 'Slow' {
     }
 
     It 'OpenAPI header components include vendor extensions (x-*)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
 
@@ -86,7 +86,7 @@ Describe 'Example 10.9 Component Header' -Tag 'Tutorial', 'OpenApi', 'Slow' {
     }
 
     It 'OpenAPI document applies response headers via $ref and inline definitions' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
 
@@ -113,11 +113,11 @@ Describe 'Example 10.9 Component Header' -Tag 'Tutorial', 'OpenApi', 'Slow' {
     }
 
     It 'Swagger UI and Redoc UI are available' {
-        $swagger = Invoke-WebRequest -Uri "$($script:instance.Url)/docs/swagger" -SkipCertificateCheck -SkipHttpErrorCheck
+        $swagger = Invoke-TestRequest -Uri "$($script:instance.Url)/docs/swagger" -SkipCertificateCheck -SkipHttpErrorCheck
         $swagger.StatusCode | Should -Be 200
         $swagger.Content | Should -BeLike '*swagger-ui*'
 
-        $redoc = Invoke-WebRequest -Uri "$($script:instance.Url)/docs/redoc" -SkipCertificateCheck -SkipHttpErrorCheck
+        $redoc = Invoke-TestRequest -Uri "$($script:instance.Url)/docs/redoc" -SkipCertificateCheck -SkipHttpErrorCheck
         $redoc.StatusCode | Should -Be 200
         $redoc.Content | Should -BeLike '*Redoc*'
     }

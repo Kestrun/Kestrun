@@ -16,7 +16,7 @@ Describe 'Example 5.7-Apache-Common-Access-Log' -Tag 'Tutorial', 'Logging', 'Acc
 
     It 'GET /hello returns expected text' {
         try {
-            $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/hello" -UseBasicParsing -TimeoutSec 10 -Method Get -ErrorAction Stop
+            $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/hello" -UseBasicParsing -TimeoutSec 10 -Method Get -ErrorAction Stop
         } catch {
             $_.Exception | Out-String | Write-Host
             throw
@@ -27,7 +27,7 @@ Describe 'Example 5.7-Apache-Common-Access-Log' -Tag 'Tutorial', 'Logging', 'Acc
 
     It 'Writes Apache access log line for /hello' {
         # Trigger a fresh request (independent of previous It) to ensure a recent log entry
-        Invoke-WebRequest -Uri "$($script:instance.Url)/hello" -UseBasicParsing -TimeoutSec 10 -Method Get -ErrorAction Stop | Out-Null
+        Invoke-TestRequest -Uri "$($script:instance.Url)/hello" -UseBasicParsing -TimeoutSec 10 -Method Get -ErrorAction Stop | Out-Null
 
         # Candidate log paths (example directory first, then current location)
         $logDirCandidates = @()

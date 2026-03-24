@@ -16,7 +16,7 @@ Describe 'Example 5.6-Hot-Reload' -Tag 'Tutorial', 'Logging', 'HotReload' {
 
     It 'GET /log emits ok with current level' {
         try {
-            $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/log" -UseBasicParsing -TimeoutSec 8 -Method Get -ErrorAction Stop
+            $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/log" -UseBasicParsing -TimeoutSec 8 -Method Get -ErrorAction Stop
         } catch {
             $_.Exception | Out-String | Write-Host
             throw
@@ -27,7 +27,7 @@ Describe 'Example 5.6-Hot-Reload' -Tag 'Tutorial', 'Logging', 'HotReload' {
 
     It 'GET /level/Warning updates level switch' {
         try {
-            $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/level/Warning" -UseBasicParsing -TimeoutSec 8 -Method Get -ErrorAction Stop
+            $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/level/Warning" -UseBasicParsing -TimeoutSec 8 -Method Get -ErrorAction Stop
         } catch {
             $_.Exception | Out-String | Write-Host
             throw
@@ -37,12 +37,12 @@ Describe 'Example 5.6-Hot-Reload' -Tag 'Tutorial', 'Logging', 'HotReload' {
     }
 
     It 'GET /level/Invalid returns error (400 BadRequest)' {
-        { Invoke-WebRequest -Uri "$($script:instance.Url)/level/NotALevel" -UseBasicParsing -TimeoutSec 8 -Method Get -ErrorAction Stop } | Should -Throw
+        { Invoke-TestRequest -Uri "$($script:instance.Url)/level/NotALevel" -UseBasicParsing -TimeoutSec 8 -Method Get -ErrorAction Stop } | Should -Throw
     }
 
     It 'Writes hot-reload log lines reflecting level change' {
         # 1. Trigger initial log writes at Debug level
-        Invoke-WebRequest -Uri "$($script:instance.Url)/log" -UseBasicParsing -TimeoutSec 8 -Method Get | Out-Null
+        Invoke-TestRequest -Uri "$($script:instance.Url)/log" -UseBasicParsing -TimeoutSec 8 -Method Get | Out-Null
         $dir = $script:instance.ScriptDirectory
         $logDir = Join-Path $dir 'logs'
         $hotLog = Get-ChildItem -Path $logDir -Filter 'hot-reload*.log' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
@@ -57,10 +57,10 @@ Describe 'Example 5.6-Hot-Reload' -Tag 'Tutorial', 'Logging', 'HotReload' {
         }
 
         # 2. Raise level to Warning
-        Invoke-WebRequest -Uri "$($script:instance.Url)/level/Warning" -UseBasicParsing -TimeoutSec 8 -Method Get | Out-Null
+        Invoke-TestRequest -Uri "$($script:instance.Url)/level/Warning" -UseBasicParsing -TimeoutSec 8 -Method Get | Out-Null
 
         # 3. Generate another sequence after level change (Debug & Information should now be suppressed)
-        Invoke-WebRequest -Uri "$($script:instance.Url)/log" -UseBasicParsing -TimeoutSec 8 -Method Get | Out-Null
+        Invoke-TestRequest -Uri "$($script:instance.Url)/log" -UseBasicParsing -TimeoutSec 8 -Method Get | Out-Null
 
         $deadline = [DateTime]::UtcNow.AddSeconds(14)
         $satisfied = $false

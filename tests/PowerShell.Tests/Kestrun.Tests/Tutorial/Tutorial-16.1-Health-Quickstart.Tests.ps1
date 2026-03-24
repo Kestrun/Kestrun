@@ -18,7 +18,7 @@ Describe 'Example 16.1-Health-Quickstart' -Tag 'Tutorial', 'Health' {
     }
 
     It 'GET /ping returns expected JSON payload' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/ping" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/ping" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         $json = $resp.Content | ConvertFrom-Json
         $json.status | Should -Be 'Healthy'
@@ -28,7 +28,7 @@ Describe 'Example 16.1-Health-Quickstart' -Tag 'Tutorial', 'Health' {
     }
 
     It 'GET /healthz returns Healthy (or Degraded) with Self and Ping probes' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/healthz" -UseBasicParsing -TimeoutSec 8 -Method Get -SkipHttpErrorCheck
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/healthz" -UseBasicParsing -TimeoutSec 8 -Method Get -SkipHttpErrorCheck
         # Accept 200 (healthy) or 503 (unhealthy because TreatDegradedAsUnhealthy or transient) HTTP codes
         ($resp.StatusCode -in 200, 503) | Should -BeTrue -Because 'Health endpoint should return 200 or 503'
         $raw = $resp.Content

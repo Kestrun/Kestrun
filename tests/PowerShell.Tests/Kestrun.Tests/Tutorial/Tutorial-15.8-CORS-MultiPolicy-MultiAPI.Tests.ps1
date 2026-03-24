@@ -138,7 +138,7 @@ Describe 'CORS Multi-Policy Multi-API' -Tag 'Tutorial', 'Slow' {
     Context 'OpenAPI response schema coverage' {
 
         It 'OpenAPI should declare schemas for key responses' {
-            $res = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+            $res = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
             $res.StatusCode | Should -Be 200
 
             $doc = $res.Content | ConvertFrom-Json

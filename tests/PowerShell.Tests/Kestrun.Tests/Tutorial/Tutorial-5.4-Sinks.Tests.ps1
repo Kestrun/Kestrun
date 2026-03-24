@@ -14,21 +14,21 @@ Describe 'Example 5.4-Sinks' -Tag 'Tutorial', 'Logging', 'Sinks' {
     }
 
     It 'GET /text returns text' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/text" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/text" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Be 'text'
     }
 
     It 'GET /json returns json text' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/json" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/json" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Be 'json'
     }
 
     It 'Writes sinks-text and sinks-json log files' {
         # Exercise endpoints again
-        Invoke-WebRequest -Uri "$($script:instance.Url)/text" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
-        Invoke-WebRequest -Uri "$($script:instance.Url)/json" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
+        Invoke-TestRequest -Uri "$($script:instance.Url)/text" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
+        Invoke-TestRequest -Uri "$($script:instance.Url)/json" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
         $dir = $script:instance.ScriptDirectory
         $logDir = Join-Path $dir 'logs'
         $textLog = Get-ChildItem -Path $logDir -Filter 'sinks-text*.log' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1

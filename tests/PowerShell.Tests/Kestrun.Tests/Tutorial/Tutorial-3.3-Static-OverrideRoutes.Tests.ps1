@@ -14,13 +14,13 @@ Describe 'Example 3.3-Static-OverrideRoutes' {
     }
 
     It 'Serves static asset index.html under /assets' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/assets/index.html" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/assets/index.html" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         ($resp.Content -like '*<html*') | Should -BeTrue
     }
 
     It 'Override route returns expected JSON payload' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/assets/override/pwsh" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/assets/override/pwsh" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         $obj = $resp.Content | ConvertFrom-Json
         $obj.status | Should -Be 'ok'

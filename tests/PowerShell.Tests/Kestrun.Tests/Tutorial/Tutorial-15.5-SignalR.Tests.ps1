@@ -39,7 +39,7 @@ Describe 'Tutorial 15.5 - SignalR (PowerShell)' -Tag 'Tutorial' {
                 $invokeParams = @{ Uri = $url; Method = 'Get'; UseBasicParsing = $true; TimeoutSec = 12; Headers = @{ Accept = 'application/json' } }
                 if ($script:instance.Https) { $invokeParams.SkipCertificateCheck = $true }
                 try {
-                    $resp = Invoke-WebRequest @invokeParams
+                    $resp = Invoke-TestRequest @invokeParams
                     if ($resp.StatusCode -eq 200) {
                         $obj = $resp.Content | ConvertFrom-Json -ErrorAction Stop
                         if ($null -ne $obj -and $obj.State -eq 'Completed') { return $obj }
@@ -103,7 +103,7 @@ Describe 'Tutorial 15.5 - SignalR (PowerShell)' -Tag 'Tutorial' {
         $startUrl = "$($script:instance.Url)/api/operation/start?seconds=4"
         $invokeParams = @{ Uri = $startUrl; Method = 'Post'; UseBasicParsing = $true; TimeoutSec = 12; Headers = @{ Accept = 'application/json' } }
         if ($script:instance.Https) { $invokeParams.SkipCertificateCheck = $true }
-        $startResp = Invoke-WebRequest @invokeParams
+        $startResp = Invoke-TestRequest @invokeParams
         $startResp.StatusCode | Should -Be 200
         $respObj = $startResp.Content | ConvertFrom-Json
         $id = ($respObj.TaskId ?? $respObj.taskId ?? $respObj.Id ?? $respObj.id)

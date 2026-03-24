@@ -15,7 +15,7 @@ Describe 'Example 3.6-Response-Caching' -Tag 'Tutorial', 'Caching' {
     }
 
     It 'cachetest route returns timestamp content' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/cachetest" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/cachetest" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         ($resp.Content.Trim().Length -gt 0) | Should -BeTrue -Because 'cached route should produce non-empty content'
     }

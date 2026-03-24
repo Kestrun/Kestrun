@@ -46,7 +46,7 @@ Describe 'Example 16.3-Health-Http-Probe' -Tag 'Tutorial', 'Health' {
 
 
     It 'GET /healthz returns numeric probe data as numbers in plain text' {
-        $resp = Invoke-WebRequest -Uri "$( $script:instance.Url)/healthz" -Headers @{ Accept = 'text/plain' } -SkipHttpErrorCheck
+        $resp = Invoke-TestRequest -Uri "$( $script:instance.Url)/healthz" -Headers @{ Accept = 'text/plain' } -SkipHttpErrorCheck
         $resp.Content | Should -Not -BeNullOrEmpty
         $resp.Content | Should -Match 'name=QuickProbe'
         $resp.Content | Should -Match 'latencyMs=5'

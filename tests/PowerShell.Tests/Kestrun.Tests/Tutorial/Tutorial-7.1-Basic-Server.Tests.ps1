@@ -16,7 +16,7 @@ Describe 'Example 7.1-Basic-Server' {
 
     It 'GET /hello returns expected greeting' {
         $uri = "$($script:instance.Url)/hello"
-        $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+        $resp = Invoke-TestRequest -Uri $uri -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
         $resp.StatusCode | Should -Be 200
         ($resp.Content.Trim()) | Should -Be 'Hello from basic server'
     }

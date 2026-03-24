@@ -28,7 +28,7 @@ Describe 'Example 22.3 Urlencoded forms' -Tag 'Tutorial', 'multipart/form', 'Slo
 
     It 'Rejects when required name field is missing' {
         $body = 'role=admin'
-        $resp = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/form" -ContentType 'application/x-www-form-urlencoded' -Body $body -SkipHttpErrorCheck
+        $resp = Invoke-TestRequest -Method Post -Uri "$($script:instance.Url)/form" -ContentType 'application/x-www-form-urlencoded' -Body $body -SkipHttpErrorCheck
         $resp.StatusCode | Should -Be 400
     }
 }

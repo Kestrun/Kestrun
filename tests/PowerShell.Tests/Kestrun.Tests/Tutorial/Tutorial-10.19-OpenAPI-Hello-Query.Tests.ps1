@@ -19,7 +19,7 @@ Describe 'Example 10.19 OpenAPI HTTP QUERY Product Search' -Tag 'OpenApi', 'Tuto
     It 'QUERY products with JSON filters and pagination (JSON accept)' {
         $body = @{ q = 'lap'; category = 'electronics'; minPrice = 800; inStock = $true } | ConvertTo-Json -Depth 5
         $url = "$($script:instance.Url)/v1/products/search?page=1&pageSize=2"
-        $result = Invoke-WebRequest -Uri $url -CustomMethod 'QUERY' -ContentType 'application/json' -Body $body -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri $url -CustomMethod 'QUERY' -ContentType 'application/json' -Body $body -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
         $json.page | Should -Be 1
@@ -32,7 +32,7 @@ Describe 'Example 10.19 OpenAPI HTTP QUERY Product Search' -Tag 'OpenApi', 'Tuto
     It 'QUERY products with YAML negotiation' {
         $body = @{ q = 'lap'; category = 'electronics'; minPrice = 800; inStock = $true } | ConvertTo-Json -Depth 5
         $url = "$($script:instance.Url)/v1/products/search?page=1&pageSize=2"
-        $result = Invoke-WebRequest -Uri $url -CustomMethod 'QUERY' -ContentType 'application/json' -Body $body -Headers @{ Accept = 'application/yaml' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri $url -CustomMethod 'QUERY' -ContentType 'application/json' -Body $body -Headers @{ Accept = 'application/yaml' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         # Some formats may return byte arrays; normalize to string for basic assertions
         $content = $result.Content
@@ -51,7 +51,7 @@ Describe 'Example 10.19 OpenAPI HTTP QUERY Product Search' -Tag 'OpenApi', 'Tuto
     }
 
     It 'OpenAPI 3.2 JSON contains QUERY operation' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.2/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.2/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
         $json.openapi | Should -BeLike '3.2*'
@@ -63,13 +63,13 @@ Describe 'Example 10.19 OpenAPI HTTP QUERY Product Search' -Tag 'OpenApi', 'Tuto
     }
 
     It 'Swagger UI is available' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/docs/swagger" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/docs/swagger" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $result.Content | Should -BeLike '*swagger-ui*'
     }
 
     It 'ReDoc UI is available' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/docs/redoc" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/docs/redoc" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $result.Content | Should -BeLike '*Redoc*'
     }

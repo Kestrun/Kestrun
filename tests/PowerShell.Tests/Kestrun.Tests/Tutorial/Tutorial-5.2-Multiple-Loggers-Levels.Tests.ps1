@@ -14,28 +14,28 @@ Describe 'Example 5.2-Multiple-Loggers-Levels' -Tag 'Tutorial', 'Logging' {
     }
 
     It 'GET /info returns info text' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/info" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/info" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Be 'info'
     }
 
     It 'GET /debug returns debug text' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/debug" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/debug" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Be 'debug'
     }
 
     It 'GET /audit returns audit text' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/audit" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/audit" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Be 'audit'
     }
 
     It 'Writes entries to app.log and audit.log' {
         # Hit routes to generate log lines
-        Invoke-WebRequest -Uri "$($script:instance.Url)/info" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
-        Invoke-WebRequest -Uri "$($script:instance.Url)/debug" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
-        Invoke-WebRequest -Uri "$($script:instance.Url)/audit" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
+        Invoke-TestRequest -Uri "$($script:instance.Url)/info" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
+        Invoke-TestRequest -Uri "$($script:instance.Url)/debug" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
+        Invoke-TestRequest -Uri "$($script:instance.Url)/audit" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
         $dir = $script:instance.ScriptDirectory
         $logDir = Join-Path $dir 'logs'
         $appLog = Get-ChildItem -Path $logDir -Filter 'app*.log' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1

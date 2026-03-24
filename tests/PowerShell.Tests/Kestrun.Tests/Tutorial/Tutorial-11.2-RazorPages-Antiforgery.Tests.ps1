@@ -44,7 +44,7 @@ Describe 'Example 11.2-RazorPages-Antiforgery' -Tag 'Tutorial' {
             SkipCertificateCheck = $true
         }
 
-        $resp = Invoke-WebRequest @p
+        $resp = Invoke-TestRequest @p
         ($resp.StatusCode -in 400, 403) | Should -BeTrue -Because 'Missing X-CSRF-TOKEN should be rejected'
     }
 
@@ -65,7 +65,7 @@ Describe 'Example 11.2-RazorPages-Antiforgery' -Tag 'Tutorial' {
             SkipCertificateCheck = $true
         }
 
-        $resp = Invoke-WebRequest @p
+        $resp = Invoke-TestRequest @p
         $resp.StatusCode | Should -Be 200
 
         $obj = $resp.Content | ConvertFrom-Json -ErrorAction Stop
@@ -83,7 +83,7 @@ Describe 'Example 11.2-RazorPages-Antiforgery' -Tag 'Tutorial' {
             SkipCertificateCheck = $true
         }
 
-        $cancel = Invoke-WebRequest @p
+        $cancel = Invoke-TestRequest @p
         $cancel.StatusCode | Should -Be 200
         ($cancel.Content | ConvertFrom-Json -ErrorAction Stop).Success | Should -BeTrue
     }

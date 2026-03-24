@@ -25,7 +25,7 @@ Describe 'Example 6.2-Cert-CSR' -Tag 'Tutorial', 'Slow' {
             CommonName = 'example.com'
         } | ConvertTo-Json
 
-        $result = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/certs/csr" -Body $body -ContentType 'application/json' -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Method Post -Uri "$($script:instance.Url)/certs/csr" -Body $body -ContentType 'application/json' -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 200
         $result.Headers.'Content-Type' | Should -Be 'application/json; charset=utf-8'
@@ -44,7 +44,7 @@ Describe 'Example 6.2-Cert-CSR' -Tag 'Tutorial', 'Slow' {
             CommonName = 'example.com'
         } | ConvertTo-Json
 
-        $result = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/certs/csr" -Body $body -ContentType 'application/json' -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Method Post -Uri "$($script:instance.Url)/certs/csr" -Body $body -ContentType 'application/json' -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 400
         $result.Headers.'Content-Type' | Should -Be 'application/json; charset=utf-8'

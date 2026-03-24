@@ -37,7 +37,7 @@ Describe 'Example 15.1-Antiforgery' -Tag 'Tutorial', 'Middleware', 'Antiforgery'
             WebSession = $session
             SkipCertificateCheck = $true
         }
-        $tokenResp = Invoke-WebRequest @tokenParams
+        $tokenResp = Invoke-TestRequest @tokenParams
         $tokenResp.StatusCode | Should -Be 200
         $payload = $tokenResp.Content | ConvertFrom-Json
         $payload.token | Should -Not -BeNullOrEmpty
@@ -57,7 +57,7 @@ Describe 'Example 15.1-Antiforgery' -Tag 'Tutorial', 'Middleware', 'Antiforgery'
             WebSession = $session
             SkipCertificateCheck = $true
         }
-        $tokenResp = Invoke-WebRequest @tokenParams
+        $tokenResp = Invoke-TestRequest @tokenParams
         $token = ($tokenResp.Content | ConvertFrom-Json).token
         $token | Should -Not -BeNullOrEmpty
 
@@ -74,7 +74,7 @@ Describe 'Example 15.1-Antiforgery' -Tag 'Tutorial', 'Middleware', 'Antiforgery'
             WebSession = $session
             SkipCertificateCheck = $true
         }
-        $post = Invoke-WebRequest @postParams
+        $post = Invoke-TestRequest @postParams
         $post.StatusCode | Should -Be 200
         $result = $post.Content | ConvertFrom-Json
         $result.saved | Should -BeTrue
@@ -92,7 +92,7 @@ Describe 'Example 15.1-Antiforgery' -Tag 'Tutorial', 'Middleware', 'Antiforgery'
             WebSession = $session
             SkipCertificateCheck = $true
         }
-        Invoke-WebRequest @tokenParams | Out-Null
+        Invoke-TestRequest @tokenParams | Out-Null
 
         $body = '{"name":"Mallory"}'
         $respParams = @{
@@ -106,7 +106,7 @@ Describe 'Example 15.1-Antiforgery' -Tag 'Tutorial', 'Middleware', 'Antiforgery'
             SkipCertificateCheck = $true
             SkipHttpErrorCheck = $true
         }
-        $resp = Invoke-WebRequest @respParams
+        $resp = Invoke-TestRequest @respParams
         ($resp.StatusCode -in 400, 403) | Should -BeTrue -Because 'Missing antiforgery header should be rejected (400 or 403)'
     }
 }

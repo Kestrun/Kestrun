@@ -26,7 +26,7 @@ Describe 'Tutorial 17.6-StatusCodePages-Redirects' -Tag 'Tutorial' {
         # First request should be a 302/3xx; PowerShell IWR follows redirects by default
         # So assert final content includes the templated error page bits
         $base = $script:instance.Url
-        $resp = Invoke-WebRequest -Uri "$base/notfound" -UseBasicParsing -TimeoutSec 12
+        $resp = Invoke-TestRequest -Uri "$base/notfound" -UseBasicParsing -TimeoutSec 12
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Match '<!DOCTYPE html>'
         $resp.Content | Should -Match '404'
@@ -34,7 +34,7 @@ Describe 'Tutorial 17.6-StatusCodePages-Redirects' -Tag 'Tutorial' {
 
     It 'Unmapped route redirects to /error/404 and returns page' {
         $base = $script:instance.Url
-        $resp = Invoke-WebRequest -Uri "$base/missing" -UseBasicParsing -TimeoutSec 12
+        $resp = Invoke-TestRequest -Uri "$base/missing" -UseBasicParsing -TimeoutSec 12
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Match '<!DOCTYPE html>'
         $resp.Content | Should -Match '404'

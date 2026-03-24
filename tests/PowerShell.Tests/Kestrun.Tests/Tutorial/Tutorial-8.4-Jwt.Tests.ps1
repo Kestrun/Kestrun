@@ -17,7 +17,7 @@ Describe 'Example 8.4 Authentication (JWT)' -Tag 'Tutorial', 'Slow' {
     It 'JWT token generation' {
         $creds = 'admin:password'
         $basic = 'Basic ' + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes($creds))
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/token/new" -SkipCertificateCheck -Headers @{ Authorization = $basic } -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/token/new" -SkipCertificateCheck -Headers @{ Authorization = $basic } -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 200
         $result.Content | Should -Not -BeNullOrEmpty
@@ -28,7 +28,7 @@ Describe 'Example 8.4 Authentication (JWT)' -Tag 'Tutorial', 'Slow' {
     }
 
     It 'jwt authentication Hello in PowerShell' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/secure/jwt/hello" -SkipCertificateCheck -Headers @{ Authorization = "Bearer $script:token" } -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/secure/jwt/hello" -SkipCertificateCheck -Headers @{ Authorization = "Bearer $script:token" } -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 200
         $result.Content | Should -Not -BeNullOrEmpty
@@ -37,7 +37,7 @@ Describe 'Example 8.4 Authentication (JWT)' -Tag 'Tutorial', 'Slow' {
     }
 
     It 'JWT token renewal' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/token/renew" -SkipCertificateCheck -Headers @{ Authorization = "Bearer $script:token" } -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/token/renew" -SkipCertificateCheck -Headers @{ Authorization = "Bearer $script:token" } -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 200
         $result.Content | Should -Not -BeNullOrEmpty
@@ -48,7 +48,7 @@ Describe 'Example 8.4 Authentication (JWT)' -Tag 'Tutorial', 'Slow' {
     }
 
     It 'jwt authentication Hello in PowerShell with renewed token' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/secure/jwt/hello" -SkipCertificateCheck -Headers @{ Authorization = "Bearer $script:token2" } -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/secure/jwt/hello" -SkipCertificateCheck -Headers @{ Authorization = "Bearer $script:token2" } -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 200
         $result.Content | Should -Not -BeNullOrEmpty

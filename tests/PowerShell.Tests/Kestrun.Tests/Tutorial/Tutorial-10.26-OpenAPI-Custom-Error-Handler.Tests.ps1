@@ -16,7 +16,7 @@ Describe 'Example 10.26 OpenAPI Custom Error Handler' -Tag 'OpenApi', 'Tutorial'
     }
 
     It 'GET /orders/1 returns 200 with order JSON' {
-        $r = Invoke-WebRequest -Uri "$($script:instance.Url)/orders/1" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $r = Invoke-TestRequest -Uri "$($script:instance.Url)/orders/1" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 200
         ($r.Headers['Content-Type'] -join ';') | Should -Match 'application/json'
 
@@ -27,7 +27,7 @@ Describe 'Example 10.26 OpenAPI Custom Error Handler' -Tag 'OpenApi', 'Tutorial'
     }
 
     It 'GET /orders/13 returns custom 500 problem payload' {
-        $r = Invoke-WebRequest -Uri "$($script:instance.Url)/orders/13" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $r = Invoke-TestRequest -Uri "$($script:instance.Url)/orders/13" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 500
         ($r.Headers['Content-Type'] -join ';') | Should -Match 'application/problem\+json|application/json'
 
@@ -42,7 +42,7 @@ Describe 'Example 10.26 OpenAPI Custom Error Handler' -Tag 'OpenApi', 'Tutorial'
     }
 
     It 'POST /orders with text/plain returns custom 415 payload' {
-        $r = Invoke-WebRequest -Uri "$($script:instance.Url)/orders" -Method Post -ContentType 'text/plain' -Headers @{ Accept = 'application/json' } -Body 'bad' -SkipCertificateCheck -SkipHttpErrorCheck
+        $r = Invoke-TestRequest -Uri "$($script:instance.Url)/orders" -Method Post -ContentType 'text/plain' -Headers @{ Accept = 'application/json' } -Body 'bad' -SkipCertificateCheck -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 415
 
         $text = if ($r.Content -is [byte[]]) { Convert-BytesToStringWithGzipScan -Bytes $r.Content } else { [string]$r.Content }
@@ -55,7 +55,7 @@ Describe 'Example 10.26 OpenAPI Custom Error Handler' -Tag 'OpenApi', 'Tutorial'
     }
 
     It 'OpenAPI contains ApiError schema and 415/500 error responses' {
-        $r = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $r = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 200
 
         $doc = $r.Content | ConvertFrom-Json

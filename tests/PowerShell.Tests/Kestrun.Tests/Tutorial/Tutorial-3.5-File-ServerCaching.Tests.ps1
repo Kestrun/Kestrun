@@ -14,7 +14,7 @@ Describe 'Example 3.5-File-ServerCaching' {
     }
 
     It 'Returns index.html with caching headers' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/index.html" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/index.html" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         ($resp.Content -like '*<html*') | Should -BeTrue
         $resp.Headers['Cache-Control'] | Should -Match 'public'
@@ -22,9 +22,9 @@ Describe 'Example 3.5-File-ServerCaching' {
     }
 
     It 'Second request reuses same Cache-Control header' {
-        $first = Invoke-WebRequest -Uri "$($script:instance.Url)/index.html" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $first = Invoke-TestRequest -Uri "$($script:instance.Url)/index.html" -UseBasicParsing -TimeoutSec 6 -Method Get
         Start-Sleep -Milliseconds 120
-        $second = Invoke-WebRequest -Uri "$($script:instance.Url)/index.html" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $second = Invoke-TestRequest -Uri "$($script:instance.Url)/index.html" -UseBasicParsing -TimeoutSec 6 -Method Get
         $first.StatusCode | Should -Be 200
         $second.StatusCode | Should -Be 200
         $first.Headers['Cache-Control'] | Should -Be $second.Headers['Cache-Control']

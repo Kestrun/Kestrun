@@ -15,11 +15,11 @@ Describe 'Tutorial 12.1 Scheduling Quickstart' -Tag 'Tutorial' {
 
     It '/visit increments counter' {
         $base = $script:instance.Url
-        $r1 = Invoke-WebRequest -Uri "$base/visit" -UseBasicParsing -TimeoutSec 8
+        $r1 = Invoke-TestRequest -Uri "$base/visit" -UseBasicParsing -TimeoutSec 8
         $r1.StatusCode | Should -Be 200
         $first = [int]([regex]::Match($r1.Content, '(\d+)').Groups[1].Value)
 
-        $r2 = Invoke-WebRequest -Uri "$base/visit" -UseBasicParsing -TimeoutSec 8
+        $r2 = Invoke-TestRequest -Uri "$base/visit" -UseBasicParsing -TimeoutSec 8
         $r2.StatusCode | Should -Be 200
         $second = [int]([regex]::Match($r2.Content, '(\d+)').Groups[1].Value)
 
@@ -28,7 +28,7 @@ Describe 'Tutorial 12.1 Scheduling Quickstart' -Tag 'Tutorial' {
 
     It '/schedule/report contains heartbeat jobs' {
         $base = $script:instance.Url
-        $resp = Invoke-WebRequest -Uri "$base/schedule/report" -UseBasicParsing -TimeoutSec 12
+        $resp = Invoke-TestRequest -Uri "$base/schedule/report" -UseBasicParsing -TimeoutSec 12
         $resp.StatusCode | Should -Be 200
         $json = $resp.Content | ConvertFrom-Json
 

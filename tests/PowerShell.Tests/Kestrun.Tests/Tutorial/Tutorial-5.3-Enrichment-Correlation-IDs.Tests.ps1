@@ -14,21 +14,21 @@ Describe 'Example 5.3-Enrichment-Correlation-IDs' -Tag 'Tutorial', 'Logging', 'C
     }
 
     It 'GET /ps-correlation returns correlation id' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/ps-correlation" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/ps-correlation" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Match '^ps-correlation: [0-9a-f]{32}$'
     }
 
     It 'GET /csharp-correlation returns correlation id' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/csharp-correlation" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/csharp-correlation" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Match '^csharp-correlation: [0-9a-f]{32}$'
     }
 
     It 'Writes enrichment log with correlation ids' {
         # Hit both routes again to ensure fresh entries
-        Invoke-WebRequest -Uri "$($script:instance.Url)/ps-correlation" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
-        Invoke-WebRequest -Uri "$($script:instance.Url)/csharp-correlation" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
+        Invoke-TestRequest -Uri "$($script:instance.Url)/ps-correlation" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
+        Invoke-TestRequest -Uri "$($script:instance.Url)/csharp-correlation" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
         $dir = $script:instance.ScriptDirectory
         $logDir = Join-Path $dir 'logs'
         $enrichmentLog = Get-ChildItem -Path $logDir -Filter 'enrichment*.log' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1

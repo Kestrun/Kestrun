@@ -25,7 +25,7 @@ Describe 'Tutorial 18.2-ExceptionHandling-PowerShell' -Tag 'Tutorial' {
 
     It 'GET /oops returns 500 due to script throw' {
         # The sample throws in PowerShell route; no middleware catches PowerShell script exceptions by design
-        $r = Invoke-WebRequest -Uri "$($script:instance.Url)/oops" -UseBasicParsing -TimeoutSec 12 -SkipHttpErrorCheck
+        $r = Invoke-TestRequest -Uri "$($script:instance.Url)/oops" -UseBasicParsing -TimeoutSec 12 -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 500
         ($r.Headers['Content-Type'] -join ';') | Should -Match 'application/json'
         $r.Content | Should -Not -BeNullOrEmpty
@@ -39,7 +39,7 @@ Describe 'Tutorial 18.2-ExceptionHandling-PowerShell' -Tag 'Tutorial' {
     }
 
     It 'GET /csharp-error is handled by exception middleware with JSON payload' {
-        $r = Invoke-WebRequest -Uri "$($script:instance.Url)/csharp-error" -UseBasicParsing -TimeoutSec 12 -SkipHttpErrorCheck
+        $r = Invoke-TestRequest -Uri "$($script:instance.Url)/csharp-error" -UseBasicParsing -TimeoutSec 12 -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 500
         ($r.Headers['Content-Type'] -join ';') | Should -Match 'application/json'
         $r.Content | Should -Not -BeNullOrEmpty

@@ -22,7 +22,7 @@ Describe 'Example 15.4-Https-Hsts' -Tag 'Tutorial', 'Middleware', 'Https', 'Hsts
 
     It 'Serves content over HTTPS after HTTP redirect' {
         $uri = "http://$($script:instance.Host):$($script:instance.Port)/"
-        $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
+        $resp = Invoke-TestRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Match 'hello https'
     }
@@ -31,7 +31,7 @@ Describe 'Example 15.4-Https-Hsts' -Tag 'Tutorial', 'Middleware', 'Https', 'Hsts
         $httpsPort = $script:instance.Port + 443
         $uri = "https://$($script:instance.Host):$httpsPort/"
 
-        $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
+        $resp = Invoke-TestRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Match 'hello https'
     }
@@ -40,7 +40,7 @@ Describe 'Example 15.4-Https-Hsts' -Tag 'Tutorial', 'Middleware', 'Https', 'Hsts
         $httpsPort = $script:instance.Port + 443
         $uri = "https://$($script:instance.Host):$httpsPort/"
 
-        $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
+        $resp = Invoke-TestRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
         $resp.Headers['Strict-Transport-Security'] | Should -Not -BeNullOrEmpty
     }
 
@@ -48,7 +48,7 @@ Describe 'Example 15.4-Https-Hsts' -Tag 'Tutorial', 'Middleware', 'Https', 'Hsts
         $httpsPort = $script:instance.Port + 443
         $uri = "https://$($script:instance.Host):$httpsPort/"
 
-        $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
+        $resp = Invoke-TestRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
         $hstsHeader = $resp.Headers['Strict-Transport-Security']
 
         # Should contain max-age directive
@@ -65,7 +65,7 @@ Describe 'Example 15.4-Https-Hsts' -Tag 'Tutorial', 'Middleware', 'Https', 'Hsts
         $httpsPort = $script:instance.Port + 443
         $uri = "https://$($script:instance.Host):$httpsPort/"
 
-        $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
+        $resp = Invoke-TestRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
         $hstsHeader = $resp.Headers['Strict-Transport-Security']
 
         # Sample sets 30 days = 30 * 24 * 60 * 60 = 2592000 seconds
@@ -87,11 +87,11 @@ Describe 'Example 15.4-Https-Hsts' -Tag 'Tutorial', 'Middleware', 'Https', 'Hsts
         $uri = "https://$($script:instance.Host):$httpsPort/"
 
         # This should work with -SkipCertificateCheck but fail without it
-        $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
+        $resp = Invoke-TestRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
         $resp.StatusCode | Should -Be 200
 
         # Without -SkipCertificateCheck, should fail due to self-signed cert
-        { Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 5 } | Should -Throw
+        { Invoke-TestRequest -Uri $uri -UseBasicParsing -TimeoutSec 5 } | Should -Throw
     }
 }
 

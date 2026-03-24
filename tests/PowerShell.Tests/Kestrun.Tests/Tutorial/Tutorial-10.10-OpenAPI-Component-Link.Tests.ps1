@@ -25,7 +25,7 @@ Describe 'Example 10.10 Component Link' -Tag 'Tutorial', 'OpenApi', 'Slow' {
             email = 'jane.doe@example.com'
         } | ConvertTo-Json
 
-        $create = Invoke-WebRequest -Uri "$($script:instance.Url)/users" -Method Post -Body $createBody -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+        $create = Invoke-TestRequest -Uri "$($script:instance.Url)/users" -Method Post -Body $createBody -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
         $create.StatusCode | Should -Be 201
         $created = $create.Content | ConvertFrom-Json
         $created.id | Should -BeGreaterThan 0
@@ -35,7 +35,7 @@ Describe 'Example 10.10 Component Link' -Tag 'Tutorial', 'OpenApi', 'Slow' {
         $id = [int]$created.id
 
         # Get
-        $get = Invoke-WebRequest -Uri "$($script:instance.Url)/users/$id" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
+        $get = Invoke-TestRequest -Uri "$($script:instance.Url)/users/$id" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
         $get.StatusCode | Should -Be 200
         ($get.Content | ConvertFrom-Json).user.lastName | Should -Be 'Doe'
 
@@ -46,23 +46,23 @@ Describe 'Example 10.10 Component Link' -Tag 'Tutorial', 'OpenApi', 'Slow' {
             email = 'janet.doe@example.com'
         } | ConvertTo-Json
 
-        $update = Invoke-WebRequest -Uri "$($script:instance.Url)/users/$id" -Method Put -Body $updateBody -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+        $update = Invoke-TestRequest -Uri "$($script:instance.Url)/users/$id" -Method Put -Body $updateBody -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
         $update.StatusCode | Should -Be 200
         $updated = $update.Content | ConvertFrom-Json
         $updated.id | Should -Be $id
         $updated.user.firstName | Should -Be 'Janet'
 
         # Delete
-        $delete = Invoke-WebRequest -Uri "$($script:instance.Url)/users/$id" -Method Delete -SkipCertificateCheck -SkipHttpErrorCheck
+        $delete = Invoke-TestRequest -Uri "$($script:instance.Url)/users/$id" -Method Delete -SkipCertificateCheck -SkipHttpErrorCheck
         $delete.StatusCode | Should -Be 204
 
         # Get after delete
-        $getMissing = Invoke-WebRequest -Uri "$($script:instance.Url)/users/$id" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
+        $getMissing = Invoke-TestRequest -Uri "$($script:instance.Url)/users/$id" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
         $getMissing.StatusCode | Should -Be 404
     }
 
     It 'OpenAPI document contains link components' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
 
@@ -82,7 +82,7 @@ Describe 'Example 10.10 Component Link' -Tag 'Tutorial', 'OpenApi', 'Slow' {
     }
 
     It 'OpenAPI link components include vendor extensions (x-*)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
 
@@ -104,7 +104,7 @@ Describe 'Example 10.10 Component Link' -Tag 'Tutorial', 'OpenApi', 'Slow' {
     }
 
     It 'OpenAPI document applies links to responses via $ref' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
 
@@ -126,11 +126,11 @@ Describe 'Example 10.10 Component Link' -Tag 'Tutorial', 'OpenApi', 'Slow' {
     }
 
     It 'Swagger UI and Redoc UI are available' {
-        $swagger = Invoke-WebRequest -Uri "$($script:instance.Url)/docs/swagger" -SkipCertificateCheck -SkipHttpErrorCheck
+        $swagger = Invoke-TestRequest -Uri "$($script:instance.Url)/docs/swagger" -SkipCertificateCheck -SkipHttpErrorCheck
         $swagger.StatusCode | Should -Be 200
         $swagger.Content | Should -BeLike '*swagger-ui*'
 
-        $redoc = Invoke-WebRequest -Uri "$($script:instance.Url)/docs/redoc" -SkipCertificateCheck -SkipHttpErrorCheck
+        $redoc = Invoke-TestRequest -Uri "$($script:instance.Url)/docs/redoc" -SkipCertificateCheck -SkipHttpErrorCheck
         $redoc.StatusCode | Should -Be 200
         $redoc.Content | Should -BeLike '*Redoc*'
     }

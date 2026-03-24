@@ -18,7 +18,7 @@ Describe 'Tutorial 18.1-ExceptionHandling-Path' -Tag 'Tutorial' {
     }
 
     It 'GET /throw re-executes to /error and returns 500 Problem JSON with original path' {
-        $r = Invoke-WebRequest -Uri "$($script:instance.Url)/throw" -UseBasicParsing -TimeoutSec 12 -SkipHttpErrorCheck
+        $r = Invoke-TestRequest -Uri "$($script:instance.Url)/throw" -UseBasicParsing -TimeoutSec 12 -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 500
         ($r.Headers['Content-Type'] -join ';') | Should -Match 'application/json'
         $obj = $r.Content | ConvertFrom-Json

@@ -24,7 +24,7 @@ Describe 'Tutorial 18.3-ExceptionHandling-CSharp' -Tag 'Tutorial' {
     }
 
     It 'GET /fail returns 500 handled by C# exception handler' {
-        $r = Invoke-WebRequest -Uri "$($script:instance.Url)/fail" -UseBasicParsing -TimeoutSec 12 -SkipHttpErrorCheck
+        $r = Invoke-TestRequest -Uri "$($script:instance.Url)/fail" -UseBasicParsing -TimeoutSec 12 -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 500
         ($r.Headers['Content-Type'] -join ';') | Should -Match 'application/json'
         $obj = $r.Content | ConvertFrom-Json

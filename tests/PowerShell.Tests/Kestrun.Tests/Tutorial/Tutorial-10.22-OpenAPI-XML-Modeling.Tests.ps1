@@ -16,7 +16,7 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
     }
 
     It 'Get Product (GET JSON)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/products/5" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/products/5" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
 
@@ -29,7 +29,7 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
     }
 
     It 'Get Product (GET XML)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/products/10" -Headers @{ Accept = 'application/xml' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/products/10" -Headers @{ Accept = 'application/xml' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
 
         # Parse XML response
@@ -57,7 +57,7 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
     }
 
     It 'Get Product Not Found (GET)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/products/999" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/products/999" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 404
     }
 
@@ -69,7 +69,7 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
             Items = @('ItemA', 'ItemB')
         } | ConvertTo-Json
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/products" -Method Post -Body $body -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/products" -Method Post -Body $body -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 201
         $json = $result.Content | ConvertFrom-Json
         $json.Id | Should -BeGreaterThan 0
@@ -92,7 +92,7 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
 </Product>
 '@
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/products" -Method Post -Body $xmlBody -ContentType 'application/xml' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/products" -Method Post -Body $xmlBody -ContentType 'application/xml' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 201
 
         $json = $result.Content | ConvertFrom-Json
@@ -116,14 +116,14 @@ Describe 'Example 10.22 OpenAPI XML Modeling' -Tag 'OpenApi', 'Tutorial', 'Slow'
             # Missing Name
         } | ConvertTo-Json
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/products" -Method Post -Body $body -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/products" -Method Post -Body $body -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 422
         $json = $result.Content | ConvertFrom-Json
         $json.error | Should -Match 'Name.*required'
     }
 
     It 'Check OpenAPI XML Metadata' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $json = $result.Content | ConvertFrom-Json
 
         # Check Product schema exists

@@ -177,6 +177,121 @@ function Get-ExampleScriptPath {
     return $full
 }
 
+<#
+.SYNOPSIS
+    Invoke-WebRequest wrapper for test calls with enforced request timeouts.
+.DESCRIPTION
+    Passes all arguments through to Invoke-WebRequest while forcing:
+    -ConnectionTimeoutSeconds 5
+    -OperationTimeoutSeconds 10
+    Any legacy -TimeoutSec argument is removed to avoid conflicting timeout behavior.
+#>
+function Invoke-TestRequest {
+    param(
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [object[]]$RemainingArguments
+    )
+
+    $invokeParams = [ordered]@{}
+    $positionalArgs = @()
+
+    for ($i = 0; $i -lt $RemainingArguments.Count; $i++) {
+        $arg = $RemainingArguments[$i]
+        if ($arg -is [string] -and $arg.StartsWith('-')) {
+            $parameterName = $arg.TrimStart('-').TrimEnd(':')
+
+            if ($parameterName -in @('ConnectionTimeoutSeconds', 'OperationTimeoutSeconds', 'TimeoutSec')) {
+                # Skip timeout parameter and its value; we enforce fixed test timeouts below.
+                if (($i + 1) -lt $RemainingArguments.Count) {
+                    $i++
+                }
+                continue
+            }
+
+            $hasValue = (($i + 1) -lt $RemainingArguments.Count) -and `
+                -not ($RemainingArguments[$i + 1] -is [string] -and $RemainingArguments[$i + 1].StartsWith('-'))
+
+            if ($hasValue) {
+                $invokeParams[$parameterName] = $RemainingArguments[$i + 1]
+                $i++
+            } else {
+                $invokeParams[$parameterName] = $true
+            }
+            continue
+        }
+
+        $positionalArgs += $arg
+    }
+
+    # Forward common parameters that PowerShell binds to this helper itself.
+    foreach ($commonParameter in @('ErrorAction', 'WarningAction', 'InformationAction', 'Verbose', 'Debug', 'ProgressAction')) {
+        if ($PSBoundParameters.ContainsKey($commonParameter)) {
+            $invokeParams[$commonParameter] = $PSBoundParameters[$commonParameter]
+        }
+    }
+
+    # Enforce explicit request timeouts for all test HTTP calls.
+    $invokeParams['ConnectionTimeoutSeconds'] = 5
+    $invokeParams['OperationTimeoutSeconds'] = 10
+    if (-not $invokeParams.Contains('DisableKeepAlive')) {
+        # Avoid stale keep-alive sockets causing intermittent hangs between test requests.
+        $invokeParams['DisableKeepAlive'] = $true
+    }
+
+    $sessionVariableName = $null
+    $localSessionVariableName = '__krInvokeTestRequestSession'
+    if ($invokeParams.Contains('SessionVariable')) {
+        $sessionVariableName = [string]$invokeParams['SessionVariable']
+        $invokeParams['SessionVariable'] = $localSessionVariableName
+    }
+
+    $statusCodeVariableName = $null
+    if ($invokeParams.Contains('StatusCodeVariable')) {
+        # Invoke-WebRequest in this runtime does not expose -StatusCodeVariable.
+        # Emulate it so existing tests retain behavior.
+        $statusCodeVariableName = [string]$invokeParams['StatusCodeVariable']
+        [void]$invokeParams.Remove('StatusCodeVariable')
+    }
+
+    $invokeOnce = {
+        $response = Invoke-WebRequest @invokeParams @positionalArgs
+        if ($sessionVariableName) {
+            $sessionValue = Get-Variable -Name $localSessionVariableName -Scope Local -ValueOnly -ErrorAction SilentlyContinue
+            Set-Variable -Name $sessionVariableName -Value $sessionValue -Scope 2
+        }
+        if ($statusCodeVariableName) {
+            Set-Variable -Name $statusCodeVariableName -Value ([int]$response.StatusCode) -Scope 2
+        }
+        return $response
+    }
+
+    try {
+        return & $invokeOnce
+    } catch {
+        $timeoutDetected = $false
+        $exceptionCursor = $_.Exception
+        while ($exceptionCursor) {
+            if ($exceptionCursor -is [System.Threading.Tasks.TaskCanceledException] -or
+                $exceptionCursor -is [System.TimeoutException]) {
+                $timeoutDetected = $true
+                break
+            }
+            if ($exceptionCursor.Message -match 'HttpClient\.Timeout|operation was canceled|timed out') {
+                $timeoutDetected = $true
+                break
+            }
+            $exceptionCursor = $exceptionCursor.InnerException
+        }
+
+        if (-not $timeoutDetected) {
+            throw
+        }
+
+        Start-Sleep -Milliseconds 100
+        return & $invokeOnce
+    }
+}
+
 
 <#
 .SYNOPSIS
@@ -193,7 +308,7 @@ function Get-ExampleScriptPath {
 .PARAMETER Port
     Optional explicit port number to use. If not provided, a free port will be selected.
 .PARAMETER StartupTimeoutSeconds
-    Maximum time to wait for the example to start accepting connections. Default is 15 seconds.
+    Maximum time to wait for the example to start accepting connections. Default is 40 seconds.
 .PARAMETER HttpProbeDelayMs
     Delay between HTTP probes of the root URL when waiting for startup. Default is 150ms.
 .PARAMETER FromRootDirectory
@@ -224,6 +339,9 @@ function Start-ExampleScript {
         [switch]$FromRootDirectory,
         [string[]]$EnvironmentVariables = @('UPSTASH_REDIS_URL')
     )
+    if ($StartupTimeoutSeconds -le 0) {
+        throw "StartupTimeoutSeconds must be greater than zero. Got: $StartupTimeoutSeconds"
+    }
     if (-not $Port) { $Port = Get-FreeTcpPort }
     if ($PSCmdlet.ParameterSetName -eq 'Name') {
         if ( $FromRootDirectory ) {
@@ -313,16 +431,17 @@ Start-KrServer
     # Start the process
     $proc = Start-Process @param
 
-    # Wait for the process to start accepting connections or timeout
+    # Wait for process readiness with a hard timeout.
     $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
     $ready = $SkipPortProbe.IsPresent
-    $attempt = 0
+    $lastProbeError = $null
+    $lastProbeUrl = $null
+    $exampleName = if ([string]::IsNullOrWhiteSpace($Name)) { 'ScriptBlock' } else { $Name }
     if (-not $SkipPortProbe.IsPresent) {
-        Start-Sleep -Seconds 1 # Initial delay before probing
-        while ([DateTime]::UtcNow -lt $deadline -and -not $ready) {
+        Start-Sleep -Milliseconds 250
+        while (([DateTime]::UtcNow -lt $deadline) -and -not $ready) {
             if ($proc.HasExited) { break }
-            $attempt++
-            # Optional lightweight HTTP/HTTPS probe of '/' and '/online' endpoints to detect readiness
+
             $probeUrls = @(
                 "http://$serverIp`:$Port/online",
                 "https://$serverIp`:$Port/online",
@@ -330,32 +449,107 @@ Start-KrServer
                 "https://$serverIp`:$Port/"
             )
             foreach ($url in $probeUrls) {
+                if ([DateTime]::UtcNow -ge $deadline) { break }
                 try {
-                    $probe = Get-HttpHeadersRaw -Uri $url -Insecure -AsHashtable
+                    $remainingForProbe = $deadline - [DateTime]::UtcNow
+                    if ($remainingForProbe.TotalMilliseconds -le 0) { break }
+                    $remainingSeconds = [int][Math]::Ceiling($remainingForProbe.TotalSeconds)
+                    $probeConnectionTimeoutSeconds = [Math]::Min(5, [Math]::Max(1, $remainingSeconds))
+                    $probeOperationTimeoutSeconds = [Math]::Min(10, [Math]::Max(1, $remainingSeconds))
+                    $probeParams = @{
+                        Uri = $url
+                        Method = 'Get'
+                        UseBasicParsing = $true
+                        SkipHttpErrorCheck = $true
+                        ConnectionTimeoutSeconds = $probeConnectionTimeoutSeconds
+                        OperationTimeoutSeconds = $probeOperationTimeoutSeconds
+                        ErrorAction = 'Stop'
+                    }
+                    if ($url.StartsWith('https://', [System.StringComparison]::OrdinalIgnoreCase)) {
+                        $probeParams['SkipCertificateCheck'] = $true
+                    }
+                    $probe = Invoke-WebRequest @probeParams
                     if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) {
                         $ready = $true
                         break
                     }
                 } catch {
-                    $script:errorMessage = $_.Exception.Message
+                    $lastProbeUrl = $url
+                    $lastProbeError = $_.Exception.Message
                 }
             }
-            Start-Sleep -Milliseconds $HttpProbeDelayMs
-        }
-    }
-    $exited = $proc.HasExited
-    if (-not $ready -and -not $exited) {
-        if ($errorMessage) {
-            Write-Warning "Example $Name not accepting connections on port $Port after timeout. Last probe error: $errorMessage. Continuing; requests may fail."
-        } else {
-            Write-Warning "Example $Name not accepting connections on port $Port after timeout. Continuing; requests may fail."
+
+            if (-not $ready) {
+                $remaining = $deadline - [DateTime]::UtcNow
+                if ($remaining.TotalMilliseconds -le 0) { break }
+                $sleepMs = [Math]::Min($HttpProbeDelayMs, [int][Math]::Max(1, $remaining.TotalMilliseconds))
+                Start-Sleep -Milliseconds $sleepMs
+            }
         }
     }
 
+    $exited = $proc.HasExited
+    if (-not $ready) {
+        if (-not $exited) {
+            try {
+                Stop-Process -Id $proc.Id -Force -ErrorAction Stop
+            } catch {
+                Write-Verbose "Failed to force-stop process $($proc.Id): $($_.Exception.Message)" -Verbose
+            }
+            try {
+                [void]$proc.WaitForExit(5000)
+            } catch {
+                Write-Verbose "WaitForExit failed for process $($proc.Id): $($_.Exception.Message)" -Verbose
+            }
+            $exited = $proc.HasExited
+        }
+
+        $stderrText = if (Test-Path $stdErr) {
+            Get-Content -Path $stdErr -Raw -ErrorAction SilentlyContinue
+        } else {
+            '(stderr log file not found)'
+        }
+        $stdoutText = if (Test-Path $stdOut) {
+            Get-Content -Path $stdOut -Raw -ErrorAction SilentlyContinue
+        } else {
+            '(stdout log file not found)'
+        }
+        if ([string]::IsNullOrWhiteSpace($stderrText)) { $stderrText = '(empty)' }
+        if ([string]::IsNullOrWhiteSpace($stdoutText)) { $stdoutText = '(empty)' }
+
+        $probeDetail = if ($lastProbeError) {
+            "Last probe error ($lastProbeUrl): $lastProbeError"
+        } else {
+            'Last probe error: (none captured)'
+        }
+        $processDetail = if ($exited) {
+            "Process exited with code: $($proc.ExitCode)"
+        } else {
+            "Process state: still running after stop attempt (pid $($proc.Id))"
+        }
+
+        $errorMessage = @(
+            "Example '$exampleName' failed startup readiness on port $Port within $StartupTimeoutSeconds seconds."
+            $probeDetail
+            $processDetail
+            'stderr:'
+            $stderrText
+            'stdout:'
+            $stdoutText
+        ) -join [Environment]::NewLine
+
+        if ($pushedLocation) {
+            try { Pop-Location -ErrorAction Stop } catch { Write-Warning "Pop-Location failed after startup timeout: $($_.Exception.Message)" }
+        }
+        try { $proc.Dispose() } catch { }
+
+        throw $errorMessage
+    }
+
     if ($exited) {
-        Write-Warning "Example $Name process exited early with code $($proc.ExitCode). Capturing logs."
-        if (Test-Path $stdErr) { Write-Warning ('stderr: ' + (Get-Content $stdErr -Raw)) }
-        if (Test-Path $stdOut) { Write-Verbose ('stdout: ' + (Get-Content $stdOut -Raw)) -Verbose }
+        Write-Warning "Example $exampleName process exited early with code $($proc.ExitCode). Capturing logs."
+        if (Test-Path $stdErr) { Write-Warning ('stderr: ' + (Get-Content $stdErr -Raw -ErrorAction SilentlyContinue)) }
+        if (Test-Path $stdOut) { Write-Verbose ('stdout: ' + (Get-Content $stdOut -Raw -ErrorAction SilentlyContinue)) -Verbose }
     }
 
     # Heuristic: detect HTTPS usage if listener line includes cert/self-signed flags
@@ -401,11 +595,11 @@ Start-KrServer
 function Stop-ExampleScript {
     [CmdletBinding(SupportsShouldProcess)] param([Parameter(Mandatory)]$Instance)
     $shutdown = "http://127.0.0.1:$($Instance.Port)/shutdown"
-    try { Invoke-WebRequest -Uri $shutdown -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop | Out-Null } catch {
+    try { Invoke-TestRequest -Uri $shutdown -UseBasicParsing -ErrorAction Stop | Out-Null } catch {
         try {
             Write-Debug "Initial shutdown failed, retrying with HTTPS: $($_.Exception.Message)"
             $shutdown = "https://127.0.0.1:$($Instance.Port)/shutdown"
-            Invoke-WebRequest -Uri $shutdown -UseBasicParsing -TimeoutSec 3 -ErrorAction Stop -SkipCertificateCheck | Out-Null
+            Invoke-TestRequest -Uri $shutdown -UseBasicParsing -ErrorAction Stop -SkipCertificateCheck | Out-Null
         } catch {
             Write-Debug "Shutdown failed: $($_.Exception.Message)"
         }
@@ -531,7 +725,7 @@ function Test-ExampleRouteSet {
         } else {
             $invokeParams = @{ Uri = $url; UseBasicParsing = $true; TimeoutSec = 8; Method = $method; Headers = $headers; Body = $body }
         }
-        $resp = Invoke-WebRequest @invokeParams
+        $resp = Invoke-TestRequest @invokeParams
         if ($resp.StatusCode -ne 200) { throw "Route $r returned status $($resp.StatusCode)" }
 
         # Content assertions
@@ -612,7 +806,7 @@ function Invoke-ExampleRequest {
             if ($Headers) { $invokeParams.Headers = $Headers }
             if ($Body) { $invokeParams.Body = $Body }
             if ($ContentType) { $invokeParams.ContentType = $ContentType }
-            $resp = Invoke-WebRequest @invokeParams
+            $resp = Invoke-TestRequest @invokeParams
             $resp.StatusCode | Should -Be $ExpectStatus
             if ($ContentTypeContains) { ($resp.Headers['Content-Type'] -join ';') | Should -Match $ContentTypeContains }
             if ($BodyContains) { ($resp.Content -like "*${BodyContains}*") | Should -BeTrue -Because "Body should contain substring '${BodyContains}'" }
@@ -740,7 +934,7 @@ function Assert-RouteContent {
     if ($Headers) { $invokeParams.Headers = $Headers }
     if ($Body) { $invokeParams.Body = $Body }
     if ($ContentType) { $invokeParams.ContentType = $ContentType }
-    $resp = Invoke-WebRequest @invokeParams
+    $resp = Invoke-TestRequest @invokeParams
     $resp.StatusCode | Should -Be $ExpectStatus
     $text = $resp.Content
 
@@ -2233,7 +2427,7 @@ function Invoke-CorsRequest {
         $params.ContentType = $ContentType
     }
 
-    Invoke-WebRequest @params
+    Invoke-TestRequest @params
 }
 
 <#
@@ -2268,7 +2462,7 @@ function Get-CsrfToken {
         SkipCertificateCheck = $true
     }
 
-    $resp = Invoke-WebRequest @p
+    $resp = Invoke-TestRequest @p
     $resp.StatusCode | Should -Be 200
 
     $payload = $resp.Content | ConvertFrom-Json -ErrorAction Stop
@@ -2359,7 +2553,7 @@ function Test-OpenApiDocumentMatchesExpected {
         [string]$Version = 'v3.1'
     )
 
-    $result = Invoke-WebRequest -Uri "$($Instance.Url)/openapi/$Version/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+    $result = Invoke-TestRequest -Uri "$($Instance.Url)/openapi/$Version/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
     $result.StatusCode | Should -Be 200
 
     $actualNormalized = Get-NormalizedJson $result.Content

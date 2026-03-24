@@ -40,7 +40,7 @@ Describe 'Example 8.9 Authentication (OpenID Connect - Okta)' -Tag 'Tutorial', '
     }
 
     It 'GET / returns public login page when unauthenticated' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/" -SkipCertificateCheck -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 200
         $result.Headers.'Content-Type' | Should -Be 'text/html; charset=utf-8'
@@ -48,7 +48,7 @@ Describe 'Example 8.9 Authentication (OpenID Connect - Okta)' -Tag 'Tutorial', '
     }
 
     It 'GET /me returns unauthenticated profile payload without interactive login' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/me" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/me" -SkipCertificateCheck -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 200
         $result.Headers.'Content-Type' | Should -Be 'application/json; charset=utf-8'
@@ -59,7 +59,7 @@ Describe 'Example 8.9 Authentication (OpenID Connect - Okta)' -Tag 'Tutorial', '
     }
 
     It 'GET /signout returns logout callback page' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/signout" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/signout" -SkipCertificateCheck -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 200
         $result.Headers.'Content-Type' | Should -Be 'text/html; charset=utf-8'

@@ -25,7 +25,7 @@ Describe 'Tutorial 17.4-StatusCodePages-CustomCSharp' -Tag 'Tutorial' {
 
     It 'Custom C# handler returns JSON for 500 with description' {
         $base = $script:instance.Url
-        $r = Invoke-WebRequest -Uri "$base/error" -UseBasicParsing -TimeoutSec 12 -ErrorAction SilentlyContinue -SkipHttpErrorCheck
+        $r = Invoke-TestRequest -Uri "$base/error" -UseBasicParsing -TimeoutSec 12 -ErrorAction SilentlyContinue -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 500
         ($r.Headers['Content-Type'] -join ';') | Should -Match 'application/json'
         $r.Content | Should -Match '"error"\s*:\s*true'
@@ -35,7 +35,7 @@ Describe 'Tutorial 17.4-StatusCodePages-CustomCSharp' -Tag 'Tutorial' {
 
     It 'Unmapped route returns JSON 404 via custom C# handler' {
         $base = $script:instance.Url
-        $r = Invoke-WebRequest -Uri "$base/missing" -UseBasicParsing -TimeoutSec 12 -ErrorAction SilentlyContinue -SkipHttpErrorCheck
+        $r = Invoke-TestRequest -Uri "$base/missing" -UseBasicParsing -TimeoutSec 12 -ErrorAction SilentlyContinue -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 404
         ($r.Headers['Content-Type'] -join ';') | Should -Match 'application/json'
         $r.Content | Should -Match '"error"\s*:\s*true'

@@ -18,7 +18,7 @@ Describe 'Example 10.23 RFC 6570 Variable Mapping' -Tag 'Tutorial', 'OpenApi', '
     }
 
     It 'Simple parameter extraction works' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/users/42" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/users/42" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
         $json.id | Should -Be 42
@@ -27,7 +27,7 @@ Describe 'Example 10.23 RFC 6570 Variable Mapping' -Tag 'Tutorial', 'OpenApi', '
     }
 
     It 'Versioned path parameters work' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/api/v1/users/123" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/api/v1/users/123" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
         $json.id | Should -Be 123
@@ -36,7 +36,7 @@ Describe 'Example 10.23 RFC 6570 Variable Mapping' -Tag 'Tutorial', 'OpenApi', '
     }
 
     It 'Reserved operator multi-segment path works' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/files/documents/reports/2024/annual.pdf" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/files/documents/reports/2024/annual.pdf" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
         $json.path | Should -Be 'documents/reports/2024/annual.pdf'
@@ -44,7 +44,7 @@ Describe 'Example 10.23 RFC 6570 Variable Mapping' -Tag 'Tutorial', 'OpenApi', '
     }
 
     It 'Variable mapping introspection endpoint works' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/mapping/mytemplate/999" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/mapping/mytemplate/999" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
         $json.template | Should -Be '/mapping/{template}/{id}'
@@ -54,7 +54,7 @@ Describe 'Example 10.23 RFC 6570 Variable Mapping' -Tag 'Tutorial', 'OpenApi', '
     }
 
     It 'OpenAPI document contains RFC 6570 path expressions' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.2/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.2/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json -AsHashtable
 
@@ -70,7 +70,7 @@ Describe 'Example 10.23 RFC 6570 Variable Mapping' -Tag 'Tutorial', 'OpenApi', '
     }
 
     It 'OpenAPI document includes schema components' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.2/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.2/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
 
@@ -87,7 +87,7 @@ Describe 'Example 10.23 RFC 6570 Variable Mapping' -Tag 'Tutorial', 'OpenApi', '
     }
 
     It 'OpenAPI document has correct tags' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.2/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.2/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
 

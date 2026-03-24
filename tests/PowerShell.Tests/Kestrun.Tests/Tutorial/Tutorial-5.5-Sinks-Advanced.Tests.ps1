@@ -14,13 +14,13 @@ Describe 'Example 5.5-Sinks-Advanced' -Tag 'Tutorial', 'Logging', 'Sinks' {
     }
 
     It 'GET /log returns ok text' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/log" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/log" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Be 'ok'
     }
 
     It 'Writes advanced-sinks log line' {
-        Invoke-WebRequest -Uri "$($script:instance.Url)/log" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
+        Invoke-TestRequest -Uri "$($script:instance.Url)/log" -UseBasicParsing -TimeoutSec 6 -Method Get | Out-Null
         $dir = $script:instance.ScriptDirectory
         $logDir = Join-Path $dir 'logs'
         $advLog = Get-ChildItem -Path $logDir -Filter 'advanced-sinks*.log' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1

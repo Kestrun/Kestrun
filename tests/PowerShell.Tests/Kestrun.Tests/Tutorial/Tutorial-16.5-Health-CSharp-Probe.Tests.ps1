@@ -16,7 +16,7 @@ Describe 'Example 16.5-Health-CSharp-Probe' -Tag 'Tutorial', 'Health' {
     }
 
     It 'GET /healthz includes RandomCSharp probe with dynamic status' {
-        $resp = Invoke-WebRequest -Uri "$( $script:instance.Url)/healthz" -UseBasicParsing -TimeoutSec 8 -Method Get -SkipHttpErrorCheck
+        $resp = Invoke-TestRequest -Uri "$( $script:instance.Url)/healthz" -UseBasicParsing -TimeoutSec 8 -Method Get -SkipHttpErrorCheck
         ($resp.StatusCode -eq 200 -or $resp.StatusCode -eq 503) | Should -BeTrue
         $json = $resp.Content | ConvertFrom-Json
         $probes = @()

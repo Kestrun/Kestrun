@@ -17,7 +17,7 @@ Describe 'Tutorial 12.2 Scheduling Cron' -Tag 'Tutorial' {
 
     It '/schedule/report lists cron jobs' {
         $base = $script:instance.Url
-        $resp = Invoke-WebRequest -Uri "$base/schedule/report" -UseBasicParsing -TimeoutSec 10
+        $resp = Invoke-TestRequest -Uri "$base/schedule/report" -UseBasicParsing -TimeoutSec 10
         $resp.StatusCode | Should -Be 200
         $json = $resp.Content | ConvertFrom-Json
         $names = @($json.jobs | ForEach-Object { $_.name })

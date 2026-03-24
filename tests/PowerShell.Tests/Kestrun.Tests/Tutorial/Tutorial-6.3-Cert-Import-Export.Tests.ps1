@@ -27,7 +27,7 @@ Describe 'Example 6.3-Cert-Import-Export' -Tag 'Tutorial', 'Slow' {
             password = 'p@ss'
         } | ConvertTo-Json
 
-        $result = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/certs/import" -Body $body -ContentType 'application/json' -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Method Post -Uri "$($script:instance.Url)/certs/import" -Body $body -ContentType 'application/json' -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 400
         $result.Headers.'Content-Type' | Should -Be 'application/json; charset=utf-8'
@@ -48,7 +48,7 @@ Describe 'Example 6.3-Cert-Import-Export' -Tag 'Tutorial', 'Slow' {
             password = 'p@ss'
         } | ConvertTo-Json
 
-        $result = Invoke-WebRequest -Method Post -Uri "$($script:instance.Url)/certs/export" -Body $body -ContentType 'application/json' -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Method Post -Uri "$($script:instance.Url)/certs/export" -Body $body -ContentType 'application/json' -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 200
         $result.Headers.'Content-Type' | Should -Be 'application/json; charset=utf-8'

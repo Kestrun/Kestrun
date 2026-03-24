@@ -25,7 +25,7 @@ Describe 'Tutorial 17.3-StatusCodePages-CustomPowerShell' -Tag 'Tutorial' {
 
     It 'Custom handler returns JSON for 404 with message' {
         $base = $script:instance.Url
-        $r = Invoke-WebRequest -Uri "$base/notfound" -UseBasicParsing -TimeoutSec 12 -ErrorAction SilentlyContinue -SkipHttpErrorCheck
+        $r = Invoke-TestRequest -Uri "$base/notfound" -UseBasicParsing -TimeoutSec 12 -ErrorAction SilentlyContinue -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 404
         ($r.Headers['Content-Type'] -join ';') | Should -Match 'application/json'
         $r.Content | Should -Match '"error"\s*:\s*true'
@@ -35,7 +35,7 @@ Describe 'Tutorial 17.3-StatusCodePages-CustomPowerShell' -Tag 'Tutorial' {
 
     It 'Unmapped route returns JSON 404 via custom handler' {
         $base = $script:instance.Url
-        $r = Invoke-WebRequest -Uri "$base/missing" -UseBasicParsing -TimeoutSec 12 -ErrorAction SilentlyContinue -SkipHttpErrorCheck
+        $r = Invoke-TestRequest -Uri "$base/missing" -UseBasicParsing -TimeoutSec 12 -ErrorAction SilentlyContinue -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 404
         ($r.Headers['Content-Type'] -join ';') | Should -Match 'application/json'
         $r.Content | Should -Match '"error"\s*:\s*true'

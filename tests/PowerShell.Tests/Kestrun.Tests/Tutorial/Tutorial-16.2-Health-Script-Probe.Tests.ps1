@@ -16,7 +16,7 @@ Describe 'Example 16.2-Health-Script-Probe' -Tag 'Tutorial', 'Health' {
     }
 
     It 'GET /healthz returns expected LatencyCheck probe' {
-        $resp = Invoke-WebRequest -Uri "$( $script:instance.Url)/healthz" -UseBasicParsing -TimeoutSec 8 -Method Get -SkipHttpErrorCheck
+        $resp = Invoke-TestRequest -Uri "$( $script:instance.Url)/healthz" -UseBasicParsing -TimeoutSec 8 -Method Get -SkipHttpErrorCheck
         ($resp.StatusCode -eq 200 -or $resp.StatusCode -eq 503) | Should -BeTrue
         $json = $null
         try { $json = $resp.Content | ConvertFrom-Json -ErrorAction Stop } catch { throw "Health response not valid JSON: $($_.Exception.Message)" }

@@ -17,7 +17,7 @@ Describe 'Example 7.2-Multiple-Listeners' {
     It 'GET /ping returns pong on primary listener' {
 
         $uri = "$($script:instance.Url)/ping"
-        $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+        $resp = Invoke-TestRequest -Uri $uri -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
         $resp.StatusCode | Should -Be 200
         ($resp.Content.Trim()) | Should -Be 'pong'
     }
@@ -26,7 +26,7 @@ Describe 'Example 7.2-Multiple-Listeners' {
         $secondaryPort = if ($script:instance.Port -le 65102) { $script:instance.Port + 433 } else { $script:instance.Port - 433 }
         $uri = ($script:instance.Https ? 'https' : 'http') + "://$($script:instance.Host):$secondaryPort/ping"
 
-        $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
+        $resp = Invoke-TestRequest -Uri $uri -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop
         $resp.StatusCode | Should -Be 200
         ($resp.Content.Trim()) | Should -Be 'pong'
     }

@@ -26,7 +26,7 @@ Describe 'Tutorial 15.9 - SSE (PowerShell)' -Tag 'Tutorial' {
         $invokeParams = @{ Uri = $uri; Method = 'Get'; UseBasicParsing = $true; TimeoutSec = 15; Headers = @{ Accept = 'text/event-stream' } }
         if ($script:instance.Https) { $invokeParams.SkipCertificateCheck = $true }
 
-        $resp = Invoke-WebRequest @invokeParams
+        $resp = Invoke-TestRequest @invokeParams
         $resp.StatusCode | Should -Be 200
         ($resp.Headers['Content-Type'] -join '') | Should -Match 'text/event-stream'
 
@@ -40,7 +40,7 @@ Describe 'Tutorial 15.9 - SSE (PowerShell)' -Tag 'Tutorial' {
         $invokeParams = @{ Uri = $uri; Method = 'Post'; UseBasicParsing = $true; TimeoutSec = 10; SkipHttpErrorCheck = $true }
         if ($script:instance.Https) { $invokeParams.SkipCertificateCheck = $true }
 
-        $resp = Invoke-WebRequest @invokeParams
+        $resp = Invoke-TestRequest @invokeParams
         $resp.StatusCode | Should -BeGreaterOrEqual 400
         $resp.StatusCode | Should -BeLessThan 500
     }
@@ -50,7 +50,7 @@ Describe 'Tutorial 15.9 - SSE (PowerShell)' -Tag 'Tutorial' {
         $invokeParams = @{ Uri = $uri; Method = 'Get'; UseBasicParsing = $true; TimeoutSec = 10; SkipHttpErrorCheck = $true }
         if ($script:instance.Https) { $invokeParams.SkipCertificateCheck = $true }
 
-        $resp = Invoke-WebRequest @invokeParams
+        $resp = Invoke-TestRequest @invokeParams
         $resp.StatusCode | Should -Be 404
     }
 
@@ -59,7 +59,7 @@ Describe 'Tutorial 15.9 - SSE (PowerShell)' -Tag 'Tutorial' {
         $invokeParams = @{ Uri = $uri; Method = 'Put'; UseBasicParsing = $true; TimeoutSec = 10; SkipHttpErrorCheck = $true }
         if ($script:instance.Https) { $invokeParams.SkipCertificateCheck = $true }
 
-        $resp = Invoke-WebRequest @invokeParams
+        $resp = Invoke-TestRequest @invokeParams
         $resp.StatusCode | Should -BeGreaterOrEqual 400
         $resp.StatusCode | Should -BeLessThan 500
     }
@@ -71,7 +71,7 @@ Describe 'Tutorial 15.9 - SSE (PowerShell)' -Tag 'Tutorial' {
         $invokeParams = @{ Uri = $uri; Method = 'Get'; UseBasicParsing = $true; TimeoutSec = 15; Headers = @{ Accept = 'text/event-stream' } }
         if ($script:instance.Https) { $invokeParams.SkipCertificateCheck = $true }
 
-        $resp = Invoke-WebRequest @invokeParams
+        $resp = Invoke-TestRequest @invokeParams
         $resp.StatusCode | Should -Be 200
         ($resp.Headers['Content-Type'] -join '') | Should -Match 'text/event-stream'
         $resp.Content | Should -Match 'event:\s*connected'

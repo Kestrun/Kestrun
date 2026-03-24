@@ -24,7 +24,7 @@ Describe 'Tutorial 17.7-StatusCodePages-ReExecute' -Tag 'Tutorial' {
     It '500 route re-executes to /errors/500 page (HTML content)' {
         # Re-execute keeps the original URL but content comes from /errors/{statusCode}
         $base = $script:instance.Url
-        $resp = Invoke-WebRequest -Uri "$base/error" -UseBasicParsing -TimeoutSec 12 -ErrorAction SilentlyContinue -SkipHttpErrorCheck
+        $resp = Invoke-TestRequest -Uri "$base/error" -UseBasicParsing -TimeoutSec 12 -ErrorAction SilentlyContinue -SkipHttpErrorCheck
         # Sample renders final page with 200 OK even for original 500, so only assert content
         ($resp.Headers['Content-Type'] -join ';') | Should -Match 'text/html'
         $resp.Content | Should -Match '<!DOCTYPE html>'
@@ -33,7 +33,7 @@ Describe 'Tutorial 17.7-StatusCodePages-ReExecute' -Tag 'Tutorial' {
 
     It 'Unmapped route re-executes to /errors/404 page (HTML content)' {
         $base = $script:instance.Url
-        $resp = Invoke-WebRequest -Uri "$base/missing" -UseBasicParsing -TimeoutSec 12 -ErrorAction SilentlyContinue -SkipHttpErrorCheck
+        $resp = Invoke-TestRequest -Uri "$base/missing" -UseBasicParsing -TimeoutSec 12 -ErrorAction SilentlyContinue -SkipHttpErrorCheck
         ($resp.Headers['Content-Type'] -join ';') | Should -Match 'text/html'
         $resp.Content | Should -Match '<!DOCTYPE html>'
         $resp.Content | Should -Match '404'

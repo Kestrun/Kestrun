@@ -18,7 +18,7 @@ Describe 'Example 10.12 WebHook' -Tag 'Tutorial', 'OpenApi', 'Slow' {
     }
 
     It 'Webhook info endpoint returns event list' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/api/webhooks/info" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/api/webhooks/info" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
 
         $json = $result.Content | ConvertFrom-Json
@@ -28,7 +28,7 @@ Describe 'Example 10.12 WebHook' -Tag 'Tutorial', 'OpenApi', 'Slow' {
     }
 
     It 'Simulate order returns a realistic webhook payload' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/api/orders/simulate" -Method Post -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/api/orders/simulate" -Method Post -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
 
         $json = $result.Content | ConvertFrom-Json
@@ -38,7 +38,7 @@ Describe 'Example 10.12 WebHook' -Tag 'Tutorial', 'OpenApi', 'Slow' {
     }
 
     It 'OpenAPI includes webhook definitions and component schemas' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $doc = $result.Content | ConvertFrom-Json
 

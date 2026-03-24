@@ -15,7 +15,7 @@ Describe 'Example 1.1-Hello-World' -Tag 'Tutorial' {
     }
 
     It 'Hello World route returns expected response' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/hello" -UseBasicParsing -TimeoutSec 8
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/hello" -UseBasicParsing -TimeoutSec 8
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Be 'Hello, World!'
     }

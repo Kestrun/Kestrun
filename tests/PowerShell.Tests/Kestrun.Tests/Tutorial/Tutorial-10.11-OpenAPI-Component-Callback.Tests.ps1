@@ -28,7 +28,7 @@ Describe 'Example 10.11 Component Callback' -Tag 'Tutorial', 'OpenApi', 'Slow' {
             }
         } | ConvertTo-Json -Depth 10
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/payments" -Method Post -Body $body -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/v1/payments" -Method Post -Body $body -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 201
 
         $json = $result.Content | ConvertFrom-Json
@@ -47,11 +47,11 @@ Describe 'Example 10.11 Component Callback' -Tag 'Tutorial', 'OpenApi', 'Slow' {
             }
         } | ConvertTo-Json -Depth 10
 
-        $create = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/payments" -Method Post -Body $createBody -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+        $create = Invoke-TestRequest -Uri "$($script:instance.Url)/v1/payments" -Method Post -Body $createBody -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
         $create.StatusCode | Should -Be 201
         $paymentId = ($create.Content | ConvertFrom-Json).paymentId
 
-        $get = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/payments/$paymentId" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
+        $get = Invoke-TestRequest -Uri "$($script:instance.Url)/v1/payments/$paymentId" -Method Get -SkipCertificateCheck -SkipHttpErrorCheck
         $get.StatusCode | Should -Be 200
 
         $json = $get.Content | ConvertFrom-Json
@@ -60,7 +60,7 @@ Describe 'Example 10.11 Component Callback' -Tag 'Tutorial', 'OpenApi', 'Slow' {
     }
 
     It 'OpenAPI includes callback definitions, component schemas, and help-derived summary/description' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $doc = $result.Content | ConvertFrom-Json -AsHashtable
 
@@ -118,7 +118,7 @@ Describe 'Example 10.11 Component Callback' -Tag 'Tutorial', 'OpenApi', 'Slow' {
             }
         } | ConvertTo-Json -Depth 10
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/v1/payments" -Method Post -Body $body -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/v1/payments" -Method Post -Body $body -ContentType 'application/json' -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 201
 
         # Callback dispatch happens during the request; allow a small window for the internal HTTP calls

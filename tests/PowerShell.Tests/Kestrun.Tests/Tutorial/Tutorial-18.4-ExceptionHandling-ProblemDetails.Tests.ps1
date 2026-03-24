@@ -23,7 +23,7 @@ Describe 'Tutorial 18.4-ExceptionHandling-ProblemDetails' -Tag 'Tutorial' {
     }
 
     It 'GET /boom returns RFC7807 ProblemDetails JSON with 500 status' {
-        $r = Invoke-WebRequest -Uri "$($script:instance.Url)/boom" -UseBasicParsing -TimeoutSec 12 -SkipHttpErrorCheck
+        $r = Invoke-TestRequest -Uri "$($script:instance.Url)/boom" -UseBasicParsing -TimeoutSec 12 -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 500
         ($r.Headers['Content-Type'] -join ';') | Should -Match 'application/problem\+json|application/json'
         $r.Content | Should -Not -BeNullOrEmpty

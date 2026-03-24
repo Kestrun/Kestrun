@@ -14,17 +14,17 @@ Describe 'Example 2.2-Multi-Language-Routes' -Tag 'Tutorial' {
     }
 
     It 'hello-powershell returns Hello, World!' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/hello-powershell" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/hello-powershell" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Be 'Hello, World!'
     }
     It 'hello-csharp returns Hello, World!' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/hello-csharp" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/hello-csharp" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Be 'Hello, World!'
     }
     It 'hello-vbnet returns Hello, World!' {
-        $resp = Invoke-WebRequest -Uri "$($script:instance.Url)/hello-vbnet" -UseBasicParsing -TimeoutSec 6 -Method Get
+        $resp = Invoke-TestRequest -Uri "$($script:instance.Url)/hello-vbnet" -UseBasicParsing -TimeoutSec 6 -Method Get
         $resp.StatusCode | Should -Be 200
         $resp.Content | Should -Be 'Hello, World!'
     }

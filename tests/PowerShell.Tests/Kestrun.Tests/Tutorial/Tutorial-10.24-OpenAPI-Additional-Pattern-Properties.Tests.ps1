@@ -15,7 +15,7 @@ Describe 'Example 10.24 OpenAPI AdditionalProperties + PatternProperties' -Tag '
     }
 
     It 'Get inventory counts (GET)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/inventory/counts" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/inventory/counts" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
 
@@ -25,7 +25,7 @@ Describe 'Example 10.24 OpenAPI AdditionalProperties + PatternProperties' -Tag '
     }
 
     It 'Get feature flags (GET)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/features/flags" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/features/flags" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
 
@@ -41,7 +41,7 @@ Describe 'Example 10.24 OpenAPI AdditionalProperties + PatternProperties' -Tag '
             source = 'batch-1'
         } | ConvertTo-Json -Depth 10
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/catalog/update" -Method Post `
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/catalog/update" -Method Post `
             -Body $body -ContentType 'application/json' -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
@@ -53,7 +53,7 @@ Describe 'Example 10.24 OpenAPI AdditionalProperties + PatternProperties' -Tag '
     }
 
     It 'Check OpenAPI schemas' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -Headers @{ Accept = 'application/json' } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
         $json = $result.Content | ConvertFrom-Json
 

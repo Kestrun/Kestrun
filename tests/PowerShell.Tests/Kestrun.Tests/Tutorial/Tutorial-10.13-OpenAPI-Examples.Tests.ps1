@@ -51,7 +51,7 @@ email: todd@example.com
     ) {
         param($ContentType, $Body)
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/tickets" -Method Post -Body $Body -ContentType $ContentType -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/tickets" -Method Post -Body $Body -ContentType $ContentType -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 201
 
         # Default response should be JSON (no Accept header set).
@@ -76,13 +76,13 @@ email: todd@example.com
                 email = 'todd@example.com'
             } | ConvertTo-Json)
 
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/tickets" -Method Post -Body $body -ContentType 'application/json' -Headers @{ Accept = $Accept } -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/tickets" -Method Post -Body $body -ContentType 'application/json' -Headers @{ Accept = $Accept } -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 201
 
         # Content-Type can include charset, so match on prefix.
         $result.Headers.'Content-Type' | Should -Match "^$([regex]::Escape($Accept))"
 
-        # For some content types, Invoke-WebRequest returns a byte/int array in .Content.
+        # For some content types, Invoke-TestRequest returns a byte/int array in .Content.
         $contentText = if ($result.Content -is [string]) {
             $result.Content
         } elseif ($result.Content -is [System.Array]) {
@@ -125,7 +125,7 @@ email: todd@example.com
     }
 
     It 'Get museum hours (GET) returns 200' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/museum-hours" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/museum-hours" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
 
         $json = $result.Content | ConvertFrom-Json
@@ -134,7 +134,7 @@ email: todd@example.com
     }
 
     It 'Search tickets supports inline parameter examples' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/tickets/search?ticketDate=2023-09-07" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/tickets/search?ticketDate=2023-09-07" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
 
         $json = $result.Content | ConvertFrom-Json
@@ -142,7 +142,7 @@ email: todd@example.com
     }
 
     It 'OpenAPI includes component examples and example refs' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
 
         $doc = $result.Content | ConvertFrom-Json
@@ -198,7 +198,7 @@ email: todd@example.com
     }
 
     It 'OpenAPI inlines parameter examples for ticketDate (no $ref)' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/openapi/v3.1/openapi.json" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 200
 
         $doc = $result.Content | ConvertFrom-Json

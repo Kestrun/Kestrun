@@ -43,7 +43,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         It 'Allows first origin' {
-            $response = Invoke-WebRequest -Uri "$($script:instance.Url)/data" `
+            $response = Invoke-TestRequest -Uri "$($script:instance.Url)/data" `
                 -Method Get `
                 -Headers @{ 'Origin' = 'http://localhost:3000' }
 
@@ -51,7 +51,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         It 'Allows second origin' {
-            $response = Invoke-WebRequest -Uri "$($script:instance.Url)/data" `
+            $response = Invoke-TestRequest -Uri "$($script:instance.Url)/data" `
                 -Method Get `
                 -Headers @{ 'Origin' = 'http://localhost:3001' }
 
@@ -59,7 +59,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         It 'Blocks non-listed origin' {
-            $response = Invoke-WebRequest -Uri "$($script:instance.Url)/data" `
+            $response = Invoke-TestRequest -Uri "$($script:instance.Url)/data" `
                 -Method Get `
                 -Headers @{ 'Origin' = 'http://evil.com' }
 
@@ -105,7 +105,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         It 'Includes Access-Control-Allow-Credentials header' {
-            $response = Invoke-WebRequest -Uri "$($script:instance.Url)/secure" `
+            $response = Invoke-TestRequest -Uri "$($script:instance.Url)/secure" `
                 -Method Get `
                 -Headers @{ 'Origin' = 'http://localhost:3000' }
 
@@ -113,7 +113,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         It 'Does not use wildcard for origin with credentials' {
-            $response = Invoke-WebRequest -Uri "$($script:instance.Url)/secure" `
+            $response = Invoke-TestRequest -Uri "$($script:instance.Url)/secure" `
                 -Method Get `
                 -Headers @{ 'Origin' = 'http://localhost:3000' }
 
@@ -162,7 +162,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         It 'Exposes custom headers in CORS response' {
-            $response = Invoke-WebRequest -Uri "$($script:instance.Url)/list" `
+            $response = Invoke-TestRequest -Uri "$($script:instance.Url)/list" `
                 -Method Get `
                 -Headers @{ 'Origin' = 'http://localhost:3000' }
 
@@ -173,7 +173,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         It 'Custom headers are present in response' {
-            $response = Invoke-WebRequest -Uri "$($script:instance.Url)/list" `
+            $response = Invoke-TestRequest -Uri "$($script:instance.Url)/list" `
                 -Method Get `
                 -Headers @{ 'Origin' = 'http://localhost:3000' }
 
@@ -220,7 +220,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         It 'Includes Access-Control-Max-Age header in preflight response' {
-            $response = Invoke-WebRequest -Uri "$($script:instance.Url)/update" `
+            $response = Invoke-TestRequest -Uri "$($script:instance.Url)/update" `
                 -Method Options `
                 -Headers @{
                 'Origin' = 'http://localhost:3000'
@@ -231,7 +231,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         It 'Caching applies to allowed methods' {
-            $response = Invoke-WebRequest -Uri "$($script:instance.Url)/update" `
+            $response = Invoke-TestRequest -Uri "$($script:instance.Url)/update" `
                 -Method Options `
                 -Headers @{
                 'Origin' = 'http://localhost:3000'
@@ -282,7 +282,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         It 'Allows POST with correct headers' {
-            $response = Invoke-WebRequest -Uri "$($script:instance.Url)/api/resource" `
+            $response = Invoke-TestRequest -Uri "$($script:instance.Url)/api/resource" `
                 -Method Post `
                 -Headers @{
                 'Origin' = 'http://localhost:3000'
@@ -294,7 +294,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         It 'Preflight allows only specified methods' {
-            $response = Invoke-WebRequest -Uri "$($script:instance.Url)/api/resource" `
+            $response = Invoke-TestRequest -Uri "$($script:instance.Url)/api/resource" `
                 -Method Options `
                 -Headers @{
                 'Origin' = 'http://localhost:3000'
@@ -310,7 +310,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         It 'Preflight allows only specified headers' {
-            $response = Invoke-WebRequest -Uri "$($script:instance.Url)/api/resource" `
+            $response = Invoke-TestRequest -Uri "$($script:instance.Url)/api/resource" `
                 -Method Options `
                 -Headers @{
                 'Origin' = 'http://localhost:3000'
@@ -358,7 +358,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         It 'AllowAll responds with wildcard origin' {
-            $response = Invoke-WebRequest -Uri "$($script:instance.Url)/public" `
+            $response = Invoke-TestRequest -Uri "$($script:instance.Url)/public" `
                 -Method Get `
                 -Headers @{ 'Origin' = 'http://anywhere.com' }
 
@@ -369,7 +369,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
             $origins = @('http://test1.com', 'http://test2.com', 'https://secure.com')
 
             foreach ($origin in $origins) {
-                $response = Invoke-WebRequest -Uri "$($script:instance.Url)/public" `
+                $response = Invoke-TestRequest -Uri "$($script:instance.Url)/public" `
                     -Method Get `
                     -Headers @{ 'Origin' = $origin }
 
@@ -378,7 +378,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         It 'AllowAll preflight allows any method' {
-            $response = Invoke-WebRequest -Uri "$($script:instance.Url)/public" `
+            $response = Invoke-TestRequest -Uri "$($script:instance.Url)/public" `
                 -Method Options `
                 -Headers @{
                 'Origin' = 'http://anywhere.com'
@@ -426,7 +426,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
         }
 
         It 'Uses default policy when no policy specified on route' {
-            $response = Invoke-WebRequest -Uri "$($script:instance.Url)/default-route" `
+            $response = Invoke-TestRequest -Uri "$($script:instance.Url)/default-route" `
                 -Method Get `
                 -Headers @{ 'Origin' = 'http://localhost:3000' }
 
@@ -435,7 +435,7 @@ Describe 'CORS Advanced Features' -Tag 'Integration', 'CORS' {
 
         It 'Default policy restrictions apply' {
             # Default policy only allows GET, POST should fail CORS
-            $response = Invoke-WebRequest -Uri "$($script:instance.Url)/default-route" `
+            $response = Invoke-TestRequest -Uri "$($script:instance.Url)/default-route" `
                 -Method Options `
                 -Headers @{
                 'Origin' = 'http://localhost:3000'

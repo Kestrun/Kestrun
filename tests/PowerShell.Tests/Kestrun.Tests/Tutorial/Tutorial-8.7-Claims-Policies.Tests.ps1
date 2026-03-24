@@ -19,31 +19,31 @@ Describe 'Example 8.x Authentication (Claims-Policies)' -Tag 'Tutorial', 'Slow' 
     }
 
     It 'GET /policy/read returns 401 without credentials' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/policy/read" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/policy/read" -SkipCertificateCheck -SkipHttpErrorCheck
         $result.StatusCode | Should -Be 401
     }
 
     It 'GET /policy/read returns 401 with invalid credentials' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/policy/read" -SkipCertificateCheck -SkipHttpErrorCheck -Headers @{ Authorization = $script:badBasic }
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/policy/read" -SkipCertificateCheck -SkipHttpErrorCheck -Headers @{ Authorization = $script:badBasic }
         $result.StatusCode | Should -Be 401
     }
 
     It 'GET /policy/read returns 200 with CanRead policy claim' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/policy/read" -SkipCertificateCheck -SkipHttpErrorCheck -Headers @{ Authorization = $script:basic }
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/policy/read" -SkipCertificateCheck -SkipHttpErrorCheck -Headers @{ Authorization = $script:basic }
         $result.StatusCode | Should -Be 200
         $result.Content | Should -Be 'Read OK'
         $result.Headers.'Content-Type' | Should -Be 'text/plain; charset=utf-8'
     }
 
     It 'GET /policy/write returns 200 with CanWrite policy claim' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/policy/write" -SkipCertificateCheck -SkipHttpErrorCheck -Headers @{ Authorization = $script:basic }
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/policy/write" -SkipCertificateCheck -SkipHttpErrorCheck -Headers @{ Authorization = $script:basic }
         $result.StatusCode | Should -Be 200
         $result.Content | Should -Be 'Write OK'
         $result.Headers.'Content-Type' | Should -Be 'text/plain; charset=utf-8'
     }
 
     It 'GET /policy/delete returns 403 when CanDelete claim is missing' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/policy/delete" -SkipCertificateCheck -SkipHttpErrorCheck -Headers @{ Authorization = $script:basic }
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/policy/delete" -SkipCertificateCheck -SkipHttpErrorCheck -Headers @{ Authorization = $script:basic }
         $result.StatusCode | Should -Be 403
     }
 }

@@ -16,7 +16,7 @@ Describe 'Example 6.1-Cert-SelfSigned' -Tag 'Tutorial', 'Slow' {
     }
 
     It 'GET /hello returns hello https over self-signed TLS endpoint' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/hello" -SkipCertificateCheck -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/hello" -SkipCertificateCheck -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 200
         $result.Content | Should -Be 'hello https'

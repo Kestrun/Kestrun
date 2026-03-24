@@ -24,7 +24,7 @@ Describe 'Tutorial 18.5-ExceptionHandling-Developer' -Tag 'Tutorial' {
     }
 
     It 'GET /throw returns 500 and HTML developer exception page' {
-        $r = Invoke-WebRequest -Uri "$($script:instance.Url)/throw" -UseBasicParsing -TimeoutSec 15 -SkipHttpErrorCheck
+        $r = Invoke-TestRequest -Uri "$($script:instance.Url)/throw" -UseBasicParsing -TimeoutSec 15 -SkipHttpErrorCheck
         $r.StatusCode | Should -Be 500
         $ct = ($r.Headers['Content-Type'] -join ';')
         if ($ct) { $ct | Should -Match 'text\/(html|plain)' }

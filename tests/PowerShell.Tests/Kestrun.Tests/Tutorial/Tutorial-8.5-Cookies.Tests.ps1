@@ -17,7 +17,7 @@ Describe 'Example 8.x Authentication (Cookies)' -Tag 'Tutorial', 'Slow' {
     }
 
     It 'Cookies login' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/cookies/login" -SkipCertificateCheck `
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/cookies/login" -SkipCertificateCheck `
             -Method Post -Body @{ username = 'admin'; password = 'secret' } -SessionVariable lauthSession -SkipHttpErrorCheck
         $script:authSession = $lauthSession
         $script:authSession | Should -Not -BeNullOrEmpty
@@ -31,7 +31,7 @@ Describe 'Example 8.x Authentication (Cookies)' -Tag 'Tutorial', 'Slow' {
     }
 
     It 'Cookies authentication Hello in PowerShell' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/cookies/hello" -SkipCertificateCheck -WebSession $script:authSession -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/cookies/hello" -SkipCertificateCheck -WebSession $script:authSession -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 200
         $result.Content | Should -Be 'Welcome, admin! You are authenticated by Cookies Authentication.'
@@ -39,7 +39,7 @@ Describe 'Example 8.x Authentication (Cookies)' -Tag 'Tutorial', 'Slow' {
     }
 
     It 'Cookies logout' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/cookies/logout" -SkipCertificateCheck -WebSession $script:authSession -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/cookies/logout" -SkipCertificateCheck -WebSession $script:authSession -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 200
         $result.Content | Should -Not -BeNullOrEmpty
@@ -47,7 +47,7 @@ Describe 'Example 8.x Authentication (Cookies)' -Tag 'Tutorial', 'Slow' {
     }
 
     It 'Failed Cookies authentication Hello after logout' {
-        $result = Invoke-WebRequest -Uri "$($script:instance.Url)/cookies/hello" -SkipCertificateCheck -WebSession $script:authSession -SkipHttpErrorCheck
+        $result = Invoke-TestRequest -Uri "$($script:instance.Url)/cookies/hello" -SkipCertificateCheck -WebSession $script:authSession -SkipHttpErrorCheck
         $result | Should -Not -BeNullOrEmpty
         $result.StatusCode | Should -Be 200
         $result.Content | Should -BeLike '*<!DOCTYPE html>*'

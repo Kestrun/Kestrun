@@ -134,6 +134,34 @@ function ConvertTo-LinkScanText {
     return $clean
 }
 
+<#
+.SYNOPSIS
+Normalizes simple YAML scalar text extracted by regex.
+.DESCRIPTION
+Trims surrounding whitespace and removes matching single/double quotes when present.
+.PARAMETER Value
+The scalar text to normalize.
+.OUTPUTS
+System.String
+#>
+function Normalize-YamlScalar {
+    param([string]$Value)
+
+    if ($null -eq $Value) { return $Value }
+    $trimmed = $Value.Trim()
+    if ($trimmed.Length -ge 2) {
+        $startsDouble = $trimmed.StartsWith('"')
+        $endsDouble = $trimmed.EndsWith('"')
+        $startsSingle = $trimmed.StartsWith("'")
+        $endsSingle = $trimmed.EndsWith("'")
+        if (($startsDouble -and $endsDouble) -or ($startsSingle -and $endsSingle)) {
+            return $trimmed.Substring(1, $trimmed.Length - 2)
+        }
+    }
+
+    return $trimmed
+}
+
 
 <#
 .SYNOPSIS
@@ -215,15 +243,15 @@ Get-ChildItem -Path $scan -Recurse -Filter *.md | ForEach-Object {
     if (-not $fm) {
         $failures += "[FrontMatter] $rel missing YAML front matter"
     } else {
-        $title = ([regex]::Match($fm, '(?m)^title:\s*(.+)$')).Groups[1].Value
-        $parent = ([regex]::Match($fm, '(?m)^parent:\s*(.+)$')).Groups[1].Value
-        $nav = ([regex]::Match($fm, '(?m)^nav_order:\s*(.+)$')).Groups[1].Value
+        $title = Normalize-YamlScalar -Value ([regex]::Match($fm, '(?m)^title:\s*(.+)$')).Groups[1].Value
+        $parent = Normalize-YamlScalar -Value ([regex]::Match($fm, '(?m)^parent:\s*(.+)$')).Groups[1].Value
+        $nav = Normalize-YamlScalar -Value ([regex]::Match($fm, '(?m)^nav_order:\s*(.+)$')).Groups[1].Value
         if (-not $title) { $failures += "[FrontMatter] $rel missing title" }
         if (-not $parent) { $failures += "[FrontMatter] $rel missing parent" }
         if (-not $nav) { $failures += "[FrontMatter] $rel missing nav_order" }
 
         # 4) H1 must match title
-        $h1 = ([regex]::Match($text, '^#\s+(.+)$', 'Multiline')).Groups[1].Value
+        $h1 = ([regex]::Match($text, '^#\s+(.+)$', 'Multiline')).Groups[1].Value.Trim()
         if ($h1 -ne $title) { $failures += "[H1] $rel H1 does not match title '$title'" }
     }
 

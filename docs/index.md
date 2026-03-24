@@ -8,7 +8,7 @@ permalink: /
 <!-- markdownlint-disable MD033 -->
 <h1 class="wordmark wordmark--gradient wordmark--glow">Kestrun</h1>
 <p class="wordmark-tagline">
-PowerShell brains. Kestrel speed
+PowerShell brains. Kestrel speed.
 </p>
 
 Kestrun jumpstarts your web automation with a fast, PowerShell-centric framework built on ASP.NET Core,
@@ -20,7 +20,7 @@ blending scriptable flexibility with modern .NET performance.
 
 ---
 
-**Kestrun** is a PowerShell-integrated framework on ASP.NET Core (Kestrel) designed for REST API development.
+**Kestrun** is a PowerShell-integrated framework on ASP.NET Core (Kestrel) designed for REST API development and modern web services.
 It combines the performance of C# with the flexibility of PowerShell, making it easy to prototype, automate, and deliver production-ready APIs with confidence.
 
 ## Highlights
@@ -72,7 +72,7 @@ Spin up your server, validate endpoints, and iterate quickly.
 Choose your deployment model:
 
 - **Service/daemon** → [Production Deployment](/guides/production-service-daemon)
-- **Container** → 🚧 Coming soon
+- **Container** → see the repository examples today; dedicated deployment docs are still planned
 
 ## Minimal example
 
@@ -128,12 +128,10 @@ Start-KrServer
 ## External Documentation
 
 - [Kestrel documentation]
-
-- [Powershell documentation]
-
+- [PowerShell documentation]
 - [OpenAPI documentation]
 
 [Kestrun repo]: https://github.com/kestrun/kestrun
 [Kestrel documentation]: https://learn.microsoft.com/en-us/aspnet/core/?view=aspnetcore-9.0
-[Powershell documentation]: https://learn.microsoft.com/en-us/powershell/
+[PowerShell documentation]: https://learn.microsoft.com/en-us/powershell/
 [OpenAPI documentation]:https://spec.openapis.org/oas/

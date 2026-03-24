@@ -95,8 +95,8 @@
         }
 
         # Opinionated toggles
-        PSAvoidUsingWriteHost = @{ Enable = $false }
-        PSUseApprovedVerbs = @{ Enable = $true }
+        AvoidUsingWriteHost = @{ Enable = $false }
+        UseApprovedVerbs = @{ Enable = $true }
 
         PSUseDeclaredVarsMoreThanAssignments = @{
             Exclude = @(

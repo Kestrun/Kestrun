@@ -137,7 +137,7 @@ jobs:
                 }
 
                 # Always produce SARIF (even partial)
-                @($allResults) | ConvertTo-Sarif | Out-File -Encoding utf8 pssa.sarif
+                @($allResults) | ConvertTo-Sarif -FilePath pssa.sarif
 
                 Write-Host "=== Summary ==="
                 Write-Host "Crashed files count: $($crashedFiles.Count)"

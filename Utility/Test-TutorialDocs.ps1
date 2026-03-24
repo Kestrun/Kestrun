@@ -135,14 +135,14 @@ function ConvertTo-LinkScanText {
 }
 
 <#
-.SYNOPSIS
-Normalizes simple YAML scalar text extracted by regex.
-.DESCRIPTION
-Trims surrounding whitespace and removes matching single/double quotes when present.
-.PARAMETER Value
-The scalar text to normalize.
-.OUTPUTS
-System.String
+    .SYNOPSIS
+    Normalizes simple YAML scalar text extracted by regex.
+    .DESCRIPTION
+    Trims surrounding whitespace and removes matching single/double quotes when present.
+    .PARAMETER Value
+    The scalar text to normalize.
+    .OUTPUTS
+    System.String
 #>
 function Normalize-YamlScalar {
     param([string]$Value)

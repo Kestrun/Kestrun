@@ -536,7 +536,7 @@ Add-BuildTask 'Test-Pester' {
             Write-Host '❌ UPSTASH_REDIS_URL is NOT available for Pester tests' -ForegroundColor Red
         }
     }
-    $res = & .\Utility\Test-Pester.ps1 -ReRunFailed -Verbosity $PesterVerbosity -PerFileTimeoutMinutes 10
+    $res = & .\Utility\Test-Pester.ps1 -ReRunFailed -Verbosity $PesterVerbosity -PerFileTimeoutMinutes 10 -StopOnTimeout
     if ($res -ne 0) { Write-Error "Test-Pester failed with exit code $res" }
     return $res
 }

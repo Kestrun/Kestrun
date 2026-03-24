@@ -24,7 +24,8 @@ param(
     [switch] $EmitNUnit,
     [int] $MaxFailedAllowed = 10,
     [ValidateRange(1, 360)]
-    [int] $PerFileTimeoutMinutes = 10
+    [int] $PerFileTimeoutMinutes = 10,
+    [switch] $StopOnTimeout
 )
 
 begin {
@@ -401,17 +402,21 @@ begin {
 process {
     $testFiles = Resolve-TestFile -Path $TestPath
     $timeoutSeconds = $PerFileTimeoutMinutes * 60
+    $timedOutFiles = [System.Collections.Generic.List[string]]::new()
+    $failedFiles = [System.Collections.Generic.List[string]]::new()
 
     Write-Host "📁 Test results directory: $ResultsDir" -ForegroundColor Cyan
     Write-Host '📦 GitHub Actions artifact path should include: **/TestResults/**' -ForegroundColor DarkYellow
     Write-Host "🧪 Running Pester tests in '$TestPath'" -ForegroundColor Cyan
     Write-Host "⏱️ Per-file timeout: $PerFileTimeoutMinutes minute(s)" -ForegroundColor Cyan
+    Write-Host "🛑 Stop on timeout: $($StopOnTimeout.IsPresent)" -ForegroundColor Cyan
     Write-Host "📚 Discovered $($testFiles.Count) test file(s)" -ForegroundColor Cyan
 
     $finalExit = 0
     $fileIndex = 0
 
     foreach ($testFile in $testFiles) {
+        $fileTimedOut = $false
         $fileIndex++
         $resultFileName = if ($EmitNUnit) {
             Get-ResultFileName -Prefix 'Pester' -TestFilePath $testFile -Extension 'nunit.xml' -Index $fileIndex
@@ -426,8 +431,15 @@ process {
 
         $initial = Invoke-PesterWithConfig -Config $baseCfg -TimeoutSeconds $timeoutSeconds
         if ($initial.TimedOut) {
+            $fileTimedOut = $true
+            $timedOutFiles.Add($testFile)
             Write-Host ("❌ Timeout: '{0}' exceeded {1} minute(s)." -f $testFile, $PerFileTimeoutMinutes) -ForegroundColor Red
+            Write-Host ("::error::Pester timeout in '{0}' after {1} minute(s)." -f $testFile, $PerFileTimeoutMinutes)
             $finalExit = 1
+            if ($StopOnTimeout) {
+                Write-Host '🛑 Stopping test execution due to timeout and -StopOnTimeout.' -ForegroundColor Red
+                return 1
+            }
             continue
         }
 
@@ -453,7 +465,10 @@ process {
 
                 $rerun = Invoke-PesterWithConfig -Config $rerunCfg -TimeoutSeconds $timeoutSeconds
                 if ($rerun.TimedOut) {
+                    $fileTimedOut = $true
+                    $timedOutFiles.Add($testFile)
                     Write-Host ("❌ Re-run timeout: '{0}' exceeded {1} minute(s)." -f $testFile, $PerFileTimeoutMinutes) -ForegroundColor Red
+                    Write-Host ("::error::Pester timeout in re-run for '{0}' after {1} minute(s)." -f $testFile, $PerFileTimeoutMinutes)
                     $fileExit = 1
                     break
                 }
@@ -472,10 +487,30 @@ process {
 
         if ($fileExit -ne 0) {
             $finalExit = 1
+            $failedFiles.Add($testFile)
+            if ($fileTimedOut -and $StopOnTimeout) {
+                Write-Host '🛑 Stopping test execution due to timeout and -StopOnTimeout.' -ForegroundColor Red
+                return 1
+            }
         }
     }
 
     if ($finalExit -ne 0) {
+        if ($timedOutFiles.Count -gt 0) {
+            Write-Host '❌ Timed out test file(s):' -ForegroundColor Red
+            foreach ($timedOutFile in $timedOutFiles) {
+                Write-Host ("   - {0}" -f $timedOutFile) -ForegroundColor Red
+            }
+        }
+
+        $failedNoTimeout = @($failedFiles | Where-Object { $timedOutFiles -notcontains $_ })
+        if ($failedNoTimeout.Count -gt 0) {
+            Write-Host '❌ Failed test file(s):' -ForegroundColor Red
+            foreach ($failedFile in $failedNoTimeout) {
+                Write-Host ("   - {0}" -f $failedFile) -ForegroundColor Red
+            }
+        }
+
         Write-Host '❌ Some tests failed (after re-runs, if enabled).'
         return $finalExit
     } else {

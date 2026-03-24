@@ -1,4 +1,4 @@
-param()
+﻿param()
 
 BeforeAll {
     . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
@@ -36,7 +36,12 @@ Enable-KrConfiguration
 Start-KrServer -NoWait
 "@ | Set-Content -Path $conflictScript -Encoding UTF8
 
-            $process = Start-Process -FilePath 'pwsh' -ArgumentList @(
+            $pwshExecutable = (Get-Process -Id $PID -ErrorAction Stop).Path
+            if ([string]::IsNullOrWhiteSpace($pwshExecutable)) {
+                $pwshExecutable = (Get-Command pwsh -ErrorAction Stop).Source
+            }
+
+            $process = Start-Process -FilePath $pwshExecutable -ArgumentList @(
                 '-NoLogo',
                 '-NoProfile',
                 '-Command',

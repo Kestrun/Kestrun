@@ -40,10 +40,7 @@ Enable-KrConfiguration
 Start-KrServer
 "@ | Set-Content -Path $conflictScript -Encoding UTF8
 
-            $pwshExecutable = (Get-Process -Id $PID -ErrorAction Stop).Path
-            if ([string]::IsNullOrWhiteSpace($pwshExecutable)) {
-                $pwshExecutable = (Get-Command pwsh -ErrorAction Stop).Source
-            }
+            $pwshExecutable = Get-PwshExecutable
 
             $process = Start-Process -FilePath $pwshExecutable -ArgumentList @(
                 '-NoLogo',

@@ -177,6 +177,28 @@ function Get-ExampleScriptPath {
     return $full
 }
 
+<#
+.SYNOPSIS
+    Resolve the current PowerShell executable path.
+.DESCRIPTION
+    Returns the path of the currently running PowerShell process when available.
+    Falls back to resolving `pwsh` via Get-Command.
+.OUTPUTS
+    String full path to pwsh executable.
+#>
+function Get-PwshExecutable {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param()
+
+    $pwshExecutable = (Get-Process -Id $PID -ErrorAction Stop).Path
+    if ([string]::IsNullOrWhiteSpace($pwshExecutable)) {
+        $pwshExecutable = (Get-Command pwsh -ErrorAction Stop).Source
+    }
+
+    return $pwshExecutable
+}
+
 
 <#
 .SYNOPSIS
@@ -297,10 +319,7 @@ Start-KrServer
         "Import-Module '$kestrunModulePath'; . '$scriptToRun' -Port $Port"
     )
 
-    $pwshExecutable = (Get-Process -Id $PID -ErrorAction Stop).Path
-    if ([string]::IsNullOrWhiteSpace($pwshExecutable)) {
-        $pwshExecutable = (Get-Command pwsh -ErrorAction Stop).Source
-    }
+    $pwshExecutable = Get-PwshExecutable
 
     # Create process start parameters
     $param = @{

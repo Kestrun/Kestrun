@@ -69,7 +69,7 @@ function Install-ReportGenerator {
         dotnet tool install -g dotnet-reportgenerator-globaltool | Out-Host
     }
     # ensure current session PATH includes toolDir
-    $toolDir = Split-Path -Path $rg
+    $toolDir = Split-Path -Parent -Path $rg
     $sep = [IO.Path]::PathSeparator
     if (-not ($env:PATH -split $sep | Where-Object { $_ -eq $toolDir })) {
         $env:PATH = "$toolDir$sep$env:PATH"

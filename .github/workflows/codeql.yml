@@ -106,6 +106,45 @@ jobs:
         - name: Run PSScriptAnalyzer and emit SARIF
           shell: pwsh
           run: |
+            $ErrorActionPreference = 'Stop'
+
+            Write-Host "=== Discovering installed PSScriptAnalyzer versions ==="
+            $all = Get-Module PSScriptAnalyzer -ListAvailable |
+            Sort-Object Version -Descending
+
+            if (-not $all) {
+            throw "PSScriptAnalyzer is not installed."
+            }
+
+            $latest = $all | Select-Object -First 1
+
+            $all | Format-Table Name, Version, Path
+
+            Write-Host "=== Forcing latest version ==="
+            Write-Host "Using version: $($latest.Version)"
+            Write-Host "From path: $($latest.Path)"
+
+            # Remove any already loaded version (important!)
+            Remove-Module PSScriptAnalyzer -ErrorAction SilentlyContinue -Force
+
+            # Import EXACT version
+            Import-Module $latest.Path -Force
+
+            # Validate loaded version
+            $loaded = Get-Module PSScriptAnalyzer
+
+            if (-not $loaded) {
+            throw "Failed to load PSScriptAnalyzer."
+            }
+
+            if ($loaded.Version -ne $latest.Version) {
+            throw "Wrong PSScriptAnalyzer version loaded. Expected $($latest.Version), got $($loaded.Version)"
+            }
+
+            Write-Host "=== Loaded version ==="
+            $loaded | Format-List Name, Version, Path
+
+            # --- Run analyzer ---
             $results = Invoke-ScriptAnalyzer `
               -Path .\src\PowerShell\Kestrun `
               -Recurse `

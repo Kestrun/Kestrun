@@ -35,7 +35,12 @@ In ASP.NET Core, the Forwarded Headers middleware reads these headers and update
 
 ## Kestrun configuration
 
-Enable Forwarded Headers early in the pipeline and restrict trust to your proxy addresses or networks.
+Register Forwarded Headers before calling `Enable-KrConfiguration` and restrict trust to your proxy addresses or networks.
+
+In plain ASP.NET Core apps, `UseForwardedHeaders()` is usually placed near the start of the middleware pipeline. In Kestrun, forwarded
+headers are applied late in the pipeline: they run after routing, CORS, and exception-handling middleware have executed, but
+immediately before your route/endpoint handlers run. This means handlers see the corrected scheme, host, client IP, and path base,
+while those earlier built-in middleware components operate on the original values.
 
 ### PowerShell
 
@@ -147,7 +152,7 @@ Consult your provider’s documentation for the exact outbound IP ranges and upd
 
 | Symptom | Cause | Resolution |
 |---------|-------|------------|
-| Request.Scheme remains http | Middleware runs too late | Register forwarded headers before routing/configuration. |
+| Request.Scheme remains http | Forwarded headers are missing, not trusted, or the value is being inspected before Kestrun applies the middleware | Register forwarded headers before `Enable-KrConfiguration`, verify `KnownProxies`/`KnownNetworks`, and inspect the effective values in routes or middleware that runs after forwarded headers. |
 | `RemoteIpAddress` is proxy IP | Headers not forwarded or not trusted | Verify proxy sets X-Forwarded-For and add proxy IP to KnownProxies/Networks. |
 | Wrong Host in links | Missing X-Forwarded-Host | Forward Host and enable XForwardedHost flag. |
 | PathBase lost behind sub-path | Missing X-Forwarded-PathBase support | Forward header and enable flag; alternatively, rewrite path at proxy. |

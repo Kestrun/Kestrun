@@ -8,7 +8,6 @@
         'PSAvoidUsingWriteHost'
         # PowerShell 7+ only: prefer UTF-8 without BOM for cross-platform tooling friendliness
         'PSUseBOMForUnicodeEncodedFile'
-        'AvoidReservedCharInCmdlet'
     )
 
     # Where your custom rules live (folder or file). Uncomment if you have custom rules.
@@ -54,7 +53,7 @@
             NewLineAfter = $false
         }
 
-        ProvideCommentHelp = @{
+        PSProvideCommentHelp = @{
             Enable = $true
             ExportedOnly = $false
             BlockComment = $true
@@ -95,8 +94,8 @@
         }
 
         # Opinionated toggles
-        AvoidUsingWriteHost = @{ Enable = $false }
-        UseApprovedVerbs = @{ Enable = $true }
+        PSAvoidUsingWriteHost = @{ Enable = $false }
+        PSUseApprovedVerbs = @{ Enable = $true }
 
         PSUseDeclaredVarsMoreThanAssignments = @{
             Exclude = @(

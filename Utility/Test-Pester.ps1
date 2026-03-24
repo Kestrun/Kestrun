@@ -22,7 +22,9 @@ param(
     [string] $ResultsDir = (Join-Path -Path (Get-Location) -ChildPath 'TestResults'),
     [string] $TestPath = (Join-Path -Path (Get-Location) -ChildPath 'tests' -AdditionalChildPath 'PowerShell.Tests', 'Kestrun.Tests'),
     [switch] $EmitNUnit,
-    [int] $MaxFailedAllowed = 10
+    [int] $MaxFailedAllowed = 10,
+    [ValidateRange(1, 360)]
+    [int] $PerFileTimeoutMinutes = 10
 )
 
 begin {
@@ -58,6 +60,7 @@ begin {
         param(
             [Parameter(Mandatory = $true)] [string] $TestPath,
             [Parameter(Mandatory = $true)] [string] $Verbosity,
+            [Parameter(Mandatory = $true)] [string] $ResultOutputPath,
             [switch] $EmitNUnit
         )
 
@@ -67,38 +70,29 @@ begin {
             New-Item -ItemType Directory -Force -Path $ResultsDir | Out-Null
         }
 
-        $cfg = [PesterConfiguration]::Default
-
-        # Path(s) to test files / directory
-        $cfg.Run.Path = @($TestPath)
-
-        # Verbosity for output
-        $cfg.Output.Verbosity = $Verbosity
-
-        # Enable test result output
-        $cfg.TestResult.Enabled = $true
-        $cfg.TestResult.OutputPath = Join-Path $ResultsDir 'Pester.trx'
-
-        # Do not auto-exit; we’ll manage exit logic ourselves (for reruns etc.)
-        $cfg.Run.Exit = $false
-
-        # Make sure Invoke-Pester returns a result object
-        $cfg.Run.PassThru = $true
+        $cfg = [ordered]@{
+            RunPath = @($TestPath)
+            Verbosity = $Verbosity
+            TestResultEnabled = $true
+            TestResultOutputPath = $ResultOutputPath
+            TestResultOutputFormat = $null
+            ExcludeTag = @()
+            FullName = @()
+        }
 
         # Exclude tags based on OS
         $excludeTag = @()
         if ($IsLinux) { $excludeTag += 'Exclude_Linux' }
         if ($IsMacOS) { $excludeTag += 'Exclude_MacOs' }
         if ($IsWindows) { $excludeTag += 'Exclude_Windows' }
-        $cfg.Filter.ExcludeTag = $excludeTag
+        $cfg.ExcludeTag = $excludeTag
 
         # Optionally produce NUnit XML in addition to TRX
         if ($EmitNUnit) {
-            $cfg.TestResult.OutputFormat = 'NUnitXml'
-            $cfg.TestResult.OutputPath = Join-Path $ResultsDir 'Pester.nunit.xml'
+            $cfg.TestResultOutputFormat = 'NUnitXml'
         }
 
-        return $cfg
+        return [pscustomobject]$cfg
     }
 
     <#
@@ -118,8 +112,22 @@ begin {
     function Get-FailedSelector {
         param([Parameter(Mandatory)] $PesterRun)
         $result = @{}
+        if ($PesterRun.PSObject.Properties['FailedTests']) {
+            foreach ($test in @($PesterRun.FailedTests)) {
+                $result[$test.File] = @{
+                    File = $test.File
+                    Line = $test.Line
+                    FullName = $test.FullName
+                    ExpandedPath = $test.ExpandedPath
+                    Name = $test.Name
+                    Result = $test.Result
+                }
+            }
+            return $result.Values
+        }
+
         $PesterRun.Tests |
-            Where-Object { $_.Result -eq 'Failed' } | # -or $_.Outcome -eq 'Failed' } |
+            Where-Object { $_.Result -eq 'Failed' } |
             ForEach-Object {
                 # Prefer ScriptBlock.File; fall back to Block.BlockContainer
                 $file = $null
@@ -163,24 +171,29 @@ begin {
         param(
             [Parameter(Mandatory)]
             [System.Collections.IEnumerable] $Failed,
-            [Parameter(Mandatory)] $BaseConfig
+            [Parameter(Mandatory)] $BaseConfig,
+            [Parameter(Mandatory = $true)] [string] $ResultOutputPath
         )
-        $cfg = [PesterConfiguration]::Default
-        $cfg.Run.Path = $Failed.File
-        $cfg.Output.Verbosity = $BaseConfig.Output.Verbosity
-        $cfg.TestResult.Enabled = $true
-        $cfg.TestResult.OutputPath = Join-Path $ResultsDir ('Pester-rerun-{0}.trx' -f (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
-        $cfg.Run.Exit = $false
-        $cfg.Run.PassThru = $true
-        $cfg.Filter.ExcludeTag = $BaseConfig.Filter.ExcludeTag
+        $cfg = [ordered]@{
+            RunPath = @($Failed.File | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique)
+            Verbosity = $BaseConfig.Verbosity
+            TestResultEnabled = $true
+            TestResultOutputPath = $ResultOutputPath
+            TestResultOutputFormat = $null
+            ExcludeTag = @($BaseConfig.ExcludeTag)
+            FullName = @()
+        }
 
         # 🎯 Target ONLY the failing tests by their FullName
-        $cfg.Filter.FullName = @(
+        $cfg.FullName = @(
             $Failed |
                 Where-Object { $_.FullName } |
                 Select-Object -ExpandProperty FullName -Unique
         )
-        return $cfg
+        if (-not $cfg.RunPath -or $cfg.RunPath.Count -eq 0) {
+            $cfg.RunPath = @($BaseConfig.RunPath)
+        }
+        return [pscustomobject]$cfg
     }
 
     <#
@@ -199,53 +212,266 @@ begin {
     #>
     function Invoke-PesterWithConfig {
         param(
-            [Parameter(Mandatory = $true)] $Config
+            [Parameter(Mandatory = $true)] $Config,
+            [Parameter(Mandatory = $true)] [int] $TimeoutSeconds
         )
 
-        $run = Invoke-Pester -Configuration $Config
-        $code = if ($run.FailedCount -gt 0) { 1 } else { 0 }
-        return @{ Run = $run; ExitCode = $code }
+        $jobConfig = $Config
+        $jobWorkingDirectory = (Get-Location).Path
+        $job = Start-Job -ScriptBlock {
+            $innerConfig = $using:jobConfig
+            $workingDirectory = $using:jobWorkingDirectory
+
+            Set-Location -Path $workingDirectory
+            Import-Module Pester -Force
+
+            $pesterCfg = [PesterConfiguration]::Default
+            $pesterCfg.Run.Path = @($innerConfig.RunPath)
+            $pesterCfg.Output.Verbosity = $innerConfig.Verbosity
+            $pesterCfg.TestResult.Enabled = [bool]$innerConfig.TestResultEnabled
+            $pesterCfg.TestResult.OutputPath = $innerConfig.TestResultOutputPath
+            if (-not [string]::IsNullOrWhiteSpace($innerConfig.TestResultOutputFormat)) {
+                $pesterCfg.TestResult.OutputFormat = $innerConfig.TestResultOutputFormat
+            }
+            $pesterCfg.Run.Exit = $false
+            $pesterCfg.Run.PassThru = $true
+            $pesterCfg.Filter.ExcludeTag = @($innerConfig.ExcludeTag)
+            if ($innerConfig.FullName -and $innerConfig.FullName.Count -gt 0) {
+                $pesterCfg.Filter.FullName = @($innerConfig.FullName)
+            }
+
+            try {
+                $run = Invoke-Pester -Configuration $pesterCfg
+                $failedTests = @(
+                    $run.Tests |
+                        Where-Object { $_.Result -eq 'Failed' } |
+                        ForEach-Object {
+                            $file = $null
+                            try { $file = $_.ScriptBlock.File } catch {
+                                if ( $_.Block -and $_.Block.BlockContainer) {
+                                    $file = $_.Block.BlockContainer.Item.ResolvedTarget
+                                }
+                            }
+                            [pscustomobject]@{
+                                File = $file
+                                Line = $_.StartLine
+                                FullName = $_.FullName
+                                ExpandedPath = $_.ExpandedPath
+                                Name = $_.Name
+                                Result = $_.Result
+                            }
+                        }
+                )
+                return [pscustomobject]@{
+                    FailedCount = [int]$run.FailedCount
+                    PassedCount = [int]$run.PassedCount
+                    SkippedCount = [int]$run.SkippedCount
+                    TotalCount = [int]$run.TotalCount
+                    FailedTests = $failedTests
+                    ExitCode = if ($run.FailedCount -gt 0) { 1 } else { 0 }
+                    TimedOut = $false
+                }
+            } catch {
+                return [pscustomobject]@{
+                    FailedCount = 1
+                    PassedCount = 0
+                    SkippedCount = 0
+                    TotalCount = 1
+                    FailedTests = @()
+                    ExitCode = 1
+                    TimedOut = $false
+                    ErrorMessage = $_.Exception.Message
+                }
+            }
+        }
+
+        $completed = Wait-Job -Job $job -Timeout $TimeoutSeconds
+        if (-not $completed) {
+            Stop-Job -Job $job -ErrorAction SilentlyContinue | Out-Null
+            Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+            $target = @($Config.RunPath | Select-Object -First 1) -join ''
+            return @{
+                Run = [pscustomobject]@{
+                    FailedCount = 1
+                    PassedCount = 0
+                    SkippedCount = 0
+                    TotalCount = 1
+                    FailedTests = @(
+                        [pscustomobject]@{
+                            File = $target
+                            Line = 0
+                            FullName = "__TIMEOUT__:$target"
+                            ExpandedPath = $target
+                            Name = "Timed out after $TimeoutSeconds seconds"
+                            Result = 'Failed'
+                        }
+                    )
+                    TimedOut = $true
+                }
+                ExitCode = 1
+                TimedOut = $true
+            }
+        }
+
+        $jobOutput = Receive-Job -Job $job -ErrorAction SilentlyContinue
+        Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+        $run = $jobOutput | Select-Object -Last 1
+        if (-not $run) {
+            $run = [pscustomobject]@{
+                FailedCount = 1
+                PassedCount = 0
+                SkippedCount = 0
+                TotalCount = 1
+                FailedTests = @()
+                TimedOut = $false
+                ErrorMessage = 'No result object returned from Pester worker job.'
+            }
+            return @{ Run = $run; ExitCode = 1; TimedOut = $false }
+        }
+        return @{ Run = $run; ExitCode = [int]$run.ExitCode; TimedOut = [bool]$run.TimedOut }
+    }
+
+    <#
+    .SYNOPSIS
+        Resolves a test path to one or more concrete Pester test files.
+    .DESCRIPTION
+        Accepts either a single test file path or a directory, and returns
+        absolute paths to discovered `*.Tests.ps1` files in deterministic order.
+    .PARAMETER Path
+        A file or directory path containing Pester tests.
+    .OUTPUTS
+        String array of absolute test file paths.
+    #>
+    function Resolve-TestFile {
+        [OutputType([string[]])]
+        param([Parameter(Mandatory = $true)][string]$Path)
+
+        if (-not (Test-Path -Path $Path)) {
+            throw "TestPath not found: $Path"
+        }
+
+        if (Test-Path -Path $Path -PathType Leaf) {
+            return @((Resolve-Path -Path $Path).Path)
+        }
+
+        $files = Get-ChildItem -Path $Path -File -Recurse -Filter '*.Tests.ps1' |
+            Sort-Object -Property FullName |
+            Select-Object -ExpandProperty FullName
+
+        if (-not $files -or $files.Count -eq 0) {
+            throw "No Pester test files (*.Tests.ps1) found under: $Path"
+        }
+
+        return @($files)
+    }
+
+    <#
+    .SYNOPSIS
+        Builds a safe result file name for a specific test file.
+    .DESCRIPTION
+        Produces stable per-file artifact names by sanitizing the test file
+        base name and optionally prefixing with an index.
+    .PARAMETER Prefix
+        Prefix for the generated file name.
+    .PARAMETER TestFilePath
+        The source test file path.
+    .PARAMETER Extension
+        Output extension without leading dot.
+    .PARAMETER Index
+        Optional numeric index to prepend.
+    .OUTPUTS
+        String file name.
+    #>
+    function Get-ResultFileName {
+        [OutputType([string])]
+        param(
+            [Parameter(Mandatory = $true)][string]$Prefix,
+            [Parameter(Mandatory = $true)][string]$TestFilePath,
+            [Parameter(Mandatory = $true)][string]$Extension,
+            [int]$Index = 0
+        )
+        $safeBase = [IO.Path]::GetFileNameWithoutExtension($TestFilePath) -replace '[^a-zA-Z0-9\.\-_]', '_'
+        if ($Index -gt 0) {
+            return "$Prefix.$Index.$safeBase.$Extension"
+        }
+        return "$Prefix.$safeBase.$Extension"
     }
 }
 
 process {
-    $baseCfg = New-BasePesterConfig -TestPath $TestPath -Verbosity $Verbosity -EmitNUnit:$EmitNUnit
+    $testFiles = Resolve-TestFile -Path $TestPath
+    $timeoutSeconds = $PerFileTimeoutMinutes * 60
 
     Write-Host "📁 Test results directory: $ResultsDir" -ForegroundColor Cyan
-    Write-Host "📄 TRX result file: $($baseCfg.TestResult.OutputPath.Value)" -ForegroundColor DarkCyan
     Write-Host '📦 GitHub Actions artifact path should include: **/TestResults/**' -ForegroundColor DarkYellow
-    Write-Host "🧪 Running Pester tests in '$($baseCfg.Run.Path.Value)'" -ForegroundColor Cyan
+    Write-Host "🧪 Running Pester tests in '$TestPath'" -ForegroundColor Cyan
+    Write-Host "⏱️ Per-file timeout: $PerFileTimeoutMinutes minute(s)" -ForegroundColor Cyan
+    Write-Host "📚 Discovered $($testFiles.Count) test file(s)" -ForegroundColor Cyan
 
-    $initial = Invoke-PesterWithConfig -Config $baseCfg
+    $finalExit = 0
+    $fileIndex = 0
 
-    $finalExit = $initial.ExitCode
-    $attempt = 0
-
-    if ( $initial.Run.FailedCount -gt 0 -and $ReRunFailed ) {
-        $failed = Get-FailedSelector -PesterRun $initial.Run
-        if ($failed.Count -le $MaxFailedAllowed ) {
-            Write-Host ('❌ Initial test run had {0} failures; preparing to re-run up to {1} times...' -f $failed.Count, $MaxReruns) -ForegroundColor Yellow
+    foreach ($testFile in $testFiles) {
+        $fileIndex++
+        $resultFileName = if ($EmitNUnit) {
+            Get-ResultFileName -Prefix 'Pester' -TestFilePath $testFile -Extension 'nunit.xml' -Index $fileIndex
         } else {
-            Write-Host ('❌ Initial test run had {0} failures which exceeds MaxFailedAllowed ({1}); skipping re-runs.' -f $initial.Run.FailedCount, $MaxFailedAllowed) -ForegroundColor Red
-            return 1
+            Get-ResultFileName -Prefix 'Pester' -TestFilePath $testFile -Extension 'trx' -Index $fileIndex
+        }
+        $resultPath = Join-Path -Path $ResultsDir -ChildPath $resultFileName
+        $baseCfg = New-BasePesterConfig -TestPath $testFile -Verbosity $Verbosity -ResultOutputPath $resultPath -EmitNUnit:$EmitNUnit
+
+        Write-Host ('▶️ [{0}/{1}] Running {2}' -f $fileIndex, $testFiles.Count, $testFile) -ForegroundColor Cyan
+        Write-Host "📄 Result file: $resultPath" -ForegroundColor DarkCyan
+
+        $initial = Invoke-PesterWithConfig -Config $baseCfg -TimeoutSeconds $timeoutSeconds
+        if ($initial.TimedOut) {
+            Write-Host ("❌ Timeout: '{0}' exceeded {1} minute(s)." -f $testFile, $PerFileTimeoutMinutes) -ForegroundColor Red
+            $finalExit = 1
+            continue
         }
 
-        while ($attempt -le $MaxReruns -and $failed.Count -gt 0) {
-            $attempt++
-            Write-Host ('🔁 Re-run attempt {0} for {1} failing test(s)...' -f $attempt, $failed.Count)
-
-            $rerunCfg = New-RerunConfig -Failed $failed -BaseConfig $baseCfg
-            Write-Host "📄 Re-run TRX result file: $($rerunCfg.TestResult.OutputPath.Value)" -ForegroundColor DarkCyan
-
-            $rerun = Invoke-PesterWithConfig -Config $rerunCfg
-
-            if ($rerun.Run.FailedCount -gt 0) {
-                $failed = Get-FailedSelector -PesterRun $rerun.Run
-                $finalExit = 1
+        $fileExit = $initial.ExitCode
+        if ($initial.Run.FailedCount -gt 0 -and $ReRunFailed) {
+            $failed = Get-FailedSelector -PesterRun $initial.Run
+            if ($failed.Count -le $MaxFailedAllowed) {
+                Write-Host ('❌ Initial run had {0} failing test(s); re-running up to {1} time(s)...' -f $failed.Count, $MaxReruns) -ForegroundColor Yellow
             } else {
-                $failed = @()
-                $finalExit = 0
+                Write-Host ('❌ Initial run had {0} failing test(s), exceeds MaxFailedAllowed ({1}); skipping re-runs.' -f $initial.Run.FailedCount, $MaxFailedAllowed) -ForegroundColor Red
+                $finalExit = 1
+                continue
             }
+
+            $attempt = 0
+            while ($attempt -lt $MaxReruns -and $failed.Count -gt 0) {
+                $attempt++
+                Write-Host ('🔁 Re-run attempt {0} for {1} failing test(s)...' -f $attempt, $failed.Count)
+
+                $rerunResultPath = Join-Path $ResultsDir ('Pester-rerun-{0}-{1:yyyyMMdd-HHmmss-fff}.trx' -f $fileIndex, (Get-Date))
+                $rerunCfg = New-RerunConfig -Failed $failed -BaseConfig $baseCfg -ResultOutputPath $rerunResultPath
+                Write-Host "📄 Re-run result file: $rerunResultPath" -ForegroundColor DarkCyan
+
+                $rerun = Invoke-PesterWithConfig -Config $rerunCfg -TimeoutSeconds $timeoutSeconds
+                if ($rerun.TimedOut) {
+                    Write-Host ("❌ Re-run timeout: '{0}' exceeded {1} minute(s)." -f $testFile, $PerFileTimeoutMinutes) -ForegroundColor Red
+                    $fileExit = 1
+                    break
+                }
+
+                if ($rerun.Run.FailedCount -gt 0) {
+                    $failed = Get-FailedSelector -PesterRun $rerun.Run
+                    $fileExit = 1
+                } else {
+                    $failed = @()
+                    $fileExit = 0
+                }
+            }
+        } elseif ($initial.Run.FailedCount -gt 0) {
+            $fileExit = 1
+        }
+
+        if ($fileExit -ne 0) {
+            $finalExit = 1
         }
     }
 

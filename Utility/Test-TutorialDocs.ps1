@@ -76,9 +76,9 @@ function Resolve-DocLinkTarget {
     $hasAnyExtension = [System.IO.Path]::HasExtension($clean)
 
     if ($clean.StartsWith('/')) {
-        $base = Join-Path -Path $DocsRoot -ChildPath ($clean.TrimStart('/') -replace '/', '\\')
+        $base = Join-Path -Path $DocsRoot -ChildPath $clean.TrimStart('/').Replace('/', [System.IO.Path]::DirectorySeparatorChar)
     } else {
-        $base = Join-Path -Path (Split-Path -Parent -Path $FromFile) -ChildPath ($clean -replace '/', '\\')
+        $base = Join-Path -Path (Split-Path -Parent -Path $FromFile) -ChildPath $clean.Replace('/', [System.IO.Path]::DirectorySeparatorChar)
     }
 
     if ($hasAnyExtension -and -not $result.HasMdExtension) {
@@ -450,7 +450,7 @@ try {
         if ($h -match '^https?://') { return $null }
         if ($h -match '^/') { return $null }
 
-        $h = $h -replace '/', '\\'
+        $h = $h.Replace('/', [System.IO.Path]::DirectorySeparatorChar)
         $fromDir = Split-Path -Path $FromFile -Parent
         $candidate = Join-Path -Path $fromDir -ChildPath $h
 

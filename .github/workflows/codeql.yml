@@ -146,7 +146,7 @@ jobs:
                 Write-Host "SARIF emitted to pssa.sarif"
 
                 Write-Host "=== Issue summary by severity ==="
-                $AllResults |
+                $allResults |
                     Group-Object Severity |
                     ForEach-Object {
                         $severityGroup = $_

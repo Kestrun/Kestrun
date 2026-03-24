@@ -1,4 +1,4 @@
-param()
+﻿param()
 
 BeforeAll {
     . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
@@ -56,6 +56,7 @@ Start-KrServer
                         $process | Stop-Process -Force -ErrorAction SilentlyContinue
                     }
                 } catch {
+                    Write-Warning "Failed to stop conflict script process: $_"
                     # Ignore cleanup failures while building timeout diagnostics.
                 }
 
@@ -71,7 +72,6 @@ Start-KrServer
 
             $stdout | Should -Not -Match 'Kestrun server started successfully\.'
             ($stdout + "`n" + $stderr) | Should -Match 'Failed to bind to address|Address already in use|Only one usage of each socket address'
-
         } finally {
             if ($instance) {
                 Stop-ExampleScript -Instance $instance

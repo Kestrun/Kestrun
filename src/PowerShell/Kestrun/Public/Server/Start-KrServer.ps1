@@ -88,12 +88,14 @@ function Start-KrServer {
         try {
             $startupTask = $Server.StartAsync()
         } catch {
-            $exception = $_.Exception
-            if ($exception -and $exception.InnerException) {
-                $exception = $exception.InnerException
+            $originalException = $_.Exception
+            $displayException = if ($originalException -and $originalException.InnerException) {
+                $originalException.InnerException
+            } else {
+                $originalException
             }
-            & $writeStartupFailureBanner $exception
-            throw $exception
+            & $writeStartupFailureBanner $displayException
+            throw
         }
 
         if ($NoWait.IsPresent) {
@@ -119,12 +121,14 @@ function Start-KrServer {
                 # Block until startup completes so bind/config errors surface immediately.
                 $startupTask.GetAwaiter().GetResult()
             } catch {
-                $exception = $_.Exception
-                if ($exception -and $exception.InnerException) {
-                    $exception = $exception.InnerException
+                $originalException = $_.Exception
+                $displayException = if ($originalException -and $originalException.InnerException) {
+                    $originalException.InnerException
+                } else {
+                    $originalException
                 }
-                & $writeStartupFailureBanner $exception
-                throw $exception
+                & $writeStartupFailureBanner $displayException
+                throw
             }
 
             if ($writeConsole) {

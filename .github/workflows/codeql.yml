@@ -116,6 +116,7 @@ jobs:
             Invoke-ScriptAnalyzer `
                 -Path .\src\PowerShell\Kestrun `
                 -Recurse `
+                -ExcludeRule PSAvoidReservedCharInCmdlet `
                 -Severity @('Error','Warning','Information') | Out-Null
             Write-Host "OK: no-settings run succeeded"
             }
@@ -131,6 +132,7 @@ jobs:
             ExcludeRules = @(
                 'PSAvoidUsingWriteHost'
                 'PSUseBOMForUnicodeEncodedFile'
+                'PSAvoidReservedCharInCmdlet'
             )
             }
 

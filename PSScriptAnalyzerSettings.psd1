@@ -54,7 +54,7 @@
             NewLineAfter = $false
         }
 
-        PSProvideCommentHelp = @{
+        ProvideCommentHelp = @{
             Enable = $true
             ExportedOnly = $false
             BlockComment = $true

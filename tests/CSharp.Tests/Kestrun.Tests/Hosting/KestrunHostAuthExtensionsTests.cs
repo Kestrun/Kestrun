@@ -594,8 +594,7 @@ public class KestrunHostAuthExtensionsTests
             ClientSecret = "secret",
             OAuth2MetadataUrl = "https://issuer.example/.well-known/oauth-authorization-server",
             ResolveEndpointsFromMetadata = true,
-            BackchannelHttpHandler = handler,
-            Backchannel = null
+            BackchannelHttpHandler = handler
         };
 
         _ = host.AddOAuth2Authentication("OAuth2MetadataHandler", "OAuth2 Metadata Handler", options);

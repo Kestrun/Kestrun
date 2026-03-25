@@ -4,6 +4,7 @@ using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
+using System.Text.Json;
 
 namespace Kestrun.Authentication;
 
@@ -63,6 +64,18 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
     /// </summary>
     public ClaimPolicyConfig? ClaimPolicy { get; set; }
 
+    /// <summary>
+    /// Gets or sets the OAuth2 authorization server metadata URL (RFC 8414).
+    /// This is used for OpenAPI metadata and optional endpoint discovery.
+    /// </summary>
+    public string? OAuth2MetadataUrl { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether missing OAuth2 endpoints should be
+    /// resolved from <see cref="OAuth2MetadataUrl"/>.
+    /// </summary>
+    public bool ResolveEndpointsFromMetadata { get; set; } = false;
+
     private Serilog.ILogger? _logger;
     /// <inheritdoc/>
     public Serilog.ILogger Logger
@@ -88,6 +101,8 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
         target.Host = Host;
         target.ClaimPolicy = ClaimPolicy;
         target.Deprecated = Deprecated;
+        target.OAuth2MetadataUrl = OAuth2MetadataUrl;
+        target.ResolveEndpointsFromMetadata = ResolveEndpointsFromMetadata;
     }
 
     /// <summary>
@@ -161,5 +176,64 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
 
         // Other properties
         target.StateDataFormat = StateDataFormat;
+    }
+
+    /// <summary>
+    /// Populates missing OAuth2 endpoints from an OAuth2 metadata document.
+    /// </summary>
+    /// <param name="options">The OAuth2 options to populate.</param>
+    /// <param name="httpClient">The HTTP client used to fetch metadata.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    internal static async Task PopulateEndpointsFromMetadataAsync(
+        OAuth2Options options,
+        HttpClient httpClient,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(httpClient);
+
+        if (string.IsNullOrWhiteSpace(options.OAuth2MetadataUrl))
+        {
+            return;
+        }
+
+        using var response = await httpClient.GetAsync(options.OAuth2MetadataUrl, cancellationToken).ConfigureAwait(false);
+        _ = response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+        if (string.IsNullOrWhiteSpace(options.AuthorizationEndpoint) &&
+            json.RootElement.TryGetProperty("authorization_endpoint", out var auth) &&
+            auth.ValueKind == JsonValueKind.String)
+        {
+            var endpoint = auth.GetString();
+            if (!string.IsNullOrWhiteSpace(endpoint))
+            {
+                options.AuthorizationEndpoint = endpoint;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(options.TokenEndpoint) &&
+            json.RootElement.TryGetProperty("token_endpoint", out var token) &&
+            token.ValueKind == JsonValueKind.String)
+        {
+            var endpoint = token.GetString();
+            if (!string.IsNullOrWhiteSpace(endpoint))
+            {
+                options.TokenEndpoint = endpoint;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(options.UserInformationEndpoint) &&
+            json.RootElement.TryGetProperty("userinfo_endpoint", out var userInfo) &&
+            userInfo.ValueKind == JsonValueKind.String)
+        {
+            var endpoint = userInfo.GetString();
+            if (!string.IsNullOrWhiteSpace(endpoint))
+            {
+                options.UserInformationEndpoint = endpoint;
+            }
+        }
     }
 }

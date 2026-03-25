@@ -1056,15 +1056,8 @@ public static class KestrunHostAuthnExtensions
             throw new ArgumentException("ClientId must be provided in OAuth2Options", nameof(configureOptions));
         }
 
-        if (string.IsNullOrWhiteSpace(configureOptions.AuthorizationEndpoint))
-        {
-            throw new ArgumentException("AuthorizationEndpoint must be provided in OAuth2Options", nameof(configureOptions));
-        }
-
-        if (string.IsNullOrWhiteSpace(configureOptions.TokenEndpoint))
-        {
-            throw new ArgumentException("TokenEndpoint must be provided in OAuth2Options", nameof(configureOptions));
-        }
+        ResolveOAuth2EndpointsFromMetadata(host, configureOptions);
+        ValidateRequiredOAuth2Endpoints(configureOptions);
 
         // Default CallbackPath if not set: /signin-{scheme}
         if (string.IsNullOrWhiteSpace(configureOptions.CallbackPath))
@@ -1109,13 +1102,89 @@ public static class KestrunHostAuthnExtensions
                     configureOptions.ApplyTo(oauthOpts);
                     if (host.Logger.IsEnabled(LogEventLevel.Debug))
                     {
-                        host.Logger.Debug("Configured OpenID Connect with ClientId: {ClientId}, Scopes: {Scopes}",
+                        host.Logger.Debug("Configured OAuth2 with ClientId: {ClientId}, Scopes: {Scopes}",
                           oauthOpts.ClientId, string.Join(", ", oauthOpts.Scope));
                     }
                 });
             },
               configureAuthz: configureOptions.ClaimPolicy?.ToAuthzDelegate()
         );
+    }
+
+    private static void ResolveOAuth2EndpointsFromMetadata(KestrunHost host, OAuth2Options configureOptions)
+    {
+        if (!configureOptions.ResolveEndpointsFromMetadata ||
+            string.IsNullOrWhiteSpace(configureOptions.OAuth2MetadataUrl) ||
+            !HasMissingOAuth2Endpoints(configureOptions))
+        {
+            return;
+        }
+
+        if (host.Logger.IsEnabled(LogEventLevel.Debug))
+        {
+            host.Logger.Debug("Resolving OAuth2 endpoints from metadata: {OAuth2MetadataUrl}", configureOptions.OAuth2MetadataUrl);
+        }
+
+        HttpClient? ownedClient = null;
+        var metadataClient = configureOptions.Backchannel;
+        if (metadataClient is null)
+        {
+            ownedClient = new HttpClient();
+            if (configureOptions.BackchannelTimeout != default)
+            {
+                ownedClient.Timeout = configureOptions.BackchannelTimeout;
+            }
+
+            metadataClient = ownedClient;
+        }
+
+        try
+        {
+            OAuth2Options.PopulateEndpointsFromMetadataAsync(configureOptions, metadataClient)
+                .GetAwaiter()
+                .GetResult();
+
+            if (host.Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                host.Logger.Debug("OAuth2 metadata resolution succeeded");
+                host.Logger.Debug(
+                    "Resolved OAuth2 endpoints. AuthorizationEndpoint: {AuthorizationEndpoint}, TokenEndpoint: {TokenEndpoint}, UserInformationEndpoint: {UserInformationEndpoint}",
+                    configureOptions.AuthorizationEndpoint,
+                    configureOptions.TokenEndpoint,
+                    configureOptions.UserInformationEndpoint);
+            }
+        }
+        catch (Exception ex)
+        {
+            if (host.Logger.IsEnabled(LogEventLevel.Debug))
+            {
+                host.Logger.Debug(ex, "OAuth2 metadata resolution failed for {OAuth2MetadataUrl}", configureOptions.OAuth2MetadataUrl);
+            }
+
+            throw;
+        }
+        finally
+        {
+            ownedClient?.Dispose();
+        }
+    }
+
+    private static bool HasMissingOAuth2Endpoints(OAuth2Options configureOptions) =>
+        string.IsNullOrWhiteSpace(configureOptions.AuthorizationEndpoint) ||
+        string.IsNullOrWhiteSpace(configureOptions.TokenEndpoint) ||
+        string.IsNullOrWhiteSpace(configureOptions.UserInformationEndpoint);
+
+    private static void ValidateRequiredOAuth2Endpoints(OAuth2Options configureOptions)
+    {
+        if (string.IsNullOrWhiteSpace(configureOptions.AuthorizationEndpoint))
+        {
+            throw new ArgumentException("AuthorizationEndpoint must be provided in OAuth2Options", nameof(configureOptions));
+        }
+
+        if (string.IsNullOrWhiteSpace(configureOptions.TokenEndpoint))
+        {
+            throw new ArgumentException("TokenEndpoint must be provided in OAuth2Options", nameof(configureOptions));
+        }
     }
 
     /// <summary>

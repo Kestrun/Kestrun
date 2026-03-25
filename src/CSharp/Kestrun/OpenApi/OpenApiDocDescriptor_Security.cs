@@ -123,6 +123,9 @@ public partial class OpenApiDocDescriptor
         {
             Type = SecuritySchemeType.OAuth2,
             Flows = flows,
+            OAuth2MetadataUrl = string.IsNullOrWhiteSpace(options.OAuth2MetadataUrl)
+                ? null
+                : new Uri(options.OAuth2MetadataUrl, UriKind.Absolute),
             Description = options.Description,
             Deprecated = options.Deprecated
         };

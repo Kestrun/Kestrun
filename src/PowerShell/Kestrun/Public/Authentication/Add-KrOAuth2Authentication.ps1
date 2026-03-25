@@ -4,6 +4,8 @@
 .DESCRIPTION
     Configures the Kestrun server to use a generic OAuth 2.0 authorization-code flow.
     You can pass a prebuilt OAuthOptions object, or specify individual items (authority, paths, client, etc.).
+    For OAuth2 metadata/OpenAPI support, set -OAuth2MetadataUrl or set OAuth2MetadataUrl on the provided OAuth2Options object.
+    To auto-resolve missing endpoints from metadata at startup, also set ResolveEndpointsFromMetadata = $true.
 .PARAMETER Server
     The Kestrun server instance to configure. If not specified, the current server instance is used.
 .PARAMETER AuthenticationScheme
@@ -22,6 +24,9 @@
     The OAuth authorization endpoint URL.
 .PARAMETER TokenEndpoint
     The OAuth token endpoint URL.
+.PARAMETER OAuth2MetadataUrl
+    Optional OAuth2 authorization server metadata URL (RFC 8414).
+    Used for OpenAPI metadata and optional endpoint discovery.
 .PARAMETER CallbackPath
     The callback path for OAuth responses.
 .PARAMETER SaveTokens
@@ -39,6 +44,7 @@
     Adds an OAuth2 authentication scheme named 'MyOAuth' using the provided options.
 .NOTES
     This is a convenience wrapper around the C# extension AddOAuth2Authentication.
+    OAuth2MetadataUrl is OpenAPI metadata and is not passed directly to ASP.NET Core AddOAuth.
 #>
 function Add-KrOAuth2Authentication {
     [KestrunRuntimeApi('Definition')]
@@ -73,6 +79,9 @@ function Add-KrOAuth2Authentication {
         [string]$TokenEndpoint,
 
         [Parameter(Mandatory = $false)]
+        [string]$OAuth2MetadataUrl,
+
+        [Parameter(Mandatory = $false)]
         [string]$CallbackPath,
 
         [Parameter(Mandatory = $false)]
@@ -104,6 +113,7 @@ function Add-KrOAuth2Authentication {
         if ($ClientSecret) { $Options.ClientSecret = $ClientSecret }
         if ($AuthorizationEndpoint) { $Options.AuthorizationEndpoint = $AuthorizationEndpoint }
         if ($TokenEndpoint) { $Options.TokenEndpoint = $TokenEndpoint }
+        if ($OAuth2MetadataUrl) { $Options.OAuth2MetadataUrl = $OAuth2MetadataUrl }
         if ($CallbackPath) { $Options.CallbackPath = $CallbackPath }
         if ($ClaimPolicy) { $Options.ClaimPolicy = $ClaimPolicy }
         if ($Description) { $Options.Description = $Description }

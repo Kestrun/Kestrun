@@ -3,7 +3,7 @@ using Kestrun.Authentication;
 using Microsoft.AspNetCore.Http;
 using Xunit;
 
-namespace KestrunTests.Authentication;
+namespace Kestrun.Tests.Authentication;
 
 public class BasicAuthenticationOptionsTest
 {

@@ -2,7 +2,7 @@ using Kestrun.Authentication;
 using Kestrun.Scripting;
 using Xunit;
 
-namespace KestrunTests.Authentication;
+namespace Kestrun.Tests.Authentication;
 
 public class AuthenticationCodeSettingsTest
 {

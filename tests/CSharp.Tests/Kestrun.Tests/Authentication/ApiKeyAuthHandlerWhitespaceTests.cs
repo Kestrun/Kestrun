@@ -11,7 +11,7 @@ using System.Collections.Concurrent;
 using Xunit;
 using Kestrun.Hosting;
 
-namespace KestrunTests.Authentication;
+namespace Kestrun.Tests.Authentication;
 
 public class ApiKeyAuthHandlerWhitespaceTests
 {

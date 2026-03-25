@@ -268,7 +268,7 @@ Tokens:
 | Scopes                | Permissions requested                              | GitHub: `read:user`, `user:email`; Google: `openid email profile` |
 | Common claims         | Useful fields to map                               | `sub`, `name`, `email`, provider-specific IDs |
 
-### 3.2 `oauth2MetadataUrl` behavior
+### 3.2 `Oauth2MetadataUrl` behavior
 
 - `OAuth2MetadataUrl` is OpenAPI metadata and is emitted in the OpenAPI security scheme.
 - ASP.NET Core `AddOAuth` still uses concrete runtime endpoints (`AuthorizationEndpoint`, `TokenEndpoint`, etc.).
@@ -293,7 +293,8 @@ Tokens:
 
 - Use [Add-KrOAuth2Authentication](/pwsh/cmdlets/Add-KrOAuth2Authentication) to configure arbitrary providers.
 - Set `AuthorizationEndpoint`, `TokenEndpoint`, `ClientId`, `ClientSecret`, `CallbackPath`, and `Scope`.
-- Optional: set `OAuth2MetadataUrl` for OpenAPI metadata (via `-OAuth2MetadataUrl` or options); set `ResolveEndpointsFromMetadata` to auto-resolve missing endpoints at startup.
+- Optional: set `OAuth2MetadataUrl` for OpenAPI metadata (via `-OAuth2MetadataUrl` or options);
+set `ResolveEndpointsFromMetadata` to auto-resolve missing endpoints at startup.
 - Optionally enable `SaveTokens`, `UsePkce`, and add `GetClaimsFromUserInfoEndpoint` if the provider supports a userinfo endpoint.
 
 ## 7. Troubleshooting

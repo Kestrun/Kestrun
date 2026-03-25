@@ -6,7 +6,7 @@ using Kestrun.Scripting;
 using Kestrun.Hosting;
 using Xunit;
 
-namespace KestrunTests.Antiforgery;
+namespace Kestrun.Tests.Antiforgery;
 
 /// <summary>
 /// Focused unit tests validating the CSRF decision logic for mixed-verb routes.

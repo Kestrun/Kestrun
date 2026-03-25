@@ -14,7 +14,7 @@ using Moq;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Authentication;
+namespace Kestrun.Tests.Authentication;
 
 public class ClientCertificateAuthHandlerTest
 {

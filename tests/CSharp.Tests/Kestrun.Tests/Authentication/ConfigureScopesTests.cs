@@ -7,7 +7,7 @@ using Serilog.Core;
 using Serilog.Events;
 using Xunit;
 
-namespace KestrunTests.Authentication;
+namespace Kestrun.Tests.Authentication;
 
 public class ConfigureScopesTests
 {

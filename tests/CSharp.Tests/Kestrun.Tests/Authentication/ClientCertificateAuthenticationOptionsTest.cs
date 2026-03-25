@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Authentication.Certificate;
 using Serilog;
 using Xunit;
 
-namespace KestrunTests.Authentication;
+namespace Kestrun.Tests.Authentication;
 
 public class ClientCertificateAuthenticationOptionsTest
 {

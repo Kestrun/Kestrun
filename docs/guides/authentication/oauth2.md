@@ -293,10 +293,8 @@ Tokens:
 
 - Use [Add-KrOAuth2Authentication](/pwsh/cmdlets/Add-KrOAuth2Authentication) to configure arbitrary providers.
 - Set `AuthorizationEndpoint`, `TokenEndpoint`, `ClientId`, `ClientSecret`, `CallbackPath`, and `Scope`.
-- Optional: set `OAuth2MetadataUrl` for OpenAPI metadata (via `-OAuth2MetadataUrl` or options);
-set `ResolveEndpointsFromMetadata` to auto-resolve missing endpoints at startup.
+- Optional: set `OAuth2MetadataUrl` for OpenAPI metadata (via `-OAuth2MetadataUrl` or options); set `ResolveEndpointsFromMetadata` to auto-resolve missing endpoints at startup.
 - Optionally enable `SaveTokens`, `UsePkce`, and add `GetClaimsFromUserInfoEndpoint` if the provider supports a userinfo endpoint.
-
 ## 7. Troubleshooting
 
 | Symptom                         | Cause                                | Resolution                                                      |

@@ -210,6 +210,11 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
             var endpoint = auth.GetString();
             if (!string.IsNullOrWhiteSpace(endpoint))
             {
+                if (!Uri.TryCreate(endpoint, UriKind.Absolute, out _))
+                {
+                    throw new FormatException($"OAuth2 metadata property 'authorization_endpoint' must be an absolute URI, but received '{endpoint}'.");
+                }
+
                 options.AuthorizationEndpoint = endpoint;
             }
         }
@@ -221,6 +226,11 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
             var endpoint = token.GetString();
             if (!string.IsNullOrWhiteSpace(endpoint))
             {
+                if (!Uri.TryCreate(endpoint, UriKind.Absolute, out _))
+                {
+                    throw new FormatException($"OAuth2 metadata property 'token_endpoint' must be an absolute URI, but received '{endpoint}'.");
+                }
+
                 options.TokenEndpoint = endpoint;
             }
         }
@@ -232,6 +242,11 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
             var endpoint = userInfo.GetString();
             if (!string.IsNullOrWhiteSpace(endpoint))
             {
+                if (!Uri.TryCreate(endpoint, UriKind.Absolute, out _))
+                {
+                    throw new FormatException($"OAuth2 metadata property 'userinfo_endpoint' must be an absolute URI, but received '{endpoint}'.");
+                }
+
                 options.UserInformationEndpoint = endpoint;
             }
         }

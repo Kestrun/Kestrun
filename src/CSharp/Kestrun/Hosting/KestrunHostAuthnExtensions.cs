@@ -1129,7 +1129,10 @@ public static class KestrunHostAuthnExtensions
         var metadataClient = configureOptions.Backchannel;
         if (metadataClient is null)
         {
-            ownedClient = new HttpClient();
+            ownedClient = configureOptions.BackchannelHttpHandler is null
+                ? new HttpClient()
+                : new HttpClient(configureOptions.BackchannelHttpHandler, disposeHandler: false);
+
             if (configureOptions.BackchannelTimeout != default)
             {
                 ownedClient.Timeout = configureOptions.BackchannelTimeout;
@@ -1141,6 +1144,7 @@ public static class KestrunHostAuthnExtensions
         try
         {
             OAuth2Options.PopulateEndpointsFromMetadataAsync(configureOptions, metadataClient)
+                .ConfigureAwait(false)
                 .GetAwaiter()
                 .GetResult();
 
@@ -1171,8 +1175,7 @@ public static class KestrunHostAuthnExtensions
 
     private static bool HasMissingOAuth2Endpoints(OAuth2Options configureOptions) =>
         string.IsNullOrWhiteSpace(configureOptions.AuthorizationEndpoint) ||
-        string.IsNullOrWhiteSpace(configureOptions.TokenEndpoint) ||
-        string.IsNullOrWhiteSpace(configureOptions.UserInformationEndpoint);
+        string.IsNullOrWhiteSpace(configureOptions.TokenEndpoint);
 
     private static void ValidateRequiredOAuth2Endpoints(OAuth2Options configureOptions)
     {

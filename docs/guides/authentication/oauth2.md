@@ -268,7 +268,7 @@ Tokens:
 | Scopes                | Permissions requested                              | GitHub: `read:user`, `user:email`; Google: `openid email profile` |
 | Common claims         | Useful fields to map                               | `sub`, `name`, `email`, provider-specific IDs |
 
-### 3.2 `Oauth2MetadataUrl` behavior
+### 3.2 `OAuth2MetadataUrl` behavior
 
 - `OAuth2MetadataUrl` is OpenAPI metadata and is emitted in the OpenAPI security scheme.
 - ASP.NET Core `AddOAuth` still uses concrete runtime endpoints (`AuthorizationEndpoint`, `TokenEndpoint`, etc.).

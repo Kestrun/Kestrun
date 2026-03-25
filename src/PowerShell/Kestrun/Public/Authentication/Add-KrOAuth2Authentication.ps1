@@ -6,6 +6,7 @@
     You can pass a prebuilt OAuthOptions object, or specify individual items (authority, paths, client, etc.).
     For OAuth2 metadata/OpenAPI support, set -OAuth2MetadataUrl or set OAuth2MetadataUrl on the provided OAuth2Options object.
     To auto-resolve missing endpoints from metadata at startup, also set the ResolveEndpointsFromMetadata property on the OAuth2Options instance (for example: $Options.ResolveEndpointsFromMetadata = $true).
+    Metadata discovery requires HTTPS by default. To explicitly allow HTTP metadata URLs in trusted non-production environments, set $Options.AllowInsecureMetadataHttp = $true.
 .PARAMETER Server
     The Kestrun server instance to configure. If not specified, the current server instance is used.
 .PARAMETER AuthenticationScheme

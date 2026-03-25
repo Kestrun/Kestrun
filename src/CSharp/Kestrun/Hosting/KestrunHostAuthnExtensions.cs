@@ -1120,6 +1120,10 @@ public static class KestrunHostAuthnExtensions
             return;
         }
 
+        ValidateOAuth2MetadataUrl(
+            configureOptions.OAuth2MetadataUrl,
+            configureOptions.AllowInsecureMetadataHttp);
+
         if (host.Logger.IsEnabled(LogEventLevel.Debug))
         {
             host.Logger.Debug("Resolving OAuth2 endpoints from metadata: {OAuth2MetadataUrl}", configureOptions.OAuth2MetadataUrl);
@@ -1173,9 +1177,48 @@ public static class KestrunHostAuthnExtensions
         }
     }
 
+    /// <summary>
+    /// Validates the OAuth2 metadata URL based on the configured options.
+    /// </summary>
+    /// <param name="metadataUrl">The metadata URL to validate.</param>
+    /// <param name="allowInsecureMetadataHttp">Whether to allow HTTP URLs for metadata (not recommended for production).</param>
+    /// <exception cref="ArgumentException">Thrown when the metadata URL is invalid or does not meet security requirements.</exception>
+    private static void ValidateOAuth2MetadataUrl(string metadataUrl, bool allowInsecureMetadataHttp)
+    {
+        if (!Uri.TryCreate(metadataUrl, UriKind.Absolute, out var metadataUri))
+        {
+            throw new ArgumentException(
+                "OAuth2MetadataUrl must be a valid absolute URI.",
+                nameof(OAuth2Options.OAuth2MetadataUrl));
+        }
+
+        if (string.Equals(metadataUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (allowInsecureMetadataHttp &&
+            string.Equals(metadataUri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        throw new ArgumentException(
+            allowInsecureMetadataHttp
+                ? "OAuth2MetadataUrl must use HTTP or HTTPS when AllowInsecureMetadataHttp is enabled."
+                : "OAuth2MetadataUrl must use HTTPS for metadata discovery. Set AllowInsecureMetadataHttp to true only for trusted non-production HTTP metadata endpoints.",
+            nameof(OAuth2Options.OAuth2MetadataUrl));
+    }
+
+    /// <summary>
+    /// Checks if any of the required OAuth2 endpoints are missing from the configuration.
+    /// </summary>
+    /// <param name="configureOptions">The OAuth2 options to check.</param>
+    /// <returns>True if any required endpoints are missing; otherwise, false.</returns>
     private static bool HasMissingOAuth2Endpoints(OAuth2Options configureOptions) =>
         string.IsNullOrWhiteSpace(configureOptions.AuthorizationEndpoint) ||
-        string.IsNullOrWhiteSpace(configureOptions.TokenEndpoint);
+        string.IsNullOrWhiteSpace(configureOptions.TokenEndpoint) ||
+        string.IsNullOrWhiteSpace(configureOptions.UserInformationEndpoint);
 
     private static void ValidateRequiredOAuth2Endpoints(OAuth2Options configureOptions)
     {

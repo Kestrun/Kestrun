@@ -264,6 +264,7 @@ Tokens:
 | UserInfo/Profile API  | Optional enrichment endpoint                       | `https://api.github.com/user` |
 | OAuth2MetadataUrl     | Optional OAuth2 metadata document URL (OpenAPI + optional endpoint discovery). Can be set via `-OAuth2MetadataUrl` or options. | `https://issuer.example/.well-known/oauth-authorization-server` |
 | ResolveEndpointsFromMetadata | If `true`, fills missing endpoints from metadata before validation | `$true` / `$false` |
+| AllowInsecureMetadataHttp | If `true`, allows HTTP (non-HTTPS) metadata discovery. Default is `$false` (HTTPS required). | `$true` / `$false` |
 | CallbackPath          | Redirect URI path registered in the app            | `/signin-oauth` |
 | Scopes                | Permissions requested                              | GitHub: `read:user`, `user:email`; Google: `openid email profile` |
 | Common claims         | Useful fields to map                               | `sub`, `name`, `email`, provider-specific IDs |
@@ -276,6 +277,8 @@ Tokens:
   - `authorization_endpoint` -> `AuthorizationEndpoint`
   - `token_endpoint` -> `TokenEndpoint`
   - `userinfo_endpoint` -> `UserInformationEndpoint`
+- Metadata discovery requires an `https://` `OAuth2MetadataUrl` by default.
+- To explicitly allow `http://` metadata URLs (for trusted local/test environments only), set `AllowInsecureMetadataHttp = $true`.
 - Explicit endpoint values are never overwritten by metadata values.
 - If metadata resolution is required and retrieval fails, startup throws.
 
@@ -293,8 +296,10 @@ Tokens:
 
 - Use [Add-KrOAuth2Authentication](/pwsh/cmdlets/Add-KrOAuth2Authentication) to configure arbitrary providers.
 - Set `AuthorizationEndpoint`, `TokenEndpoint`, `ClientId`, `ClientSecret`, `CallbackPath`, and `Scope`.
-- Optional: set `OAuth2MetadataUrl` for OpenAPI metadata (via `-OAuth2MetadataUrl` or options); set `ResolveEndpointsFromMetadata` to auto-resolve missing endpoints at startup.
+- Optional: set `OAuth2MetadataUrl` for OpenAPI metadata (via `-OAuth2MetadataUrl` or options);
+set `ResolveEndpointsFromMetadata` to auto-resolve missing endpoints at startup.
 - Optionally enable `SaveTokens`, `UsePkce`, and add `GetClaimsFromUserInfoEndpoint` if the provider supports a userinfo endpoint.
+
 ## 7. Troubleshooting
 
 | Symptom                         | Cause                                | Resolution                                                      |

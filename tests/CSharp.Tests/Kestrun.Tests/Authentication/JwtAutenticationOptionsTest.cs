@@ -7,7 +7,7 @@ using Xunit;
 
 namespace Kestrun.Tests.Authentication;
 
-public class JwtAuthenticationOptionsTest
+public class JwtAutenticationOptionsTest
 {
     [Fact]
     public void Can_Set_And_Get_ValidationParameters()

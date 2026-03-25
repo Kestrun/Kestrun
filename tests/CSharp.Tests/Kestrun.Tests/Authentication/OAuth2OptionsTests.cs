@@ -249,14 +249,20 @@ public class OAuth2OptionsTests
             }
             """;
 
-        using var handler = new StubMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        var requestCount = 0;
+        using var handler = new StubMessageHandler(_ =>
         {
-            Content = new StringContent(payload, Encoding.UTF8, "application/json")
+            requestCount++;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(payload, Encoding.UTF8, "application/json")
+            };
         });
         using var client = new HttpClient(handler);
 
         await OAuth2Options.PopulateEndpointsFromMetadataAsync(options, client, cancellationToken);
 
+        Assert.Equal(0, requestCount);
         Assert.Equal("https://explicit.example/authorize", options.AuthorizationEndpoint);
         Assert.Equal("https://explicit.example/token", options.TokenEndpoint);
         Assert.Equal("https://explicit.example/userinfo", options.UserInformationEndpoint);

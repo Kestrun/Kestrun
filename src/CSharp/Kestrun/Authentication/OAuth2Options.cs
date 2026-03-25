@@ -76,6 +76,12 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
     /// </summary>
     public bool ResolveEndpointsFromMetadata { get; set; } = false;
 
+    /// <summary>
+    /// Gets or sets a value indicating whether OAuth2 metadata discovery may use a non-HTTPS URL.
+    /// Defaults to <see langword="false"/> so metadata discovery requires HTTPS.
+    /// </summary>
+    public bool AllowInsecureMetadataHttp { get; set; } = false;
+
     private Serilog.ILogger? _logger;
     /// <inheritdoc/>
     public Serilog.ILogger Logger
@@ -103,6 +109,7 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
         target.Deprecated = Deprecated;
         target.OAuth2MetadataUrl = OAuth2MetadataUrl;
         target.ResolveEndpointsFromMetadata = ResolveEndpointsFromMetadata;
+        target.AllowInsecureMetadataHttp = AllowInsecureMetadataHttp;
     }
 
     /// <summary>
@@ -198,6 +205,11 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
             return;
         }
 
+        if (!HasMissingMetadataEndpoints(options))
+        {
+            return;
+        }
+
         using var json = await FetchMetadataDocumentAsync(
             options.OAuth2MetadataUrl,
             httpClient,
@@ -230,6 +242,16 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
             options.UserInformationEndpoint = userInformationEndpoint;
         }
     }
+
+    /// <summary>
+    /// Determines whether any OAuth2 endpoint that can be resolved from metadata is missing.
+    /// </summary>
+    /// <param name="options">The OAuth2 options to inspect.</param>
+    /// <returns><see langword="true"/> when at least one endpoint is missing; otherwise, <see langword="false"/>.</returns>
+    private static bool HasMissingMetadataEndpoints(OAuth2Options options) =>
+        string.IsNullOrWhiteSpace(options.AuthorizationEndpoint) ||
+        string.IsNullOrWhiteSpace(options.TokenEndpoint) ||
+        string.IsNullOrWhiteSpace(options.UserInformationEndpoint);
 
     /// <summary>
     /// Downloads and parses the OAuth2 metadata document.

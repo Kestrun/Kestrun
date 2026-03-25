@@ -10,11 +10,12 @@ namespace Kestrun.Tasks;
 /// </summary>
 /// <param name="pool">PowerShell runspace pool manager.</param>
 /// <param name="log">Logger instance.</param>
-public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.ILogger log)
+public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.ILogger log) : IDisposable
 {
     private readonly ConcurrentDictionary<string, KestrunTask> _tasks = new(StringComparer.OrdinalIgnoreCase);
     private readonly KestrunRunspacePoolManager _pool = pool;
     private readonly Serilog.ILogger _log = log;
+    private int _disposed;
 
     private KestrunHost Host => _pool.Host;
 
@@ -355,5 +356,25 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
         {
             task.CompletedAtUtc = DateTimeOffset.UtcNow;
         }
+    }
+
+    /// <summary>
+    /// Cancels any active tasks, disposes their cancellation sources, and releases the task runspace pool.
+    /// </summary>
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
+            return;
+        }
+
+        foreach (var task in _tasks.Values)
+        {
+            try { task.TokenSource.Cancel(); } catch { }
+        }
+
+        _tasks.Clear();
+        _pool.Dispose();
+        _log.Information("KestrunTaskService disposed");
     }
 }

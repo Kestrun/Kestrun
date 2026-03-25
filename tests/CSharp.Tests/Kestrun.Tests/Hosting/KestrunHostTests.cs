@@ -6,6 +6,7 @@ using Kestrun.Utilities;
 using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Scripting;
+using Kestrun.Tasks;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 namespace Kestrun.Tests.Hosting;
@@ -335,5 +336,23 @@ public class KestrunHostTest
         // Should not throw; runspace pool is created before middleware stages are applied
         host.EnableConfiguration();
         Assert.True(host.IsRunning);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void Dispose_Disposes_TaskServiceRunspacePool()
+    {
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        _ = host.AddTasks(1);
+        host.EnableConfiguration();
+
+        var taskService = host.Tasks;
+        var poolField = typeof(KestrunTaskService).GetField("_pool", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        Assert.NotNull(poolField);
+        var pool = Assert.IsType<KestrunRunspacePoolManager>(poolField.GetValue(taskService));
+
+        host.Dispose();
+
+        _ = Assert.Throws<ObjectDisposedException>(pool.Acquire);
     }
 }

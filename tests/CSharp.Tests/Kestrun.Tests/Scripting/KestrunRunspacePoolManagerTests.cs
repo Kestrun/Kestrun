@@ -238,6 +238,21 @@ public class KestrunRunspacePoolManagerTests : IDisposable
     }
 
     [Fact]
+    public async Task AcquireAsync_CancelledBeforeRunspaceCreation_DoesNotLeakCapacity()
+    {
+        using var manager = new KestrunRunspacePoolManager(_host, 0, 1);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        _ = await Assert.ThrowsAsync<TaskCanceledException>(
+            async () => await manager.AcquireAsync(cts.Token));
+
+        var runspace = manager.Acquire();
+        Assert.Equal(RunspaceState.Opened, runspace.RunspaceStateInfo.State);
+        manager.Release(runspace);
+    }
+
+    [Fact]
     public void Release_ReturnsRunspaceToPool()
     {
         // Arrange

@@ -1,5 +1,6 @@
 using System.Management.Automation;
 using System.Diagnostics;
+using System.Management.Automation.Runspaces;
 using Kestrun.Languages;
 using Kestrun.Models;
 using Kestrun.Scripting;
@@ -32,6 +33,9 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
         var start = DateTime.UtcNow;
         var threadId = Environment.CurrentManagedThreadId;
         var current = Interlocked.Increment(ref _inFlight);
+        Runspace? runspace = null;
+        PowerShell? ps = null;
+        var cleanupTransferredToResponse = false;
         if (Log.IsEnabled(LogEventLevel.Debug))
         {
             Log.DebugSanitized("ENTER InvokeAsync path={Path} inFlight={InFlight} thread={Thread} time={Start}",
@@ -47,14 +51,14 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
 
             // Acquire a runspace from the pool asynchronously (avoid blocking thread pool while waiting)
             var acquireStart = Stopwatch.GetTimestamp();
-            var runspace = await _pool.AcquireAsync(context.RequestAborted);
+            runspace = await _pool.AcquireAsync(context.RequestAborted);
             var acquireMs = (Stopwatch.GetTimestamp() - acquireStart) * 1000.0 / Stopwatch.Frequency;
             if (Log.IsEnabled(LogEventLevel.Debug))
             {
                 Log.DebugSanitized("Runspace acquired for {Path} in {AcquireMs} ms (inFlight={InFlight})", context.Request.Path, acquireMs, current);
             }
 
-            var ps = PowerShell.Create();
+            ps = PowerShell.Create();
             ps.Runspace = runspace;
 
             // Store the PowerShell instance in the context for later use
@@ -85,11 +89,14 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
             {
                 try
                 {
-                    if (Log.IsEnabled(LogEventLevel.Debug))
+                    if (runspace is not null)
                     {
-                        Log.Debug("OnCompleted: Returning runspace to pool: {RunspaceId} {name} {id}", ps.Runspace.InstanceId, ps.Runspace.Name, ps.Runspace.Id);
+                        if (Log.IsEnabled(LogEventLevel.Debug))
+                        {
+                            Log.Debug("OnCompleted: Returning runspace to pool: {RunspaceId} {name} {id}", runspace.InstanceId, runspace.Name, runspace.Id);
+                        }
+                        _pool.Release(runspace);
                     }
-                    _pool.Release(ps.Runspace);
                 }
                 catch (Exception ex)
                 {
@@ -99,11 +106,14 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
                 {
                     try
                     {
-                        if (Log.IsEnabled(LogEventLevel.Debug))
+                        if (ps is not null)
                         {
-                            Log.Debug("OnCompleted: Disposing PowerShell instance: {InstanceId}", ps.InstanceId);
+                            if (Log.IsEnabled(LogEventLevel.Debug))
+                            {
+                                Log.Debug("OnCompleted: Disposing PowerShell instance: {InstanceId}", ps.InstanceId);
+                            }
+                            ps.Dispose();
                         }
-                        ps.Dispose();
                     }
                     catch (Exception ex)
                     {
@@ -114,6 +124,7 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
                 }
                 return Task.CompletedTask;
             });
+            cleanupTransferredToResponse = true;
 
             if (Log.IsEnabled(LogEventLevel.Debug))
             {
@@ -133,6 +144,35 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
         }
         finally
         {
+            if (!cleanupTransferredToResponse)
+            {
+                try
+                {
+                    if (runspace is not null)
+                    {
+                        _pool.Release(runspace);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Debug(ex, "Error returning runspace to pool during middleware cleanup");
+                }
+                finally
+                {
+                    try
+                    {
+                        ps?.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Debug(ex, "Error disposing PowerShell instance during middleware cleanup");
+                    }
+
+                    _ = context.Items.Remove(PowerShellDelegateBuilder.PS_INSTANCE_KEY);
+                    _ = context.Items.Remove(PowerShellDelegateBuilder.KR_CONTEXT_KEY);
+                }
+            }
+
             var remaining = Interlocked.Decrement(ref _inFlight);
             var durationMs = (DateTime.UtcNow - start).TotalMilliseconds;
             if (Log.IsEnabled(LogEventLevel.Debug))

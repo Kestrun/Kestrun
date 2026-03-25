@@ -132,7 +132,15 @@ public sealed class KestrunRunspacePoolManager : IDisposable
         if (Interlocked.Increment(ref _count) <= MaxRunspaces)
         {
             Host.Logger.Debug("Creating new runspace: TotalCount={Count}", _count);
-            return CreateRunspace();
+            try
+            {
+                return CreateRunspace();
+            }
+            catch
+            {
+                _ = Interlocked.Decrement(ref _count);
+                throw;
+            }
         }
         // Overshot: roll back and complain.
         _ = Interlocked.Decrement(ref _count);
@@ -159,6 +167,13 @@ public sealed class KestrunRunspacePoolManager : IDisposable
 
             if (_stash.TryTake(out var rs))
             {
+                if (rs.RunspaceStateInfo.State != RunspaceState.Opened)
+                {
+                    Host.Logger.Warning("Runspace from stash is not opened: {State}. Discarding and continuing wait.", rs.RunspaceStateInfo.State);
+                    rs.Dispose();
+                    _ = Interlocked.Decrement(ref _count);
+                    continue;
+                }
                 if (Host.Logger.IsEnabled(LogEventLevel.Debug))
                 {
                     Host.Logger.Debug("Reusing runspace from stash (async): StashCount={Count}", _stash.Count);
@@ -170,8 +185,16 @@ public sealed class KestrunRunspacePoolManager : IDisposable
             if (Interlocked.Increment(ref _count) <= MaxRunspaces)
             {
                 Host.Logger.Debug("Creating new runspace (async): TotalCount={Count}", _count);
-                // Runspace creation is synchronous, but we can offload to thread pool
-                return await Task.Run(CreateRunspace, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    // Runspace creation is synchronous, but we can offload to thread pool
+                    return await Task.Run(CreateRunspace, cancellationToken).ConfigureAwait(false);
+                }
+                catch
+                {
+                    _ = Interlocked.Decrement(ref _count);
+                    throw;
+                }
             }
             // Overshot: roll back and try again.
             _ = Interlocked.Decrement(ref _count);

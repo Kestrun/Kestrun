@@ -184,6 +184,7 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
     /// <param name="options">The OAuth2 options to populate.</param>
     /// <param name="httpClient">The HTTP client used to fetch metadata.</param>
     /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
     internal static async Task PopulateEndpointsFromMetadataAsync(
         OAuth2Options options,
         HttpClient httpClient,
@@ -197,58 +198,98 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
             return;
         }
 
-        using var response = await httpClient.GetAsync(options.OAuth2MetadataUrl, cancellationToken).ConfigureAwait(false);
+        using var json = await FetchMetadataDocumentAsync(
+            options.OAuth2MetadataUrl,
+            httpClient,
+            cancellationToken).ConfigureAwait(false);
+
+        if (TryResolveEndpointFromMetadata(
+            options.AuthorizationEndpoint,
+            json.RootElement,
+            "authorization_endpoint",
+            out var authorizationEndpoint))
+        {
+            options.AuthorizationEndpoint = authorizationEndpoint;
+        }
+
+        if (TryResolveEndpointFromMetadata(
+            options.TokenEndpoint,
+            json.RootElement,
+            "token_endpoint",
+            out var tokenEndpoint))
+        {
+            options.TokenEndpoint = tokenEndpoint;
+        }
+
+        if (TryResolveEndpointFromMetadata(
+            options.UserInformationEndpoint,
+            json.RootElement,
+            "userinfo_endpoint",
+            out var userInformationEndpoint))
+        {
+            options.UserInformationEndpoint = userInformationEndpoint;
+        }
+    }
+
+    /// <summary>
+    /// Downloads and parses the OAuth2 metadata document.
+    /// </summary>
+    /// <param name="metadataUrl">The metadata document URL.</param>
+    /// <param name="httpClient">The HTTP client used to fetch metadata.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The parsed metadata document.</returns>
+    private static async Task<JsonDocument> FetchMetadataDocumentAsync(
+        string metadataUrl,
+        HttpClient httpClient,
+        CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.GetAsync(metadataUrl, cancellationToken).ConfigureAwait(false);
         _ = response.EnsureSuccessStatusCode();
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        using var json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+        return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
 
-        if (string.IsNullOrWhiteSpace(options.AuthorizationEndpoint) &&
-            json.RootElement.TryGetProperty("authorization_endpoint", out var auth) &&
-            auth.ValueKind == JsonValueKind.String)
+    /// <summary>
+    /// Resolves a single OAuth2 endpoint value from metadata when the current value is missing.
+    /// </summary>
+    /// <param name="currentEndpoint">The current endpoint value.</param>
+    /// <param name="metadataRoot">The metadata JSON root element.</param>
+    /// <param name="propertyName">The metadata property name to read.</param>
+    /// <param name="resolvedEndpoint">The resolved endpoint, when available.</param>
+    /// <returns><see langword="true"/> when an endpoint was resolved from metadata; otherwise <see langword="false"/>.</returns>
+    /// <exception cref="FormatException">Thrown when a discovered endpoint is not an absolute URI.</exception>
+    private static bool TryResolveEndpointFromMetadata(
+        string? currentEndpoint,
+        JsonElement metadataRoot,
+        string propertyName,
+        out string resolvedEndpoint)
+    {
+        resolvedEndpoint = string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(currentEndpoint))
         {
-            var endpoint = auth.GetString();
-            if (!string.IsNullOrWhiteSpace(endpoint))
-            {
-                if (!Uri.TryCreate(endpoint, UriKind.Absolute, out _))
-                {
-                    throw new FormatException($"OAuth2 metadata property 'authorization_endpoint' must be an absolute URI, but received '{endpoint}'.");
-                }
-
-                options.AuthorizationEndpoint = endpoint;
-            }
+            return false;
         }
 
-        if (string.IsNullOrWhiteSpace(options.TokenEndpoint) &&
-            json.RootElement.TryGetProperty("token_endpoint", out var token) &&
-            token.ValueKind == JsonValueKind.String)
+        if (!metadataRoot.TryGetProperty(propertyName, out var endpointElement) ||
+            endpointElement.ValueKind != JsonValueKind.String)
         {
-            var endpoint = token.GetString();
-            if (!string.IsNullOrWhiteSpace(endpoint))
-            {
-                if (!Uri.TryCreate(endpoint, UriKind.Absolute, out _))
-                {
-                    throw new FormatException($"OAuth2 metadata property 'token_endpoint' must be an absolute URI, but received '{endpoint}'.");
-                }
-
-                options.TokenEndpoint = endpoint;
-            }
+            return false;
         }
 
-        if (string.IsNullOrWhiteSpace(options.UserInformationEndpoint) &&
-            json.RootElement.TryGetProperty("userinfo_endpoint", out var userInfo) &&
-            userInfo.ValueKind == JsonValueKind.String)
+        var endpoint = endpointElement.GetString();
+        if (string.IsNullOrWhiteSpace(endpoint))
         {
-            var endpoint = userInfo.GetString();
-            if (!string.IsNullOrWhiteSpace(endpoint))
-            {
-                if (!Uri.TryCreate(endpoint, UriKind.Absolute, out _))
-                {
-                    throw new FormatException($"OAuth2 metadata property 'userinfo_endpoint' must be an absolute URI, but received '{endpoint}'.");
-                }
-
-                options.UserInformationEndpoint = endpoint;
-            }
+            return false;
         }
+
+        if (Uri.TryCreate(endpoint, UriKind.Absolute, out _))
+        {
+            resolvedEndpoint = endpoint;
+            return true;
+        }
+
+        throw new FormatException($"OAuth2 metadata property '{propertyName}' must be an absolute URI, but received '{endpoint}'.");
     }
 }

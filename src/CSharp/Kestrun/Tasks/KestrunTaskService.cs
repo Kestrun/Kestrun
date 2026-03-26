@@ -12,8 +12,9 @@ namespace Kestrun.Tasks;
 /// <param name="log">Logger instance.</param>
 public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.ILogger log) : IDisposable
 {
+    private static readonly TimeSpan DisposeWaitTimeout = TimeSpan.FromSeconds(5);
     private readonly ConcurrentDictionary<string, KestrunTask> _tasks = new(StringComparer.OrdinalIgnoreCase);
-    internal readonly KestrunRunspacePoolManager TaskRunspacePool = pool;
+    internal KestrunRunspacePoolManager TaskRunspacePool { get; } = pool;
     private readonly Serilog.ILogger _log = log;
     private int _disposed;
 
@@ -122,7 +123,7 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
         {
             return false; // only start once from Created state
         }
-        task.Runner = Task.Run(async () => await ExecuteAsync(task).ConfigureAwait(false), task.TokenSource.Token);
+        task.Runner = Task.Run(async () => await ExecuteAsync(task).ConfigureAwait(false), task.Token);
         return true;
     }
 
@@ -144,7 +145,7 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
         }
 
         // Launch the task asynchronously and store its runner
-        task.Runner = Task.Run(() => ExecuteAsync(task), task.TokenSource.Token);
+        task.Runner = Task.Run(() => ExecuteAsync(task), task.Token);
 
         try
         {
@@ -302,20 +303,30 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
         => [.. _tasks.Values.Select(v => v.ToKrTask())];
 
     /// <summary>
+    /// Tries to get the live task model for internal consumers such as tests.
+    /// </summary>
+    /// <param name="id">The task identifier.</param>
+    /// <param name="task">The matching task when found; otherwise null.</param>
+    /// <returns>True when the task exists; otherwise false.</returns>
+    internal bool TryGetTask(string id, out KestrunTask? task)
+        => _tasks.TryGetValue(id, out task);
+
+    /// <summary>
     /// Executes the task's work function and updates its state accordingly.
     /// </summary>
     /// <param name="task">The task to execute.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     private async Task ExecuteAsync(KestrunTask task)
     {
+        var cancellationToken = task.Token;
         task.State = TaskState.Running;
         task.Progress.StatusMessage = "Running";
         task.StartedAtUtc = DateTimeOffset.UtcNow;
         try
         {
-            var result = await task.Work(task.TokenSource.Token).ConfigureAwait(false);
+            var result = await task.Work(cancellationToken).ConfigureAwait(false);
             task.Output = result;
-            task.State = task.TokenSource.IsCancellationRequested ? TaskState.Stopped : TaskState.Completed;
+            task.State = cancellationToken.IsCancellationRequested ? TaskState.Stopped : TaskState.Completed;
             if (task.State == TaskState.Completed)
             {
                 task.Progress.Complete("Completed");
@@ -326,18 +337,18 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
                 task.Progress.Cancel("Cancelled");
             }
         }
-        catch (OperationCanceledException) when (task.TokenSource.IsCancellationRequested)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             task.State = TaskState.Stopped;
             task.Progress.Cancel("Cancelled");
         }
-        catch (TaskCanceledException) when (task.TokenSource.IsCancellationRequested)
+        catch (TaskCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // Some libraries throw TaskCanceledException instead of OperationCanceledException on cancellation
             task.State = TaskState.Stopped;
             task.Progress.Cancel("Cancelled");
         }
-        catch (Exception ex) when (task.TokenSource.IsCancellationRequested)
+        catch (Exception ex) when (cancellationToken.IsCancellationRequested)
         {
             // During cancellation, certain engines (e.g., PowerShell) may surface non-cancellation exceptions
             // such as PipelineStoppedException. If cancellation was requested, normalize to Stopped.
@@ -359,7 +370,8 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
     }
 
     /// <summary>
-    /// Cancels any active tasks, disposes their cancellation sources, clears the task registry, and releases the task runspace pool.
+    /// Cancels active tasks, waits briefly for runners to quiesce, disposes quiesced cancellation sources,
+    /// clears the task registry, and releases the task runspace pool.
     /// </summary>
     public void Dispose()
     {
@@ -368,29 +380,77 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
             return;
         }
 
-        foreach (var task in _tasks.Values)
+        var tasks = _tasks.Values.ToArray();
+        CancelTasks(tasks);
+        WaitForRunnersToQuiesce(tasks);
+        DisposeQuiescedCancellationSources(tasks);
+
+        _tasks.Clear();
+        TaskRunspacePool.Dispose();
+        _log.Information("KestrunTaskService disposed");
+    }
+
+    /// <summary>
+    /// Requests cancellation for each tracked task during service shutdown.
+    /// </summary>
+    /// <param name="tasks">The tasks being shut down.</param>
+    private void CancelTasks(IReadOnlyCollection<KestrunTask> tasks)
+    {
+        foreach (var task in tasks)
         {
             try
             {
                 task.TokenSource.Cancel();
             }
-            catch
+            catch (Exception ex)
             {
-            }
-            finally
-            {
-                try
-                {
-                    task.TokenSource.Dispose();
-                }
-                catch
-                {
-                }
+                _log.Debug(ex, "Failed to cancel task {Id} during KestrunTaskService disposal", task.Id);
             }
         }
+    }
 
-        _tasks.Clear();
-        TaskRunspacePool.Dispose();
-        _log.Information("KestrunTaskService disposed");
+    /// <summary>
+    /// Waits for active task runners to reach a terminal state within the shutdown timeout.
+    /// </summary>
+    /// <param name="tasks">The tasks being shut down.</param>
+    private void WaitForRunnersToQuiesce(IReadOnlyCollection<KestrunTask> tasks)
+    {
+        var allRunnersCompleted = SpinWait.SpinUntil(
+            () => tasks.All(task => task.Runner is null || task.Runner.IsCompleted),
+            DisposeWaitTimeout);
+
+        if (!allRunnersCompleted)
+        {
+            var activeCount = tasks.Count(task => task.Runner is { IsCompleted: false });
+            _log.Debug(
+                "Timed out waiting for {ActiveCount} task runner(s) to stop during KestrunTaskService disposal after {TimeoutMs} ms",
+                activeCount,
+                DisposeWaitTimeout.TotalMilliseconds);
+        }
+    }
+
+    /// <summary>
+    /// Disposes cancellation token sources for tasks that are no longer executing.
+    /// </summary>
+    /// <param name="tasks">The tasks being shut down.</param>
+    private void DisposeQuiescedCancellationSources(IReadOnlyCollection<KestrunTask> tasks)
+    {
+        foreach (var task in tasks)
+        {
+            if (task.Runner is { IsCompleted: false })
+            {
+                _log.Debug("Skipping CancellationTokenSource disposal for still-running task {Id}", task.Id);
+                continue;
+            }
+
+            try
+            {
+                task.TokenSource.Dispose();
+            }
+            catch (Exception ex)
+            {
+                _log.Debug(ex, "Failed to dispose CancellationTokenSource for task {Id} during KestrunTaskService disposal", task.Id);
+            }
+        }
     }
 }

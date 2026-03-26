@@ -117,8 +117,12 @@ public sealed class KestrunRunspacePoolManager : IDisposable
                 Host.Logger.Warning("Runspace from stash is not opened: {State}. Discarding and acquiring a new one.", rs.RunspaceStateInfo.State);
                 // If the runspace is not open, we cannot use it.
                 // Discard and try again
+                var removed = _all.TryRemove(rs, out _);
                 rs.Dispose();
-                _ = Interlocked.Decrement(ref _count);
+                if (removed)
+                {
+                    _ = Interlocked.Decrement(ref _count);
+                }
                 return Acquire();
             }
             if (Host.Logger.IsEnabled(LogEventLevel.Debug))
@@ -170,9 +174,12 @@ public sealed class KestrunRunspacePoolManager : IDisposable
                 if (rs.RunspaceStateInfo.State != RunspaceState.Opened)
                 {
                     Host.Logger.Warning("Runspace from stash is not opened: {State}. Discarding and continuing wait.", rs.RunspaceStateInfo.State);
-                    _all.Remove(rs);
+                    var removed = _all.TryRemove(rs, out _);
                     rs.Dispose();
-                    _ = Interlocked.Decrement(ref _count);
+                    if (removed)
+                    {
+                        _ = Interlocked.Decrement(ref _count);
+                    }
                     continue;
                 }
                 if (Host.Logger.IsEnabled(LogEventLevel.Debug))

@@ -38,6 +38,11 @@ public sealed class KestrunTask(string Id, LanguageOptions ScriptCode, Cancellat
     public CancellationTokenSource TokenSource { get; } = tokenSource;
 
     /// <summary>
+    /// Stable cancellation token captured at task creation time.
+    /// </summary>
+    internal CancellationToken Token { get; } = tokenSource.Token;
+
+    /// <summary>
     /// Current state of the task.
     /// </summary>
     public TaskState State { get; internal set; } = TaskState.NotStarted;

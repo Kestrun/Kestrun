@@ -430,11 +430,8 @@ Return 777";
         var lang = new LanguageOptions { Language = ScriptLanguage.CSharp, Code = "return 1;" };
         var id = svc.Create(null, lang, false, null, null);
 
-        var tasksField = typeof(KestrunTaskService).GetField("_tasks", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        Assert.NotNull(tasksField);
-
-        var tasks = Assert.IsAssignableFrom<System.Collections.IDictionary>(tasksField.GetValue(svc));
-        var task = Assert.IsType<KestrunTask>(tasks[id]);
+        Assert.True(svc.TryGetTask(id, out var task));
+        Assert.NotNull(task);
         var tokenSource = task.TokenSource;
 
         svc.Dispose();

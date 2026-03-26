@@ -89,38 +89,41 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
             {
                 try
                 {
-                    if (runspace is not null)
+                    if (ps is not null)
                     {
                         if (Log.IsEnabled(LogEventLevel.Debug))
                         {
-                            Log.Debug("OnCompleted: Returning runspace to pool: {RunspaceId} {name} {id}", runspace.InstanceId, runspace.Name, runspace.Id);
+                            Log.Debug("OnCompleted: Disposing PowerShell instance: {InstanceId}", ps.InstanceId);
                         }
-                        _pool.Release(runspace);
+                        ps.Dispose();
                     }
                 }
                 catch (Exception ex)
                 {
-                    Log.Debug(ex, "OnCompleted: Error returning runspace to pool");
+                    Log.Debug(ex, "OnCompleted: Error disposing PowerShell instance");
                 }
                 finally
                 {
                     try
                     {
-                        if (ps is not null)
+                        if (runspace is not null)
                         {
                             if (Log.IsEnabled(LogEventLevel.Debug))
                             {
-                                Log.Debug("OnCompleted: Disposing PowerShell instance: {InstanceId}", ps.InstanceId);
+                                Log.Debug("OnCompleted: Returning runspace to pool: {RunspaceId} {name} {id}", runspace.InstanceId, runspace.Name, runspace.Id);
                             }
-                            ps.Dispose();
+                            _pool.Release(runspace);
                         }
                     }
                     catch (Exception ex)
                     {
-                        Log.Debug(ex, "OnCompleted: Error disposing PowerShell instance");
+                        Log.Debug(ex, "OnCompleted: Error returning runspace to pool");
                     }
-                    _ = context.Items.Remove(PowerShellDelegateBuilder.PS_INSTANCE_KEY);
-                    _ = context.Items.Remove(PowerShellDelegateBuilder.KR_CONTEXT_KEY);
+                    finally
+                    {
+                        _ = context.Items.Remove(PowerShellDelegateBuilder.PS_INSTANCE_KEY);
+                        _ = context.Items.Remove(PowerShellDelegateBuilder.KR_CONTEXT_KEY);
+                    }
                 }
                 return Task.CompletedTask;
             });
@@ -148,28 +151,30 @@ public sealed class PowerShellRunspaceMiddleware(RequestDelegate next, KestrunRu
             {
                 try
                 {
-                    if (runspace is not null)
-                    {
-                        _pool.Release(runspace);
-                    }
+                    ps?.Dispose();
                 }
                 catch (Exception ex)
                 {
-                    Log.Debug(ex, "Error returning runspace to pool during middleware cleanup");
+                    Log.Debug(ex, "Error disposing PowerShell instance during middleware cleanup");
                 }
                 finally
                 {
                     try
                     {
-                        ps?.Dispose();
+                        if (runspace is not null)
+                        {
+                            _pool.Release(runspace);
+                        }
                     }
                     catch (Exception ex)
                     {
-                        Log.Debug(ex, "Error disposing PowerShell instance during middleware cleanup");
+                        Log.Debug(ex, "Error returning runspace to pool during middleware cleanup");
                     }
-
-                    _ = context.Items.Remove(PowerShellDelegateBuilder.PS_INSTANCE_KEY);
-                    _ = context.Items.Remove(PowerShellDelegateBuilder.KR_CONTEXT_KEY);
+                    finally
+                    {
+                        _ = context.Items.Remove(PowerShellDelegateBuilder.PS_INSTANCE_KEY);
+                        _ = context.Items.Remove(PowerShellDelegateBuilder.KR_CONTEXT_KEY);
+                    }
                 }
             }
 

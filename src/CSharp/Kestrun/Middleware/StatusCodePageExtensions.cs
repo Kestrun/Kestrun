@@ -175,11 +175,11 @@ public static class StatusCodePageExtensions
             }
             finally
             {
+                ps?.Dispose();
                 if (runspace is not null)
                 {
                     pool.Release(runspace);
                 }
-                ps?.Dispose();
                 _ = httpContext.Items.Remove(PowerShellDelegateBuilder.PS_INSTANCE_KEY);
                 _ = httpContext.Items.Remove(PowerShellDelegateBuilder.KR_CONTEXT_KEY);
             }

@@ -13,11 +13,11 @@ namespace Kestrun.Tasks;
 public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.ILogger log) : IDisposable
 {
     private readonly ConcurrentDictionary<string, KestrunTask> _tasks = new(StringComparer.OrdinalIgnoreCase);
-    private readonly KestrunRunspacePoolManager _pool = pool;
+    internal readonly KestrunRunspacePoolManager TaskRunspacePool = pool;
     private readonly Serilog.ILogger _log = log;
     private int _disposed;
 
-    private KestrunHost Host => _pool.Host;
+    private KestrunHost Host => TaskRunspacePool.Host;
 
     /// <summary>
     /// Creates a task from a code snippet without starting it.
@@ -44,7 +44,7 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
         }
 
         var progress = new ProgressiveKestrunTaskState();
-        var cfg = new TaskJobFactory.TaskJobConfig(Host, id, scriptCode, _pool, progress);
+        var cfg = new TaskJobFactory.TaskJobConfig(Host, id, scriptCode, TaskRunspacePool, progress);
         var work = TaskJobFactory.Create(cfg);
         var cts = new CancellationTokenSource();
         var task = new KestrunTask(id, scriptCode, cts)
@@ -359,7 +359,7 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
     }
 
     /// <summary>
-    /// Cancels any active tasks, disposes their cancellation sources, and releases the task runspace pool.
+    /// Cancels any active tasks, disposes their cancellation sources, clears the task registry, and releases the task runspace pool.
     /// </summary>
     public void Dispose()
     {
@@ -370,11 +370,27 @@ public sealed class KestrunTaskService(KestrunRunspacePoolManager pool, Serilog.
 
         foreach (var task in _tasks.Values)
         {
-            try { task.TokenSource.Cancel(); } catch { }
+            try
+            {
+                task.TokenSource.Cancel();
+            }
+            catch
+            {
+            }
+            finally
+            {
+                try
+                {
+                    task.TokenSource.Dispose();
+                }
+                catch
+                {
+                }
+            }
         }
 
         _tasks.Clear();
-        _pool.Dispose();
+        TaskRunspacePool.Dispose();
         _log.Information("KestrunTaskService disposed");
     }
 }

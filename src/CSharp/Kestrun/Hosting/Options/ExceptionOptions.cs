@@ -108,11 +108,11 @@ public sealed class ExceptionOptions : ExceptionHandlerOptions
             }
             finally
             {
+                ps?.Dispose();
                 if (runspace is not null)
                 {
                     o.Host.RunspacePool.Release(runspace);
                 }
-                ps?.Dispose();
                 _ = httpContext.Items.Remove(PowerShellDelegateBuilder.PS_INSTANCE_KEY);
                 _ = httpContext.Items.Remove(PowerShellDelegateBuilder.KR_CONTEXT_KEY);
             }

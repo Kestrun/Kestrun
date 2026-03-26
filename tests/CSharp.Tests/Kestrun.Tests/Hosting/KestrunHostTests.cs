@@ -6,7 +6,6 @@ using Kestrun.Utilities;
 using Kestrun.Hosting;
 using Kestrun.Hosting.Options;
 using Kestrun.Scripting;
-using Kestrun.Tasks;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 namespace Kestrun.Tests.Hosting;
@@ -347,9 +346,7 @@ public class KestrunHostTest
         host.EnableConfiguration();
 
         var taskService = host.Tasks;
-        var poolField = typeof(KestrunTaskService).GetField("_pool", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        Assert.NotNull(poolField);
-        var pool = Assert.IsType<KestrunRunspacePoolManager>(poolField.GetValue(taskService));
+        var pool = taskService.TaskRunspacePool;
 
         host.Dispose();
 

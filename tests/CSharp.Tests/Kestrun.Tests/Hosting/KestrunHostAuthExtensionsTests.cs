@@ -525,6 +525,277 @@ public class KestrunHostAuthExtensionsTests
 
     [Fact]
     [Trait("Category", "Hosting")]
+    public void OAuth2_MetadataEnabled_ResolvesMissingEndpoints()
+    {
+        var host = new KestrunHost("TestApp");
+        var metadataRequests = 0;
+        const string metadata = /*lang=json,strict*/ """
+            {
+              "authorization_endpoint":"https://issuer.example/authorize",
+              "token_endpoint":"https://issuer.example/token",
+              "userinfo_endpoint":"https://issuer.example/userinfo"
+            }
+            """;
+
+        using var backchannel = new HttpClient(new StubMessageHandler(_ =>
+        {
+            metadataRequests++;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(metadata, Encoding.UTF8, "application/json")
+            };
+        }));
+
+        var options = new OAuth2Options
+        {
+            ClientId = "client-id",
+            ClientSecret = "secret",
+            OAuth2MetadataUrl = "https://issuer.example/.well-known/oauth-authorization-server",
+            ResolveEndpointsFromMetadata = true,
+            Backchannel = backchannel
+        };
+
+        _ = host.AddOAuth2Authentication("OAuth2Metadata", "OAuth2 Metadata", options);
+        _ = host.Build();
+
+        Assert.Equal(1, metadataRequests);
+        Assert.Equal("https://issuer.example/authorize", options.AuthorizationEndpoint);
+        Assert.Equal("https://issuer.example/token", options.TokenEndpoint);
+        Assert.Equal("https://issuer.example/userinfo", options.UserInformationEndpoint);
+        Assert.True(host.HasAuthScheme("OAuth2Metadata"));
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void OAuth2_MetadataEnabled_Uses_BackchannelHttpHandler_When_Backchannel_Is_Null()
+    {
+        var host = new KestrunHost("TestApp");
+        var metadataRequests = 0;
+        const string metadata = /*lang=json,strict*/ """
+            {
+              "authorization_endpoint":"https://issuer.example/authorize",
+              "token_endpoint":"https://issuer.example/token",
+              "userinfo_endpoint":"https://issuer.example/userinfo"
+            }
+            """;
+
+        using var handler = new StubMessageHandler(_ =>
+        {
+            metadataRequests++;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(metadata, Encoding.UTF8, "application/json")
+            };
+        });
+
+        var options = new OAuth2Options
+        {
+            ClientId = "client-id",
+            ClientSecret = "secret",
+            OAuth2MetadataUrl = "https://issuer.example/.well-known/oauth-authorization-server",
+            ResolveEndpointsFromMetadata = true,
+            BackchannelHttpHandler = handler
+        };
+
+        _ = host.AddOAuth2Authentication("OAuth2MetadataHandler", "OAuth2 Metadata Handler", options);
+        _ = host.Build();
+
+        Assert.Equal(1, metadataRequests);
+        Assert.Equal("https://issuer.example/authorize", options.AuthorizationEndpoint);
+        Assert.Equal("https://issuer.example/token", options.TokenEndpoint);
+        Assert.Equal("https://issuer.example/userinfo", options.UserInformationEndpoint);
+        Assert.True(host.HasAuthScheme("OAuth2MetadataHandler"));
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void OAuth2_MetadataDisabled_MissingEndpoints_Throws()
+    {
+        var host = new KestrunHost("TestApp");
+        var options = new OAuth2Options
+        {
+            ClientId = "client-id",
+            OAuth2MetadataUrl = "https://issuer.example/.well-known/oauth-authorization-server",
+            ResolveEndpointsFromMetadata = false
+        };
+
+        var ex = Assert.Throws<ArgumentException>(() => host.AddOAuth2Authentication("OAuth2NoMetadata", configureOptions: options));
+        Assert.Contains("AuthorizationEndpoint", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void OAuth2_MetadataEnabled_InvalidMetadataUrl_ThrowsArgumentException()
+    {
+        var host = new KestrunHost("TestApp");
+        var options = new OAuth2Options
+        {
+            ClientId = "client-id",
+            OAuth2MetadataUrl = "/relative-metadata-path",
+            ResolveEndpointsFromMetadata = true
+        };
+
+        var ex = Assert.Throws<ArgumentException>(() => host.AddOAuth2Authentication("OAuth2InvalidMetadataUrl", configureOptions: options));
+        Assert.Equal(nameof(OAuth2Options.OAuth2MetadataUrl), ex.ParamName);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void OAuth2_MetadataEnabled_HttpMetadataUrl_ThrowsArgumentException()
+    {
+        var host = new KestrunHost("TestApp");
+        var options = new OAuth2Options
+        {
+            ClientId = "client-id",
+            OAuth2MetadataUrl = "http://issuer.example/.well-known/oauth-authorization-server",
+            ResolveEndpointsFromMetadata = true
+        };
+
+        var ex = Assert.Throws<ArgumentException>(() => host.AddOAuth2Authentication("OAuth2HttpMetadataUrl", configureOptions: options));
+        Assert.Equal(nameof(OAuth2Options.OAuth2MetadataUrl), ex.ParamName);
+        Assert.Contains("must use HTTPS", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void OAuth2_MetadataEnabled_HttpMetadataUrl_AllowsOptOutFlag()
+    {
+        var host = new KestrunHost("TestApp");
+        var metadataRequests = 0;
+        const string metadata = /*lang=json,strict*/ """
+            {
+              "authorization_endpoint":"https://issuer.example/authorize",
+              "token_endpoint":"https://issuer.example/token",
+              "userinfo_endpoint":"https://issuer.example/userinfo"
+            }
+            """;
+
+        using var backchannel = new HttpClient(new StubMessageHandler(_ =>
+        {
+            metadataRequests++;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(metadata, Encoding.UTF8, "application/json")
+            };
+        }));
+
+        var options = new OAuth2Options
+        {
+            ClientId = "client-id",
+            OAuth2MetadataUrl = "http://issuer.example/.well-known/oauth-authorization-server",
+            ResolveEndpointsFromMetadata = true,
+            AllowInsecureMetadataHttp = true,
+            Backchannel = backchannel
+        };
+
+        _ = host.AddOAuth2Authentication("OAuth2HttpMetadataOptOut", "OAuth2 HTTP Metadata Opt-out", options);
+        _ = host.Build();
+
+        Assert.Equal(1, metadataRequests);
+        Assert.Equal("https://issuer.example/authorize", options.AuthorizationEndpoint);
+        Assert.Equal("https://issuer.example/token", options.TokenEndpoint);
+        Assert.Equal("https://issuer.example/userinfo", options.UserInformationEndpoint);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void OAuth2_ExplicitEndpoints_OverrideMetadata()
+    {
+        var host = new KestrunHost("TestApp");
+        var metadataCalled = false;
+        using var backchannel = new HttpClient(new StubMessageHandler(_ =>
+        {
+            metadataCalled = true;
+            throw new InvalidOperationException("Metadata endpoint should not be called when endpoints are already explicit.");
+        }));
+
+        var options = new OAuth2Options
+        {
+            ClientId = "client-id",
+            ClientSecret = "secret",
+            AuthorizationEndpoint = "https://explicit.example/authorize",
+            TokenEndpoint = "https://explicit.example/token",
+            UserInformationEndpoint = "https://explicit.example/userinfo",
+            OAuth2MetadataUrl = "https://issuer.example/.well-known/oauth-authorization-server",
+            ResolveEndpointsFromMetadata = true,
+            Backchannel = backchannel
+        };
+
+        _ = host.AddOAuth2Authentication("OAuth2Explicit", "OAuth2 Explicit", options);
+        _ = host.Build();
+
+        Assert.False(metadataCalled);
+        Assert.Equal("https://explicit.example/authorize", options.AuthorizationEndpoint);
+        Assert.Equal("https://explicit.example/token", options.TokenEndpoint);
+        Assert.Equal("https://explicit.example/userinfo", options.UserInformationEndpoint);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void OAuth2_MetadataEnabled_MissingUserInfoEndpoint_ResolvesFromMetadata()
+    {
+        var host = new KestrunHost("TestApp");
+        var metadataRequests = 0;
+        const string metadata = /*lang=json,strict*/ """
+            {
+              "authorization_endpoint":"https://issuer.example/authorize",
+              "token_endpoint":"https://issuer.example/token",
+              "userinfo_endpoint":"https://issuer.example/userinfo"
+            }
+            """;
+
+        using var backchannel = new HttpClient(new StubMessageHandler(_ =>
+        {
+            metadataRequests++;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(metadata, Encoding.UTF8, "application/json")
+            };
+        }));
+
+        var options = new OAuth2Options
+        {
+            ClientId = "client-id",
+            ClientSecret = "secret",
+            AuthorizationEndpoint = "https://explicit.example/authorize",
+            TokenEndpoint = "https://explicit.example/token",
+            OAuth2MetadataUrl = "https://issuer.example/.well-known/oauth-authorization-server",
+            ResolveEndpointsFromMetadata = true,
+            Backchannel = backchannel
+        };
+
+        _ = host.AddOAuth2Authentication("OAuth2MissingUserInfo", "OAuth2 Missing UserInfo", options);
+        _ = host.Build();
+
+        Assert.Equal(1, metadataRequests);
+        Assert.Equal("https://explicit.example/authorize", options.AuthorizationEndpoint);
+        Assert.Equal("https://explicit.example/token", options.TokenEndpoint);
+        Assert.Equal("https://issuer.example/userinfo", options.UserInformationEndpoint);
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void OAuth2_MetadataFailure_Throws()
+    {
+        var host = new KestrunHost("TestApp");
+        using var backchannel = new HttpClient(new StubMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        {
+            Content = new StringContent("metadata failure", Encoding.UTF8, "text/plain")
+        }));
+
+        var options = new OAuth2Options
+        {
+            ClientId = "client-id",
+            OAuth2MetadataUrl = "https://issuer.example/.well-known/oauth-authorization-server",
+            ResolveEndpointsFromMetadata = true,
+            Backchannel = backchannel
+        };
+
+        _ = Assert.Throws<HttpRequestException>(() => host.AddOAuth2Authentication("OAuth2MetadataFail", configureOptions: options));
+    }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
     public void OpenIdConnect_WithJwkJson_ConfiguresEventsType()
     {
         var host = new KestrunHost("TestApp");

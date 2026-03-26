@@ -9,7 +9,7 @@ using Serilog;
 using Xunit;
 using Kestrun.Authentication;
 
-namespace KestrunTests.Authentication;
+namespace Kestrun.Tests.Authentication;
 
 [Collection("SharedStateSerial")]
 public class IAuthHandlerTest

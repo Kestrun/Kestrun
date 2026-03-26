@@ -86,6 +86,9 @@ $options.SaveTokens = $true
 $options.AuthorizationEndpoint = 'https://github.com/login/oauth/authorize'
 $options.TokenEndpoint = 'https://github.com/login/oauth/access_token'
 $options.UserInformationEndpoint = 'https://api.github.com/user'
+# Optional OpenAPI + endpoint discovery metadata (RFC 8414)
+# $options.OAuth2MetadataUrl = 'https://issuer.example/.well-known/oauth-authorization-server'
+# $options.ResolveEndpointsFromMetadata = $true
 $options.Scope.Clear(); $options.Scope.Add('read:user'); $options.Scope.Add('user:email') | Out-Null
 
 # Register OAuth2 (adds 'GitHub', 'GitHub.Cookies', 'GitHub.Policy')
@@ -117,6 +120,27 @@ Start-KrServer -CloseLogsOnExit
 > optional email enrichment, and normalizes common claims
 > (maps GitHub user and emails into standard claims).
 > Prefer `Add-KrOAuth2Authentication` for portability across providers.
+
+### 2.0 Metadata URL via cmdlet parameter
+
+You can set OAuth2 metadata directly on the cmdlet without manually assigning it on the options object:
+
+```powershell
+$options = [Kestrun.Authentication.OAuth2Options]::new()
+$options.ClientId = $env:GITHUB_CLIENT_ID
+$options.ClientSecret = $env:GITHUB_CLIENT_SECRET
+$options.AuthorizationEndpoint = 'https://github.com/login/oauth/authorize'
+$options.TokenEndpoint = 'https://github.com/login/oauth/access_token'
+
+# OpenAPI metadata only
+Add-KrOAuth2Authentication `
+  -AuthenticationScheme 'GitHub' `
+  -Options $options `
+  -OAuth2MetadataUrl 'https://issuer.example/.well-known/oauth-authorization-server'
+
+# Optional endpoint discovery (when endpoints are missing)
+# $options.ResolveEndpointsFromMetadata = $true
+```
 
 ### 2.1 Quick start (Google example)
 
@@ -238,9 +262,25 @@ Tokens:
 | AuthorizationEndpoint | Where the browser is redirected to sign in         | `https://github.com/login/oauth/authorize` |
 | TokenEndpoint         | Backend exchange of code → tokens                  | `https://github.com/login/oauth/access_token` |
 | UserInfo/Profile API  | Optional enrichment endpoint                       | `https://api.github.com/user` |
+| OAuth2MetadataUrl     | Optional OAuth2 metadata document URL (OpenAPI + optional endpoint discovery). Can be set via `-OAuth2MetadataUrl` or options. | `https://issuer.example/.well-known/oauth-authorization-server` |
+| ResolveEndpointsFromMetadata | If `true`, fills missing endpoints from metadata before validation | `$true` / `$false` |
+| AllowInsecureMetadataHttp | If `true`, allows HTTP (non-HTTPS) metadata discovery. Default is `$false` (HTTPS required). | `$true` / `$false` |
 | CallbackPath          | Redirect URI path registered in the app            | `/signin-oauth` |
 | Scopes                | Permissions requested                              | GitHub: `read:user`, `user:email`; Google: `openid email profile` |
 | Common claims         | Useful fields to map                               | `sub`, `name`, `email`, provider-specific IDs |
+
+### 3.2 `OAuth2MetadataUrl` behavior
+
+- `OAuth2MetadataUrl` is OpenAPI metadata and is emitted in the OpenAPI security scheme.
+- ASP.NET Core `AddOAuth` still uses concrete runtime endpoints (`AuthorizationEndpoint`, `TokenEndpoint`, etc.).
+- If `ResolveEndpointsFromMetadata = $true`, `OAuth2MetadataUrl` is set, and endpoints are missing, Kestrun fetches metadata and populates missing:
+  - `authorization_endpoint` -> `AuthorizationEndpoint`
+  - `token_endpoint` -> `TokenEndpoint`
+  - `userinfo_endpoint` -> `UserInformationEndpoint`
+- Metadata discovery requires an `https://` `OAuth2MetadataUrl` by default.
+- To explicitly allow `http://` metadata URLs (for trusted local/test environments only), set `AllowInsecureMetadataHttp = $true`.
+- Explicit endpoint values are never overwritten by metadata values.
+- If metadata resolution is required and retrieval fails, startup throws.
 
 ## 4. Scopes & enrichment
 
@@ -256,6 +296,8 @@ Tokens:
 
 - Use [Add-KrOAuth2Authentication](/pwsh/cmdlets/Add-KrOAuth2Authentication) to configure arbitrary providers.
 - Set `AuthorizationEndpoint`, `TokenEndpoint`, `ClientId`, `ClientSecret`, `CallbackPath`, and `Scope`.
+- Optional: set `OAuth2MetadataUrl` for OpenAPI metadata (via `-OAuth2MetadataUrl` or options);
+set `ResolveEndpointsFromMetadata` to auto-resolve missing endpoints at startup.
 - Optionally enable `SaveTokens`, `UsePkce`, and add `GetClaimsFromUserInfoEndpoint` if the provider supports a userinfo endpoint.
 
 ## 7. Troubleshooting

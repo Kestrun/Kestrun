@@ -5,9 +5,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
 using Xunit;
 
-namespace KestrunTests.Authentication;
+namespace Kestrun.Tests.Authentication;
 
-public class JwtAuthenticationOptionsTest
+public class JwtAutenticationOptionsTest
 {
     [Fact]
     public void Can_Set_And_Get_ValidationParameters()

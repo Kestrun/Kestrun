@@ -4,6 +4,7 @@ using Kestrun.Hosting;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
+using System.Text.Json;
 
 namespace Kestrun.Authentication;
 
@@ -63,6 +64,24 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
     /// </summary>
     public ClaimPolicyConfig? ClaimPolicy { get; set; }
 
+    /// <summary>
+    /// Gets or sets the OAuth2 authorization server metadata URL (RFC 8414).
+    /// This is used for OpenAPI metadata and optional endpoint discovery.
+    /// </summary>
+    public string? OAuth2MetadataUrl { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether missing OAuth2 endpoints should be
+    /// resolved from <see cref="OAuth2MetadataUrl"/>.
+    /// </summary>
+    public bool ResolveEndpointsFromMetadata { get; set; } = false;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether OAuth2 metadata discovery may use a non-HTTPS URL.
+    /// Defaults to <see langword="false"/> so metadata discovery requires HTTPS.
+    /// </summary>
+    public bool AllowInsecureMetadataHttp { get; set; } = false;
+
     private Serilog.ILogger? _logger;
     /// <inheritdoc/>
     public Serilog.ILogger Logger
@@ -88,6 +107,9 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
         target.Host = Host;
         target.ClaimPolicy = ClaimPolicy;
         target.Deprecated = Deprecated;
+        target.OAuth2MetadataUrl = OAuth2MetadataUrl;
+        target.ResolveEndpointsFromMetadata = ResolveEndpointsFromMetadata;
+        target.AllowInsecureMetadataHttp = AllowInsecureMetadataHttp;
     }
 
     /// <summary>
@@ -161,5 +183,135 @@ public class OAuth2Options : OAuthOptions, IOpenApiAuthenticationOptions, IAuthe
 
         // Other properties
         target.StateDataFormat = StateDataFormat;
+    }
+
+    /// <summary>
+    /// Populates missing OAuth2 endpoints from an OAuth2 metadata document.
+    /// </summary>
+    /// <param name="options">The OAuth2 options to populate.</param>
+    /// <param name="httpClient">The HTTP client used to fetch metadata.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    internal static async Task PopulateEndpointsFromMetadataAsync(
+        OAuth2Options options,
+        HttpClient httpClient,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(httpClient);
+
+        if (string.IsNullOrWhiteSpace(options.OAuth2MetadataUrl))
+        {
+            return;
+        }
+
+        if (!HasMissingMetadataEndpoints(options))
+        {
+            return;
+        }
+
+        using var json = await FetchMetadataDocumentAsync(
+            options.OAuth2MetadataUrl,
+            httpClient,
+            cancellationToken).ConfigureAwait(false);
+
+        if (TryResolveEndpointFromMetadata(
+            options.AuthorizationEndpoint,
+            json.RootElement,
+            "authorization_endpoint",
+            out var authorizationEndpoint))
+        {
+            options.AuthorizationEndpoint = authorizationEndpoint;
+        }
+
+        if (TryResolveEndpointFromMetadata(
+            options.TokenEndpoint,
+            json.RootElement,
+            "token_endpoint",
+            out var tokenEndpoint))
+        {
+            options.TokenEndpoint = tokenEndpoint;
+        }
+
+        if (TryResolveEndpointFromMetadata(
+            options.UserInformationEndpoint,
+            json.RootElement,
+            "userinfo_endpoint",
+            out var userInformationEndpoint))
+        {
+            options.UserInformationEndpoint = userInformationEndpoint;
+        }
+    }
+
+    /// <summary>
+    /// Determines whether any OAuth2 endpoint that can be resolved from metadata is missing.
+    /// </summary>
+    /// <param name="options">The OAuth2 options to inspect.</param>
+    /// <returns><see langword="true"/> when at least one endpoint is missing; otherwise, <see langword="false"/>.</returns>
+    private static bool HasMissingMetadataEndpoints(OAuth2Options options) =>
+        string.IsNullOrWhiteSpace(options.AuthorizationEndpoint) ||
+        string.IsNullOrWhiteSpace(options.TokenEndpoint) ||
+        string.IsNullOrWhiteSpace(options.UserInformationEndpoint);
+
+    /// <summary>
+    /// Downloads and parses the OAuth2 metadata document.
+    /// </summary>
+    /// <param name="metadataUrl">The metadata document URL.</param>
+    /// <param name="httpClient">The HTTP client used to fetch metadata.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    /// <returns>The parsed metadata document.</returns>
+    private static async Task<JsonDocument> FetchMetadataDocumentAsync(
+        string metadataUrl,
+        HttpClient httpClient,
+        CancellationToken cancellationToken)
+    {
+        using var response = await httpClient.GetAsync(metadataUrl, cancellationToken).ConfigureAwait(false);
+        _ = response.EnsureSuccessStatusCode();
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Resolves a single OAuth2 endpoint value from metadata when the current value is missing.
+    /// </summary>
+    /// <param name="currentEndpoint">The current endpoint value.</param>
+    /// <param name="metadataRoot">The metadata JSON root element.</param>
+    /// <param name="propertyName">The metadata property name to read.</param>
+    /// <param name="resolvedEndpoint">The resolved endpoint, when available.</param>
+    /// <returns><see langword="true"/> when an endpoint was resolved from metadata; otherwise <see langword="false"/>.</returns>
+    /// <exception cref="FormatException">Thrown when a discovered endpoint is not an absolute URI.</exception>
+    private static bool TryResolveEndpointFromMetadata(
+        string? currentEndpoint,
+        JsonElement metadataRoot,
+        string propertyName,
+        out string resolvedEndpoint)
+    {
+        resolvedEndpoint = string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(currentEndpoint))
+        {
+            return false;
+        }
+
+        if (!metadataRoot.TryGetProperty(propertyName, out var endpointElement) ||
+            endpointElement.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        var endpoint = endpointElement.GetString();
+        if (string.IsNullOrWhiteSpace(endpoint))
+        {
+            return false;
+        }
+
+        if (Uri.TryCreate(endpoint, UriKind.Absolute, out _))
+        {
+            resolvedEndpoint = endpoint;
+            return true;
+        }
+
+        throw new FormatException($"OAuth2 metadata property '{propertyName}' must be an absolute URI, but received '{endpoint}'.");
     }
 }

@@ -123,10 +123,32 @@ public partial class OpenApiDocDescriptor
         {
             Type = SecuritySchemeType.OAuth2,
             Flows = flows,
+            OAuth2MetadataUrl = GetOptionalAbsoluteUri(
+                options.OAuth2MetadataUrl,
+                nameof(options.OAuth2MetadataUrl)),
             Description = options.Description,
             Deprecated = options.Deprecated
         };
     }
+
+    /// <summary>
+    /// Parses an optional URI value and ensures that it is absolute when provided.
+    /// </summary>
+    /// <param name="value">The candidate URI string.</param>
+    /// <param name="optionName">The option name used for error reporting.</param>
+    /// <returns>An absolute <see cref="Uri"/> when valid; otherwise <see langword="null"/> for empty values.</returns>
+    /// <exception cref="ArgumentException">Thrown when the value is non-empty but not a valid absolute URI.</exception>
+    private static Uri? GetOptionalAbsoluteUri(string? value, string optionName)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : !Uri.TryCreate(value, UriKind.Absolute, out var uri)
+            ? throw new ArgumentException(
+                $"Invalid absolute URI for '{optionName}': '{value}'.",
+                optionName)
+            : uri;
+    }
+
     /// <summary>
     /// Gets the OpenAPI security scheme for API key authentication.
     /// </summary>

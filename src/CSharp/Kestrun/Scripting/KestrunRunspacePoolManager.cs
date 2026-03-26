@@ -170,6 +170,7 @@ public sealed class KestrunRunspacePoolManager : IDisposable
                 if (rs.RunspaceStateInfo.State != RunspaceState.Opened)
                 {
                     Host.Logger.Warning("Runspace from stash is not opened: {State}. Discarding and continuing wait.", rs.RunspaceStateInfo.State);
+                    _all.Remove(rs);
                     rs.Dispose();
                     _ = Interlocked.Decrement(ref _count);
                     continue;

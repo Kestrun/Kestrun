@@ -13,7 +13,7 @@ using Serilog;
 using Xunit;
 using Kestrun.Hosting;
 
-namespace KestrunTests.Authentication;
+namespace Kestrun.Tests.Authentication;
 
 public class BasicAuthHandlerTest
 {

@@ -3,7 +3,7 @@ using System.Net.Sockets;
 using System.Xml;
 using Xunit;
 
-namespace KestrunTests.Annotations.OpenApi.JsonSchemaType;
+namespace Kestrun.Tests.Annotations.OpenApi.JsonSchemaType;
 
 public class PrimitivesTests
 {

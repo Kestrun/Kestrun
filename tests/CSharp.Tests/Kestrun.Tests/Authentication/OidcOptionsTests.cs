@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Xunit;
 
-namespace KestrunTests.Authentication;
+namespace Kestrun.Tests.Authentication;
 
 public class OidcOptionsTests
 {

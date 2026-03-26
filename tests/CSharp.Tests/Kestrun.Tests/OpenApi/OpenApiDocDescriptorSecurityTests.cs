@@ -55,4 +55,28 @@ public sealed class OpenApiDocDescriptorSecurityTests
         Assert.NotNull(descriptor.Document.Security);
         Assert.NotEmpty(descriptor.Document.Security);
     }
+
+    [Fact]
+    public void ApplySecurityScheme_OAuth2_IncludesOAuth2MetadataUrl()
+    {
+        using var host = new KestrunHost("Tests", Log.Logger);
+        var descriptor = new OpenApiDocDescriptor(host, OpenApiDocDescriptor.DefaultDocumentationId);
+
+        var options = new OAuth2Options
+        {
+            AuthorizationEndpoint = "https://issuer.example/authorize",
+            TokenEndpoint = "https://issuer.example/token",
+            OAuth2MetadataUrl = "https://issuer.example/.well-known/oauth-authorization-server"
+        };
+
+        descriptor.ApplySecurityScheme("OAuth2", options);
+
+        Assert.NotNull(descriptor.Document.Components);
+        Assert.NotNull(descriptor.Document.Components.SecuritySchemes);
+        Assert.True(descriptor.Document.Components.SecuritySchemes.TryGetValue("OAuth2", out var scheme));
+        Assert.NotNull(scheme);
+        Assert.Equal(SecuritySchemeType.OAuth2, scheme.Type);
+        var metadataProvider = Assert.IsAssignableFrom<IOAuth2MetadataProvider>(scheme);
+        Assert.Equal(new Uri("https://issuer.example/.well-known/oauth-authorization-server"), metadataProvider.OAuth2MetadataUrl);
+    }
 }

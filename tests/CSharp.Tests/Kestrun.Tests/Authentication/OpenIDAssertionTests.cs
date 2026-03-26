@@ -6,7 +6,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Xunit;
 
-namespace KestrunTests.Authentication;
+namespace Kestrun.Tests.Authentication;
 
 public class OpenIDAssertionTests
 {

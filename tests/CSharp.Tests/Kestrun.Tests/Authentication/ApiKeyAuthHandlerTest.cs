@@ -10,7 +10,7 @@ using Kestrun.Scripting;
 using Kestrun.Hosting;
 using System.Text.Encodings.Web;
 
-namespace KestrunTests.Authentication;
+namespace Kestrun.Tests.Authentication;
 
 public class ApiKeyAuthHandlerTest
 {

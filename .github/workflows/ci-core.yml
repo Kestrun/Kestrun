@@ -158,27 +158,6 @@ jobs:
                   }
                   Invoke-Build Restore -DotNetVerbosity $Env:DOTNET_VERBOSITY
 
-            # 🐛 Debug-only; non-fatal if it exits 1
-            - name: 🔎 List Roslyn packages (transitive)
-              if: ${{ steps.detect_debug.outputs.gh_debug == 'true' }}
-              continue-on-error: true
-              shell: pwsh
-              run: |
-                  dotnet list ./Kestrun.sln package --include-transitive -v $Env:DOTNET_VERBOSITY |
-                    Select-String -SimpleMatch "Microsoft.CodeAnalysis"
-                  Write-Host "Exit code was $LASTEXITCODE (ignored in debug)"
-
-            # 🐛 Debug-only; non-fatal inventory
-            - name: 📂 List Roslyn candidates in repo
-              if: ${{ steps.detect_debug.outputs.gh_debug == 'true' }}
-              continue-on-error: true
-              shell: pwsh
-              run: |
-                  Get-ChildItem -Recurse -File -Include Microsoft.CodeAnalysis*.dll,System.Collections.Immutable*.dll,System.Reflection.Metadata*.dll |
-                    Sort-Object FullName |
-                    Select-Object FullName, Length |
-                    Format-Table -Auto
-
             - name: 🔧 Run C# Build (normal)
               shell: pwsh
               run: |
@@ -191,30 +170,6 @@ jobs:
                   $ErrorActionPreference = 'Stop'
                   Invoke-Build Build -DotNetVerbosity $Env:DOTNET_VERBOSITY
 
-            # 🐛 Optional deep-dive build with binlog in debug (non-fatal)
-            - name: 🧰 Debug build with binlog
-              if: ${{ steps.detect_debug.outputs.gh_debug == 'true' }}
-              continue-on-error: true
-              shell: pwsh
-              run: |
-                  dotnet build ./Kestrun.sln -c Debug -bl:msbuild.binlog -v $Env:DOTNET_VERBOSITY || $true
-
-            # 🐛 Debug-only; force Roslyn load (non-fatal)
-            - name: 🧪 Mini Roslyn sanity check (before Pester)
-              if: ${{ steps.detect_debug.outputs.gh_debug == 'true' }}
-              continue-on-error: true
-              shell: pwsh
-              run: |
-                  $ErrorActionPreference = 'Continue'
-                  Import-Module ./src/PowerShell/Kestrun/Kestrun.psd1 -Force
-                  [AppDomain]::CurrentDomain.GetAssemblies() |
-                    Where-Object { $_.GetName().Name -like 'Microsoft.CodeAnalysis*' -or $_.GetName().Name -in 'System.Collections.Immutable','System.Reflection.Metadata' } |
-                    Select FullName, Location | Format-Table -Auto
-
-                  if ([type]::GetType('Kestrun.Scripting.CSharpDelegateBuilder')) {
-                    try { [Kestrun.Scripting.CSharpDelegateBuilder]::Compile('int x=1;') } catch { $_ | Out-String | Write-Host }
-                  }
-                    Write-Host "Roslyn sanity check completed (errors ignored in debug)"
             # Build the tool before testing to ensure the latest bits are used in tests, and to validate the tool builds on all platforms before running tests that depend on it
             - name: 📦 Pack Kestrun.Tool for testing
               shell: pwsh

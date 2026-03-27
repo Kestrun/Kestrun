@@ -67,7 +67,7 @@ jobs:
               shell: bash
               run: |
                   gh_debug=false
-                  if [[ "${{ inputs.debug }}" == "true" || "${ACTIONS_STEP_DEBUG:-false}" == "true" ]]; then
+                  if [[ "${{ inputs.debug }}" == "true" || "${{ runner.debug }}" == "1" ]]; then
                     gh_debug=true
                   fi
                   echo "gh_debug=$gh_debug" >> "$GITHUB_OUTPUT"
@@ -115,13 +115,16 @@ jobs:
             - name: 🔧 Set build verbosity
               shell: bash
               run: |
-                  if [[ "${{ steps.detect_debug.outputs.gh_debug == 'true' }}" == "true" ]]; then
+                  if [[ "${{ steps.detect_debug.outputs.gh_debug }}" == "true" ]]; then
                     echo "DOTNET_VERBOSITY=diag" >> "$GITHUB_ENV"
                     echo "PESTER_VERBOSITY=Detailed" >> "$GITHUB_ENV"
                   else
                     echo "DOTNET_VERBOSITY=minimal" >> "$GITHUB_ENV"
                     echo "PESTER_VERBOSITY=Normal" >> "$GITHUB_ENV"
                   fi
+                  echo "Resolved debug=${{ steps.detect_debug.outputs.gh_debug }}"
+                  echo "Resolved DOTNET_VERBOSITY=${DOTNET_VERBOSITY:-unset} (will be available in later steps)"
+                  echo "Resolved PESTER_VERBOSITY=${PESTER_VERBOSITY:-unset} (will be available in later steps)"
 
             - name: 🧰 Install Module Invoke-Build
               shell: pwsh

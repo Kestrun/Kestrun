@@ -162,8 +162,7 @@ internal static class VBNetDelegateBuilder
         extraImports ??= [];
         extraImports = [.. extraImports, "System.Collections.Generic", "System.Linq", "System.Security.Claims"];
 
-        // Discover dynamic namespaces from globals + locals similar to C# path
-        var dynamicImports = CollectDynamicImports(host, locals);
+        var (dynamicImports, dynamicRefs) = CollectDynamicMetadata(host, locals);
         if (dynamicImports.Count > 0)
         {
             var mergedImports = extraImports.Concat(dynamicImports)
@@ -189,8 +188,7 @@ internal static class VBNetDelegateBuilder
                    source,
                    new VisualBasicParseOptions(languageVersion));
 
-        // 🔧 2.  References = everything already loaded  +  extras
-        var refs = BuildMetadataReferences(extraRefs);
+        var refs = BuildMetadataReferences(extraRefs, extraImports, dynamicRefs);
         // 🔧 3.  Normal DLL compilation
         var compilation = VisualBasicCompilation.Create(
                  assemblyName: $"RouteScript_{Guid.NewGuid():N}",
@@ -255,26 +253,25 @@ internal static class VBNetDelegateBuilder
     /// Prepares the metadata references for the VB.NET script.
     /// </summary>
     /// <param name="extraRefs">The extra references to include.</param>
+    /// <param name="imports">The effective imports used by the generated source.</param>
+    /// <param name="dynamicRefs">Assemblies inferred from host globals and compile-time locals.</param>
     /// <returns>An enumerable of metadata references.</returns>
-    private static IEnumerable<MetadataReference> BuildMetadataReferences(Assembly[]? extraRefs)
+    private static IEnumerable<MetadataReference> BuildMetadataReferences(
+        Assembly[]? extraRefs,
+        IEnumerable<string> imports,
+        IEnumerable<Assembly> dynamicRefs)
     {
-        // NOTE: Some tests create throwaway assemblies in temp folders and then delete the folder.
-        // On Windows the delete often fails (file still locked) so Assembly.Location continues to exist.
-        // On Linux the delete succeeds; the Assembly remains loaded but its Location now points to a
-        // non-existent path.  Roslyn's MetadataReference.CreateFromFile will throw FileNotFoundException
-        // in that scenario.  We therefore skip any loaded assemblies whose Location no longer exists.
-        var baseRefs = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(a => !a.IsDynamic && SafeHasLocation(a) && !IsSatelliteAssembly(a))
-            .Select(a => MetadataReference.CreateFromFile(a.Location));
+        var locations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        AddMetadataReferenceLocations(locations, DelegateBuilder.BuildBaselineReferences());
+        AddAssemblyLocation(locations, typeof(Microsoft.VisualBasic.Constants).Assembly);
+        AddAssemblyLocation(locations, typeof(CsGlobals).Assembly);
+        AddLoadedAssemblyLocation(locations, "System.Runtime");
+        AddLoadedAssemblyLocation(locations, "netstandard");
+        AddImportAssemblyLocations(locations, imports);
+        AddAssemblyLocations(locations, dynamicRefs);
+        AddAssemblyLocations(locations, extraRefs);
 
-        var extras = extraRefs?.Select(r => MetadataReference.CreateFromFile(r.Location))
-                     ?? Enumerable.Empty<MetadataReference>();
-
-        // Always include the VB runtime explicitly then add our common baseline references.
-        return baseRefs
-            .Concat(extras)
-            .Append(MetadataReference.CreateFromFile(typeof(Microsoft.VisualBasic.Constants).Assembly.Location))
-            .Concat(DelegateBuilder.BuildBaselineReferences());
+        return locations.Select(static location => MetadataReference.CreateFromFile(location));
     }
 
     private static bool IsSatelliteAssembly(Assembly a)
@@ -300,51 +297,200 @@ internal static class VBNetDelegateBuilder
     }
 
     /// <summary>
-    /// Collects dynamic imports from the types of the provided locals and shared globals.
+    /// Collects dynamic imports and assembly references from the types of the provided locals and shared globals.
     /// </summary>
     /// <param name="host">The Kestrun host instance.</param>
     /// <param name="locals">The local variables to inspect.</param>
-    /// <returns>A set of unique namespace strings.</returns>
-    private static HashSet<string> CollectDynamicImports(KestrunHost host, IReadOnlyDictionary<string, object?>? locals)
+    /// <returns>A set of unique namespace strings and the corresponding assembly references.</returns>
+    private static (HashSet<string> Imports, HashSet<Assembly> References) CollectDynamicMetadata(
+        KestrunHost host,
+        IReadOnlyDictionary<string, object?>? locals)
     {
         var imports = new HashSet<string>(StringComparer.Ordinal);
-        // Merge globals + locals (locals override) just for namespace harvesting
-        var globals = host.SharedState.Snapshot();
-        foreach (var g in globals)
+        var references = new HashSet<Assembly>();
+        foreach (var g in host.SharedState.Snapshot())
         {
-            AddTypeNamespaces(g.Value?.GetType(), imports);
+            AddTypeMetadata(g.Value?.GetType(), imports, references);
         }
+
         if (locals is { Count: > 0 })
         {
             foreach (var l in locals)
             {
-                AddTypeNamespaces(l.Value?.GetType(), imports);
+                AddTypeMetadata(l.Value?.GetType(), imports, references);
             }
         }
-        return imports;
+
+        return (imports, references);
     }
 
-    private static void AddTypeNamespaces(Type? t, HashSet<string> set)
+    /// <summary>
+    /// Adds the namespace and assembly metadata for the supplied type, including generic arguments and array elements.
+    /// </summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <param name="imports">The namespace set to update.</param>
+    /// <param name="references">The assembly set to update.</param>
+    private static void AddTypeMetadata(Type? type, HashSet<string> imports, HashSet<Assembly> references)
     {
-        if (t == null)
+        if (type == null)
         {
             return;
         }
-        if (!string.IsNullOrEmpty(t.Namespace))
+
+        if (!string.IsNullOrEmpty(type.Namespace))
         {
-            _ = set.Add(t.Namespace);
+            _ = imports.Add(type.Namespace);
         }
-        if (t.IsGenericType)
+
+        _ = references.Add(type.Assembly);
+
+        if (type.IsGenericType)
         {
-            foreach (var ga in t.GetGenericArguments())
+            foreach (var genericArgument in type.GetGenericArguments())
             {
-                AddTypeNamespaces(ga, set);
+                AddTypeMetadata(genericArgument, imports, references);
             }
         }
-        if (t.IsArray)
+
+        if (type.IsArray)
         {
-            AddTypeNamespaces(t.GetElementType(), set);
+            AddTypeMetadata(type.GetElementType(), imports, references);
         }
+    }
+
+    /// <summary>
+    /// Adds assembly locations needed for the supplied import namespaces.
+    /// </summary>
+    /// <param name="locations">The reference location set to update.</param>
+    /// <param name="imports">The imports used by the generated source.</param>
+    private static void AddImportAssemblyLocations(HashSet<string> locations, IEnumerable<string> imports)
+    {
+        var importSet = imports
+            .Where(importName => !string.IsNullOrWhiteSpace(importName))
+            .ToHashSet(StringComparer.Ordinal);
+        if (importSet.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies().Where(IsReferenceableAssembly))
+        {
+            if (importSet.Any(importName => NamespaceExistsInAssembly(assembly, importName)))
+            {
+                AddAssemblyLocation(locations, assembly);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Adds all safe assembly locations from the provided collection.
+    /// </summary>
+    /// <param name="locations">The reference location set to update.</param>
+    /// <param name="assemblies">The assemblies to inspect.</param>
+    private static void AddAssemblyLocations(HashSet<string> locations, IEnumerable<Assembly>? assemblies)
+    {
+        if (assemblies == null)
+        {
+            return;
+        }
+
+        foreach (var assembly in assemblies)
+        {
+            AddAssemblyLocation(locations, assembly);
+        }
+    }
+
+    /// <summary>
+    /// Adds file paths from existing metadata references to the location set.
+    /// </summary>
+    /// <param name="locations">The reference location set to update.</param>
+    /// <param name="references">The metadata references to inspect.</param>
+    private static void AddMetadataReferenceLocations(HashSet<string> locations, IEnumerable<MetadataReference> references)
+    {
+        foreach (var reference in references.OfType<PortableExecutableReference>())
+        {
+            var filePath = reference.FilePath;
+            if (!string.IsNullOrWhiteSpace(filePath) && File.Exists(filePath))
+            {
+                _ = locations.Add(filePath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Adds a loaded assembly by simple name when it is available and safe to reference.
+    /// </summary>
+    /// <param name="locations">The reference location set to update.</param>
+    /// <param name="assemblyName">The simple assembly name to resolve.</param>
+    private static void AddLoadedAssemblyLocation(HashSet<string> locations, string assemblyName)
+    {
+        var assembly = AppDomain.CurrentDomain.GetAssemblies()
+            .FirstOrDefault(candidate => string.Equals(candidate.GetName().Name, assemblyName, StringComparison.OrdinalIgnoreCase));
+        if (assembly != null)
+        {
+            AddAssemblyLocation(locations, assembly);
+        }
+    }
+
+    /// <summary>
+    /// Adds an assembly location when the assembly can be safely referenced by Roslyn.
+    /// </summary>
+    /// <param name="locations">The reference location set to update.</param>
+    /// <param name="assembly">The assembly to inspect.</param>
+    private static void AddAssemblyLocation(HashSet<string> locations, Assembly assembly)
+    {
+        if (!IsReferenceableAssembly(assembly))
+        {
+            return;
+        }
+
+        try
+        {
+            _ = locations.Add(assembly.Location);
+        }
+        catch
+        {
+        }
+    }
+
+    /// <summary>
+    /// Determines whether the assembly can be safely used as a metadata reference.
+    /// </summary>
+    /// <param name="assembly">The assembly to inspect.</param>
+    /// <returns><see langword="true"/> when the assembly has a stable file location and is not a satellite assembly.</returns>
+    private static bool IsReferenceableAssembly(Assembly assembly)
+        => !assembly.IsDynamic && SafeHasLocation(assembly) && !IsSatelliteAssembly(assembly);
+
+    /// <summary>
+    /// Determines whether the supplied namespace exists in the assembly.
+    /// </summary>
+    /// <param name="assembly">The assembly to inspect.</param>
+    /// <param name="namespaceName">The namespace to search for.</param>
+    /// <returns><see langword="true"/> when the namespace or one of its children is present.</returns>
+    private static bool NamespaceExistsInAssembly(Assembly assembly, string namespaceName)
+    {
+        try
+        {
+            foreach (var type in assembly.DefinedTypes)
+            {
+                var currentNamespace = type.Namespace;
+                if (currentNamespace == null)
+                {
+                    continue;
+                }
+
+                if (currentNamespace.Equals(namespaceName, StringComparison.Ordinal)
+                    || currentNamespace.StartsWith(namespaceName + ".", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+        catch (ReflectionTypeLoadException)
+        {
+        }
+
+        return false;
     }
     private static bool SafeHasLocation(Assembly a)
     {

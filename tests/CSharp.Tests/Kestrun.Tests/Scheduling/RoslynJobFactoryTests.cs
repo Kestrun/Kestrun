@@ -49,6 +49,17 @@ public class RoslynJobFactoryTests
 
     [Fact]
     [Trait("Category", "Scheduling")]
+    public async Task VB_Build_With_Locals_Injection_Works()
+    {
+        var host = new KestrunHost("TestHost");
+        var locals = new Dictionary<string, object?> { ["username"] = "bar" };
+        var code = "If username <> \"bar\" Then Throw New System.Exception(\"locals not injected\")\r\nReturn Nothing";
+        var job = RoslynJobFactory.Build(host, code, null, null, locals, Microsoft.CodeAnalysis.VisualBasic.LanguageVersion.VisualBasic16_9);
+        await job(CancellationToken.None);
+    }
+
+    [Fact]
+    [Trait("Category", "Scheduling")]
     public async Task CSharp_Build_With_Locals_Injection_Works()
     {
         var host = new KestrunHost("TestHost");

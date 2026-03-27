@@ -1,8 +1,12 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Kestrun.Hosting;
 using Kestrun.Languages;
 using Xunit;
 
 namespace Kestrun.Tests.Languages;
+
+public sealed record VbCustomPayload(string Name);
 
 /// <summary>
 /// Regression tests for VBNetDelegateBuilder Linux handling of deleted assembly files.
@@ -30,5 +34,28 @@ public class VBNetDelegateBuilderRegressionTests
         // Act / Assert: should not throw
         var func = VBNetDelegateBuilder.Compile<bool>(host, code, null, null, null, Microsoft.CodeAnalysis.VisualBasic.LanguageVersion.VisualBasic16);
         Assert.NotNull(func);
+    }
+
+    [Fact]
+    [Trait("Category", "Languages")]
+    public async Task Compile_Succeeds_With_Local_Custom_Type_Reference()
+    {
+        var host = new KestrunHost("Tests");
+        var locals = new Dictionary<string, object?>
+        {
+            ["payload"] = new VbCustomPayload("ok")
+        };
+        var code = "Dim payload = CType(g.Locals(\"payload\"), VbCustomPayload)\r\nReturn payload.Name = \"ok\"";
+
+        var func = VBNetDelegateBuilder.Compile<bool>(
+            host,
+            code,
+            ["Kestrun.Tests.Languages"],
+            null,
+            locals,
+            Microsoft.CodeAnalysis.VisualBasic.LanguageVersion.VisualBasic16);
+
+        var result = await func(new CsGlobals(host.SharedState.Snapshot(), locals));
+        Assert.True(result);
     }
 }

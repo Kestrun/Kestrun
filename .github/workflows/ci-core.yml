@@ -114,7 +114,7 @@ jobs:
               shell: bash
               run: |
                   if [[ "${{ steps.detect_debug.outputs.gh_debug == 'true' }}" == "true" ]]; then
-                    echo "DOTNET_VERBOSITY=diag" >> "$GITHUB_ENV"
+                    echo "DOTNET_VERBOSITY=Detailed" >> "$GITHUB_ENV"
                     echo "PESTER_VERBOSITY=Detailed" >> "$GITHUB_ENV"
                   else
                     echo "DOTNET_VERBOSITY=minimal" >> "$GITHUB_ENV"

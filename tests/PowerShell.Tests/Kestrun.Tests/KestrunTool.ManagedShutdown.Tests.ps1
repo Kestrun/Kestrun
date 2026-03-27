@@ -21,6 +21,10 @@ BeforeAll {
     $scriptContent = @"
 param([int]`$Port = 5000)
 
+    New-KrLogger | Add-KrSinkConsole |
+        Set-KrLoggerLevel -Value Debug |
+        Register-KrLogger -Name 'console' -SetAsDefault
+
 `$server = New-KrServer -Name 'KestrunManagedStopTest'
 Add-KrEndpoint -Port `$Port -IPAddress '127.0.0.1'
 
@@ -200,6 +204,10 @@ public static class NativeCtrl
 
         $scriptContent2 = @"
 param([int]`$Port = 5000)
+
+New-KrLogger | Add-KrSinkConsole |
+    Set-KrLoggerLevel -Value Debug |
+    Register-KrLogger -Name 'console' -SetAsDefault
 
 `$server = New-KrServer -Name 'KestrunCtrlCTest'
 Add-KrEndpoint -Port `$Port -IPAddress '127.0.0.1'

@@ -5,7 +5,7 @@ namespace Kestrun.Callback;
 /// <summary>
 /// JSON implementation of <see cref="ICallbackBodySerializer"/>.
 /// </summary>
-public sealed class JsonCallbackBodySerializer : ICallbackBodySerializer
+internal sealed class JsonCallbackBodySerializer : ICallbackBodySerializer
 {
     /// <summary>
     /// Serializes the callback body based on the provided plan and context.

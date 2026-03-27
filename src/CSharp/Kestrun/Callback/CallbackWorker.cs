@@ -14,7 +14,7 @@ namespace Kestrun.Callback;
 /// <param name="retry"> The callback retry policy.</param>
 /// <param name="log"> The logger.</param>
 /// <param name="store"> The optional callback store.</param>
-public sealed class CallbackWorker(
+internal sealed class CallbackWorker(
     InMemoryCallbackQueue queue,
     ICallbackSender sender,
     ICallbackRetryPolicy retry,

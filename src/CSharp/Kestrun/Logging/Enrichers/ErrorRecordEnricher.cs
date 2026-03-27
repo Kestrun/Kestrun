@@ -7,7 +7,7 @@ namespace Kestrun.Logging.Enrichers;
 /// <summary>
 /// Enriches Serilog log events with error record and invocation info from WrapperException.
 /// </summary>
-public class ErrorRecordEnricher : ILogEventEnricher
+internal class ErrorRecordEnricher : ILogEventEnricher
 {
     /// <summary>
     /// The property name used for the error record in log events.

@@ -7,7 +7,7 @@ namespace Kestrun.Localization;
 /// <summary>
 /// Parses PowerShell-style string table files containing key=value pairs.
 /// </summary>
-public static class StringTableParser
+internal static class StringTableParser
 {
     /// <summary>
     /// Parses a string table file and returns a dictionary of key/value pairs.

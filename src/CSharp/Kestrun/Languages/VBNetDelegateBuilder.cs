@@ -609,7 +609,7 @@ internal static class VBNetDelegateBuilder
         };
 
         foreach (var ns in builtIns.Concat(extraImports ?? [])
-                                   .Distinct(StringComparer.Ordinal))
+                                   .Distinct(StringComparer.OrdinalIgnoreCase))
         {
             _ = sb.AppendLine($"Imports {ns}");
         }

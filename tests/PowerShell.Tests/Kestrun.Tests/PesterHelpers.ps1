@@ -239,18 +239,27 @@ function Get-PwshExecutable {
 .PARAMETER Port
     Optional explicit port number to use. If not provided, a free port will be selected.
 .PARAMETER StartupTimeoutSeconds
-    Maximum time to wait for the example to start accepting connections. Default is 15 seconds.
+        Maximum time to wait for the example to start accepting connections. Default is 40 seconds.
 .PARAMETER HttpProbeDelayMs
     Delay between HTTP probes of the root URL when waiting for startup. Default is 150ms.
+    .PARAMETER SkipPortProbe
+        If specified, skips readiness probing and returns immediately after starting the child process.
 .PARAMETER FromRootDirectory
     If specified, resolves example script paths relative to the repository root instead of the module directory.
+    .PARAMETER EnvironmentVariables
+        Environment variable names to copy from the current process into the child example process.
 .OUTPUTS
     A custom object with properties:
     - Name: The name of the example script.
+        - BaseName: The script file name without extension, or 'ScriptBlock' when started from a script block.
+        - Url: Base URL for the started example using the detected scheme, host, and port.
+        - Host: The host name used for startup and request probing.
     - Port: The TCP port number the example is listening on.
     - StartupAttemptCount: Number of startup attempts made before returning.
     - PortRetryCount: Number of retries caused by transient startup conflicts.
+        - PortWasProvided: Indicates whether the caller explicitly supplied the port.
     - PortsTried: Ports used across startup attempts.
+        - LastStartupProbeError: Last readiness probe error captured while waiting for startup, if any.
     - TempPath: The path to the temporary modified script file.
     - Process: The Process object of the started example.
     - Content: The modified script content that was run.
@@ -258,6 +267,10 @@ function Get-PwshExecutable {
     - StdErr: Path to the redirected standard error log file.
     - ExitedEarly: Boolean indicating if the process exited before startup completed.
     - Ready: Boolean indicating if the example is ready to accept connections.
+        - ScriptDirectory: Working directory used when launching the example.
+        - OriginalLocation: Caller location captured before changing into the example directory.
+        - PushedLocation: Indicates whether the helper pushed a location that Stop-ExampleScript should pop.
+        - Https: Indicates whether the helper inferred HTTPS for the started example.
 #>
 function Start-ExampleScript {
     [CmdletBinding(SupportsShouldProcess, defaultParameterSetName = 'Name')]
@@ -323,6 +336,7 @@ Start-KrServer
 
     # Write modified legacy content to temp file
     $scriptToRun = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
+        $exampleIdentifier = if (-not [string]::IsNullOrWhiteSpace($Name)) { $Name } else { $fileNameWithoutExtension }
     Set-Content -Path $scriptToRun -Value $content -Encoding UTF8
 
     $stdOut = $null
@@ -441,7 +455,7 @@ Start-KrServer
         $exited = $proc.HasExited
         if ($exited -and -not $portWasProvided -and $startupAttempt -lt $maxStartupAttempts -and (& $isPortInUseFailure $stdOut $stdErr)) {
             $portRetryCount++
-            Write-Warning "Example $Name failed to bind to port $Port on startup attempt $startupAttempt of $maxStartupAttempts; retrying with a new port."
+            Write-Warning "Example $exampleIdentifier failed to bind to port $Port on startup attempt $startupAttempt of $maxStartupAttempts; retrying with a new port."
             $proc.Dispose()
             $proc = $null
             Remove-Item -Path $stdOut -Force -ErrorAction SilentlyContinue
@@ -454,15 +468,15 @@ Start-KrServer
 
     if (-not $ready -and -not $exited) {
         if ($errorMessage) {
-            Write-Warning "Example $Name not accepting connections on port $Port after timeout. Last probe error: $errorMessage. Continuing; requests may fail."
+            Write-Warning "Example $exampleIdentifier not accepting connections on port $Port after timeout. Last probe error: $errorMessage. Continuing; requests may fail."
         } else {
-            Write-Warning "Example $Name not accepting connections on port $Port after timeout. Continuing; requests may fail."
+            Write-Warning "Example $exampleIdentifier not accepting connections on port $Port after timeout. Continuing; requests may fail."
         }
     }
 
     if ($exited) {
         $attemptSummary = if ($portsTried.Count -gt 0) { " Attempts=$startupAttempt Ports=$($portsTried -join ',')" } else { '' }
-        Write-Warning "Example $Name process exited early with code $($proc.ExitCode).$attemptSummary Capturing logs."
+        Write-Warning "Example $exampleIdentifier process exited early with code $($proc.ExitCode).$attemptSummary Capturing logs."
         if (Test-Path $stdErr) { Write-Warning ('stderr: ' + (Get-Content $stdErr -Raw)) }
         if (Test-Path $stdOut) { Write-Verbose ('stdout: ' + (Get-Content $stdOut -Raw)) -Verbose }
     }

@@ -124,6 +124,9 @@ Describe 'KestrunTool managed shutdown' {
 
         $script:process.WaitForExit(15000) | Should -BeTrue
         $script:process.ExitCode | Should -Be 0
+
+        $stdout = if (Test-Path $script:stdOut) { Get-Content -Path $script:stdOut -Raw } else { '' }
+        $stdout | Should -Not -Match 'System\.Threading\.Tasks\.VoidTaskResult'
     }
 
     It 'handles Ctrl+C sent to kestrun process (Windows best-effort)' {

@@ -298,9 +298,15 @@ Start-KrServer
     $scriptToRun = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
     Set-Content -Path $scriptToRun -Value $content -Encoding UTF8
 
-    $stdOut = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.out.log')
-    $stdErr = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.err.log')
-    #   $argList = @('-NoLogo', '-NoProfile', '-File', $scriptToRun, '-Port', $Port)
+    $stdOut = $null
+    $stdErr = $null
+    $proc = $null
+    $ready = $false
+    $exited = $false
+    $errorMessage = $null
+    $portWasProvided = $PSBoundParameters.ContainsKey('Port')
+    $maxStartupAttempts = if ($portWasProvided) { 1 } else { 3 }
+    $startupAttempt = 0
 
     # Build environment variables for the child process (including UPSTASH_REDIS_URL if set in parent)
     $environment = @{}
@@ -311,63 +317,109 @@ Start-KrServer
         }
     }
 
-    # This becomes: <current-pwsh> -NoLogo -NoProfile -Command "Import-Module Kestrun; . 'C:\...\myscript.ps1'"
-    $argList = @(
-        '-NoLogo'
-        '-NoProfile'
-        '-Command'
-        "Import-Module '$kestrunModulePath'; . '$scriptToRun' -Port $Port"
-    )
-
     $pwshExecutable = Get-PwshExecutable
 
-    # Create process start parameters
-    $param = @{
-        FilePath = $pwshExecutable
-        WorkingDirectory = $scriptDir
-        ArgumentList = $argList
-        PassThru = $true
-        RedirectStandardOutput = $stdOut
-        RedirectStandardError = $stdErr
-        Environment = $environment
+    $newLogFilePath = {
+        param([string]$suffix)
+        Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + $suffix)
     }
 
-    # Prevent spawned process from inheriting the test runner's console window on Windows (avoids unwanted UI popups during automated tests)
-    if ($IsWindows) { $param.WindowStyle = 'Hidden' }
-    # Start the process
-    $proc = Start-Process @param
+    $isPortInUseFailure = {
+        param(
+            [string]$StdOutPath,
+            [string]$StdErrPath
+        )
 
-    # Wait for the process to start accepting connections or timeout
-    $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
-    $ready = $SkipPortProbe.IsPresent
-    $attempt = 0
-    if (-not $SkipPortProbe.IsPresent) {
-        Start-Sleep -Seconds 1 # Initial delay before probing
-        while ([DateTime]::UtcNow -lt $deadline -and -not $ready) {
-            if ($proc.HasExited) { break }
-            $attempt++
-            # Optional lightweight HTTP/HTTPS probe of '/' and '/online' endpoints to detect readiness
-            $probeUrls = @(
-                "http://$serverIp`:$Port/online",
-                "https://$serverIp`:$Port/online",
-                "http://$serverIp`:$Port/",
-                "https://$serverIp`:$Port/"
-            )
-            foreach ($url in $probeUrls) {
-                try {
-                    $probe = Get-HttpHeadersRaw -Uri $url -Insecure -AsHashtable
-                    if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) {
-                        $ready = $true
-                        break
-                    }
-                } catch {
-                    $script:errorMessage = $_.Exception.Message
-                }
-            }
-            Start-Sleep -Milliseconds $HttpProbeDelayMs
+        $combined = ''
+        if ($StdOutPath -and (Test-Path $StdOutPath)) {
+            $combined += (Get-Content -Path $StdOutPath -Raw)
+            $combined += "`n"
         }
+        if ($StdErrPath -and (Test-Path $StdErrPath)) {
+            $combined += (Get-Content -Path $StdErrPath -Raw)
+        }
+
+        return $combined -match '(?im)address already in use|only one usage of each socket address'
     }
-    $exited = $proc.HasExited
+
+    do {
+        $startupAttempt++
+        if (-not $portWasProvided -and $startupAttempt -gt 1) {
+            $Port = Get-FreeTcpPort
+        }
+
+        $stdOut = & $newLogFilePath '.out.log'
+        $stdErr = & $newLogFilePath '.err.log'
+
+        # This becomes: <current-pwsh> -NoLogo -NoProfile -Command "Import-Module Kestrun; . 'C:\...\myscript.ps1'"
+        $argList = @(
+            '-NoLogo'
+            '-NoProfile'
+            '-Command'
+            "Import-Module '$kestrunModulePath'; . '$scriptToRun' -Port $Port"
+        )
+
+        # Create process start parameters
+        $param = @{
+            FilePath = $pwshExecutable
+            WorkingDirectory = $scriptDir
+            ArgumentList = $argList
+            PassThru = $true
+            RedirectStandardOutput = $stdOut
+            RedirectStandardError = $stdErr
+            Environment = $environment
+        }
+
+        # Prevent spawned process from inheriting the test runner's console window on Windows (avoids unwanted UI popups during automated tests)
+        if ($IsWindows) { $param.WindowStyle = 'Hidden' }
+
+        $proc = Start-Process @param
+
+        # Wait for the process to start accepting connections or timeout
+        $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
+        $ready = $SkipPortProbe.IsPresent
+        $attempt = 0
+        $errorMessage = $null
+        if (-not $SkipPortProbe.IsPresent) {
+            Start-Sleep -Seconds 1 # Initial delay before probing
+            while ([DateTime]::UtcNow -lt $deadline -and -not $ready) {
+                if ($proc.HasExited) { break }
+                $attempt++
+                # Optional lightweight HTTP/HTTPS probe of '/' and '/online' endpoints to detect readiness
+                $probeUrls = @(
+                    "http://$serverIp`:$Port/online",
+                    "https://$serverIp`:$Port/online",
+                    "http://$serverIp`:$Port/",
+                    "https://$serverIp`:$Port/"
+                )
+                foreach ($url in $probeUrls) {
+                    try {
+                        $probe = Get-HttpHeadersRaw -Uri $url -Insecure -AsHashtable
+                        if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) {
+                            $ready = $true
+                            break
+                        }
+                    } catch {
+                        $errorMessage = $_.Exception.Message
+                    }
+                }
+                Start-Sleep -Milliseconds $HttpProbeDelayMs
+            }
+        }
+
+        $exited = $proc.HasExited
+        if ($exited -and -not $portWasProvided -and $startupAttempt -lt $maxStartupAttempts -and (& $isPortInUseFailure $stdOut $stdErr)) {
+            Write-Warning "Example $Name failed to bind to port $Port; retrying with a new port."
+            $proc.Dispose()
+            $proc = $null
+            Remove-Item -Path $stdOut -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path $stdErr -Force -ErrorAction SilentlyContinue
+            continue
+        }
+
+        break
+    } while ($startupAttempt -lt $maxStartupAttempts)
+
     if (-not $ready -and -not $exited) {
         if ($errorMessage) {
             Write-Warning "Example $Name not accepting connections on port $Port after timeout. Last probe error: $errorMessage. Continuing; requests may fail."

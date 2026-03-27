@@ -44,8 +44,12 @@ public class VBNetDelegateBuilderRegressionTests
                 }
                 """);
 
-            loadedAssembly = loadContext.LoadFromAssemblyPath(assemblyPath);
-            Assert.Equal(assemblyPath, loadedAssembly.Location);
+            loadedAssembly = LoadAssemblyForDeletionScenario(loadContext, assemblyPath);
+            if (!OperatingSystem.IsWindows())
+            {
+                Assert.Equal(assemblyPath, loadedAssembly.Location);
+            }
+
             Assert.NotNull(loadedAssembly.GetType($"{importNamespace}.Marker"));
 
             File.Delete(assemblyPath);
@@ -156,5 +160,17 @@ public class VBNetDelegateBuilderRegressionTests
             GC.WaitForPendingFinalizers();
             GC.Collect();
         }
+    }
+
+    private static Assembly LoadAssemblyForDeletionScenario(AssemblyLoadContext loadContext, string assemblyPath)
+    {
+        // Windows can keep files loaded via LoadFromAssemblyPath locked for deletion.
+        if (OperatingSystem.IsWindows())
+        {
+            using var stream = File.OpenRead(assemblyPath);
+            return loadContext.LoadFromStream(stream);
+        }
+
+        return loadContext.LoadFromAssemblyPath(assemblyPath);
     }
 }

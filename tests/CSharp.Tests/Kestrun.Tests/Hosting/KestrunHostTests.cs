@@ -336,4 +336,20 @@ public class KestrunHostTest
         host.EnableConfiguration();
         Assert.True(host.IsRunning);
     }
+
+    [Fact]
+    [Trait("Category", "Hosting")]
+    public void Dispose_Disposes_TaskServiceRunspacePool()
+    {
+        var host = new KestrunHost("TestApp", AppContext.BaseDirectory);
+        _ = host.AddTasks(1);
+        host.EnableConfiguration();
+
+        var taskService = host.Tasks;
+        var pool = taskService.TaskRunspacePool;
+
+        host.Dispose();
+
+        _ = Assert.Throws<ObjectDisposedException>(pool.Acquire);
+    }
 }

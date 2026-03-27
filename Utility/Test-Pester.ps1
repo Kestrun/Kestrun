@@ -19,6 +19,7 @@ param(
     [int]    $MaxReruns = 1,
     [ValidateSet('None', 'Normal', 'Detailed', 'Diagnostic', 'Quiet')]
     [string] $Verbosity = 'Normal',
+    [switch] $DebugMode,
     [string] $ResultsDir = (Join-Path -Path (Get-Location) -ChildPath 'TestResults'),
     [string] $TestPath = (Join-Path -Path (Get-Location) -ChildPath 'tests' -AdditionalChildPath 'PowerShell.Tests', 'Kestrun.Tests'),
     [switch] $EmitNUnit,
@@ -215,45 +216,54 @@ process {
     Write-Host "📄 TRX result file: $($baseCfg.TestResult.OutputPath.Value)" -ForegroundColor DarkCyan
     Write-Host '📦 GitHub Actions artifact path should include: **/TestResults/**' -ForegroundColor DarkYellow
     Write-Host "🧪 Running Pester tests in '$($baseCfg.Run.Path.Value)'" -ForegroundColor Cyan
-
-    $initial = Invoke-PesterWithConfig -Config $baseCfg
-
-    $finalExit = $initial.ExitCode
-    $attempt = 0
-
-    if ( $initial.Run.FailedCount -gt 0 -and $ReRunFailed ) {
-        $failed = Get-FailedSelector -PesterRun $initial.Run
-        if ($failed.Count -le $MaxFailedAllowed ) {
-            Write-Host ('❌ Initial test run had {0} failures; preparing to re-run up to {1} times...' -f $failed.Count, $MaxReruns) -ForegroundColor Yellow
-        } else {
-            Write-Host ('❌ Initial test run had {0} failures which exceeds MaxFailedAllowed ({1}); skipping re-runs.' -f $initial.Run.FailedCount, $MaxFailedAllowed) -ForegroundColor Red
-            return 1
+    $originalDebugPreference = $DebugPreference
+    try {
+        if ($DebugMode) {
+            $DebugPreference = 'Continue'
+            Write-Host '🐛 PowerShell debug output is enabled for the Pester run.' -ForegroundColor Yellow
         }
 
-        while ($attempt -le $MaxReruns -and $failed.Count -gt 0) {
-            $attempt++
-            Write-Host ('🔁 Re-run attempt {0} for {1} failing test(s)...' -f $attempt, $failed.Count)
+        $initial = Invoke-PesterWithConfig -Config $baseCfg
 
-            $rerunCfg = New-RerunConfig -Failed $failed -BaseConfig $baseCfg
-            Write-Host "📄 Re-run TRX result file: $($rerunCfg.TestResult.OutputPath.Value)" -ForegroundColor DarkCyan
+        $finalExit = $initial.ExitCode
+        $attempt = 0
 
-            $rerun = Invoke-PesterWithConfig -Config $rerunCfg
-
-            if ($rerun.Run.FailedCount -gt 0) {
-                $failed = Get-FailedSelector -PesterRun $rerun.Run
-                $finalExit = 1
+        if ( $initial.Run.FailedCount -gt 0 -and $ReRunFailed ) {
+            $failed = Get-FailedSelector -PesterRun $initial.Run
+            if ($failed.Count -le $MaxFailedAllowed ) {
+                Write-Host ('❌ Initial test run had {0} failures; preparing to re-run up to {1} times...' -f $failed.Count, $MaxReruns) -ForegroundColor Yellow
             } else {
-                $failed = @()
-                $finalExit = 0
+                Write-Host ('❌ Initial test run had {0} failures which exceeds MaxFailedAllowed ({1}); skipping re-runs.' -f $initial.Run.FailedCount, $MaxFailedAllowed) -ForegroundColor Red
+                return 1
+            }
+
+            while ($attempt -le $MaxReruns -and $failed.Count -gt 0) {
+                $attempt++
+                Write-Host ('🔁 Re-run attempt {0} for {1} failing test(s)...' -f $attempt, $failed.Count)
+
+                $rerunCfg = New-RerunConfig -Failed $failed -BaseConfig $baseCfg
+                Write-Host "📄 Re-run TRX result file: $($rerunCfg.TestResult.OutputPath.Value)" -ForegroundColor DarkCyan
+
+                $rerun = Invoke-PesterWithConfig -Config $rerunCfg
+
+                if ($rerun.Run.FailedCount -gt 0) {
+                    $failed = Get-FailedSelector -PesterRun $rerun.Run
+                    $finalExit = 1
+                } else {
+                    $failed = @()
+                    $finalExit = 0
+                }
             }
         }
-    }
 
-    if ($finalExit -ne 0) {
-        Write-Host '❌ Some tests failed (after re-runs, if enabled).'
-        return $finalExit
-    } else {
-        Write-Host '✅ All tests passed'
-        return 0
+        if ($finalExit -ne 0) {
+            Write-Host '❌ Some tests failed (after re-runs, if enabled).'
+            return $finalExit
+        } else {
+            Write-Host '✅ All tests passed'
+            return 0
+        }
+    } finally {
+        $DebugPreference = $originalDebugPreference
     }
 }

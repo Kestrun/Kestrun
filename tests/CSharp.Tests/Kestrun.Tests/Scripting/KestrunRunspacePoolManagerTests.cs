@@ -199,7 +199,7 @@ public class KestrunRunspacePoolManagerTests : IDisposable
     }
 
     [Fact]
-    public async Task AcquireAsync_WithCancellation_ThrowsTaskCanceledException()
+    public async Task AcquireAsync_WithCancellation_ThrowsOperationCanceledException()
     {
         // Arrange
         using var manager = new KestrunRunspacePoolManager(_host, 0, 1);
@@ -208,7 +208,7 @@ public class KestrunRunspacePoolManagerTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        _ = await Assert.ThrowsAsync<TaskCanceledException>(
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(
             async () => await manager.AcquireAsync(cts.Token));
 
         // Cleanup
@@ -235,6 +235,21 @@ public class KestrunRunspacePoolManagerTests : IDisposable
 
         // Cleanup
         manager.Release(rs2);
+    }
+
+    [Fact]
+    public async Task AcquireAsync_CancelledBeforeRunspaceCreation_DoesNotLeakCapacity()
+    {
+        using var manager = new KestrunRunspacePoolManager(_host, 0, 1);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            async () => await manager.AcquireAsync(cts.Token));
+
+        var runspace = manager.Acquire();
+        Assert.Equal(RunspaceState.Opened, runspace.RunspaceStateInfo.State);
+        manager.Release(runspace);
     }
 
     [Fact]

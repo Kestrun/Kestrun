@@ -74,7 +74,7 @@ public class VBNetDelegateBuilderRegressionTests
             null,
             Microsoft.CodeAnalysis.VisualBasic.LanguageVersion.VisualBasic16);
 
-        var result = await func(new CsGlobals(host.SharedState.Snapshot(), (IReadOnlyDictionary<string, object?>?)null));
+        var result = await func(new CsGlobals(host.SharedState.Snapshot(), new Dictionary<string, object?>()));
         Assert.True(result);
     }
 }

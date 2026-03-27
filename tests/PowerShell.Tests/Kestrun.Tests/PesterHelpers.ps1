@@ -107,9 +107,17 @@ function Get-FreeTcpPort {
         throw "MaxPort must be between FallbackPort and 65535. Got: $MaxPort"
     }
 
+    $listener = $null
+    $rangeWidth = ($MaxPort - $FallbackPort) + 1
+    $getRandomizedCandidateSequence = {
+        $startOffset = if ($rangeWidth -gt 1) { Get-Random -Minimum 0 -Maximum $rangeWidth } else { 0 }
+        for ($scanOffset = 0; $scanOffset -lt $rangeWidth; $scanOffset++) {
+            $FallbackPort + (($startOffset + $scanOffset) % $rangeWidth)
+        }
+    }
+
     try {
         $retryCount = 0
-        $listener = $null
 
         # OS-assigned ephemeral port probing.
         # Keep trying until we get a port in range; never return an out-of-range value.
@@ -128,8 +136,8 @@ function Get-FreeTcpPort {
             return $port
         }
 
-        # Deterministic fallback scan in configured range.
-        for ($candidate = $FallbackPort; $candidate -le $MaxPort; $candidate++) {
+        # Randomize the fallback scan start to reduce collisions when many tests are provisioning ports concurrently.
+        foreach ($candidate in (& $getRandomizedCandidateSequence)) {
             if ($null -ne $listener) {
                 $listener.Stop()
                 $listener.Dispose()
@@ -147,15 +155,31 @@ function Get-FreeTcpPort {
 
         throw "Unable to find a free TCP port between $FallbackPort and $MaxPort"
     } catch {
-        $port = $FallbackPort # fallback
-        Write-Warning "Failed to get free TCP port: $_ (using fallback port $FallbackPort)"
+        Write-Warning "Failed to get free TCP port via primary probe: $_. Retrying randomized scan."
+
+        foreach ($candidate in (& $getRandomizedCandidateSequence)) {
+            if ($null -ne $listener) {
+                $listener.Stop()
+                $listener.Dispose()
+                $listener = $null
+            }
+
+            try {
+                $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $candidate)
+                $listener.Start()
+                return $candidate
+            } catch {
+                continue
+            }
+        }
+
+        throw "Unable to find a free TCP port between $FallbackPort and $MaxPort after randomized fallback scan"
     } finally {
         if ($null -ne $listener) {
             $listener.Stop()
             $listener.Dispose()
         }
     }
-    return $port
 }
 
 <#
@@ -224,6 +248,9 @@ function Get-PwshExecutable {
     A custom object with properties:
     - Name: The name of the example script.
     - Port: The TCP port number the example is listening on.
+    - StartupAttemptCount: Number of startup attempts made before returning.
+    - PortRetryCount: Number of retries caused by transient startup conflicts.
+    - PortsTried: Ports used across startup attempts.
     - TempPath: The path to the temporary modified script file.
     - Process: The Process object of the started example.
     - Content: The modified script content that was run.
@@ -307,6 +334,8 @@ Start-KrServer
     $portWasProvided = $PSBoundParameters.ContainsKey('Port')
     $maxStartupAttempts = if ($portWasProvided) { 1 } else { 3 }
     $startupAttempt = 0
+    $portRetryCount = 0
+    $portsTried = [System.Collections.Generic.List[int]]::new()
 
     # Build environment variables for the child process (including UPSTASH_REDIS_URL if set in parent)
     $environment = @{}
@@ -347,6 +376,8 @@ Start-KrServer
         if (-not $portWasProvided -and $startupAttempt -gt 1) {
             $Port = Get-FreeTcpPort
         }
+
+        $portsTried.Add($Port)
 
         $stdOut = & $newLogFilePath '.out.log'
         $stdErr = & $newLogFilePath '.err.log'
@@ -409,7 +440,8 @@ Start-KrServer
 
         $exited = $proc.HasExited
         if ($exited -and -not $portWasProvided -and $startupAttempt -lt $maxStartupAttempts -and (& $isPortInUseFailure $stdOut $stdErr)) {
-            Write-Warning "Example $Name failed to bind to port $Port; retrying with a new port."
+            $portRetryCount++
+            Write-Warning "Example $Name failed to bind to port $Port on startup attempt $startupAttempt of $maxStartupAttempts; retrying with a new port."
             $proc.Dispose()
             $proc = $null
             Remove-Item -Path $stdOut -Force -ErrorAction SilentlyContinue
@@ -429,7 +461,8 @@ Start-KrServer
     }
 
     if ($exited) {
-        Write-Warning "Example $Name process exited early with code $($proc.ExitCode). Capturing logs."
+        $attemptSummary = if ($portsTried.Count -gt 0) { " Attempts=$startupAttempt Ports=$($portsTried -join ',')" } else { '' }
+        Write-Warning "Example $Name process exited early with code $($proc.ExitCode).$attemptSummary Capturing logs."
         if (Test-Path $stdErr) { Write-Warning ('stderr: ' + (Get-Content $stdErr -Raw)) }
         if (Test-Path $stdOut) { Write-Verbose ('stdout: ' + (Get-Content $stdOut -Raw)) -Verbose }
     }
@@ -451,6 +484,11 @@ Start-KrServer
         Url = ('{0}://{1}:{2}' -f ($usesHttps ? 'https' : 'http'), $serverIp, $Port)
         Host = $serverIp
         Port = $Port
+        StartupAttemptCount = $startupAttempt
+        PortRetryCount = $portRetryCount
+        PortWasProvided = $portWasProvided
+        PortsTried = @($portsTried)
+        LastStartupProbeError = $errorMessage
         TempPath = $scriptToRun
         Process = $proc
         Content = $content

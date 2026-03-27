@@ -165,7 +165,7 @@ internal static class VBNetDelegateBuilder
         if (dynamicImports.Count > 0)
         {
             var mergedImports = extraImports.Concat(dynamicImports)
-                .Distinct(StringComparer.Ordinal)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
             if (log.IsEnabled(LogEventLevel.Debug) && mergedImports.Length != extraImports.Length)
             {
@@ -305,7 +305,7 @@ internal static class VBNetDelegateBuilder
         KestrunHost host,
         IReadOnlyDictionary<string, object?>? locals)
     {
-        var imports = new HashSet<string>(StringComparer.Ordinal);
+        var imports = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var references = new HashSet<Assembly>();
         foreach (var g in host.SharedState.Snapshot())
         {
@@ -366,7 +366,7 @@ internal static class VBNetDelegateBuilder
     {
         var importSet = imports
             .Where(importName => !string.IsNullOrWhiteSpace(importName))
-            .ToHashSet(StringComparer.Ordinal);
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (importSet.Count == 0)
         {
             return;
@@ -478,8 +478,8 @@ internal static class VBNetDelegateBuilder
                     continue;
                 }
 
-                if (currentNamespace.Equals(namespaceName, StringComparison.Ordinal)
-                    || currentNamespace.StartsWith(namespaceName + ".", StringComparison.Ordinal))
+                if (currentNamespace.Equals(namespaceName, StringComparison.OrdinalIgnoreCase)
+                    || currentNamespace.StartsWith(namespaceName + ".", StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }
@@ -487,6 +487,7 @@ internal static class VBNetDelegateBuilder
         }
         catch (ReflectionTypeLoadException)
         {
+            // If we can't load all types, be conservative and assume the namespace is not present
         }
 
         return false;

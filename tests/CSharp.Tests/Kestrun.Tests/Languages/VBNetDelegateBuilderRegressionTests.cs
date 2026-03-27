@@ -58,4 +58,23 @@ public class VBNetDelegateBuilderRegressionTests
         var result = await func(new CsGlobals(host.SharedState.Snapshot(), locals));
         Assert.True(result);
     }
+
+    [Fact]
+    [Trait("Category", "Languages")]
+    public async Task Compile_Succeeds_With_Differently_Cased_Import_Namespace()
+    {
+        var host = new KestrunHost("Tests");
+        var code = "Dim payload As VbCustomPayload = New VbCustomPayload(\"ok\")\r\nReturn payload.Name = \"ok\"";
+
+        var func = VBNetDelegateBuilder.Compile<bool>(
+            host,
+            code,
+            ["kestrun.tests.languages"],
+            null,
+            null,
+            Microsoft.CodeAnalysis.VisualBasic.LanguageVersion.VisualBasic16);
+
+        var result = await func(new CsGlobals(host.SharedState.Snapshot(), (IReadOnlyDictionary<string, object?>?)null));
+        Assert.True(result);
+    }
 }

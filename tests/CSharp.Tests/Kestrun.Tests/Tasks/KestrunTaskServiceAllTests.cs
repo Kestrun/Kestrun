@@ -419,4 +419,24 @@ Return 777";
             Assert.False(svc.SetTaskDescription("missing", "y"));
         }
     }
+
+    [Fact]
+    [Trait("Category", "Tasks")]
+    public void Dispose_Cancels_And_Disposes_Task_CancellationTokenSources()
+    {
+        using var host = new KestrunHost("Tests", Log.Logger);
+        var pool = new KestrunRunspacePoolManager(host, 1, 1);
+        var svc = new KestrunTaskService(pool, CreateLogger());
+        var lang = new LanguageOptions { Language = ScriptLanguage.CSharp, Code = "return 1;" };
+        var id = svc.Create(null, lang, false, null, null);
+
+        Assert.True(svc.TryGetTask(id, out var task));
+        Assert.NotNull(task);
+        var tokenSource = task.TokenSource;
+
+        svc.Dispose();
+
+        Assert.True(tokenSource.IsCancellationRequested);
+        _ = Assert.Throws<ObjectDisposedException>(() => tokenSource.Token.Register(static () => { }));
+    }
 }

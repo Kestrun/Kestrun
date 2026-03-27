@@ -1,4 +1,5 @@
 using System.Management.Automation;
+using System.Management.Automation.Runspaces;
 using System.Diagnostics.CodeAnalysis;
 using Kestrun.Languages;
 using Kestrun.Models;
@@ -87,25 +88,31 @@ public sealed class ExceptionOptions : ExceptionHandlerOptions
             }
 
             var pool = o.Host.RunspacePool; // throws if not initialized
-            var runspace = await pool.AcquireAsync(httpContext.RequestAborted);
-            using var ps = PowerShell.Create();
-            ps.Runspace = runspace;
-
-            // Build Kestrun abstractions and inject for the script to consume
-
-            var kr = new KestrunContext(Host, httpContext);
-            httpContext.Items[PowerShellDelegateBuilder.PS_INSTANCE_KEY] = ps;
-            httpContext.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = kr;
-            ps.Runspace.SessionStateProxy.SetVariable("Context", kr);
+            Runspace? runspace = null;
+            PowerShell? ps = null;
 
             try
             {
+                runspace = await pool.AcquireAsync(httpContext.RequestAborted);
+                ps = PowerShell.Create();
+                ps.Runspace = runspace;
+
+                // Build Kestrun abstractions and inject for the script to consume
+
+                var kr = new KestrunContext(Host, httpContext);
+                httpContext.Items[PowerShellDelegateBuilder.PS_INSTANCE_KEY] = ps;
+                httpContext.Items[PowerShellDelegateBuilder.KR_CONTEXT_KEY] = kr;
+                ps.Runspace.SessionStateProxy.SetVariable("Context", kr);
+
                 await compiled(httpContext);
             }
             finally
             {
-                o.Host.RunspacePool.Release(ps.Runspace);
-                ps.Dispose();
+                ps?.Dispose();
+                if (runspace is not null)
+                {
+                    o.Host.RunspacePool.Release(runspace);
+                }
                 _ = httpContext.Items.Remove(PowerShellDelegateBuilder.PS_INSTANCE_KEY);
                 _ = httpContext.Items.Remove(PowerShellDelegateBuilder.KR_CONTEXT_KEY);
             }

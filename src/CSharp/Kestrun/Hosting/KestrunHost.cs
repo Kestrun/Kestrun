@@ -2517,6 +2517,8 @@ public partial class KestrunHost : IDisposable
             Logger.Debug("Dispose() called");
         }
 
+        _tasks?.Dispose();
+        _tasks = null;
         _runspacePool?.Dispose();
         _runspacePool = null; // Clear the runspace pool reference
         IsConfigured = false; // Reset configuration state

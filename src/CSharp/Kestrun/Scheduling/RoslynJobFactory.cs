@@ -44,8 +44,6 @@ internal static class RoslynJobFactory
         };
     }
 
-
-
     public static Func<CancellationToken, Task> Build(
         KestrunHost host,
        string code,

@@ -44,8 +44,6 @@ internal static class RoslynJobFactory
         };
     }
 
-
-
     public static Func<CancellationToken, Task> Build(
         KestrunHost host,
        string code,
@@ -57,7 +55,7 @@ internal static class RoslynJobFactory
         var log = host.Logger;
         if (log.IsEnabled(LogEventLevel.Debug))
         {
-            log.Debug("Building C# job, code length={Length}, imports={ImportsCount}, refs={RefsCount}, lang={Lang}",
+            log.Debug("Building VB.NET job, code length={Length}, imports={ImportsCount}, refs={RefsCount}, lang={Lang}",
                 code?.Length, extraImports?.Length ?? 0, extraRefs?.Length ?? 0, languageVersion);
         }
 
@@ -69,13 +67,13 @@ internal static class RoslynJobFactory
         {
             if (log.IsEnabled(LogEventLevel.Debug))
             {
-                log.Debug("Executing C# job at {Now:O}", DateTimeOffset.UtcNow);
+                log.Debug("Executing VB.NET job at {Now:O}", DateTimeOffset.UtcNow);
             }
 
-            var globals = new CsGlobals(globals: host.SharedState.Snapshot());
+            var globals = locals is { Count: > 0 }
+                ? new CsGlobals(globals: host.SharedState.Snapshot(), locals: locals)
+                : new CsGlobals(globals: host.SharedState.Snapshot());
             _ = await script(globals).ConfigureAwait(false);
         };
     }
 }
-
-

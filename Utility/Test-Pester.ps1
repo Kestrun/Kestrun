@@ -216,6 +216,21 @@ process {
     Write-Host "📄 TRX result file: $($baseCfg.TestResult.OutputPath.Value)" -ForegroundColor DarkCyan
     Write-Host '📦 GitHub Actions artifact path should include: **/TestResults/**' -ForegroundColor DarkYellow
     Write-Host "🧪 Running Pester tests in '$($baseCfg.Run.Path.Value)'" -ForegroundColor Cyan
+    $httpTimeoutSeconds = if ($env:KR_TEST_HTTP_TIMEOUT_SECONDS) { [int]$env:KR_TEST_HTTP_TIMEOUT_SECONDS } else { 30 }
+    Write-Host "Default Invoke-WebRequest/Invoke-RestMethod timeout: ${httpTimeoutSeconds}s" -ForegroundColor DarkCyan
+
+    $defaultTimeoutKeys = @(
+        'Invoke-WebRequest:TimeoutSec',
+        'Invoke-RestMethod:TimeoutSec'
+    )
+    $previousTimeoutValues = @{}
+    foreach ($key in $defaultTimeoutKeys) {
+        if ($PSDefaultParameterValues.Contains($key)) {
+            $previousTimeoutValues[$key] = $PSDefaultParameterValues[$key]
+        }
+        $PSDefaultParameterValues[$key] = $httpTimeoutSeconds
+    }
+
     $originalDebugPreference = $DebugPreference
     try {
         if ($DebugMode) {
@@ -264,6 +279,13 @@ process {
             return 0
         }
     } finally {
+        foreach ($key in $defaultTimeoutKeys) {
+            if ($previousTimeoutValues.ContainsKey($key)) {
+                $PSDefaultParameterValues[$key] = $previousTimeoutValues[$key]
+            } else {
+                $null = $PSDefaultParameterValues.Remove($key)
+            }
+        }
         $DebugPreference = $originalDebugPreference
     }
 }

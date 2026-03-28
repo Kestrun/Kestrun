@@ -7,7 +7,7 @@ namespace Kestrun.Callback;
 /// Initializes a new instance of the <see cref="InMemoryCallbackDispatcher"/> class.
 /// </remarks>
 /// <param name="queue">The in-memory callback queue to use for dispatching callbacks.</param>
-public sealed class InMemoryCallbackDispatcher(InMemoryCallbackQueue queue) : ICallbackDispatcher
+internal sealed class InMemoryCallbackDispatcher(InMemoryCallbackQueue queue) : ICallbackDispatcher
 {
     private readonly InMemoryCallbackQueue _queue = queue;
 

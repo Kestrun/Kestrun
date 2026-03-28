@@ -6,7 +6,7 @@ namespace Kestrun.Callback;
 /// <summary>
 /// Factory for creating <see cref="CallbackRuntimeContext"/> instances from HTTP context.
 /// </summary>
-public static partial class CallbackRuntimeContextFactory
+internal static partial class CallbackRuntimeContextFactory
 {
     // Matches {id} and {id:int} etc; ignores {$request.body#/...} because of / and #
     private static readonly Regex TemplateParamRegex =
@@ -97,4 +97,3 @@ public static partial class CallbackRuntimeContextFactory
     [GeneratedRegex(@"\{(?<name>[^{}:/\?]+)(?:[:][^{}]+)?\}", RegexOptions.Compiled)]
     private static partial Regex TemplateParameterRegex();
 }
-

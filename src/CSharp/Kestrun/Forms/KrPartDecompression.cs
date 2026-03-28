@@ -5,7 +5,7 @@ namespace Kestrun.Forms;
 /// <summary>
 /// Provides per-part decompression helpers.
 /// </summary>
-public static class KrPartDecompression
+internal static class KrPartDecompression
 {
     /// <summary>
     /// Wraps a stream in a decompression stream based on the content encoding.
@@ -40,7 +40,7 @@ public static class KrPartDecompression
 /// </remarks>
 /// <param name="inner">The inner stream.</param>
 /// <param name="maxBytes">The maximum number of bytes allowed.</param>
-public sealed class LimitedReadStream(Stream inner, long maxBytes) : Stream
+internal sealed class LimitedReadStream(Stream inner, long maxBytes) : Stream
 {
     private readonly Stream _inner = inner;
     private readonly long _maxBytes = maxBytes;

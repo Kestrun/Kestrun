@@ -14,7 +14,7 @@ namespace Kestrun.Callback;
 /// <param name="queue">The in-memory callback queue.</param>
 /// <param name="httpClientFactory">The HTTP client factory.</param>
 /// <param name="log">The logger instance.</param>
-public sealed class InMemoryCallbackDispatchWorker(
+internal sealed class InMemoryCallbackDispatchWorker(
     InMemoryCallbackQueue queue,
     IHttpClientFactory httpClientFactory,
     Serilog.ILogger log) : BackgroundService

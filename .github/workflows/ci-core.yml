@@ -48,7 +48,7 @@ jobs:
                         ubuntu-24.04-arm,
                         windows-11-arm,
                     ]
-                pwsh: ["7.4.14", "7.5.5", "latest" ]
+                pwsh: ["7.4.14", "7.5.5", "latest"]
         runs-on: ${{ matrix.os }}
 
         defaults:
@@ -59,9 +59,9 @@ jobs:
             POWERSHELL_DISTRIBUTION_CHANNEL: GitHub-Actions
             UPSTASH_REDIS_URL: ${{ secrets.UPSTASH_REDIS_URL }}
             GITHUB_TOKEN: ${{ github.token }}
+            KESTRUN_TEST_HANG_TIMEOUT: 5m
 
         steps:
-            # Detect if GH "Enable debug logging" is ON
             - name: 🔎 Detect GH debug flag
               id: detect_debug
               shell: bash
@@ -93,7 +93,6 @@ jobs:
                   sudo apt-get install -y libmsquic
                   sudo ldconfig
 
-            # 🔊 Only enable super-verbose logs in debug runs
             - name: 🔧 Enable debug flags
               if: ${{ steps.detect_debug.outputs.gh_debug == 'true' }}
               shell: bash
@@ -108,10 +107,9 @@ jobs:
                   } >> "$GITHUB_ENV"
 
             - name: 🔧 Echo debug flag
-              run: echo "debug=${{ steps.detect_debug.outputs.gh_debug }}  event=${{ github.event_name }}"
               if: ${{ always() && github.event_name != '' }}
+              run: echo "debug=${{ steps.detect_debug.outputs.gh_debug }}  event=${{ github.event_name }}"
 
-            # 🔊 decide verbosity once, early
             - name: 🔧 Set build verbosity
               shell: bash
               run: |
@@ -150,27 +148,26 @@ jobs:
             - name: 📦 Restore solution
               shell: pwsh
               run: |
-                  Write-Host "🔍 [WORKFLOW] Environment check before calling build script..."
+                  Write-Host "Environment check before calling build script..."
                   if ($env:UPSTASH_REDIS_URL) {
-                      Write-Host "✅ UPSTASH_REDIS_URL is available in workflow (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
+                      Write-Host "UPSTASH_REDIS_URL is available in workflow (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
                   } else {
-                      Write-Host "❌ UPSTASH_REDIS_URL is NOT available in workflow" -ForegroundColor Red
+                      Write-Host "UPSTASH_REDIS_URL is NOT available in workflow" -ForegroundColor Red
                   }
                   Invoke-Build Restore -DotNetVerbosity $Env:DOTNET_VERBOSITY
 
-            - name: 🔧 Run C# Build (normal)
+            - name: 🔧 Run C# Build
               shell: pwsh
               run: |
-                  Write-Host "🔍 [WORKFLOW] Environment check before calling build script..."
+                  Write-Host "Environment check before calling build script..."
                   if ($env:UPSTASH_REDIS_URL) {
-                      Write-Host "✅ UPSTASH_REDIS_URL is available in workflow (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
+                      Write-Host "UPSTASH_REDIS_URL is available in workflow (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
                   } else {
-                      Write-Host "❌ UPSTASH_REDIS_URL is NOT available in workflow" -ForegroundColor Red
+                      Write-Host "UPSTASH_REDIS_URL is NOT available in workflow" -ForegroundColor Red
                   }
                   $ErrorActionPreference = 'Stop'
                   Invoke-Build Build -DotNetVerbosity $Env:DOTNET_VERBOSITY
 
-            # Build the tool before testing to ensure the latest bits are used in tests, and to validate the tool builds on all platforms before running tests that depend on it
             - name: 📦 Pack Kestrun.Tool for testing
               shell: pwsh
               run: |
@@ -184,7 +181,6 @@ jobs:
                   $localToolPath = Join-Path -Path $PWD -ChildPath 'artifacts/nuget'
                   dotnet tool install --global Kestrun.Tool --add-source $localToolPath --prerelease --ignore-failed-sources
 
-                  # Ensure global dotnet tools are resolvable in subsequent workflow steps.
                   $dotnetToolsPath = Join-Path -Path $HOME -ChildPath '.dotnet/tools'
                   $dotnetToolsPath | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
@@ -198,34 +194,51 @@ jobs:
               run: |
                   dotnet kestrun module info
 
-            - name: 🧪 Run Tests
+            - name: 🧪 Run xUnit Tests
+              timeout-minutes: 45
               shell: pwsh
               run: |
-                  Write-Host "🔍 [WORKFLOW] Environment check before calling test script..."
+                  Write-Host "Environment check before calling xUnit test script..."
                   if ($env:UPSTASH_REDIS_URL) {
-                      Write-Host "✅ UPSTASH_REDIS_URL is available in workflow (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
+                      Write-Host "UPSTASH_REDIS_URL is available in workflow (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
                   } else {
-                      Write-Host "❌ UPSTASH_REDIS_URL is NOT available in workflow" -ForegroundColor Red
+                      Write-Host "UPSTASH_REDIS_URL is NOT available in workflow" -ForegroundColor Red
                   }
                   $ErrorActionPreference = 'Stop'
-                  Invoke-Build Test -DotNetVerbosity $Env:DOTNET_VERBOSITY -PesterVerbosity $Env:PESTER_VERBOSITY
+                  Invoke-Build Test-xUnit -DotNetVerbosity $Env:DOTNET_VERBOSITY
+
+            - name: 🧪 Run Pester Tests
+              timeout-minutes: 30
+              shell: pwsh
+              run: |
+                  Write-Host "Environment check before calling Pester test script..."
+                  if ($env:UPSTASH_REDIS_URL) {
+                      Write-Host "UPSTASH_REDIS_URL is available in workflow (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
+                  } else {
+                      Write-Host "UPSTASH_REDIS_URL is NOT available in workflow" -ForegroundColor Red
+                  }
+                  $ErrorActionPreference = 'Stop'
+                  Invoke-Build Test-Pester -PesterVerbosity $Env:PESTER_VERBOSITY
 
             - name: 📤 Upload diagnostics on failure
-              if: failure()
+              if: ${{ failure() || cancelled() }}
               uses: actions/upload-artifact@v7
               with:
                   name: diagnostics-${{ matrix.os }}-pwsh-${{ matrix.pwsh }}-${{ strategy.job-index }}
                   path: |
                       **/TestResults/**
+                      **/*.diag.log
+                      **/*Sequence*.xml
+                      **/*hangdump*
+                      **/*_blame/**
                       **/bin/**
                       **/obj/project.assets.json
                       src/PowerShell/Kestrun/**/*
                       ./*.log
                       ./msbuild.binlog
 
-            # 🔐 Only open an interactive shell when YOU asked for debug and it failed
-            - name: 🧑‍💻 Live SSH (only if failed and debug enabled)
-              if: ${{ failure() && steps.detect_debug.outputs.gh_debug == 'true' }}
+            - name: 🧑‍💻 Live SSH (only if failed/cancelled and debug enabled)
+              if: ${{ (failure() || cancelled()) && steps.detect_debug.outputs.gh_debug == 'true' }}
               uses: mxschmitt/action-tmate@v3
               with:
                   limit-access-to-actor: true

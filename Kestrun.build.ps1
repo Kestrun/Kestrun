@@ -476,6 +476,44 @@ Add-BuildTask 'Nuget-CodeAnalysis' {
     & .\Utility\Download-CodeAnalysis.ps1
 }
 
+function Invoke-KestrunDotNetTest {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ProjectPath,
+        [Parameter(Mandatory = $true)]
+        [string] $Framework,
+        [Parameter(Mandatory = $true)]
+        [string] $Label
+    )
+
+    $resultsRoot = Join-Path -Path $PSScriptRoot -ChildPath 'TestResults' -AdditionalChildPath 'xunit'
+    $safeLabel = ($Label -replace '[^A-Za-z0-9._-]', '_')
+    $safeFramework = ($Framework -replace '[^A-Za-z0-9._-]', '_')
+    $targetResultsDir = Join-Path -Path $resultsRoot -ChildPath $safeLabel -AdditionalChildPath $safeFramework
+
+    if (-not (Test-Path -Path $targetResultsDir)) {
+        New-Item -Path $targetResultsDir -ItemType Directory -Force | Out-Null
+    }
+
+    $diagLogPath = Join-Path -Path $targetResultsDir -ChildPath "$safeLabel-$safeFramework.diag.log"
+    $trxFileName = "$safeLabel-$safeFramework.trx"
+    $hangTimeout = if ($env:KESTRUN_TEST_HANG_TIMEOUT) { $env:KESTRUN_TEST_HANG_TIMEOUT } else { '5m' }
+
+    Write-Host "🧪 dotnet test target: $Label ($Framework)" -ForegroundColor Cyan
+    Write-Host "📁 xUnit results directory: $targetResultsDir" -ForegroundColor DarkCyan
+    Write-Host "📝 xUnit diag log: $diagLogPath" -ForegroundColor DarkCyan
+    Write-Host "⏱️ xUnit hang timeout: $hangTimeout" -ForegroundColor DarkCyan
+
+    dotnet test "$ProjectPath" -c $Configuration -f $Framework -v:$DotNetVerbosity `
+        --results-directory "$targetResultsDir" `
+        --logger "trx;LogFileName=$trxFileName" `
+        --logger "console;verbosity=detailed" `
+        --diag "$diagLogPath" `
+        --blame-hang `
+        --blame-hang-timeout "$hangTimeout"
+}
+
 # XUnit tests
 Add-BuildTask 'Test-xUnit' 'Build', {
     Write-Host '🧪 Running Kestrun DLL tests...'
@@ -484,7 +522,7 @@ Add-BuildTask 'Test-xUnit' 'Build', {
     # Run the shared Kestrun core test suite for each requested framework.
     foreach ($framework in $Frameworks) {
         Write-Host "▶️ Running Kestrun core tests for $framework"
-        dotnet test "$KestrunCoreTestProjectPath" -c $Configuration -f $framework -v:$DotNetVerbosity
+        Invoke-KestrunDotNetTest -ProjectPath $KestrunCoreTestProjectPath -Framework $framework -Label 'Kestrun.Tests'
         if ($LASTEXITCODE -ne 0) {
             Write-Host "❌ Core tests failed for $framework" -ForegroundColor Red
             $failures += "KestrunTests ($framework)"
@@ -495,7 +533,7 @@ Add-BuildTask 'Test-xUnit' 'Build', {
         foreach ($dedicatedTestProject in $KestrunDedicatedNet10TestProjects) {
             $testProjectName = [System.IO.Path]::GetFileNameWithoutExtension($dedicatedTestProject)
             Write-Host "▶️ Running dedicated tests for $testProjectName (net10.0)"
-            dotnet test "$dedicatedTestProject" -c $Configuration -f net10.0 -v:$DotNetVerbosity
+            Invoke-KestrunDotNetTest -ProjectPath $dedicatedTestProject -Framework 'net10.0' -Label $testProjectName
             if ($LASTEXITCODE -ne 0) {
                 Write-Host "❌ Dedicated tests failed for $testProjectName (net10.0)" -ForegroundColor Red
                 $failures += "$testProjectName (net10.0)"

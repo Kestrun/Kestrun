@@ -707,4 +707,57 @@ function Sync-PowerShellDll {
     }
 }
 
+<#
+.SYNOPSIS
+    Helper function to run dotnet test with consistent parameters for Kestrun test projects.
+.PARAMETER ProjectPath
+    The path to the .csproj file of the test project to run.
+.PARAMETER Framework
+    The target framework to test against.
+.PARAMETER Label
+    A label to identify the test run in logs and results (e.g., 'Kestrun.Tests net8.0').
+.EXAMPLE
+    Invoke-KestrunDotNetTest -ProjectPath './tests/CSharp.Tests/Kestrun.Tests/Kestrun.Tests.csproj' -Framework 'net8.0' -Label 'Kestrun.Tests net8.0'
+    This example demonstrates how to run the Kestrun core tests for the net8.0 framework with a specific label for logging and results.
+.NOTES
+    This function is used internally by the Test-xUnit build task to run tests with consistent logging and result handling. It sets up the results directory, log paths, and common parameters for dotnet test.
+#>
+function Invoke-KestrunDotNetTest {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ProjectPath,
+        [Parameter(Mandatory = $true)]
+        [string] $Framework,
+        [Parameter(Mandatory = $true)]
+        [string] $Label
+    )
+
+    $resultsRoot = Join-Path -Path $PSScriptRoot -ChildPath 'TestResults' -AdditionalChildPath 'xunit'
+    $safeLabel = ($Label -replace '[^A-Za-z0-9._-]', '_')
+    $safeFramework = ($Framework -replace '[^A-Za-z0-9._-]', '_')
+    $targetResultsDir = Join-Path -Path $resultsRoot -ChildPath $safeLabel -AdditionalChildPath $safeFramework
+
+    if (-not (Test-Path -Path $targetResultsDir)) {
+        New-Item -Path $targetResultsDir -ItemType Directory -Force | Out-Null
+    }
+
+    $diagLogPath = Join-Path -Path $targetResultsDir -ChildPath "$safeLabel-$safeFramework.diag.log"
+    $trxFileName = "$safeLabel-$safeFramework.trx"
+    $hangTimeout = if ($env:KESTRUN_TEST_HANG_TIMEOUT) { $env:KESTRUN_TEST_HANG_TIMEOUT } else { '5m' }
+
+    Write-Host "🧪 dotnet test target: $Label ($Framework)" -ForegroundColor Cyan
+    Write-Host "📁 xUnit results directory: $targetResultsDir" -ForegroundColor DarkCyan
+    Write-Host "📝 xUnit diag log: $diagLogPath" -ForegroundColor DarkCyan
+    Write-Host "⏱️ xUnit hang timeout: $hangTimeout" -ForegroundColor DarkCyan
+
+    dotnet test "$ProjectPath" -c $Configuration -f $Framework -v:$DotNetVerbosity `
+        --results-directory "$targetResultsDir" `
+        --logger "trx;LogFileName=$trxFileName" `
+        --logger "console;verbosity=detailed" `
+        --diag "$diagLogPath" `
+        --blame-hang `
+        --blame-hang-timeout "$hangTimeout"
+}
+
 Export-ModuleMember -Function *

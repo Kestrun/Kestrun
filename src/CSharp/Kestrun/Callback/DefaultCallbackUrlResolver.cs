@@ -6,7 +6,7 @@ namespace Kestrun.Callback;
 /// Default implementation of <see cref="ICallbackUrlResolver"/> that resolves callback URLs
 /// using JSON Pointer expressions and variable tokens.
 /// </summary>
-public sealed partial class DefaultCallbackUrlResolver : ICallbackUrlResolver
+internal sealed partial class DefaultCallbackUrlResolver : ICallbackUrlResolver
 {
     private static readonly Regex RuntimeExpr = GeneratedRuntimeRegex();
 

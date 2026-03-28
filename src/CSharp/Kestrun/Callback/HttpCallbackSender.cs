@@ -7,7 +7,7 @@ namespace Kestrun.Callback;
 /// </remarks>
 /// <param name="http"> The HTTP client to use for sending requests.</param>
 /// <param name="signer"> The optional callback signer for signing requests.</param>
-public sealed class HttpCallbackSender(HttpClient http, ICallbackSigner? signer = null) : ICallbackSender
+internal sealed class HttpCallbackSender(HttpClient http, ICallbackSigner? signer = null) : ICallbackSender
 {
     private readonly HttpClient _http = http;
     private readonly ICallbackSigner? _signer = signer; // optional

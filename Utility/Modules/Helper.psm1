@@ -730,13 +730,20 @@ function Invoke-KestrunDotNetTest {
         [Parameter(Mandatory = $true)]
         [string] $Framework,
         [Parameter(Mandatory = $true)]
-        [string] $Label
+        [string] $Label,
+        [Parameter()]
+        [ValidateSet('Debug', 'Release')]
+        [string] $Configuration = 'Debug',
+        [Parameter()]
+        [ValidateSet('quiet', 'minimal', 'normal', 'detailed', 'diagnostic')]
+        [string] $DotNetVerbosity = 'minimal',
+        [Parameter()]
+        [string] $ResultsRoot = (Join-Path -Path (Get-Location) -ChildPath 'TestResults' -AdditionalChildPath 'xunit')
     )
 
-    $resultsRoot = Join-Path -Path $PSScriptRoot -ChildPath 'TestResults' -AdditionalChildPath 'xunit'
     $safeLabel = ($Label -replace '[^A-Za-z0-9._-]', '_')
     $safeFramework = ($Framework -replace '[^A-Za-z0-9._-]', '_')
-    $targetResultsDir = Join-Path -Path $resultsRoot -ChildPath $safeLabel -AdditionalChildPath $safeFramework
+    $targetResultsDir = Join-Path -Path $ResultsRoot -ChildPath $safeLabel -AdditionalChildPath $safeFramework
 
     if (-not (Test-Path -Path $targetResultsDir)) {
         New-Item -Path $targetResultsDir -ItemType Directory -Force | Out-Null

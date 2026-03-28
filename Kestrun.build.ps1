@@ -484,7 +484,12 @@ Add-BuildTask 'Test-xUnit' 'Build', {
     # Run the shared Kestrun core test suite for each requested framework.
     foreach ($framework in $Frameworks) {
         Write-Host "▶️ Running Kestrun core tests for $framework"
-        Invoke-KestrunDotNetTest -ProjectPath $KestrunCoreTestProjectPath -Framework $framework -Label 'Kestrun.Tests'
+        Invoke-KestrunDotNetTest `
+            -ProjectPath $KestrunCoreTestProjectPath `
+            -Framework $framework `
+            -Label 'Kestrun.Tests' `
+            -Configuration $Configuration `
+            -DotNetVerbosity $DotNetVerbosity
         if ($LASTEXITCODE -ne 0) {
             Write-Host "❌ Core tests failed for $framework" -ForegroundColor Red
             $failures += "KestrunTests ($framework)"
@@ -495,7 +500,12 @@ Add-BuildTask 'Test-xUnit' 'Build', {
         foreach ($dedicatedTestProject in $KestrunDedicatedNet10TestProjects) {
             $testProjectName = [System.IO.Path]::GetFileNameWithoutExtension($dedicatedTestProject)
             Write-Host "▶️ Running dedicated tests for $testProjectName (net10.0)"
-            Invoke-KestrunDotNetTest -ProjectPath $dedicatedTestProject -Framework 'net10.0' -Label $testProjectName
+            Invoke-KestrunDotNetTest `
+                -ProjectPath $dedicatedTestProject `
+                -Framework 'net10.0' `
+                -Label $testProjectName `
+                -Configuration $Configuration `
+                -DotNetVerbosity $DotNetVerbosity
             if ($LASTEXITCODE -ne 0) {
                 Write-Host "❌ Dedicated tests failed for $testProjectName (net10.0)" -ForegroundColor Red
                 $failures += "$testProjectName (net10.0)"

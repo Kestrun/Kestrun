@@ -119,7 +119,7 @@ function Start-KrServer {
         } else {
             try {
                 # Block until startup completes so bind/config errors surface immediately.
-                $startupTask.GetAwaiter().GetResult()
+                $null = $startupTask.GetAwaiter().GetResult()
             } catch {
                 $originalException = $_.Exception
                 $displayException = if ($originalException -and $originalException.InnerException) {
@@ -165,7 +165,7 @@ function Start-KrServer {
                                 if ($writeConsole) {
                                     Write-Host 'Ctrl+C detected. Stopping Kestrun server...'
                                 }
-                                $Server.StopAsync().Wait()
+                                $null = $Server.StopAsync().Wait()
                                 break
                             }
                         }
@@ -183,7 +183,7 @@ function Start-KrServer {
                     Write-Host 'Stopping Kestrun server...'
                 }
                 if ($Server.IsRunning) {
-                    [Kestrun.KestrunHostManager]::StopAsync($Server.ApplicationName).Wait()
+                    $null = [Kestrun.KestrunHostManager]::StopAsync($Server.ApplicationName).Wait()
                 }
                 #$Server.StopAsync().Wait()
                 [Kestrun.KestrunHostManager]::Destroy($Server.ApplicationName)

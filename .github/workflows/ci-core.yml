@@ -208,7 +208,22 @@ jobs:
                   Invoke-Build Test-xUnit -DotNetVerbosity $Env:DOTNET_VERBOSITY
 
             - name: 🧪 Run Pester Tests
-              timeout-minutes: 30
+              if: ${{ !startsWith(matrix.os, 'windows-') }}
+              timeout-minutes: 45
+              shell: pwsh
+              run: |
+                  Write-Host "Environment check before calling Pester test script..."
+                  if ($env:UPSTASH_REDIS_URL) {
+                      Write-Host "UPSTASH_REDIS_URL is available in workflow (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
+                  } else {
+                      Write-Host "UPSTASH_REDIS_URL is NOT available in workflow" -ForegroundColor Red
+                  }
+                  $ErrorActionPreference = 'Stop'
+                  Invoke-Build Test-Pester -PesterVerbosity $Env:PESTER_VERBOSITY
+
+            - name: 🧪 Run Pester Tests
+              if: ${{ startsWith(matrix.os, 'windows-') }}
+              timeout-minutes: 100
               shell: pwsh
               run: |
                   Write-Host "Environment check before calling Pester test script..."

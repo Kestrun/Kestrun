@@ -1,22 +1,24 @@
 <#
 .SYNOPSIS
-Runs Pester with optional re-runs of failed tests.
+Runs the Kestrun Pester suite with optional targeted re-runs.
 
 .DESCRIPTION
-- Executes Pester (in-process or out-of-process).
-- Collects failures by precise Path+Line.
+- Executes Pester one test file at a time so CI artifacts show the exact last
+  file that started before a hang or timeout.
+- Collects failures by precise file, line, and FullName.
 - Re-runs only the failed tests up to -MaxReruns.
-- Writes result artifacts (TRX by default; optional NUnit).
+- Writes NUnit XML, a discovered-file manifest, a progress log, and a console
+  transcript under the selected results directory.
 
 .EXAMPLE
-.\Utility\Test-Pester.ps1 -ReRunFailed -MaxReruns 2  `
+.\Utility\Test-Pester.ps1 -ReRunFailed -MaxReruns 2 `
     -Verbosity Detailed -ResultsDir ./artifacts/testresults
 #>
 
 [CmdletBinding()]
 param(
     [switch] $ReRunFailed,
-    [int]    $MaxReruns = 1,
+    [int] $MaxReruns = 1,
     [ValidateSet('None', 'Normal', 'Detailed', 'Diagnostic', 'Quiet')]
     [string] $Verbosity = 'Normal',
     [switch] $DebugMode,
@@ -27,197 +29,69 @@ param(
 )
 
 begin {
-    # Ensure Pester is available
     if (-not (Get-Module -ListAvailable -Name Pester)) {
         throw 'Pester module not found. Please Install-Module Pester -Scope CurrentUser'
     }
+
+    Import-Module (Join-Path -Path $PSScriptRoot -ChildPath 'Modules\Helper.psm1') -Force
     Import-Module Pester -Force
 
-    if (-not (Test-Path $ResultsDir)) { $null = New-Item -ItemType Directory -Force -Path $ResultsDir }
-
-    <#
-
-    .SYNOPSIS
-        Creates a base Pester configuration for running tests.
-    .DESCRIPTION
-        Constructs a Pester configuration with specified test paths, verbosity, and output settings.
-    .PARAMETER TestPath
-        The path(s) to the tests to run.
-    .PARAMETER Verbosity
-        The verbosity level for Pester output. Valid values are 'None', 'Normal', 'Detailed', 'Diagnostic', and 'Quiet'.
-    .PARAMETER EmitNUnit
-        If specified, configures Pester to emit test results in NUnit XML format in addition to TRX.
-    .OUTPUTS
-        A PesterConfiguration object configured with the specified settings.
-    .NOTES
-        This function creates a Pester configuration that sets up the test paths, output verbosity,
-        and result output format. It also includes OS-based tag exclusions to allow for platform-specific test
-        filtering.
-    #>
-    function New-BasePesterConfig {
-        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
-        param(
-            [Parameter(Mandatory = $true)] [string] $TestPath,
-            [Parameter(Mandatory = $true)] [string] $Verbosity,
-            [switch] $EmitNUnit
-        )
-
-        # If ResultsDir is a module-level or script-level variable, we assume it's in scope.
-        # Otherwise, you may want to pass it as a parameter.
-        if (-not (Test-Path $ResultsDir)) {
-            New-Item -ItemType Directory -Force -Path $ResultsDir | Out-Null
-        }
-
-        $cfg = [PesterConfiguration]::Default
-
-        # Path(s) to test files / directory
-        $cfg.Run.Path = @($TestPath)
-
-        # Verbosity for output
-        $cfg.Output.Verbosity = $Verbosity
-
-        # Enable test result output
-        $cfg.TestResult.Enabled = $true
-        $cfg.TestResult.OutputPath = Join-Path $ResultsDir 'Pester.trx'
-
-        # Do not auto-exit; we’ll manage exit logic ourselves (for reruns etc.)
-        $cfg.Run.Exit = $false
-
-        # Make sure Invoke-Pester returns a result object
-        $cfg.Run.PassThru = $true
-
-        # Exclude tags based on OS
-        $excludeTag = @()
-        if ($IsLinux) { $excludeTag += 'Exclude_Linux' }
-        if ($IsMacOS) { $excludeTag += 'Exclude_MacOs' }
-        if ($IsWindows) { $excludeTag += 'Exclude_Windows' }
-        $cfg.Filter.ExcludeTag = $excludeTag
-
-        # Optionally produce NUnit XML in addition to TRX
-        if ($EmitNUnit) {
-            $cfg.TestResult.OutputFormat = 'NUnitXml'
-            $cfg.TestResult.OutputPath = Join-Path $ResultsDir 'Pester.nunit.xml'
-        }
-
-        return $cfg
-    }
-
-    <#
-    .SYNOPSIS
-        Extracts failed test selectors from a Pester run result.
-    .DESCRIPTION
-        Processes the Pester run result to identify tests that failed,
-        returning their names, file paths, and line numbers for targeted re-runs.
-    .PARAMETER PesterRun
-        The Pester run result object from which to extract failed tests.
-    .OUTPUTS
-        A collection of objects with Name, Path, and Line properties for each failed test.
-    .NOTES
-        This function processes the Pester run result to identify tests that failed,
-        returning their names, file paths, and line numbers for targeted re-runs.
-    #>
-    function Get-FailedSelector {
-        param([Parameter(Mandatory)] $PesterRun)
-        $result = @{}
-        $PesterRun.Tests |
-            Where-Object { $_.Result -eq 'Failed' } | # -or $_.Outcome -eq 'Failed' } |
-            ForEach-Object {
-                # Prefer ScriptBlock.File; fall back to Block.BlockContainer
-                $file = $null
-                try { $file = $_.ScriptBlock.File } catch {
-                    Write-Warning "Failed to get ScriptBlock.File for test '$($_.Name)': $_"
-
-                    if ( $_.Block -and $_.Block.BlockContainer) {
-                        $file = $_.Block.BlockContainer.Item.ResolvedTarget
-                    }
-                }
-                $result[$file] = @{
-                    File = $file
-                    Line = $_.StartLine
-                    FullName = $_.FullName
-                    ExpandedPath = $_.ExpandedPath
-                    Name = $_.Name
-                    Result = $_.Result
-                }
-            }
-        return $result.Values
-    }
-
-    <#
-    .SYNOPSIS
-        Creates a Pester configuration to re-run only the specified failed tests.
-    .DESCRIPTION
-        Constructs a new Pester configuration that filters tests to only those that previously failed,
-        allowing for targeted re-runs. It preserves other settings from the provided base configuration.
-    .PARAMETER Failed
-        A collection of objects with Path and Line properties identifying failed tests.
-    .PARAMETER BaseConfig
-        The base Pester configuration to copy settings from.
-    .OUTPUTS
-        A PesterConfiguration object set to run only the specified tests.
-    .NOTES
-        This function constructs a new Pester configuration that filters tests to only those that previously failed,
-        allowing for targeted re-runs. It preserves other settings from the provided base configuration.
-    #>
-    function New-RerunConfig {
-        [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
-        param(
-            [Parameter(Mandatory)]
-            [System.Collections.IEnumerable] $Failed,
-            [Parameter(Mandatory)] $BaseConfig
-        )
-        $cfg = [PesterConfiguration]::Default
-        $cfg.Run.Path = $Failed.File
-        $cfg.Output.Verbosity = $BaseConfig.Output.Verbosity
-        $cfg.TestResult.Enabled = $true
-        $cfg.TestResult.OutputPath = Join-Path $ResultsDir ('Pester-rerun-{0}.trx' -f (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
-        $cfg.Run.Exit = $false
-        $cfg.Run.PassThru = $true
-        $cfg.Filter.ExcludeTag = $BaseConfig.Filter.ExcludeTag
-
-        # 🎯 Target ONLY the failing tests by their FullName
-        $cfg.Filter.FullName = @(
-            $Failed |
-                Where-Object { $_.FullName } |
-                Select-Object -ExpandProperty FullName -Unique
-        )
-        return $cfg
-    }
-
-    <#
-    .SYNOPSIS
-        Invokes Pester with the provided configuration, either in-process or out-of-process.
-    .PARAMETER Config
-        The Pester configuration to use. (Mandatory)
-    .OUTPUTS
-        A hashtable with keys:
-        - Run: The Pester run result object.
-        - ExitCode: 0 if all tests passed, 1 if any test failed.
-    .NOTES
-        This function abstracts the invocation of Pester to support both in-process and out-of-process execution.
-        When running out-of-process, it creates a temporary script to execute Pester and captures the results in JSON format.
-        The temporary files are cleaned up after execution.
-    #>
-    function Invoke-PesterWithConfig {
-        param(
-            [Parameter(Mandatory = $true)] $Config
-        )
-
-        $run = Invoke-Pester -Configuration $Config
-        $code = if ($run.FailedCount -gt 0) { 1 } else { 0 }
-        return @{ Run = $run; ExitCode = $code }
+    if (-not (Test-Path -LiteralPath $ResultsDir)) {
+        $null = New-Item -ItemType Directory -Force -Path $ResultsDir
     }
 }
 
 process {
-    $baseCfg = New-BasePesterConfig -TestPath $TestPath -Verbosity $Verbosity -EmitNUnit:$EmitNUnit
+    $runStamp = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
+    $pesterResultsDir = Join-Path -Path $ResultsDir -ChildPath 'pester' -AdditionalChildPath $runStamp
+    $progressLogPath = Join-Path -Path $pesterResultsDir -ChildPath 'Pester.progress.log'
+    $consoleLogPath = Join-Path -Path $pesterResultsDir -ChildPath 'Pester.console.log'
+    $discoveredFilesPath = Join-Path -Path $pesterResultsDir -ChildPath 'Pester.discovered-files.txt'
+    $baseXmlPath = Join-Path -Path $pesterResultsDir -ChildPath 'Pester.initial.xml'
 
-    Write-Host "📁 Test results directory: $ResultsDir" -ForegroundColor Cyan
-    Write-Host "📄 TRX result file: $($baseCfg.TestResult.OutputPath.Value)" -ForegroundColor DarkCyan
-    Write-Host "📦 GitHub Actions artifact hint: include './TestResults/**' (or '**/TestResults/**') so Pester.trx and Pester-rerun-*.trx are uploaded." -ForegroundColor DarkYellow
-    Write-Host "🧪 Running Pester tests in '$($baseCfg.Run.Path.Value)'" -ForegroundColor Cyan
-    $httpTimeoutSeconds = if ($env:KR_TEST_HTTP_TIMEOUT_SECONDS) { [int]$env:KR_TEST_HTTP_TIMEOUT_SECONDS } else { 30 }
-    Write-Host "Default Invoke-WebRequest/Invoke-RestMethod timeout: ${httpTimeoutSeconds}s" -ForegroundColor DarkCyan
+    if (-not (Test-Path -LiteralPath $pesterResultsDir)) {
+        $null = New-Item -ItemType Directory -Force -Path $pesterResultsDir
+    }
+
+    $baseCfg = New-KestrunPesterConfig `
+        -TestPath $TestPath `
+        -Verbosity $Verbosity `
+        -ResultsPath $baseXmlPath `
+        -TestSuiteName 'Kestrun Pester'
+
+    $testFiles = @(Get-KestrunPesterTestFile -TestPath $TestPath)
+    if ($testFiles.Count -eq 0) {
+        throw "No Pester test files were found under '$TestPath'."
+    }
+
+    $discoveredFileLines = for ($index = 0; $index -lt $testFiles.Count; $index++) {
+        '{0:D3}/{1:D3} {2}' -f ($index + 1), $testFiles.Count, $testFiles[$index]
+    }
+    Set-Content -LiteralPath $discoveredFilesPath -Value $discoveredFileLines
+
+    Write-Host "Pester results directory: $pesterResultsDir" -ForegroundColor Cyan
+    Write-Host "Pester progress log: $progressLogPath" -ForegroundColor DarkCyan
+    Write-Host "Pester console transcript: $consoleLogPath" -ForegroundColor DarkCyan
+    Write-Host "Pester discovered-file manifest: $discoveredFilesPath" -ForegroundColor DarkCyan
+    Write-Host "GitHub Actions artifact hint: include './TestResults/**' (or '**/TestResults/**') so the Pester XML, progress log, transcript, and manifest are uploaded." -ForegroundColor DarkYellow
+
+    $transcriptStarted = $false
+    try {
+        Start-Transcript -LiteralPath $consoleLogPath -Force | Out-Null
+        $transcriptStarted = $true
+    } catch {
+        Set-Content -LiteralPath $consoleLogPath -Value ('[{0}] Start-Transcript failed: {1}' -f [DateTimeOffset]::UtcNow.ToString('o'), $_.Exception.Message)
+        Write-Warning "Unable to start transcript at '$consoleLogPath': $($_.Exception.Message)"
+    }
+
+    Write-KestrunTimestampedLog -Path $progressLogPath -Message "Running Pester tests in '$TestPath'" -ForegroundColor Cyan | Out-Null
+    Write-KestrunTimestampedLog -Path $progressLogPath -Message "Discovered $($testFiles.Count) Pester test files." -ForegroundColor DarkCyan | Out-Null
+    if ($EmitNUnit) {
+        Write-KestrunTimestampedLog -Path $progressLogPath -Message 'EmitNUnit is retained for compatibility; Pester result output is already written as NUnit XML.' -ForegroundColor DarkYellow | Out-Null
+    }
+
+    $httpTimeoutSeconds = if ($env:KR_TEST_HTTP_TIMEOUT_SECONDS) { [int] $env:KR_TEST_HTTP_TIMEOUT_SECONDS } else { 30 }
+    Write-KestrunTimestampedLog -Path $progressLogPath -Message "Default Invoke-WebRequest/Invoke-RestMethod timeout: ${httpTimeoutSeconds}s" -ForegroundColor DarkCyan | Out-Null
 
     $defaultTimeoutKeys = @(
         'Invoke-WebRequest:TimeoutSec',
@@ -235,49 +109,94 @@ process {
     try {
         if ($DebugMode) {
             $DebugPreference = 'Continue'
-            Write-Host '🐛 PowerShell debug output is enabled for the Pester run.' -ForegroundColor Yellow
+            Write-KestrunTimestampedLog -Path $progressLogPath -Message 'PowerShell debug output is enabled for the Pester run.' -ForegroundColor Yellow | Out-Null
         }
 
-        $initial = Invoke-PesterWithConfig -Config $baseCfg
+        $allFailedSelectors = @()
+        $initialExitCode = 0
 
-        $finalExit = $initial.ExitCode
+        for ($index = 0; $index -lt $testFiles.Count; $index++) {
+            $testFile = $testFiles[$index]
+            $displayIndex = '{0:D3}/{1:D3}' -f ($index + 1), $testFiles.Count
+            $safeBaseName = ([System.IO.Path]::GetFileNameWithoutExtension($testFile) -replace '[^A-Za-z0-9._-]', '_')
+            $resultXmlPath = Join-Path -Path $pesterResultsDir -ChildPath ('Pester-{0:D3}-{1}.xml' -f ($index + 1), $safeBaseName)
+            $fileCfg = New-KestrunPesterConfig `
+                -TestPath $testFile `
+                -Verbosity $Verbosity `
+                -ResultsPath $resultXmlPath `
+                -TestSuiteName ('Kestrun Pester :: {0}' -f [System.IO.Path]::GetFileName($testFile))
+
+            Write-KestrunTimestampedLog -Path $progressLogPath -Message "Starting Pester file [$displayIndex]: $testFile" -ForegroundColor Cyan | Out-Null
+            Write-KestrunTimestampedLog -Path $progressLogPath -Message "Writing NUnit XML to: $resultXmlPath" -ForegroundColor DarkCyan | Out-Null
+
+            $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+            try {
+                $runResult = Invoke-KestrunPesterWithConfig -Config $fileCfg
+            } catch {
+                $stopwatch.Stop()
+                Write-KestrunTimestampedLog -Path $progressLogPath -Message "Pester invocation threw while running [$displayIndex]: $testFile :: $($_.Exception.Message)" -ForegroundColor Red | Out-Null
+                throw
+            }
+            $stopwatch.Stop()
+
+            if ($runResult.Run.FailedCount -gt 0) {
+                $initialExitCode = 1
+                $allFailedSelectors += @(Get-KestrunPesterFailedSelector -PesterRun $runResult.Run)
+                Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Completed Pester file [{0}] with failures in {1:c}. FailedCount={2}' -f $displayIndex, $stopwatch.Elapsed, $runResult.Run.FailedCount) -ForegroundColor Yellow | Out-Null
+            } else {
+                Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Completed Pester file [{0}] successfully in {1:c}. TotalCount={2}' -f $displayIndex, $stopwatch.Elapsed, $runResult.Run.TotalCount) -ForegroundColor Green | Out-Null
+            }
+        }
+
+        $allFailedSelectors = @(
+            $allFailedSelectors |
+                Group-Object -Property { '{0}|{1}|{2}' -f $_.File, $_.Line, $_.FullName } |
+                ForEach-Object { $_.Group[0] }
+        )
+
+        $finalExit = $initialExitCode
         $attempt = 0
 
-        if ( $initial.Run.FailedCount -gt 0 -and $ReRunFailed ) {
-            $failed = Get-FailedSelector -PesterRun $initial.Run
-            if ($failed.Count -le $MaxFailedAllowed ) {
-                Write-Host ('❌ Initial test run had {0} failures; preparing to re-run up to {1} times...' -f $failed.Count, $MaxReruns) -ForegroundColor Yellow
+        if ($allFailedSelectors.Count -gt 0 -and $ReRunFailed) {
+            if ($allFailedSelectors.Count -le $MaxFailedAllowed) {
+                Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Initial pass had {0} failing test(s); preparing to re-run up to {1} time(s).' -f $allFailedSelectors.Count, $MaxReruns) -ForegroundColor Yellow | Out-Null
             } else {
-                Write-Host ('❌ Initial test run had {0} failures which exceeds MaxFailedAllowed ({1}); skipping re-runs.' -f $initial.Run.FailedCount, $MaxFailedAllowed) -ForegroundColor Red
+                Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Initial pass had {0} failing test(s), which exceeds MaxFailedAllowed ({1}); skipping re-runs.' -f $allFailedSelectors.Count, $MaxFailedAllowed) -ForegroundColor Red | Out-Null
                 return 1
             }
 
-            while ($attempt -le $MaxReruns -and $failed.Count -gt 0) {
+            while ($attempt -lt $MaxReruns -and $allFailedSelectors.Count -gt 0) {
                 $attempt++
-                Write-Host ('🔁 Re-run attempt {0} for {1} failing test(s)...' -f $attempt, $failed.Count)
+                $rerunXmlPath = Join-Path -Path $pesterResultsDir -ChildPath ('Pester-rerun-{0:00}-{1}.xml' -f $attempt, (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
+                $rerunCfg = New-KestrunPesterRerunConfig `
+                    -Failed $allFailedSelectors `
+                    -BaseConfig $baseCfg `
+                    -ResultsPath $rerunXmlPath `
+                    -TestSuiteName ('Kestrun Pester Rerun {0}' -f $attempt)
 
-                $rerunCfg = New-RerunConfig -Failed $failed -BaseConfig $baseCfg
-                Write-Host "📄 Re-run TRX result file: $($rerunCfg.TestResult.OutputPath.Value)" -ForegroundColor DarkCyan
+                Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Starting rerun attempt {0} for {1} failing test(s).' -f $attempt, $allFailedSelectors.Count) -ForegroundColor Yellow | Out-Null
+                Write-KestrunTimestampedLog -Path $progressLogPath -Message "Writing rerun NUnit XML to: $rerunXmlPath" -ForegroundColor DarkCyan | Out-Null
 
-                $rerun = Invoke-PesterWithConfig -Config $rerunCfg
-
+                $rerun = Invoke-KestrunPesterWithConfig -Config $rerunCfg
                 if ($rerun.Run.FailedCount -gt 0) {
-                    $failed = Get-FailedSelector -PesterRun $rerun.Run
+                    $allFailedSelectors = @(Get-KestrunPesterFailedSelector -PesterRun $rerun.Run)
                     $finalExit = 1
+                    Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Rerun attempt {0} still has {1} failing test(s).' -f $attempt, $allFailedSelectors.Count) -ForegroundColor Red | Out-Null
                 } else {
-                    $failed = @()
+                    $allFailedSelectors = @()
                     $finalExit = 0
+                    Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Rerun attempt {0} cleared all remaining failures.' -f $attempt) -ForegroundColor Green | Out-Null
                 }
             }
         }
 
         if ($finalExit -ne 0) {
-            Write-Host '❌ Some tests failed (after re-runs, if enabled).'
+            Write-KestrunTimestampedLog -Path $progressLogPath -Message 'Some Pester tests failed.' -ForegroundColor Red | Out-Null
             return $finalExit
-        } else {
-            Write-Host '✅ All tests passed'
-            return 0
         }
+
+        Write-KestrunTimestampedLog -Path $progressLogPath -Message 'All Pester tests passed.' -ForegroundColor Green | Out-Null
+        return 0
     } finally {
         foreach ($key in $defaultTimeoutKeys) {
             if ($previousTimeoutValues.ContainsKey($key)) {
@@ -286,6 +205,15 @@ process {
                 $null = $PSDefaultParameterValues.Remove($key)
             }
         }
+
         $DebugPreference = $originalDebugPreference
+
+        if ($transcriptStarted) {
+            try {
+                Stop-Transcript | Out-Null
+            } catch {
+                Write-Warning "Failed to stop transcript cleanly: $($_.Exception.Message)"
+            }
+        }
     }
 }

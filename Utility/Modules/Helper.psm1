@@ -781,6 +781,7 @@ function Invoke-KestrunDotNetTest {
 #>
 function Get-KestrunLatestWriteTimeUtc {
     [CmdletBinding()]
+    [OutputType([datetime])]
     param(
         [Parameter(Mandatory = $true)]
         [string[]] $Paths,
@@ -906,6 +907,7 @@ function Invoke-KestrunBuildNoPwsh {
 #>
 function Test-KestrunBuildOutputsCurrent {
     [CmdletBinding()]
+    [OutputType([bool])]
     param(
         [Parameter(Mandatory = $true)]
         [string] $RepoRoot,
@@ -979,6 +981,7 @@ function Test-KestrunBuildOutputsCurrent {
 #>
 function Test-KestrunPowerShellLibCurrent {
     [CmdletBinding()]
+    [OutputType([bool])]
     param(
         [Parameter(Mandatory = $true)]
         [string] $RepoRoot,
@@ -1026,6 +1029,262 @@ function Test-KestrunPowerShellLibCurrent {
     }
 
     return $true
+}
+
+<#
+.SYNOPSIS
+    Writes a UTC timestamped line to both the host and a log file.
+.DESCRIPTION
+    Appends a single line prefixed with the current UTC timestamp to the
+    specified log file and mirrors the same line to the console.
+.PARAMETER Path
+    Log file path to append to.
+.PARAMETER Message
+    Message text to write.
+.PARAMETER ForegroundColor
+    Console color used when writing to the host.
+#>
+function Write-KestrunTimestampedLog {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Path,
+        [Parameter(Mandatory = $true)]
+        [string] $Message,
+        [Parameter()]
+        [System.ConsoleColor] $ForegroundColor = [System.ConsoleColor]::Gray
+    )
+
+    $parentPath = Split-Path -Parent -Path $Path
+    if ($parentPath -and -not (Test-Path -LiteralPath $parentPath)) {
+        New-Item -Path $parentPath -ItemType Directory -Force | Out-Null
+    }
+
+    $line = '[{0}] {1}' -f [DateTimeOffset]::UtcNow.ToString('o'), $Message
+    Add-Content -LiteralPath $Path -Value $line
+    Write-Host $line -ForegroundColor $ForegroundColor
+    return $line
+}
+
+<#
+.SYNOPSIS
+    Resolves Pester test files for one or more file or directory paths.
+.DESCRIPTION
+    Expands directory inputs to all *.Tests.ps1 files beneath them and returns
+    a deterministic, unique list of resolved file paths.
+.PARAMETER TestPath
+    One or more file or directory paths containing Pester tests.
+#>
+function Get-KestrunPesterTestFile {
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]] $TestPath
+    )
+
+    $testFiles = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($path in $TestPath) {
+        if (-not (Test-Path -LiteralPath $path)) {
+            throw "Pester test path not found: $path"
+        }
+
+        $item = Get-Item -LiteralPath $path
+        if ($item.PSIsContainer) {
+            $resolvedFiles = Get-ChildItem -LiteralPath $item.FullName -Recurse -File -Filter '*.Tests.ps1' |
+                Sort-Object -Property FullName
+            foreach ($file in $resolvedFiles) {
+                $testFiles.Add($file.FullName)
+            }
+        } else {
+            $testFiles.Add($item.FullName)
+        }
+    }
+
+    return @($testFiles | Sort-Object -Unique)
+}
+
+<#
+.SYNOPSIS
+    Creates a Pester configuration for a Kestrun test run.
+.DESCRIPTION
+    Builds a PesterConfiguration with pass-through results, NUnit XML output,
+    and the standard OS-specific excluded tags used by the repository.
+.PARAMETER TestPath
+    The file or directory paths to execute.
+.PARAMETER Verbosity
+    Pester output verbosity.
+.PARAMETER ResultsPath
+    NUnit XML output path for the run.
+.PARAMETER TestSuiteName
+    Root test-suite name written to the XML report.
+#>
+function New-KestrunPesterConfig {
+    [CmdletBinding()]
+    [outputtype([PesterConfiguration])]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]] $TestPath,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('None', 'Normal', 'Detailed', 'Diagnostic', 'Quiet')]
+        [string] $Verbosity,
+        [Parameter(Mandatory = $true)]
+        [string] $ResultsPath,
+        [Parameter()]
+        [string] $TestSuiteName = 'Kestrun Pester'
+    )
+
+    $resultsParent = Split-Path -Parent -Path $ResultsPath
+    if ($resultsParent -and -not (Test-Path -LiteralPath $resultsParent)) {
+        New-Item -Path $resultsParent -ItemType Directory -Force | Out-Null
+    }
+
+    $effectiveVerbosity = if ($Verbosity -eq 'Quiet') { 'None' } else { $Verbosity }
+
+    $cfg = [PesterConfiguration]::Default
+    $cfg.Run.Path = @($TestPath)
+    $cfg.Output.Verbosity = $effectiveVerbosity
+    $cfg.TestResult.Enabled = $true
+    $cfg.TestResult.OutputFormat = 'NUnitXml'
+    $cfg.TestResult.OutputPath = $ResultsPath
+    $cfg.TestResult.TestSuiteName = $TestSuiteName
+    $cfg.Run.Exit = $false
+    $cfg.Run.PassThru = $true
+
+    $excludeTag = @()
+    if ($IsLinux) { $excludeTag += 'Exclude_Linux' }
+    if ($IsMacOS) { $excludeTag += 'Exclude_MacOs' }
+    if ($IsWindows) { $excludeTag += 'Exclude_Windows' }
+    $cfg.Filter.ExcludeTag = $excludeTag
+
+    return $cfg
+}
+
+<#
+.SYNOPSIS
+    Extracts failed test selectors from a Pester run result.
+.DESCRIPTION
+    Returns unique failing tests with their file, line, and full name so the
+    rerun pass can target the exact failing examples.
+.PARAMETER PesterRun
+    Pester result object returned by Invoke-Pester.
+#>
+function Get-KestrunPesterFailedSelector {
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param(
+        [Parameter(Mandatory = $true)]
+        $PesterRun
+    )
+
+    $failedSelectors = foreach ($test in @($PesterRun.Tests | Where-Object { $_.Result -eq 'Failed' })) {
+        $file = $null
+        try {
+            $file = $test.ScriptBlock.File
+        } catch {
+            Write-Warning "Failed to get ScriptBlock.File for test '$($test.Name)': $_"
+            if ($test.Block -and $test.Block.BlockContainer) {
+                $file = $test.Block.BlockContainer.Item.ResolvedTarget
+            }
+        }
+
+        [pscustomobject]@{
+            File         = $file
+            Line         = $test.StartLine
+            FullName     = $test.FullName
+            ExpandedPath = $test.ExpandedPath
+            Name         = $test.Name
+            Result       = $test.Result
+        }
+    }
+
+    return @(
+        $failedSelectors |
+            Group-Object -Property { '{0}|{1}|{2}' -f $_.File, $_.Line, $_.FullName } |
+            ForEach-Object { $_.Group[0] }
+    )
+}
+
+<#
+.SYNOPSIS
+    Creates a rerun Pester configuration for a failed-test subset.
+.DESCRIPTION
+    Reuses the base verbosity and platform exclusions while restricting the run
+    to the failing files and FullName selectors collected from the prior pass.
+.PARAMETER Failed
+    Failing test selector objects from Get-KestrunPesterFailedSelector.
+.PARAMETER BaseConfig
+    Base configuration whose verbosity and excluded tags are reused.
+.PARAMETER ResultsPath
+    NUnit XML output path for the rerun.
+.PARAMETER TestSuiteName
+    Root test-suite name written to the rerun XML report.
+#>
+function New-KestrunPesterRerunConfig {
+    [CmdletBinding()]
+    [outputtype([PesterConfiguration])]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Collections.IEnumerable] $Failed,
+        [Parameter(Mandatory = $true)]
+        $BaseConfig,
+        [Parameter(Mandatory = $true)]
+        [string] $ResultsPath,
+        [Parameter()]
+        [string] $TestSuiteName = 'Kestrun Pester Rerun'
+    )
+
+    $cfg = [PesterConfiguration]::Default
+    $cfg.Run.Path = @(
+        $Failed |
+            Where-Object { $_.File } |
+            Select-Object -ExpandProperty File -Unique
+    )
+    $cfg.Output.Verbosity = $BaseConfig.Output.Verbosity
+    $cfg.TestResult.Enabled = $true
+    $cfg.TestResult.OutputFormat = 'NUnitXml'
+    $cfg.TestResult.OutputPath = $ResultsPath
+    $cfg.TestResult.TestSuiteName = $TestSuiteName
+    $cfg.Run.Exit = $false
+    $cfg.Run.PassThru = $true
+    $cfg.Filter.ExcludeTag = $BaseConfig.Filter.ExcludeTag
+    $cfg.Filter.FullName = @(
+        $Failed |
+            Where-Object { $_.FullName } |
+            Select-Object -ExpandProperty FullName -Unique
+    )
+
+    return $cfg
+}
+
+<#
+.SYNOPSIS
+    Invokes Pester and returns both the result object and an exit code.
+.PARAMETER Config
+    Pester configuration to execute.
+.OUTPUTS
+    Hashtable containing the Pester run result and exit code.
+#>
+function Invoke-KestrunPesterWithConfig {
+    [CmdletBinding()]
+    [OutputType([hashtable])]
+    param(
+        [Parameter(Mandatory = $true)]
+        $Config
+    )
+
+    $run = Invoke-Pester -Configuration $Config -ErrorAction Stop
+    if ($null -eq $run) {
+        throw 'Invoke-Pester did not return a run result.'
+    }
+    $code = if ($run.FailedCount -gt 0) { 1 } else { 0 }
+    return @{
+        Run      = $run
+        ExitCode = $code
+    }
 }
 
 Export-ModuleMember -Function *

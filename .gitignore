@@ -104,3 +104,4 @@ src/PowerShell/Kestrun/kestrun.sh
 /coverage-site-local
 *.krpack
 /Package-Sample
+/TestResults*

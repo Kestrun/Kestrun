@@ -439,7 +439,7 @@ Start-KrServer
                 )
                 foreach ($url in $probeUrls) {
                     try {
-                        $probe = Get-HttpHeadersRaw -Uri $url -Insecure -AsHashtable
+                        $probe = Get-HttpHeadersRaw -Uri $url -Insecure -AsHashtable -TimeoutSeconds 2
                         if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) {
                             $ready = $true
                             break
@@ -1992,7 +1992,9 @@ function Get-HttpHeadersRaw {
         [switch]$AsHashtable,
         [switch]$IncludeBody,
         [string]$AcceptEncoding,
-        [switch]$NoAcceptEncoding
+        [switch]$NoAcceptEncoding,
+        [ValidateRange(1, 300)]
+        [int]$TimeoutSeconds = $(if ($env:KR_TEST_RAW_HTTP_TIMEOUT_SECONDS) { [int]$env:KR_TEST_RAW_HTTP_TIMEOUT_SECONDS } else { 15 })
     )
 
     $u = [Uri]$Uri
@@ -2004,9 +2006,34 @@ function Get-HttpHeadersRaw {
     $port = if ($u.IsDefaultPort) { if ($u.Scheme -eq 'https') { 443 } else { 80 } } else { $u.Port }
     $path = if ([string]::IsNullOrEmpty($u.PathAndQuery)) { '/' } else { $u.PathAndQuery }
     $crlf = "`r`n"
+    $timeoutMs = [Math]::Max(1000, $TimeoutSeconds * 1000)
+
+    $waitForTask = {
+        param(
+            [Parameter(Mandatory)]
+            [System.Threading.Tasks.Task]$Task,
+            [Parameter(Mandatory)]
+            [string]$Operation
+        )
+
+        if (-not $Task.Wait($timeoutMs)) {
+            throw [System.TimeoutException]::new("Timed out after ${TimeoutSeconds}s while ${Operation}: $Uri")
+        }
+
+        $result = $Task.GetAwaiter().GetResult()
+        if ($null -eq $result) {
+            return
+        }
+
+        if ($result.GetType().FullName -eq 'System.Threading.Tasks.VoidTaskResult') {
+            return
+        }
+
+        return $result
+    }
 
     $client = [System.Net.Sockets.TcpClient]::new()
-    $client.Connect($u.Host, $port)   # connect to endpoint (IP or host)
+    & $waitForTask $client.ConnectAsync($u.Host, $port) "connecting to $($u.Host):$port"
     $netStream = $client.GetStream()
     $stream = $null
 
@@ -2020,7 +2047,7 @@ function Get-HttpHeadersRaw {
             $proto = [System.Security.Authentication.SslProtocols]::Tls12 -bor `
                 [System.Security.Authentication.SslProtocols]::Tls13
             # SNI uses targetHost (can be different from the IP/endpoint you connect to)
-            $ssl.AuthenticateAsClient($targetHost, $null, $proto, $false)
+            & $waitForTask $ssl.AuthenticateAsClientAsync($targetHost, $null, $proto, $false) "performing TLS handshake with $targetHost"
             $stream = $ssl
         } else {
             $stream = $netStream
@@ -2052,12 +2079,12 @@ function Get-HttpHeadersRaw {
 
         $utf8 = [Text.Encoding]::UTF8
         $reqBytes = [Text.Encoding]::ASCII.GetBytes($request)
-        $stream.Write($reqBytes, 0, $reqBytes.Length)
+        & $waitForTask $stream.WriteAsync($reqBytes, 0, $reqBytes.Length) "writing request to $Uri"
 
         # Read entire response into memory (connection: close => server will close)
         $buf = [byte[]]::new(8192)
         $ms = [System.IO.MemoryStream]::new()
-        while (($n = $stream.Read($buf, 0, $buf.Length)) -gt 0) {
+        while (($n = & $waitForTask $stream.ReadAsync($buf, 0, $buf.Length) "reading response from $Uri") -gt 0) {
             $ms.Write($buf, 0, $n)
         }
         $all = $ms.ToArray()
@@ -2074,7 +2101,12 @@ function Get-HttpHeadersRaw {
             # No header terminator found; return raw text or a simple bag
             $rawText = $utf8.GetString($all)
             if ($AsHashtable -or $IncludeBody) {
-                return [ordered]@{ 'Status-Line' = '(unknown)'; 'Raw' = $rawText }
+                return [ordered]@{
+                    'Status-Line' = '(unknown)'
+                    'StatusCode' = $null
+                    'Version'     = $null
+                    'Raw'         = $rawText
+                }
             } else {
                 return $rawText
             }

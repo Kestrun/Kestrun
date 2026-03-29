@@ -330,6 +330,17 @@ Start-KrServer
     if ( $content.Contains('Initialize-KrRoot -Path $PSScriptRoot')) {
         $content = $content.Replace('Initialize-KrRoot -Path $PSScriptRoot', "Initialize-KrRoot -Path '$scriptDir'")
     }
+
+    # Heuristic: detect HTTPS usage if listener line includes cert/self-signed flags.
+    # This is also used to avoid noisy HTTPS readiness probes for HTTP-only examples.
+    $usesHttps = $false
+    if (($content -match 'Add-KrEndpoint[^\n]*-SelfSignedCert') -or
+        ($content -match 'Add-KrEndpoint[^\n]*-CertPath') -or
+        ($content -match 'Add-KrEndpoint[^\n]*-X509Certificate')
+    ) {
+        $usesHttps = $true
+    }
+
     $tempDir = [System.IO.Path]::GetTempPath()
     # Generate a unique file name for the temp script
     $fileNameWithoutExtension = ([string]::IsNullOrEmpty($Name)) ? 'ScriptBlockExample' : [IO.Path]::GetFileNameWithoutExtension((Split-Path -Leaf $Name))
@@ -430,13 +441,18 @@ Start-KrServer
             while ([DateTime]::UtcNow -lt $deadline -and -not $ready) {
                 if ($proc.HasExited) { break }
                 $attempt++
-                # Optional lightweight HTTP/HTTPS probe of '/' and '/online' endpoints to detect readiness
+                # Optional lightweight HTTP/HTTPS probe of '/' and '/online' endpoints to detect readiness.
+                # Probe HTTP first because many examples are HTTP-only or become reachable over HTTP before HTTPS.
                 $probeUrls = @(
                     "http://$serverIp`:$Port/online",
-                    "https://$serverIp`:$Port/online",
-                    "http://$serverIp`:$Port/",
-                    "https://$serverIp`:$Port/"
+                    "http://$serverIp`:$Port/"
                 )
+                if ($usesHttps) {
+                    $probeUrls += @(
+                        "https://$serverIp`:$Port/online",
+                        "https://$serverIp`:$Port/"
+                    )
+                }
                 foreach ($url in $probeUrls) {
                     try {
                         $probe = Get-HttpHeadersRaw -Uri $url -Insecure -AsHashtable -TimeoutSeconds 2
@@ -449,6 +465,38 @@ Start-KrServer
                     }
                 }
                 Start-Sleep -Milliseconds $HttpProbeDelayMs
+            }
+
+            # Some HTTPS examples on Windows become reachable to Invoke-WebRequest
+            # slightly before or after the raw socket probe can confirm readiness.
+            # Before warning, do one final short, high-level probe using the same
+            # client stack the tests use so we reduce false negatives without
+            # reintroducing unbounded waits.
+            if (-not $ready -and -not $proc.HasExited) {
+                $finalProbeUrls = @()
+                if ($usesHttps) {
+                    $finalProbeUrls += @(
+                        "https://$serverIp`:$Port/online",
+                        "https://$serverIp`:$Port/"
+                    )
+                }
+                $finalProbeUrls += @(
+                    "http://$serverIp`:$Port/online",
+                    "http://$serverIp`:$Port/"
+                )
+
+                foreach ($url in ($finalProbeUrls | Select-Object -Unique)) {
+                    try {
+                        $finalProbe = Invoke-WebRequest -Uri $url -Method Get -SkipCertificateCheck -SkipHttpErrorCheck -TimeoutSec 5
+                        if ($null -ne $finalProbe -and $finalProbe.StatusCode -ge 200 -and $finalProbe.StatusCode -lt 600) {
+                            $ready = $true
+                            $errorMessage = $null
+                            break
+                        }
+                    } catch {
+                        $errorMessage = $_.Exception.Message
+                    }
+                }
             }
         }
 
@@ -479,15 +527,6 @@ Start-KrServer
         Write-Warning "Example $exampleIdentifier process exited early with code $($proc.ExitCode).$attemptSummary Capturing logs."
         if (Test-Path $stdErr) { Write-Warning ('stderr: ' + (Get-Content $stdErr -Raw)) }
         if (Test-Path $stdOut) { Write-Verbose ('stdout: ' + (Get-Content $stdOut -Raw)) -Verbose }
-    }
-
-    # Heuristic: detect HTTPS usage if listener line includes cert/self-signed flags
-    $usesHttps = $false
-    if (($content -match 'Add-KrEndpoint[^\n]*-SelfSignedCert') -or
-        ($content -match 'Add-KrEndpoint[^\n]*-CertPath') -or
-        ($content -match 'Add-KrEndpoint[^\n]*-X509Certificate')
-    ) {
-        $usesHttps = $true
     }
 
     Start-Sleep -Seconds 2 # Allow some time for server to stabilize

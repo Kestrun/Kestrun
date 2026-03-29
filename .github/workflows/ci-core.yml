@@ -207,9 +207,8 @@ jobs:
                   $ErrorActionPreference = 'Stop'
                   Invoke-Build Test-xUnit -DotNetVerbosity $Env:DOTNET_VERBOSITY
 
-            - name: 🧪 Run Pester Tests
-              if: ${{ !startsWith(matrix.os, 'windows-') }}
-              timeout-minutes: 45
+            - name: 🧪 Run Pester Tests (Non-Tutorial)
+              timeout-minutes: 35
               shell: pwsh
               run: |
                   Write-Host "Environment check before calling Pester test script..."
@@ -219,21 +218,33 @@ jobs:
                       Write-Host "UPSTASH_REDIS_URL is NOT available in workflow" -ForegroundColor Red
                   }
                   $ErrorActionPreference = 'Stop'
-                  Invoke-Build Test-Pester -PesterVerbosity $Env:PESTER_VERBOSITY
+                  Invoke-Build Test-Pester-NonTutorial -PesterVerbosity $Env:PESTER_VERBOSITY
 
-            - name: 🧪 Run Pester Tests
-              if: ${{ startsWith(matrix.os, 'windows-') }}
-              timeout-minutes: 100
+            - name: 📘 Run Tutorial Tests (1/2)
+              timeout-minutes: 70
               shell: pwsh
               run: |
-                  Write-Host "Environment check before calling Pester test script..."
+                  Write-Host "Environment check before calling tutorial test script..."
                   if ($env:UPSTASH_REDIS_URL) {
                       Write-Host "UPSTASH_REDIS_URL is available in workflow (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
                   } else {
                       Write-Host "UPSTASH_REDIS_URL is NOT available in workflow" -ForegroundColor Red
                   }
                   $ErrorActionPreference = 'Stop'
-                  Invoke-Build Test-Pester -PesterVerbosity $Env:PESTER_VERBOSITY
+                  Invoke-Build Test-Pester-Tutorial-Shard1 -PesterVerbosity $Env:PESTER_VERBOSITY
+
+            - name: 📘 Run Tutorial Tests (2/2)
+              timeout-minutes: 70
+              shell: pwsh
+              run: |
+                  Write-Host "Environment check before calling tutorial test script..."
+                  if ($env:UPSTASH_REDIS_URL) {
+                      Write-Host "UPSTASH_REDIS_URL is available in workflow (length: $($env:UPSTASH_REDIS_URL.Length))" -ForegroundColor Green
+                  } else {
+                      Write-Host "UPSTASH_REDIS_URL is NOT available in workflow" -ForegroundColor Red
+                  }
+                  $ErrorActionPreference = 'Stop'
+                  Invoke-Build Test-Pester-Tutorial-Shard2 -PesterVerbosity $Env:PESTER_VERBOSITY
 
             - name: 📤 Upload diagnostics on failure
               if: ${{ failure() || cancelled() }}

@@ -165,6 +165,8 @@ $KestrunToolRuntimeIdentifiers = @('win-x64', 'win-arm64', 'linux-x64', 'linux-a
 $ExamplesSolutionFilter = Join-Path -Path $PSScriptRoot -ChildPath 'Examples.slnf'
 $KestrunToolPowerShellCacheRoot = Join-Path -Path $PSScriptRoot -ChildPath '.package' -AdditionalChildPath 'powershell-cache'
 $PowerShellLibRoot = Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun/lib'
+$PesterTestsRootPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/PowerShell.Tests/Kestrun.Tests'
+$PesterTutorialTestPath = Join-Path -Path $PesterTestsRootPath -ChildPath 'Tutorial'
 
 Write-Host '---------------------------------------------------' -ForegroundColor DarkCyan
 if (-not $Version) {
@@ -243,6 +245,8 @@ Add-BuildTask Help {
     # Test tasks
     Write-Host '- Test-Tutorials: Runs tests on tutorial documentation.'
     Write-Host '- Test-xUnit: Runs Kestrun DLL tests.'
+    Write-Host '- Test-Pester-NonTutorial: Runs non-tutorial Pester tests.'
+    Write-Host '- Test-Pester-Tutorial: Runs tutorial Pester tests in two deterministic shards.'
     Write-Host '- Test-Pester: Runs Pester tests.'
     # Clean tasks
     Write-Host '- Deep-Clean: Cleans all build artifacts.'
@@ -567,7 +571,7 @@ Add-BuildTask 'Format' {
 }
 
 # Pester tests
-Add-BuildTask 'Test-Pester' 'Prepare-PesterAssets', {
+Add-BuildTask 'Test-Pester-LogContext' 'Prepare-PesterAssets', {
     if ($isDebug) {
         Write-Host '🔍 [TEST-PESTER DEBUG] Checking UPSTASH_REDIS_URL before running Pester tests...' -ForegroundColor Cyan
         $upstashValue = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
@@ -583,9 +587,50 @@ Add-BuildTask 'Test-Pester' 'Prepare-PesterAssets', {
             Write-Host '❌ UPSTASH_REDIS_URL is NOT available for Pester tests' -ForegroundColor Red
         }
     }
-    $res = & .\Utility\Test-Pester.ps1 -ReRunFailed -Verbosity $PesterVerbosity -DebugMode:$isDebug
-    if ($res -ne 0) { Write-Error "Test-Pester failed with exit code $res" }
+}
+
+Add-BuildTask 'Test-Pester-NonTutorial' 'Test-Pester-LogContext', {
+    Write-Host 'ðŸ§ª Running non-tutorial Pester tests...'
+    $res = & .\Utility\Test-Pester.ps1 `
+        -ReRunFailed `
+        -Verbosity $PesterVerbosity `
+        -DebugMode:$isDebug `
+        -TestPath $PesterTestsRootPath `
+        -ExcludePath $PesterTutorialTestPath
+    if ($res -ne 0) { Write-Error "Test-Pester-NonTutorial failed with exit code $res" }
     return $res
+}
+
+Add-BuildTask 'Test-Pester-Tutorial-Shard1' 'Test-Pester-LogContext', {
+    Write-Host 'ðŸ“˜ Running tutorial Pester tests (shard 1/2)...'
+    $res = & .\Utility\Test-Pester.ps1 `
+        -ReRunFailed `
+        -Verbosity $PesterVerbosity `
+        -DebugMode:$isDebug `
+        -TestPath $PesterTutorialTestPath `
+        -ShardCount 2 `
+        -ShardIndex 1
+    if ($res -ne 0) { Write-Error "Test-Pester-Tutorial-Shard1 failed with exit code $res" }
+    return $res
+}
+
+Add-BuildTask 'Test-Pester-Tutorial-Shard2' 'Test-Pester-LogContext', {
+    Write-Host 'ðŸ“˜ Running tutorial Pester tests (shard 2/2)...'
+    $res = & .\Utility\Test-Pester.ps1 `
+        -ReRunFailed `
+        -Verbosity $PesterVerbosity `
+        -DebugMode:$isDebug `
+        -TestPath $PesterTutorialTestPath `
+        -ShardCount 2 `
+        -ShardIndex 2
+    if ($res -ne 0) { Write-Error "Test-Pester-Tutorial-Shard2 failed with exit code $res" }
+    return $res
+}
+
+Add-BuildTask 'Test-Pester-Tutorial' 'Test-Pester-Tutorial-Shard1', 'Test-Pester-Tutorial-Shard2'
+
+Add-BuildTask 'Test-Pester' 'Test-Pester-NonTutorial', 'Test-Pester-Tutorial', {
+    Write-Host 'âœ… Pester test suites completed.'
 }
 
 Add-BuildTask 'Test' 'Test-xUnit', 'Test-Pester'

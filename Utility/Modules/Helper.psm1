@@ -1074,14 +1074,32 @@ function Write-KestrunTimestampedLog {
     a deterministic, unique list of resolved file paths.
 .PARAMETER TestPath
     One or more file or directory paths containing Pester tests.
+.PARAMETER ExcludePath
+    Optional file or directory paths to remove from the discovered test set.
+.PARAMETER ShardCount
+    Total number of deterministic shards to split the resulting test set into.
+.PARAMETER ShardIndex
+    One-based shard number to return from the discovered test set.
 #>
 function Get-KestrunPesterTestFile {
     [CmdletBinding()]
     [OutputType([object[]])]
     param(
         [Parameter(Mandatory = $true)]
-        [string[]] $TestPath
+        [string[]] $TestPath,
+        [Parameter()]
+        [string[]] $ExcludePath = @(),
+        [Parameter()]
+        [ValidateRange(1, 256)]
+        [int] $ShardCount = 1,
+        [Parameter()]
+        [ValidateRange(1, 256)]
+        [int] $ShardIndex = 1
     )
+
+    if ($ShardIndex -gt $ShardCount) {
+        throw "ShardIndex ($ShardIndex) cannot be greater than ShardCount ($ShardCount)."
+    }
 
     $testFiles = [System.Collections.Generic.List[string]]::new()
 
@@ -1102,7 +1120,60 @@ function Get-KestrunPesterTestFile {
         }
     }
 
-    return @($testFiles | Sort-Object -Unique)
+    $resolvedFiles = @($testFiles | Sort-Object -Unique)
+    if ($ExcludePath.Count -gt 0) {
+        $comparison = if ($IsWindows) {
+            [System.StringComparison]::OrdinalIgnoreCase
+        } else {
+            [System.StringComparison]::Ordinal
+        }
+
+        $excludedItems = foreach ($path in $ExcludePath) {
+            if (-not (Test-Path -LiteralPath $path)) {
+                throw "Pester exclude path not found: $path"
+            }
+
+            $item = Get-Item -LiteralPath $path
+            $fullPath = [System.IO.Path]::GetFullPath($item.FullName)
+            if ($item.PSIsContainer) {
+                '{0}{1}' -f $fullPath.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar), [System.IO.Path]::DirectorySeparatorChar
+            } else {
+                $fullPath
+            }
+        }
+
+        $resolvedFiles = @(
+            $resolvedFiles |
+                Where-Object {
+                    $candidate = [System.IO.Path]::GetFullPath($_)
+                    $isExcluded = $false
+                    foreach ($excludedItem in $excludedItems) {
+                        if ($excludedItem.EndsWith([System.IO.Path]::DirectorySeparatorChar)) {
+                            if ($candidate.StartsWith($excludedItem, $comparison)) {
+                                $isExcluded = $true
+                                break
+                            }
+                        } elseif ([string]::Equals($candidate, $excludedItem, $comparison)) {
+                            $isExcluded = $true
+                            break
+                        }
+                    }
+
+                    -not $isExcluded
+                }
+        )
+    }
+
+    if ($ShardCount -eq 1) {
+        return $resolvedFiles
+    }
+
+    $shardedFiles = [System.Collections.Generic.List[string]]::new()
+    for ($index = $ShardIndex - 1; $index -lt $resolvedFiles.Count; $index += $ShardCount) {
+        $shardedFiles.Add($resolvedFiles[$index])
+    }
+
+    return @($shardedFiles)
 }
 
 <#

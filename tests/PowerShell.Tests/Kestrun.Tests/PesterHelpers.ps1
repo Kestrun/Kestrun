@@ -2142,19 +2142,38 @@ namespace Kestrun.Testing
         $reqBytes = [Text.Encoding]::ASCII.GetBytes($request)
         & $waitForTask $stream.WriteAsync($reqBytes, 0, $reqBytes.Length) "writing request to $Uri"
 
-        # Read entire response into memory (connection: close => server will close)
+        # For header-only probes, stop reading as soon as the header terminator
+        # arrives. Waiting for the server to close the connection can keep a
+        # limited-connection example busy long enough to poison later probes.
         $buf = [byte[]]::new(8192)
         $ms = [System.IO.MemoryStream]::new()
+        $headerTerminatorIndex = -1
         while (($n = & $waitForTask $stream.ReadAsync($buf, 0, $buf.Length) "reading response from $Uri") -gt 0) {
             $ms.Write($buf, 0, $n)
+            if (-not $IncludeBody) {
+                $current = $ms.ToArray()
+                for ($i = 0; $i -le $current.Length - 4; $i++) {
+                    if (($current[$i] -eq 13) -and ($current[$i + 1] -eq 10) -and ($current[$i + 2] -eq 13) -and ($current[$i + 3] -eq 10)) {
+                        $headerTerminatorIndex = $i
+                        break
+                    }
+                }
+
+                if ($headerTerminatorIndex -ge 0) {
+                    break
+                }
+            }
         }
         $all = $ms.ToArray()
 
         # Locate CRLFCRLF separator between headers and body
-        $sep = -1
-        for ($i = 0; $i -le $all.Length - 4; $i++) {
-            if (($all[$i] -eq 13) -and ($all[$i + 1] -eq 10) -and ($all[$i + 2] -eq 13) -and ($all[$i + 3] -eq 10)) {
-                $sep = $i; break
+        $sep = $headerTerminatorIndex
+        if ($sep -lt 0) {
+            for ($i = 0; $i -le $all.Length - 4; $i++) {
+                if (($all[$i] -eq 13) -and ($all[$i + 1] -eq 10) -and ($all[$i + 2] -eq 13) -and ($all[$i + 3] -eq 10)) {
+                    $sep = $i
+                    break
+                }
             }
         }
 

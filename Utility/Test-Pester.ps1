@@ -24,6 +24,11 @@ param(
     [switch] $DebugMode,
     [string] $ResultsDir = (Join-Path -Path (Get-Location) -ChildPath 'TestResults'),
     [string] $TestPath = (Join-Path -Path (Get-Location) -ChildPath 'tests' -AdditionalChildPath 'PowerShell.Tests', 'Kestrun.Tests'),
+    [string[]] $ExcludePath = @(),
+    [ValidateRange(1, 256)]
+    [int] $ShardCount = 1,
+    [ValidateRange(1, 256)]
+    [int] $ShardIndex = 1,
     [switch] $EmitNUnit,
     [int] $MaxFailedAllowed = 10
 )
@@ -59,7 +64,7 @@ process {
         -ResultsPath $baseXmlPath `
         -TestSuiteName 'Kestrun Pester'
 
-    $testFiles = @(Get-KestrunPesterTestFile -TestPath $TestPath)
+    $testFiles = @(Get-KestrunPesterTestFile -TestPath $TestPath -ExcludePath $ExcludePath -ShardCount $ShardCount -ShardIndex $ShardIndex)
     if ($testFiles.Count -eq 0) {
         throw "No Pester test files were found under '$TestPath'."
     }
@@ -85,6 +90,12 @@ process {
     }
 
     Write-KestrunTimestampedLog -Path $progressLogPath -Message "Running Pester tests in '$TestPath'" -ForegroundColor Cyan | Out-Null
+    if ($ExcludePath.Count -gt 0) {
+        Write-KestrunTimestampedLog -Path $progressLogPath -Message ("Excluding Pester paths: {0}" -f ($ExcludePath -join ', ')) -ForegroundColor DarkCyan | Out-Null
+    }
+    if ($ShardCount -gt 1) {
+        Write-KestrunTimestampedLog -Path $progressLogPath -Message ("Running Pester shard {0}/{1}." -f $ShardIndex, $ShardCount) -ForegroundColor DarkCyan | Out-Null
+    }
     Write-KestrunTimestampedLog -Path $progressLogPath -Message "Discovered $($testFiles.Count) Pester test files." -ForegroundColor DarkCyan | Out-Null
     if ($EmitNUnit) {
         Write-KestrunTimestampedLog -Path $progressLogPath -Message 'EmitNUnit is retained for compatibility; Pester result output is already written as NUnit XML.' -ForegroundColor DarkYellow | Out-Null

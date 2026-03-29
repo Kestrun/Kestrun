@@ -2040,7 +2040,29 @@ function Get-HttpHeadersRaw {
     try {
         if ($u.Scheme -eq 'https') {
             $cb = if ($Insecure) {
-                [System.Net.Security.RemoteCertificateValidationCallback] { $true }
+                if (-not ('Kestrun.Testing.SslCallbacks' -as [type])) {
+                    Add-Type -TypeDefinition @'
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
+
+namespace Kestrun.Testing
+{
+    public static class SslCallbacks
+    {
+        public static bool AllowAll(
+            object sender,
+            X509Certificate certificate,
+            X509Chain chain,
+            SslPolicyErrors sslPolicyErrors)
+        {
+            return true;
+        }
+    }
+}
+'@
+                }
+
+                [System.Net.Security.RemoteCertificateValidationCallback] [Kestrun.Testing.SslCallbacks]::AllowAll
             } else { $null }
 
             $ssl = [System.Net.Security.SslStream]::new($netStream, $false, $cb)

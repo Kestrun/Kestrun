@@ -222,7 +222,7 @@ Invoke-Build Test
 #### C# Tests
 
 ```powershell
-Invoke-Build Kestrun.Tests
+Invoke-Build Test-xUnit
 ```
 
 #### PowerShell Tests

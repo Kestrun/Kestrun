@@ -767,4 +767,265 @@ function Invoke-KestrunDotNetTest {
         --blame-hang-timeout "$hangTimeout"
 }
 
+<#
+.SYNOPSIS
+    Returns the latest UTC write time across one or more files or directories.
+.DESCRIPTION
+    Scans the provided paths and returns the newest LastWriteTimeUtc found.
+    Files under bin/ and obj/ are ignored so generated artifacts do not make
+    source freshness checks report false positives.
+.PARAMETER Paths
+    Files or directories to scan.
+.PARAMETER Include
+    Optional file patterns used when a path is a directory.
+#>
+function Get-KestrunLatestWriteTimeUtc {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]] $Paths,
+        [Parameter()]
+        [string[]] $Include = @('*')
+    )
+
+    $latest = [datetime]::MinValue
+    foreach ($path in $Paths) {
+        if (-not (Test-Path -Path $path)) {
+            continue
+        }
+
+        $item = Get-Item -LiteralPath $path
+        $files = if ($item.PSIsContainer) {
+            Get-ChildItem -LiteralPath $item.FullName -Recurse -File -Include $Include -ErrorAction SilentlyContinue
+        } else {
+            @($item)
+        }
+
+        foreach ($file in $files) {
+            if ($file.FullName -match '[\\/](bin|obj)[\\/]') {
+                continue
+            }
+
+            if ($file.LastWriteTimeUtc -gt $latest) {
+                $latest = $file.LastWriteTimeUtc
+            }
+        }
+    }
+
+    return $latest
+}
+
+<#
+.SYNOPSIS
+    Builds the Kestrun managed projects required by test and packaging workflows.
+.DESCRIPTION
+    Builds Kestrun.Annotations for its annotation framework and Kestrun for each
+    requested target framework. This is the reusable helper behind the build task
+    and the incremental Pester preparation path.
+.PARAMETER KestrunProjectPath
+    Path to Kestrun.csproj.
+.PARAMETER KestrunAnnotationsProjectPath
+    Path to Kestrun.Annotations.csproj.
+.PARAMETER Frameworks
+    Target frameworks to build for Kestrun.
+.PARAMETER AnnotationFramework
+    Target framework to build for Kestrun.Annotations.
+.PARAMETER Configuration
+    Build configuration.
+.PARAMETER DotNetVerbosity
+    dotnet CLI verbosity.
+.PARAMETER Version
+    Package version to stamp into assemblies.
+.PARAMETER InformationalVersion
+    Informational version to stamp into assemblies.
+#>
+function Invoke-KestrunBuildNoPwsh {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $KestrunProjectPath,
+        [Parameter(Mandatory = $true)]
+        [string] $KestrunAnnotationsProjectPath,
+        [Parameter(Mandatory = $true)]
+        [string[]] $Frameworks,
+        [Parameter(Mandatory = $true)]
+        [string] $AnnotationFramework,
+        [Parameter()]
+        [ValidateSet('Debug', 'Release')]
+        [string] $Configuration = 'Debug',
+        [Parameter()]
+        [ValidateSet('quiet', 'minimal', 'normal', 'detailed', 'diagnostic')]
+        [string] $DotNetVerbosity = 'minimal',
+        [Parameter(Mandatory = $true)]
+        [string] $Version,
+        [Parameter(Mandatory = $true)]
+        [string] $InformationalVersion
+    )
+
+    if (Get-Module -Name Kestrun) {
+        throw 'Kestrun module is currently loaded in this PowerShell session. Please close all sessions using the Kestrun module before building.'
+    }
+
+    Write-Host '🔨 Building solution...'
+
+    Write-Host "Building Kestrun.Annotations for single framework: $AnnotationFramework" -ForegroundColor DarkCyan
+    dotnet build "$KestrunAnnotationsProjectPath" -c $Configuration -f $AnnotationFramework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$InformationalVersion
+    if ($LASTEXITCODE -ne 0) {
+        throw "dotnet build failed for Kestrun.Annotations project for framework $AnnotationFramework"
+    }
+
+    Write-Host "Building Kestrun for multiple frameworks: $($Frameworks -join ', ')" -ForegroundColor DarkCyan
+    foreach ($framework in $Frameworks) {
+        Write-Host "  - Target Framework: $framework" -ForegroundColor DarkCyan
+        dotnet build "$KestrunProjectPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$InformationalVersion
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "dotnet build failed for Kestrun project for framework $framework"
+        }
+    }
+}
+
+<#
+.SYNOPSIS
+    Tests whether managed build outputs are current for the requested frameworks.
+.DESCRIPTION
+    Compares the newest relevant source file timestamp with the expected output
+    assemblies for Kestrun.Annotations and Kestrun.
+.PARAMETER RepoRoot
+    Repository root used to resolve shared build input files.
+.PARAMETER KestrunProjectPath
+    Path to Kestrun.csproj.
+.PARAMETER KestrunAnnotationsProjectPath
+    Path to Kestrun.Annotations.csproj.
+.PARAMETER Frameworks
+    Target frameworks expected for Kestrun outputs.
+.PARAMETER AnnotationFramework
+    Target framework expected for Kestrun.Annotations output.
+.PARAMETER Configuration
+    Build configuration.
+#>
+function Test-KestrunBuildOutputsCurrent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $RepoRoot,
+        [Parameter(Mandatory = $true)]
+        [string] $KestrunProjectPath,
+        [Parameter(Mandatory = $true)]
+        [string] $KestrunAnnotationsProjectPath,
+        [Parameter(Mandatory = $true)]
+        [string[]] $Frameworks,
+        [Parameter(Mandatory = $true)]
+        [string] $AnnotationFramework,
+        [Parameter()]
+        [ValidateSet('Debug', 'Release')]
+        [string] $Configuration = 'Debug'
+    )
+
+    $sharedInputs = @(
+        (Join-Path -Path $RepoRoot -ChildPath 'Directory.Build.props'),
+        (Join-Path -Path $RepoRoot -ChildPath 'Directory.Build.targets'),
+        (Join-Path -Path $RepoRoot -ChildPath 'global.json'),
+        $KestrunAnnotationsProjectPath,
+        $KestrunProjectPath
+    )
+    $sourceInclude = @('*.cs', '*.csproj', '*.props', '*.targets', '*.json', '*.resx')
+    $annotationInputs = $sharedInputs + (Join-Path -Path $RepoRoot -ChildPath 'src/CSharp/Kestrun.Annotations')
+    $annotationOutput = Join-Path -Path $RepoRoot -ChildPath "src/CSharp/Kestrun.Annotations/bin/$Configuration/$AnnotationFramework/Kestrun.Annotations.dll"
+
+    if (-not (Test-Path -Path $annotationOutput)) {
+        return $false
+    }
+
+    $annotationInputTime = Get-KestrunLatestWriteTimeUtc -Paths $annotationInputs -Include $sourceInclude
+    if ((Get-Item -LiteralPath $annotationOutput).LastWriteTimeUtc -lt $annotationInputTime) {
+        return $false
+    }
+
+    $projectInputs = $sharedInputs + (Join-Path -Path $RepoRoot -ChildPath 'src/CSharp/Kestrun')
+    $projectInputTime = Get-KestrunLatestWriteTimeUtc -Paths $projectInputs -Include $sourceInclude
+
+    foreach ($framework in $Frameworks) {
+        $projectOutput = Join-Path -Path $RepoRoot -ChildPath "src/CSharp/Kestrun/bin/$Configuration/$framework/Kestrun.dll"
+        if (-not (Test-Path -Path $projectOutput)) {
+            return $false
+        }
+
+        if ((Get-Item -LiteralPath $projectOutput).LastWriteTimeUtc -lt $projectInputTime) {
+            return $false
+        }
+    }
+
+    return $true
+}
+
+<#
+.SYNOPSIS
+    Tests whether the synced PowerShell module libraries are current.
+.DESCRIPTION
+    Verifies that the synced lib folder contains the expected Kestrun binaries,
+    annotations assembly, and CodeAnalysis directory, and that they are not older
+    than the corresponding managed build outputs.
+.PARAMETER RepoRoot
+    Repository root used to resolve source output paths.
+.PARAMETER PowerShellLibRoot
+    Root folder of the synced PowerShell module libraries.
+.PARAMETER Frameworks
+    Target frameworks expected under the PowerShell lib folder.
+.PARAMETER AnnotationFramework
+    Target framework expected for the annotations assembly source path.
+.PARAMETER Configuration
+    Build configuration.
+#>
+function Test-KestrunPowerShellLibCurrent {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $RepoRoot,
+        [Parameter(Mandatory = $true)]
+        [string] $PowerShellLibRoot,
+        [Parameter(Mandatory = $true)]
+        [string[]] $Frameworks,
+        [Parameter(Mandatory = $true)]
+        [string] $AnnotationFramework,
+        [Parameter()]
+        [ValidateSet('Debug', 'Release')]
+        [string] $Configuration = 'Debug'
+    )
+
+    if (-not (Test-Path -Path $PowerShellLibRoot)) {
+        return $false
+    }
+
+    if (-not (Test-Path -Path (Join-Path -Path $PowerShellLibRoot -ChildPath 'Microsoft.CodeAnalysis'))) {
+        return $false
+    }
+
+    $annotationSource = Join-Path -Path $RepoRoot -ChildPath "src/CSharp/Kestrun.Annotations/bin/$Configuration/$AnnotationFramework/Kestrun.Annotations.dll"
+    $annotationDest = Join-Path -Path $PowerShellLibRoot -ChildPath 'assemblies/Kestrun.Annotations.dll'
+
+    if ((-not (Test-Path -Path $annotationSource)) -or (-not (Test-Path -Path $annotationDest))) {
+        return $false
+    }
+
+    if ((Get-Item -LiteralPath $annotationDest).LastWriteTimeUtc -lt (Get-Item -LiteralPath $annotationSource).LastWriteTimeUtc) {
+        return $false
+    }
+
+    foreach ($framework in $Frameworks) {
+        $sourceDll = Join-Path -Path $RepoRoot -ChildPath "src/CSharp/Kestrun/bin/$Configuration/$framework/Kestrun.dll"
+        $destDll = Join-Path -Path $PowerShellLibRoot -ChildPath "$framework/Kestrun.dll"
+
+        if ((-not (Test-Path -Path $sourceDll)) -or (-not (Test-Path -Path $destDll))) {
+            return $false
+        }
+
+        if ((Get-Item -LiteralPath $destDll).LastWriteTimeUtc -lt (Get-Item -LiteralPath $sourceDll).LastWriteTimeUtc) {
+            return $false
+        }
+    }
+
+    return $true
+}
+
 Export-ModuleMember -Function *

@@ -164,6 +164,7 @@ $KestrunDedicatedNet10TestProjects = @(
 $KestrunToolRuntimeIdentifiers = @('win-x64', 'win-arm64', 'linux-x64', 'linux-arm64', 'osx-x64', 'osx-arm64')
 $ExamplesSolutionFilter = Join-Path -Path $PSScriptRoot -ChildPath 'Examples.slnf'
 $KestrunToolPowerShellCacheRoot = Join-Path -Path $PSScriptRoot -ChildPath '.package' -AdditionalChildPath 'powershell-cache'
+$PowerShellLibRoot = Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun/lib'
 
 Write-Host '---------------------------------------------------' -ForegroundColor DarkCyan
 if (-not $Version) {
@@ -354,27 +355,15 @@ Add-BuildTask 'Restore' {
 }, 'Nuget-CodeAnalysis'
 
 Add-BuildTask 'BuildNoPwsh' {
-    if (Get-Module -Name Kestrun) {
-        throw 'Kestrun module is currently loaded in this PowerShell session. Please close all sessions using the Kestrun module before building.'
-    }
-    Write-Host '🔨 Building solution...'
-
-    Write-Host "Building Kestrun.Annotations for single framework: $AnnotationFramework" -ForegroundColor DarkCyan
-    dotnet build "$KestrunAnnotationsProjectPath" -c $Configuration -f $AnnotationFramework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
-    if ($LASTEXITCODE -ne 0) {
-        throw "dotnet build failed for Kestrun.Annotations project for framework $AnnotationFramework"
-    }
-    # Build Kestrun project for each specified framework
-
-    Write-Host "Building Kestrun for multiple frameworks: $($Frameworks -join ', ')" -ForegroundColor DarkCyan
-    foreach ($framework in $Frameworks) {
-        Write-Host "  - Target Framework: $framework" -ForegroundColor DarkCyan
-        dotnet build "$KestrunProjectPath" -c $Configuration -f $framework -v:$DotNetVerbosity -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
-
-        if ($LASTEXITCODE -ne 0) {
-            throw "dotnet build failed for Kestrun project for framework $framework"
-        }
-    }
+    Invoke-KestrunBuildNoPwsh `
+        -KestrunProjectPath $KestrunProjectPath `
+        -KestrunAnnotationsProjectPath $KestrunAnnotationsProjectPath `
+        -Frameworks $Frameworks `
+        -AnnotationFramework $AnnotationFramework `
+        -Configuration $Configuration `
+        -DotNetVerbosity $DotNetVerbosity `
+        -Version $Version `
+        -InformationalVersion $VersionDetails.InformationalVersion
 }
 
 Add-BuildTask 'BuildExamples' {
@@ -471,13 +460,61 @@ Add-BuildTask 'SyncPowerShellDll' {
     Write-Host '🚀 PowerShell DLL synchronization completed.'
 }
 
+Add-BuildTask 'Prepare-PesterAssets' {
+    $buildOutputsCurrent = Test-KestrunBuildOutputsCurrent `
+        -RepoRoot $PSScriptRoot `
+        -KestrunProjectPath $KestrunProjectPath `
+        -KestrunAnnotationsProjectPath $KestrunAnnotationsProjectPath `
+        -Frameworks $Frameworks `
+        -AnnotationFramework $AnnotationFramework `
+        -Configuration $Configuration
+    $powerShellLibCurrent = $buildOutputsCurrent -and (Test-KestrunPowerShellLibCurrent `
+            -RepoRoot $PSScriptRoot `
+            -PowerShellLibRoot $PowerShellLibRoot `
+            -Frameworks $Frameworks `
+            -AnnotationFramework $AnnotationFramework `
+            -Configuration $Configuration)
+
+    if ($buildOutputsCurrent -and $powerShellLibCurrent) {
+        Write-Host '⏭️ Build outputs and synced PowerShell DLLs are up to date. Skipping build preparation.'
+        return
+    }
+
+    if (-not $buildOutputsCurrent) {
+        Write-Host '🔁 Build outputs are missing or stale. Rebuilding before Pester...'
+        Invoke-KestrunBuildNoPwsh `
+            -KestrunProjectPath $KestrunProjectPath `
+            -KestrunAnnotationsProjectPath $KestrunAnnotationsProjectPath `
+            -Frameworks $Frameworks `
+            -AnnotationFramework $AnnotationFramework `
+            -Configuration $Configuration `
+            -DotNetVerbosity $DotNetVerbosity `
+            -Version $Version `
+            -InformationalVersion $VersionDetails.InformationalVersion
+    } else {
+        Write-Host '✅ Managed build outputs are current.'
+    }
+
+    if (-not (Test-KestrunPowerShellLibCurrent `
+                -RepoRoot $PSScriptRoot `
+                -PowerShellLibRoot $PowerShellLibRoot `
+                -Frameworks $Frameworks `
+                -AnnotationFramework $AnnotationFramework `
+                -Configuration $Configuration)) {
+        Write-Host '🔁 Synced PowerShell DLLs are missing or stale. Refreshing module lib folder...'
+        Sync-PowerShellDll -Configuration $Configuration -Frameworks $Frameworks -dest '.\src\PowerShell\Kestrun\lib'
+    } else {
+        Write-Host '✅ Synced PowerShell DLLs are current.'
+    }
+}
+
 Add-BuildTask 'Nuget-CodeAnalysis' {
     Write-Host '♻️ Updating CodeAnalysis packages...'
     & .\Utility\Download-CodeAnalysis.ps1
 }
 
 # XUnit tests
-Add-BuildTask 'Test-xUnit' 'Build', {
+Add-BuildTask 'Test-xUnit' {
     Write-Host '🧪 Running Kestrun DLL tests...'
     $failures = @()
 
@@ -530,7 +567,7 @@ Add-BuildTask 'Format' {
 }
 
 # Pester tests
-Add-BuildTask 'Test-Pester' {
+Add-BuildTask 'Test-Pester' 'Prepare-PesterAssets', {
     if ($isDebug) {
         Write-Host '🔍 [TEST-PESTER DEBUG] Checking UPSTASH_REDIS_URL before running Pester tests...' -ForegroundColor Cyan
         $upstashValue = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')

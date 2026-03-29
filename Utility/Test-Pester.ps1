@@ -214,7 +214,7 @@ process {
 
     Write-Host "📁 Test results directory: $ResultsDir" -ForegroundColor Cyan
     Write-Host "📄 TRX result file: $($baseCfg.TestResult.OutputPath.Value)" -ForegroundColor DarkCyan
-    Write-Host '📦 GitHub Actions artifact path should include: **/TestResults/**' -ForegroundColor DarkYellow
+    Write-Host "📦 GitHub Actions artifact hint: include './TestResults/**' (or '**/TestResults/**') so Pester.trx and Pester-rerun-*.trx are uploaded." -ForegroundColor DarkYellow
     Write-Host "🧪 Running Pester tests in '$($baseCfg.Run.Path.Value)'" -ForegroundColor Cyan
     $httpTimeoutSeconds = if ($env:KR_TEST_HTTP_TIMEOUT_SECONDS) { [int]$env:KR_TEST_HTTP_TIMEOUT_SECONDS } else { 30 }
     Write-Host "Default Invoke-WebRequest/Invoke-RestMethod timeout: ${httpTimeoutSeconds}s" -ForegroundColor DarkCyan

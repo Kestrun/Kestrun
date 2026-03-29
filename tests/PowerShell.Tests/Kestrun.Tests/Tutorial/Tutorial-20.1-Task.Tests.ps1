@@ -2,10 +2,11 @@ param()
 BeforeAll {
     . (Join-Path $PSScriptRoot '..\PesterHelpers.ps1')
 }
+
 Describe 'Tutorial 20.1 - Tasks' -Tag 'Tutorial' {
     BeforeAll {
         $script:instance = Start-ExampleScript -Name '20.1-Task.ps1' -StartupTimeoutSeconds 45
- 
+
         <#
         .SYNOPSIS
             Waits until the specified task reaches one of the specified states, or times out.

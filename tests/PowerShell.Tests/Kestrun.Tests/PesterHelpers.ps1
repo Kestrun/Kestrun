@@ -695,6 +695,68 @@ function Convert-RouteToUrl {
 
 <#
 .SYNOPSIS
+    Wait until an example route starts responding successfully.
+.DESCRIPTION
+    Polls a specific route on a started example instance until it returns one of
+    the expected status codes or the timeout elapses.
+.PARAMETER Instance
+    The object returned by Start-ExampleScript.
+.PARAMETER Route
+    The route to probe, for example '/online' or '/status'.
+.PARAMETER ExpectedStatus
+    One or more acceptable HTTP status codes.
+.PARAMETER TimeoutSeconds
+    Maximum time to wait for the route to become available.
+.PARAMETER RetryDelayMs
+    Delay between probe attempts.
+.OUTPUTS
+    The successful Invoke-WebRequest response object.
+#>
+function Wait-ExampleRoute {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] $Instance,
+        [Parameter(Mandatory)] [string] $Route,
+        [int[]] $ExpectedStatus = @(200),
+        [int] $TimeoutSeconds = 20,
+        [int] $RetryDelayMs = 250
+    )
+
+    $scheme = if ($Instance.Https) { 'https' } else { 'http' }
+    $uri = Convert-RouteToUrl -Scheme $scheme -Route $Route -Port $Instance.Port
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    $lastError = $null
+
+    while ([DateTime]::UtcNow -lt $deadline) {
+        try {
+            $invokeParams = @{
+                Uri             = $uri
+                UseBasicParsing = $true
+                TimeoutSec      = [Math]::Min(5, $TimeoutSeconds)
+                Method          = 'Get'
+            }
+            if ($Instance.Https) {
+                $invokeParams.SkipCertificateCheck = $true
+            }
+
+            $response = Invoke-WebRequest @invokeParams
+            if ($ExpectedStatus -contains $response.StatusCode) {
+                return $response
+            }
+
+            $lastError = "Route $Route returned status $($response.StatusCode)"
+        } catch {
+            $lastError = $_.Exception.Message
+        }
+
+        Start-Sleep -Milliseconds $RetryDelayMs
+    }
+
+    throw "Timed out waiting for route $Route on port $($Instance.Port). Last error: $lastError"
+}
+
+<#
+.SYNOPSIS
     Test all routes defined in an example script for 200 response.
 .DESCRIPTION
     Extracts route patterns from the provided script content, converts them to URLs using the instance's port,

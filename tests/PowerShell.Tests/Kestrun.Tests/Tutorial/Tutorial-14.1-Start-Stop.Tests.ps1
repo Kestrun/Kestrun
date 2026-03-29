@@ -6,7 +6,7 @@ BeforeAll {
 Describe 'Example 14.1-Start-Stop' -Tag 'Tutorial', 'Slow' {
     BeforeAll {
         $script:instance = Start-ExampleScript -Name '14.1-Start-Stop.ps1' -SkipPortProbe
-        Start-Sleep -Seconds 2
+        $null = Wait-ExampleRoute -Instance $script:instance -Route '/online' -TimeoutSeconds 20
     }
     AfterAll { if ($script:instance) {
             # Stop the example script

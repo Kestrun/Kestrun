@@ -180,7 +180,7 @@ function searchProducts {
         [ProductSearchFilters]$filters
     )
 
-    Write-KrResponse -InputObject @{ 
+    Write-KrResponse -InputObject @{
         page = $page
         pageSize = $pageSize
         total = 42

@@ -183,6 +183,138 @@ function Get-FreeTcpPort {
 }
 
 <#
+    .SYNOPSIS
+        Finds the first free contiguous block of TCP ports on loopback.
+    .DESCRIPTION
+        Returns the starting port for a block of consecutive ports that can all
+        be bound on 127.0.0.1 at the time of selection. Each port in the block
+        must be available for both TCP and UDP so mixed HTTP/TLS/QUIC examples
+        can safely derive sibling listeners from the base `-Port` value, for
+        example `$Port + 1`, `$Port + 2`, and so on.
+    .PARAMETER Count
+        Number of consecutive ports required in the returned block.
+    .PARAMETER FallbackPort
+        Lowest candidate starting port to consider.
+    .PARAMETER MaxPort
+        Highest candidate starting port to consider.
+#>
+function Get-FreeTcpPortBlock {
+    [CmdletBinding()]
+    [OutputType([int])]
+    param(
+        [ValidateRange(1, 256)]
+        [int]$Count = 1,
+        [int]$FallbackPort = 52000,
+        [int]$MaxPort = 65102
+    )
+
+    if ($Count -le 1) {
+        return Get-FreeTcpPort -FallbackPort $FallbackPort -MaxPort $MaxPort
+    }
+
+    if ($FallbackPort -lt 1 -or $FallbackPort -gt 65535) {
+        throw "FallbackPort must be between 1 and 65535. Got: $FallbackPort"
+    }
+
+    if ($MaxPort -lt $FallbackPort -or $MaxPort -gt 65535) {
+        throw "MaxPort must be between FallbackPort and 65535. Got: $MaxPort"
+    }
+
+    $maxStartPort = $MaxPort - ($Count - 1)
+    if ($maxStartPort -lt $FallbackPort) {
+        throw "Port block size $Count does not fit inside the requested range $FallbackPort-$MaxPort."
+    }
+
+    $rangeWidth = ($maxStartPort - $FallbackPort) + 1
+    $startOffset = if ($rangeWidth -gt 1) { Get-Random -Minimum 0 -Maximum $rangeWidth } else { 0 }
+    $listeners = [System.Collections.Generic.List[System.Net.Sockets.TcpListener]]::new()
+    $udpClients = [System.Collections.Generic.List[System.Net.Sockets.UdpClient]]::new()
+    $stopTcpListener = {
+        param([System.Net.Sockets.TcpListener]$Listener)
+
+        if (-not $Listener) {
+            return
+        }
+
+        try {
+            $Listener.Stop()
+        } catch {
+            Write-Verbose ("Ignoring TCP listener stop error during port-block cleanup: {0}" -f $_.Exception.Message)
+        }
+
+        try {
+            $Listener.Dispose()
+        } catch {
+            Write-Verbose ("Ignoring TCP listener dispose error during port-block cleanup: {0}" -f $_.Exception.Message)
+        }
+    }
+    $disposeUdpClient = {
+        param([System.Net.Sockets.UdpClient]$UdpClient)
+
+        if (-not $UdpClient) {
+            return
+        }
+
+        try {
+            $UdpClient.Dispose()
+        } catch {
+            Write-Verbose ("Ignoring UDP client dispose error during port-block cleanup: {0}" -f $_.Exception.Message)
+        }
+    }
+
+    try {
+        for ($scanOffset = 0; $scanOffset -lt $rangeWidth; $scanOffset++) {
+            $candidateStart = $FallbackPort + (($startOffset + $scanOffset) % $rangeWidth)
+            $listeners.Clear()
+            $blockAvailable = $true
+
+            for ($portOffset = 0; $portOffset -lt $Count; $portOffset++) {
+                $candidatePort = $candidateStart + $portOffset
+                $listener = $null
+                $udpClient = $null
+                try {
+                    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $candidatePort)
+                    $listener.Start()
+                    $listeners.Add($listener)
+
+                    $udpClient = [System.Net.Sockets.UdpClient]::new($candidatePort)
+                    $udpClients.Add($udpClient)
+                } catch {
+                    if ($listener) {
+                        & $stopTcpListener $listener
+                    }
+                    if ($udpClient) { & $disposeUdpClient $udpClient }
+                    $blockAvailable = $false
+                    break
+                }
+            }
+
+            foreach ($listener in $listeners) {
+                & $stopTcpListener $listener
+            }
+            $listeners.Clear()
+            foreach ($udpClient in $udpClients) {
+                & $disposeUdpClient $udpClient
+            }
+            $udpClients.Clear()
+
+            if ($blockAvailable) {
+                return $candidateStart
+            }
+        }
+    } finally {
+        foreach ($listener in $listeners) {
+            & $stopTcpListener $listener
+        }
+        foreach ($udpClient in $udpClients) {
+            & $disposeUdpClient $udpClient
+        }
+    }
+
+    throw "No free contiguous TCP port block of size $Count was found between $FallbackPort and $MaxPort."
+}
+
+<#
 .SYNOPSIS
     Get the full path to a tutorial example script by name.
 .DESCRIPTION
@@ -280,13 +412,15 @@ function Start-ExampleScript {
         [Parameter(Mandatory = $true, ParameterSetName = 'ScriptBlock')]
         [scriptblock]$ScriptBlock,
         [int]$Port,
+        [ValidateRange(1, 256)]
+        [int]$PortCount = 1,
         [int]$StartupTimeoutSeconds = 40,
         [int]$HttpProbeDelayMs = 150,
         [switch]$SkipPortProbe,
         [switch]$FromRootDirectory,
         [string[]]$EnvironmentVariables = @('UPSTASH_REDIS_URL')
     )
-    if (-not $Port) { $Port = Get-FreeTcpPort }
+    if (-not $Port) { $Port = Get-FreeTcpPortBlock -Count $PortCount }
     if ($PSCmdlet.ParameterSetName -eq 'Name') {
         if ( $FromRootDirectory ) {
             $root = Resolve-Path "$PSScriptRoot\..\..\.."
@@ -347,7 +481,7 @@ Start-KrServer
 
     # Write modified legacy content to temp file
     $scriptToRun = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
-        $exampleIdentifier = if (-not [string]::IsNullOrWhiteSpace($Name)) { $Name } else { $fileNameWithoutExtension }
+    $exampleIdentifier = if (-not [string]::IsNullOrWhiteSpace($Name)) { $Name } else { $fileNameWithoutExtension }
     Set-Content -Path $scriptToRun -Value $content -Encoding UTF8
 
     $stdOut = $null
@@ -399,7 +533,7 @@ Start-KrServer
     do {
         $startupAttempt++
         if (-not $portWasProvided -and $startupAttempt -gt 1) {
-            $Port = Get-FreeTcpPort
+            $Port = Get-FreeTcpPortBlock -Count $PortCount
         }
 
         $portsTried.Add($Port)
@@ -730,10 +864,10 @@ function Wait-ExampleRoute {
     while ([DateTime]::UtcNow -lt $deadline) {
         try {
             $invokeParams = @{
-                Uri             = $uri
+                Uri = $uri
                 UseBasicParsing = $true
-                TimeoutSec      = [Math]::Min(5, $TimeoutSeconds)
-                Method          = 'Get'
+                TimeoutSec = [Math]::Min(5, $TimeoutSeconds)
+                Method = 'Get'
             }
             if ($Instance.Https) {
                 $invokeParams.SkipCertificateCheck = $true
@@ -2246,8 +2380,8 @@ namespace Kestrun.Testing
                 return [ordered]@{
                     'Status-Line' = '(unknown)'
                     'StatusCode' = $null
-                    'Version'     = $null
-                    'Raw'         = $rawText
+                    'Version' = $null
+                    'Raw' = $rawText
                 }
             } else {
                 return $rawText

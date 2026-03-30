@@ -603,8 +603,9 @@ Add-BuildTask 'Test-Pester-NonTutorial' 'Test-Pester-LogContext', {
 
 Add-BuildTask 'Test-Pester-Tutorial-Shard1' 'Test-Pester-LogContext', {
     Write-Host 'ðŸ“˜ Running tutorial Pester tests (shard 1/2)...'
+    $reRunFailed = -not $IsWindows
     $res = & .\Utility\Test-Pester.ps1 `
-        -ReRunFailed `
+        -ReRunFailed:$reRunFailed `
         -Verbosity $PesterVerbosity `
         -DebugMode:$isDebug `
         -TestPath $PesterTutorialTestPath `
@@ -616,8 +617,9 @@ Add-BuildTask 'Test-Pester-Tutorial-Shard1' 'Test-Pester-LogContext', {
 
 Add-BuildTask 'Test-Pester-Tutorial-Shard2' 'Test-Pester-LogContext', {
     Write-Host 'ðŸ“˜ Running tutorial Pester tests (shard 2/2)...'
+    $reRunFailed = -not $IsWindows
     $res = & .\Utility\Test-Pester.ps1 `
-        -ReRunFailed `
+        -ReRunFailed:$reRunFailed `
         -Verbosity $PesterVerbosity `
         -DebugMode:$isDebug `
         -TestPath $PesterTutorialTestPath `

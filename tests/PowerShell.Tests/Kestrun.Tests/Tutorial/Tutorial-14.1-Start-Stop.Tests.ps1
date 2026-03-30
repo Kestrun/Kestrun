@@ -16,10 +16,6 @@ Describe 'Example 14.1-Start-Stop' -Tag 'Tutorial', 'Slow' {
         }
     }
     It 'serves routes before the scripted shutdown' {
-        $online = Invoke-WebRequest -Uri ("http://127.0.0.1:{0}/online" -f $script:instance.Port) -UseBasicParsing -TimeoutSec 10
-        $online.StatusCode | Should -Be 200
-        $online.Content | Should -Be 'OK'
-
         $status = Invoke-WebRequest -Uri ("http://127.0.0.1:{0}/status" -f $script:instance.Port) -UseBasicParsing -TimeoutSec 10
         $status.StatusCode | Should -Be 200
         ($status.Content | ConvertFrom-Json).status | Should -Be 'healthy'

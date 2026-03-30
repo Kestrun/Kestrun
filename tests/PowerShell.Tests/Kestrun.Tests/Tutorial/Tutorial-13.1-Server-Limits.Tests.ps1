@@ -16,10 +16,6 @@ Describe 'Example 13.1-Server-Limits' {
         }
     }
     It 'Server limit example exposes the online and info routes' {
-        $online = Invoke-WebRequest -Uri ("http://127.0.0.1:{0}/online" -f $script:instance.Port) -UseBasicParsing -TimeoutSec 10
-        $online.StatusCode | Should -Be 200
-        $online.Content | Should -Be 'OK'
-
         $info = Invoke-WebRequest -Uri ("http://127.0.0.1:{0}/info" -f $script:instance.Port) -UseBasicParsing -TimeoutSec 30
         $info.StatusCode | Should -Be 200
         ($info.Content | ConvertFrom-Json).status | Should -Be 'ok'

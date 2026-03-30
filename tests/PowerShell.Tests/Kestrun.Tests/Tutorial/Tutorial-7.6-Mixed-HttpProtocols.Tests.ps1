@@ -14,7 +14,7 @@ BeforeAll {
 
 Describe 'Example 7.6-Mixed-HttpProtocols' -Tag 'Tutorial', 'Slow' {
     BeforeAll {
-        $script:instance = Start-ExampleScript -Name '7.6-Mixed-HttpProtocols.ps1' -StartupTimeoutSeconds 80
+        $script:instance = Start-ExampleScript -Name '7.6-Mixed-HttpProtocols.ps1' -PortCount 5 -StartupTimeoutSeconds 80
     }
 
     AfterAll {

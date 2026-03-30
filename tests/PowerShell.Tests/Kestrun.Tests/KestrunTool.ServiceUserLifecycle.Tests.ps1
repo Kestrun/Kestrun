@@ -68,6 +68,7 @@ BeforeAll {
     $script:kestrunLauncher = Join-Path $script:root 'src/PowerShell/Kestrun/kestrun.ps1'
     $script:kestrunToolProject = Join-Path $script:root 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
     $script:hasDotnetKestrunTool = [bool](Get-Command dotnet-kestrun -ErrorAction SilentlyContinue)
+    $script:kestrunCommandTimeoutSeconds = 90
 
     if ((-not (Test-Path -Path $script:kestrunLauncher -PathType Leaf)) -and (-not $script:hasDotnetKestrunTool) -and (-not (Test-Path -Path $script:kestrunToolProject -PathType Leaf))) {
         throw "No Kestrun command source found. Checked launcher: $script:kestrunLauncher ; dotnet tool command: dotnet-kestrun ; project: $script:kestrunToolProject"
@@ -79,18 +80,94 @@ BeforeAll {
             [string[]]$Arguments
         )
 
-        if (Test-Path -Path $script:kestrunLauncher -PathType Leaf) {
-            $output = & $script:kestrunLauncher @Arguments 2>&1 | Out-String
-        } elseif ($script:hasDotnetKestrunTool) {
-            $output = & dotnet kestrun @Arguments 2>&1 | Out-String
-        } else {
-            $output = & dotnet run --project $script:kestrunToolProject -- @Arguments 2>&1 | Out-String
+        $stdoutPath = Join-Path ([System.IO.Path]::GetTempPath()) ("kestrun-tool-{0}.stdout.log" -f [System.IO.Path]::GetRandomFileName())
+        $stderrPath = Join-Path ([System.IO.Path]::GetTempPath()) ("kestrun-tool-{0}.stderr.log" -f [System.IO.Path]::GetRandomFileName())
+
+        try {
+            if (Test-Path -Path $script:kestrunLauncher -PathType Leaf) {
+                $filePath = Get-PwshExecutable
+                $argumentList = @('-NoLogo', '-NoProfile', '-File', $script:kestrunLauncher) + $Arguments
+            } elseif ($script:hasDotnetKestrunTool) {
+                $filePath = 'dotnet'
+                $argumentList = @('kestrun') + $Arguments
+            } else {
+                $filePath = 'dotnet'
+                $argumentList = @('run', '--project', $script:kestrunToolProject, '--') + $Arguments
+            }
+
+            $process = Start-Process -FilePath $filePath `
+                -ArgumentList $argumentList `
+                -WorkingDirectory $script:root `
+                -PassThru `
+                -RedirectStandardOutput $stdoutPath `
+                -RedirectStandardError $stderrPath
+
+            if (-not $process.WaitForExit($script:kestrunCommandTimeoutSeconds * 1000)) {
+                try {
+                    $process.Kill($true)
+                } catch {
+                    Write-Verbose ("Failed to terminate timed-out Kestrun command: {0}" -f $_.Exception.Message)
+                }
+
+                $stdout = if (Test-Path -Path $stdoutPath) { Get-Content -Path $stdoutPath -Raw } else { '' }
+                $stderr = if (Test-Path -Path $stderrPath) { Get-Content -Path $stderrPath -Raw } else { '' }
+                $output = @(
+                    "Timed out after $($script:kestrunCommandTimeoutSeconds) second(s): $filePath $($argumentList -join ' ')"
+                    $stdout
+                    $stderr
+                ) -join [Environment]::NewLine
+
+                return [pscustomobject]@{
+                    ExitCode = 124
+                    CommandLine = "$filePath $($argumentList -join ' ')"
+                    StdOut = $stdout
+                    StdErr = $stderr
+                    Output = $output
+                }
+            }
+
+            $stdout = if (Test-Path -Path $stdoutPath) { Get-Content -Path $stdoutPath -Raw } else { '' }
+            $stderr = if (Test-Path -Path $stderrPath) { Get-Content -Path $stderrPath -Raw } else { '' }
+            $outputParts = @($stdout, $stderr) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+            $output = $outputParts -join [Environment]::NewLine
+
+            [pscustomobject]@{
+                ExitCode = $process.ExitCode
+                CommandLine = "$filePath $($argumentList -join ' ')"
+                StdOut = $stdout
+                StdErr = $stderr
+                Output = $output
+            }
+        } finally {
+            Remove-Item -LiteralPath $stdoutPath -Force -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    $script:AssertKestrunCommandSucceeded = {
+        param(
+            [Parameter(Mandatory)]
+            $Result,
+            [Parameter(Mandatory)]
+            [string]$Action
+        )
+
+        if ($Result.ExitCode -eq 0) {
+            return
         }
 
-        [pscustomobject]@{
-            ExitCode = $LASTEXITCODE
-            Output = $output
-        }
+        $stdout = if ([string]::IsNullOrWhiteSpace($Result.StdOut)) { '<empty>' } else { $Result.StdOut.TrimEnd() }
+        $stderr = if ([string]::IsNullOrWhiteSpace($Result.StdErr)) { '<empty>' } else { $Result.StdErr.TrimEnd() }
+
+        throw @(
+            "Kestrun command failed during $Action."
+            "ExitCode: $($Result.ExitCode)"
+            "Command: $($Result.CommandLine)"
+            'stdout:'
+            $stdout
+            'stderr:'
+            $stderr
+        ) -join [Environment]::NewLine
     }
 }
 
@@ -107,21 +184,21 @@ Describe 'KestrunTool service user lifecycle' {
                 '--name', $serviceName,
                 '--deployment-root', $deploymentRoot,
                 $scriptPath)
-            $installResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $installResult 'Linux default service install'
 
             $startResult = & $script:InvokeKestrunCommand -Arguments @('service', 'start', '--name', $serviceName)
-            $startResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $startResult 'Linux default service start'
 
             Start-Sleep -Seconds 2
             $queryResult = & $script:InvokeKestrunCommand -Arguments @('service', 'query', '--name', $serviceName)
-            $queryResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $queryResult 'Linux default service query'
             $queryResult.Output | Should -Match ('(?im)^\s*query\s*\|\s*' + [regex]::Escape($serviceName) + '\s*\|\s*linux\s*\|\s*success\s*\|\s*running\b')
 
             $stopResult = & $script:InvokeKestrunCommand -Arguments @('service', 'stop', '--name', $serviceName)
-            $stopResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $stopResult 'Linux default service stop'
 
             $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
-            $removeResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $removeResult 'Linux default service remove'
         } finally {
             if ($script:isLinuxRoot) {
                 & systemctl stop "$serviceName.service" 2>$null | Out-Null
@@ -157,21 +234,21 @@ Describe 'KestrunTool service user lifecycle' {
                 '--deployment-root', $deploymentRoot,
                 $scriptPath)
 
-            $installResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $installResult 'Linux dedicated-user service install'
 
             $startResult = & $script:InvokeKestrunCommand -Arguments @('service', 'start', '--name', $serviceName)
-            $startResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $startResult 'Linux dedicated-user service start'
 
             Start-Sleep -Seconds 2
             $queryResult = & $script:InvokeKestrunCommand -Arguments @('service', 'query', '--name', $serviceName)
-            $queryResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $queryResult 'Linux dedicated-user service query'
             $queryResult.Output | Should -Match ('(?im)^\s*query\s*\|\s*' + [regex]::Escape($serviceName) + '\s*\|\s*linux\s*\|\s*success\s*\|\s*running\b')
 
             $stopResult = & $script:InvokeKestrunCommand -Arguments @('service', 'stop', '--name', $serviceName)
-            $stopResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $stopResult 'Linux dedicated-user service stop'
 
             $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
-            $removeResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $removeResult 'Linux dedicated-user service remove'
         } finally {
             & systemctl stop "$serviceName.service" 2>$null | Out-Null
             & systemctl disable "$serviceName.service" 2>$null | Out-Null
@@ -228,20 +305,20 @@ Describe 'KestrunTool service user lifecycle' {
                 '--service-user', $serviceUser,
                 '--deployment-root', $deploymentRoot,
                 $scriptPath)
-            $installResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $installResult 'macOS dedicated-user service install'
 
             $startResult = & $script:InvokeKestrunCommand -Arguments @('service', 'start', '--name', $serviceName)
-            $startResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $startResult 'macOS dedicated-user service start'
 
             Start-Sleep -Seconds 2
             $queryResult = & $script:InvokeKestrunCommand -Arguments @('service', 'query', '--name', $serviceName)
-            $queryResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $queryResult 'macOS dedicated-user service query'
 
             $stopResult = & $script:InvokeKestrunCommand -Arguments @('service', 'stop', '--name', $serviceName)
-            $stopResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $stopResult 'macOS dedicated-user service stop'
 
             $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
-            $removeResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $removeResult 'macOS dedicated-user service remove'
         } finally {
             & launchctl bootout "system/$serviceName" 2>$null | Out-Null
             Remove-Item -LiteralPath $plistPath -Force -ErrorAction SilentlyContinue
@@ -263,20 +340,20 @@ Describe 'KestrunTool service user lifecycle' {
                 '--name', $serviceName,
                 '--deployment-root', $deploymentRoot,
                 $scriptPath)
-            $installResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $installResult 'macOS default service install'
 
             $startResult = & $script:InvokeKestrunCommand -Arguments @('service', 'start', '--name', $serviceName)
-            $startResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $startResult 'macOS default service start'
 
             Start-Sleep -Seconds 2
             $queryResult = & $script:InvokeKestrunCommand -Arguments @('service', 'query', '--name', $serviceName)
-            $queryResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $queryResult 'macOS default service query'
 
             $stopResult = & $script:InvokeKestrunCommand -Arguments @('service', 'stop', '--name', $serviceName)
-            $stopResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $stopResult 'macOS default service stop'
 
             $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
-            $removeResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $removeResult 'macOS default service remove'
         } finally {
             # launchctl gui domain requires the numeric user ID (uid), not the process session ID.
             $userId = (& /usr/bin/id -u 2>$null | Select-Object -First 1)
@@ -333,23 +410,23 @@ Describe 'KestrunTool service user lifecycle' {
                 '--service-password', $servicePassword,
                 '--deployment-root', $deploymentRoot,
                 $scriptPath)
-            $installResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $installResult 'Windows dedicated-user service install'
 
             & icacls.exe $deploymentRoot /grant "${machineQualifiedServiceUser}:(OI)(CI)M" /t /c | Out-Null
 
             $startResult = & $script:InvokeKestrunCommand -Arguments @('service', 'start', '--name', $serviceName)
-            $startResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $startResult 'Windows dedicated-user service start'
 
             Start-Sleep -Seconds 2
             $queryResult = & $script:InvokeKestrunCommand -Arguments @('service', 'query', '--name', $serviceName)
-            $queryResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $queryResult 'Windows dedicated-user service query'
             $queryResult.Output | Should -Match 'RUNNING'
 
             $stopResult = & $script:InvokeKestrunCommand -Arguments @('service', 'stop', '--name', $serviceName)
-            $stopResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $stopResult 'Windows dedicated-user service stop'
 
             $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
-            $removeResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $removeResult 'Windows dedicated-user service remove'
         } finally {
             & sc.exe stop $serviceName 2>$null | Out-Null
             & sc.exe delete $serviceName 2>$null | Out-Null
@@ -373,21 +450,21 @@ Describe 'KestrunTool service user lifecycle' {
                 '--name', $serviceName,
                 '--deployment-root', $deploymentRoot,
                 $scriptPath)
-            $installResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $installResult 'Windows default service install'
 
             $startResult = & $script:InvokeKestrunCommand -Arguments @('service', 'start', '--name', $serviceName)
-            $startResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $startResult 'Windows default service start'
 
             Start-Sleep -Seconds 2
             $queryResult = & $script:InvokeKestrunCommand -Arguments @('service', 'query', '--name', $serviceName)
-            $queryResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $queryResult 'Windows default service query'
             $queryResult.Output | Should -Match 'RUNNING'
 
             $stopResult = & $script:InvokeKestrunCommand -Arguments @('service', 'stop', '--name', $serviceName)
-            $stopResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $stopResult 'Windows default service stop'
 
             $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
-            $removeResult.ExitCode | Should -Be 0
+            & $script:AssertKestrunCommandSucceeded $removeResult 'Windows default service remove'
         } finally {
             & sc.exe stop $serviceName 2>$null | Out-Null
             & sc.exe delete $serviceName 2>$null | Out-Null
@@ -427,7 +504,7 @@ Describe 'KestrunTool service user lifecycle' {
                 if ($installResult.Output -match '(?i)access is denied|logon failure|service logon|cannot find the account|networkservice') {
                     $skipBecause = 'NetworkService install is blocked by host policy on this machine.'
                 } else {
-                    $installResult.ExitCode | Should -Be 0
+                    & $script:AssertKestrunCommandSucceeded $installResult 'Windows NetworkService install'
                 }
             }
 
@@ -441,18 +518,18 @@ Describe 'KestrunTool service user lifecycle' {
             if ($startResult.ExitCode -eq 5 -or $startResult.Output -match '(?i)access is denied|logon failure|service logon|1069|1057') {
                 $skipBecause = 'NetworkService lacks required host permissions on this machine.'
             } else {
-                $startResult.ExitCode | Should -Be 0
+                & $script:AssertKestrunCommandSucceeded $startResult 'Windows NetworkService start'
 
                 Start-Sleep -Seconds 2
                 $queryResult = & $script:InvokeKestrunCommand -Arguments @('service', 'query', '--name', $serviceName)
-                $queryResult.ExitCode | Should -Be 0
+                & $script:AssertKestrunCommandSucceeded $queryResult 'Windows NetworkService query'
                 $queryResult.Output | Should -Match 'RUNNING'
 
                 $stopResult = & $script:InvokeKestrunCommand -Arguments @('service', 'stop', '--name', $serviceName)
-                $stopResult.ExitCode | Should -Be 0
+                & $script:AssertKestrunCommandSucceeded $stopResult 'Windows NetworkService stop'
 
                 $removeResult = & $script:InvokeKestrunCommand -Arguments @('service', 'remove', '--name', $serviceName)
-                $removeResult.ExitCode | Should -Be 0
+                & $script:AssertKestrunCommandSucceeded $removeResult 'Windows NetworkService remove'
             }
         } finally {
             & sc.exe stop $serviceName 2>$null | Out-Null

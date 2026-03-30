@@ -891,6 +891,53 @@ function Wait-ExampleRoute {
 
 <#
 .SYNOPSIS
+    Waits until an example writes a matching message to stdout or stderr.
+.DESCRIPTION
+    Polls the captured example logs without opening an HTTP connection. This is
+    useful for examples whose connection limits make probe requests interfere
+    with the first real test request.
+.PARAMETER Instance
+    The object returned by Start-ExampleScript.
+.PARAMETER Pattern
+    Regular expression to search for in the captured logs.
+.PARAMETER TimeoutSeconds
+    Maximum time to wait for the pattern to appear.
+.PARAMETER RetryDelayMs
+    Delay between polling attempts.
+#>
+function Wait-ExampleLogMatch {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        $Instance,
+        [Parameter(Mandatory)]
+        [string]$Pattern,
+        [int]$TimeoutSeconds = 20,
+        [int]$RetryDelayMs = 200
+    )
+
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    $paths = @($Instance.StdOut, $Instance.StdErr) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+    while ([DateTime]::UtcNow -lt $deadline) {
+        foreach ($path in $paths) {
+            if ((Test-Path -LiteralPath $path) -and ((Get-Content -LiteralPath $path -Raw) -match $Pattern)) {
+                return $true
+            }
+        }
+
+        if ($Instance.Process -and $Instance.Process.HasExited) {
+            break
+        }
+
+        Start-Sleep -Milliseconds $RetryDelayMs
+    }
+
+    throw "Timed out after $TimeoutSeconds second(s) waiting for example log pattern '$Pattern'."
+}
+
+<#
+.SYNOPSIS
     Test all routes defined in an example script for 200 response.
 .DESCRIPTION
     Extracts route patterns from the provided script content, converts them to URLs using the instance's port,

@@ -1062,13 +1062,14 @@ function Invoke-ExampleRequest {
         [string] $ContentType,
         [hashtable] $Headers,
         [switch] $ReturnRaw,
+        [int] $TimeoutSec = 8,
         [int] $RetryCount = 1,
         [int] $RetryDelayMs = 250
     )
     $lastErr = $null
     for ($i = 0; $i -le $RetryCount; $i++) {
         try {
-            $invokeParams = @{ Uri = $Uri; Method = $Method; UseBasicParsing = $true; TimeoutSec = 8 }
+            $invokeParams = @{ Uri = $Uri; Method = $Method; UseBasicParsing = $true; TimeoutSec = $TimeoutSec }
             if ($Uri -like 'https://*') { $invokeParams.SkipCertificateCheck = $true }
             if ($Headers) { $invokeParams.Headers = $Headers }
             if ($Body) { $invokeParams.Body = $Body }

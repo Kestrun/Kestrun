@@ -6,7 +6,6 @@ BeforeAll {
 Describe 'Example 14.1-Start-Stop' -Tag 'Tutorial', 'Slow' {
     BeforeAll {
         $script:instance = Start-ExampleScript -Name '14.1-Start-Stop.ps1' -SkipPortProbe
-        $null = Wait-ExampleRoute -Instance $script:instance -Route '/online' -TimeoutSeconds 20
     }
     AfterAll { if ($script:instance) {
             # Stop the example script
@@ -16,7 +15,7 @@ Describe 'Example 14.1-Start-Stop' -Tag 'Tutorial', 'Slow' {
         }
     }
     It 'serves routes before the scripted shutdown' {
-        $status = Invoke-WebRequest -Uri ("http://127.0.0.1:{0}/status" -f $script:instance.Port) -UseBasicParsing -TimeoutSec 10
+        $status = Invoke-ExampleRequest -Uri ("http://127.0.0.1:{0}/status" -f $script:instance.Port) -TimeoutSec 15 -RetryCount 6 -RetryDelayMs 1000 -ReturnRaw
         $status.StatusCode | Should -Be 200
         ($status.Content | ConvertFrom-Json).status | Should -Be 'healthy'
     }

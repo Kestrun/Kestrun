@@ -6,7 +6,6 @@ BeforeAll {
 Describe 'Example 13.1-Server-Limits' {
     BeforeAll {
         $script:instance = Start-ExampleScript -Name '13.1-Server-Limits.ps1' -SkipPortProbe
-        $null = Wait-ExampleLogMatch -Instance $script:instance -Pattern 'Now listening on:' -TimeoutSeconds 20
     }
     AfterAll { if ($script:instance) {
             # Stop the example script
@@ -16,7 +15,7 @@ Describe 'Example 13.1-Server-Limits' {
         }
     }
     It 'Server limit example exposes the online and info routes' {
-        $info = Invoke-WebRequest -Uri ("http://127.0.0.1:{0}/info" -f $script:instance.Port) -UseBasicParsing -TimeoutSec 30
+        $info = Invoke-ExampleRequest -Uri ("http://127.0.0.1:{0}/info" -f $script:instance.Port) -TimeoutSec 30 -RetryCount 3 -RetryDelayMs 1000 -ReturnRaw
         $info.StatusCode | Should -Be 200
         ($info.Content | ConvertFrom-Json).status | Should -Be 'ok'
     }

@@ -135,7 +135,7 @@ function createProduct {
 function getProduct {
     [OpenApiPath(HttpVerb = 'get', Pattern = '/products/{id}')]
     [OpenApiResponse(StatusCode = '200', Schema = [ProductSchema], ContentType = ('application/json', 'application/xml'))]
-    [OpenApiResponseRefAttribute(StatusCode = '404', ReferenceId = 'NotFound')]
+    [OpenApiResponseRef(StatusCode = '404', ReferenceId = 'NotFound')]
     param()
 }
 ```
@@ -205,9 +205,9 @@ In OpenAPI 3.2, path templates are RFC 6570 URI templates.
 
 Supported mapping patterns:
 
-- `{var}` — single path segment
-- `{+var}` — reserved expansion, can represent multiple segments
-- `{var*}` — explode, can represent multiple segments
+- `{var}` - single path segment
+- `{+var}` - reserved expansion, can represent multiple segments
+- `{var*}` - explode, can represent multiple segments
 
 ### Multi-segment variable mapping
 

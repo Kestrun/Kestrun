@@ -97,4 +97,4 @@ Kestrun provides multiple documentation viewers for your OpenAPI spec:
 - **RapidOC** — Fast, performant alternative
 - **Elements** — StopLight Elements API viewer
 
-Visit `http://localhost:5000/swagger`, `/redoc`, `/scalar`, `/rapidoc`, or `/elements` to view the documentation (paths vary by script).
+Visit `http://localhost:5000/docs/swagger`, `/docs/redoc`, `/docs/scalar`, `/docs/rapidoc`, or `/docs/elements` to view the documentation (paths vary by script).

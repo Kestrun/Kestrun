@@ -42,23 +42,32 @@ flowchart LR
 ## Quick start
 
 ```powershell
+New-KrServer -Name 'My API'
+Add-KrEndpoint -Port 5000
+
 # OpenAPI metadata
 Add-KrOpenApiInfo -Title 'My API' -Version '1.0.0'
 Add-KrOpenApiServer -Url 'http://127.0.0.1:5000' -Description 'Local'
+
+# Finalize staged configuration
+Enable-KrConfiguration
 
 # Expose OpenAPI JSON endpoints
 Add-KrOpenApiRoute
 
 # (Optional) Swagger / Redoc UI routes
-Add-KrApiDocumentationRoute
+Add-KrApiDocumentationRoute -DocumentType Swagger
+Add-KrApiDocumentationRoute -DocumentType Redoc
 
 # Validate generated output during development/tests
 $doc = Build-KrOpenApiDocument
 Test-KrOpenApiDocument -Document $doc
+
+Start-KrServer
 ```
 
 Common URLs when running examples:
 
 - OpenAPI JSON: `/openapi/v3.1/openapi.json`
-- Swagger UI: `/swagger`
-- ReDoc: `/redoc`
+- Swagger UI: `/docs/swagger`
+- ReDoc: `/docs/redoc`

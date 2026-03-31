@@ -93,4 +93,4 @@ The result is simple and powerful:
 - validation rules show up in docs and in runtime behavior
 - client error responses can be generated consistently
 
-That is what turns OpenAPI from “nice docs” into a real API contract in Kestrun.
+That is what turns OpenAPI from "nice docs" into a real API contract in Kestrun.

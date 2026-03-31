@@ -359,4 +359,4 @@ Schema, parameter, request body, response, header, link, and example components 
 | **`[OpenApiRequestBodyComponent]`** | Variable | `Key`, `ContentType`, `Required`, `Description`, `Inline` |
 | **`[OpenApiResponseComponent]`** | Variable | `Description`, `Summary`, `ContentType`, `Inline` |
 | **`[OpenApiParameterComponent]`** | Variable | `In`, `Description`, `Required`, `ContentType`, `Example`, `Minimum`, `Maximum`, `Default` |
-| **`[OpenApiPropertyAttribute]`** | Parameter/Field | `Description`, `Example`, `Format`, `Required`, `Enum`, `Minimum`, `Maximum`, `Default` |
+| **`[OpenApiPropertyAttribute]`** | Property/Field | `Description`, `Example`, `Format`, `Required`, `Enum`, `Minimum`, `Maximum`, `Default` |

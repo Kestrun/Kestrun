@@ -21,7 +21,7 @@ static HTML templates. All of these eventually flow through a unified set of con
 This guide explains how to:
 
 1. Map routes using the high-level helpers
-2. Apply conventions to ad‑hoc endpoints built with `app.MapGet` / `MapPost`
+2. Apply conventions to ad-hoc endpoints built with `app.MapGet` / `MapPost`
 3. Understand duplicate detection & replacement
 4. PowerShell parity and current limitations
 
@@ -67,7 +67,7 @@ Enable-KrConfiguration
 Start-KrServer | Out-Null
 ```
 
-## 2. Applying Conventions to Ad‑Hoc Endpoints
+## 2. Applying Conventions to Ad-Hoc Endpoints
 
 If you map endpoints directly with ASP.NET Core (e.g. `app.MapGet`), you can still apply the same
 Kestrun conventions using `KestrunHost.ApplyKestrunConventions`.
@@ -112,7 +112,7 @@ For health probes, registering a probe with the same name replaces the prior one
 
 ## 4. PowerShell Parity & Limitations
 
-`Add-KrMapRoute` mirrors the C# helpers for mapping. A PowerShell wrapper for ad‑hoc convention application is **not** provided yet
+`Add-KrMapRoute` mirrors the C# helpers for mapping. A PowerShell wrapper for ad-hoc convention application is **not** provided yet
 because PowerShell typically maps routes through the cmdlet itself (thus already invoking the shared convention logic). If you
 hand-author endpoints in a compiled extension, apply conventions in C#.
 

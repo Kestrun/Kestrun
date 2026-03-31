@@ -6,7 +6,7 @@ nav_order: 1
 
 # Beginner
 
-This page is the shortest path from “nothing” to a working Kestrun OpenAPI document.
+This page is the shortest path from "nothing" to a working Kestrun OpenAPI document.
 
 ## Concepts
 
@@ -22,6 +22,8 @@ This page is the shortest path from “nothing” to a working Kestrun OpenAPI d
 ## Minimal example
 
 ```powershell
+Import-Module Kestrun
+
 # 1. Define a schema
 [OpenApiSchemaComponent(RequiredProperties = ('name'))]
 class Pet {
@@ -52,7 +54,7 @@ Add-KrApiDocumentationRoute -DocumentType Swagger
 Add-KrOpenApiRoute
 
 Build-KrOpenApiDocument
-Start-KrServer -Server $srv
+Start-KrServer
 ```
 
 ## Document metadata
@@ -91,7 +93,7 @@ Add-KrOpenApiServer -Url 'https://{env}.api.example.com' -Description 'Environme
 5. Test: `Test-KrOpenApiDocument`
 6. Start: `Start-KrServer ...`
 
-Access the UI at `/docs/swagger`, `/docs/redoc`, etc., and the raw JSON at `/openapi/v3.1/openapi.json`.
+Access the default UI routes at `/docs/swagger` and `/docs/redoc`, and the raw OpenAPI JSON at `/openapi/v3.1/openapi.json`.
 
 > **Note on CORS:** If you plan to host Swagger UI or other documentation viewers on a different domain or port than your API,
 enable CORS in your Kestrun server configuration so the browser can fetch the OpenAPI JSON.

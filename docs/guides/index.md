@@ -19,7 +19,7 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 | [Forwarded Headers](./forwardedheaders) | Honor X-Forwarded-* from proxies for correct scheme/host/IP |
 | [CORS](./cors) | Cross-origin policies and browser preflight behavior |
 | [Authentication](./authentication) | JWT, OAuth 2.0, OpenID Connect (OIDC), and client certificates (mTLS) |
-| [OpenAPI Generation](./openapi) | Generate and document APIs with OpenAPI 3.0+ specifications |
+| [OpenAPI](./openapi) | Generate and document APIs with OpenAPI 3.0+ specifications |
 | [Dotnet Tool](./tooling) | Install, update, and use the `kestrun` CLI via `Kestrun.Tool` |
 | [Production Deployment (Service/Daemon)](./production-service-daemon) | Deploy custom Kestrun apps to VM/bare-metal service hosts |
 | [Real-time (SSE & SignalR)](./realtime) | Stream events via SSE or build interactive apps with SignalR |

@@ -1053,7 +1053,8 @@ function Test-ExampleRouteSet {
 # Region: Assertion utilities
 function Invoke-ExampleRequest {
     [CmdletBinding()] param(
-        [Parameter(Mandatory)] [string] $Uri,
+        [Parameter(Mandatory)]
+        [string] $Uri,
         [ValidateSet('Get', 'Post', 'Put', 'Patch', 'Delete', 'Head')] [string] $Method = 'Get',
         [int] $ExpectStatus = 200,
         [string] $ContentTypeContains,

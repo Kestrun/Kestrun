@@ -68,6 +68,14 @@ Defines individual parameters if not using a reusable component.
 [OpenApiParameter(Name = 'id', In = 'path', Required = $true, Type = [long])]
 ```
 
+or better yet, use the common attributes used by PowerShell for validation:
+
+```powershell
+[OpenApiParameter( In = 'path', Required = $true)]
+[Parameter(Mandatory)]
+[long]$id
+```
+
 ## Using reusable parameter components in routes
 
 ```powershell

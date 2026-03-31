@@ -356,7 +356,7 @@ Schema, parameter, request body, response, header, link, and example components 
 | Attribute | Target | Key Properties |
 | :--- | :--- | :--- |
 | **`[OpenApiSchemaComponent]`** | Class | `Key`, `Examples`, `RequiredProperties`, `Description`, `Array`, `Type`, `Format`, `Example` |
-| **`[OpenApiRequestBodyComponent]`** | Variable | `Key`, `ContentType`, `Required`, `Description`, `Inline`, `Array`, `Type`, `Format` |
-| **`[OpenApiResponseComponent]`** | Variable | `Description`, `JoinClassName` |
+| **`[OpenApiRequestBodyComponent]`** | Variable | `Key`, `ContentType`, `Required`, `Description`, `Inline` |
+| **`[OpenApiResponseComponent]`** | Variable | `Description`, `Summary`, `ContentType`, `Inline` |
 | **`[OpenApiParameterComponent]`** | Variable | `In`, `Description`, `Required`, `ContentType`, `Example`, `Minimum`, `Maximum`, `Default` |
 | **`[OpenApiPropertyAttribute]`** | Parameter/Field | `Description`, `Example`, `Format`, `Required`, `Enum`, `Minimum`, `Maximum`, `Default` |

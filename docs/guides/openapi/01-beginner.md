@@ -33,7 +33,7 @@ class Pet {
 }
 
 # 2. Setup server & metadata
-$srv = New-KrServer -Name 'Pet API'
+New-KrServer -Name 'Pet API'
 Add-KrEndpoint -Port 5000
 Add-KrOpenApiInfo -Title 'Pet API' -Version '1.0.0'
 
@@ -91,7 +91,7 @@ Add-KrOpenApiServer -Url 'https://{env}.api.example.com' -Description 'Environme
 5. Test: `Test-KrOpenApiDocument`
 6. Start: `Start-KrServer ...`
 
-Access the UI at `/swagger`, `/redoc`, etc., and the raw JSON at `/openapi/v3.1/openapi.json`.
+Access the UI at `/docs/swagger`, `/docs/redoc`, etc., and the raw JSON at `/openapi/v3.1/openapi.json`.
 
 > **Note on CORS:** If you plan to host Swagger UI or other documentation viewers on a different domain or port than your API,
 enable CORS in your Kestrun server configuration so the browser can fetch the OpenAPI JSON.

@@ -1345,13 +1345,9 @@ internal static partial class Program
         out Uri packageBaseAddress,
         out string error)
     {
-        packageBaseAddress = null!;
-        error = string.Empty;
-
-        if (!sourceUri.AbsolutePath.EndsWith("index.json", StringComparison.OrdinalIgnoreCase))
+        if (!TryResolveFlatContainerBaseAddress(sourceUri, out packageBaseAddress))
         {
-            var absoluteUri = sourceUri.AbsoluteUri.EndsWith('/') ? sourceUri.AbsoluteUri : $"{sourceUri.AbsoluteUri}/";
-            packageBaseAddress = new Uri(absoluteUri, UriKind.Absolute);
+            error = string.Empty;
             return true;
         }
 
@@ -1359,59 +1355,162 @@ internal static partial class Program
         {
             if (!TryGetRuntimeSourceJsonDocument(sourceUri, bearerToken, customHeaders, ignoreCertificate, out var document, out error))
             {
+                packageBaseAddress = null!;
                 return false;
             }
 
             using (document)
             {
-                if (!document.RootElement.TryGetProperty("resources", out var resources) || resources.ValueKind != JsonValueKind.Array)
-                {
-                    error = $"NuGet service index '{sourceUri}' does not contain a resources array.";
-                    return false;
-                }
-
-                foreach (var resource in resources.EnumerateArray())
-                {
-                    if (!resource.TryGetProperty("@id", out var idProperty))
-                    {
-                        continue;
-                    }
-
-                    if (!resource.TryGetProperty("@type", out var typeProperty))
-                    {
-                        continue;
-                    }
-
-                    var typeMatches = typeProperty.ValueKind switch
-                    {
-                        JsonValueKind.String => typeProperty.GetString()?.Contains("PackageBaseAddress", StringComparison.OrdinalIgnoreCase) == true,
-                        JsonValueKind.Array => typeProperty.EnumerateArray().Any(static entry => entry.ValueKind == JsonValueKind.String && entry.GetString()!.Contains("PackageBaseAddress", StringComparison.OrdinalIgnoreCase)),
-                        _ => false,
-                    };
-
-                    if (!typeMatches)
-                    {
-                        continue;
-                    }
-
-                    var packageBase = idProperty.GetString();
-                    if (!string.IsNullOrWhiteSpace(packageBase))
-                    {
-                        packageBaseAddress = new Uri(packageBase.EndsWith('/') ? packageBase : $"{packageBase}/", UriKind.Absolute);
-                        return true;
-                    }
-                }
-
-                error = $"NuGet service index '{sourceUri}' does not advertise a PackageBaseAddress resource.";
-                return false;
+                return TryResolvePackageBaseAddressFromServiceIndexDocument(sourceUri, document, out packageBaseAddress, out error);
             }
         }
         catch (Exception ex)
         {
+            packageBaseAddress = null!;
             error = $"Failed to read NuGet service index '{sourceUri}': {ex.Message}";
             return false;
         }
     }
+
+    /// <summary>
+    /// Resolves a non-service-index source URI into a flat-container base address.
+    /// </summary>
+    /// <param name="sourceUri">Source URI.</param>
+    /// <param name="packageBaseAddress">Resolved base address when the source is not a service index.</param>
+    /// <returns>False when the source is a NuGet service index and requires JSON inspection; otherwise true.</returns>
+    private static bool TryResolveFlatContainerBaseAddress(Uri sourceUri, out Uri packageBaseAddress)
+    {
+        packageBaseAddress = null!;
+        if (sourceUri.AbsolutePath.EndsWith("index.json", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var absoluteUri = sourceUri.AbsoluteUri.EndsWith('/') ? sourceUri.AbsoluteUri : $"{sourceUri.AbsoluteUri}/";
+        packageBaseAddress = new Uri(absoluteUri, UriKind.Absolute);
+        return false;
+    }
+
+    /// <summary>
+    /// Resolves the package base address from a NuGet service index document.
+    /// </summary>
+    /// <param name="sourceUri">Source URI for error context.</param>
+    /// <param name="document">Parsed service index document.</param>
+    /// <param name="packageBaseAddress">Resolved package base address.</param>
+    /// <param name="error">Resolution error details.</param>
+    /// <returns>True when a valid PackageBaseAddress resource is found.</returns>
+    private static bool TryResolvePackageBaseAddressFromServiceIndexDocument(
+        Uri sourceUri,
+        JsonDocument document,
+        out Uri packageBaseAddress,
+        out string error)
+    {
+        packageBaseAddress = null!;
+
+        if (!TryGetRuntimeSourceResourcesArray(sourceUri, document, out var resources, out error))
+        {
+            return false;
+        }
+
+        if (TryResolvePackageBaseAddressFromResources(resources, out packageBaseAddress))
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        error = $"NuGet service index '{sourceUri}' does not advertise a PackageBaseAddress resource.";
+        return false;
+    }
+
+    /// <summary>
+    /// Reads and validates the resources array from a NuGet service index document.
+    /// </summary>
+    /// <param name="sourceUri">Source URI for error context.</param>
+    /// <param name="document">Parsed service index document.</param>
+    /// <param name="resources">Resolved resources array element.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when a resources array is present.</returns>
+    private static bool TryGetRuntimeSourceResourcesArray(
+        Uri sourceUri,
+        JsonDocument document,
+        out JsonElement resources,
+        out string error)
+    {
+        error = string.Empty;
+        if (document.RootElement.TryGetProperty("resources", out resources) && resources.ValueKind == JsonValueKind.Array)
+        {
+            return true;
+        }
+
+        error = $"NuGet service index '{sourceUri}' does not contain a resources array.";
+        return false;
+    }
+
+    /// <summary>
+    /// Resolves the first PackageBaseAddress resource URI from a service index resources array.
+    /// </summary>
+    /// <param name="resources">Service index resources array.</param>
+    /// <param name="packageBaseAddress">Resolved package base address.</param>
+    /// <returns>True when a valid PackageBaseAddress URI is found.</returns>
+    private static bool TryResolvePackageBaseAddressFromResources(JsonElement resources, out Uri packageBaseAddress)
+    {
+        packageBaseAddress = null!;
+        foreach (var resource in resources.EnumerateArray())
+        {
+            if (!TryResolvePackageBaseAddressFromResource(resource, out packageBaseAddress))
+            {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Resolves a PackageBaseAddress URI from a single service index resource entry.
+    /// </summary>
+    /// <param name="resource">Service index resource entry.</param>
+    /// <param name="packageBaseAddress">Resolved package base address.</param>
+    /// <returns>True when the resource represents PackageBaseAddress and contains a valid URI.</returns>
+    private static bool TryResolvePackageBaseAddressFromResource(JsonElement resource, out Uri packageBaseAddress)
+    {
+        packageBaseAddress = null!;
+        if (!resource.TryGetProperty("@id", out var idProperty) || !resource.TryGetProperty("@type", out var typeProperty))
+        {
+            return false;
+        }
+
+        if (!IsPackageBaseAddressResourceType(typeProperty))
+        {
+            return false;
+        }
+
+        var packageBase = idProperty.GetString();
+        if (string.IsNullOrWhiteSpace(packageBase))
+        {
+            return false;
+        }
+
+        packageBaseAddress = new Uri(packageBase.EndsWith('/') ? packageBase : $"{packageBase}/", UriKind.Absolute);
+        return true;
+    }
+
+    /// <summary>
+    /// Determines whether a service index resource type entry represents PackageBaseAddress.
+    /// </summary>
+    /// <param name="typeProperty">Resource type property value.</param>
+    /// <returns>True when the resource type indicates PackageBaseAddress.</returns>
+    private static bool IsPackageBaseAddressResourceType(JsonElement typeProperty)
+        => typeProperty.ValueKind switch
+        {
+            JsonValueKind.String => typeProperty.GetString()?.Contains("PackageBaseAddress", StringComparison.OrdinalIgnoreCase) == true,
+            JsonValueKind.Array => typeProperty.EnumerateArray().Any(static entry =>
+                entry.ValueKind == JsonValueKind.String
+                && entry.GetString()!.Contains("PackageBaseAddress", StringComparison.OrdinalIgnoreCase)),
+            _ => false,
+        };
 
     /// <summary>
     /// Downloads and parses a JSON document from a runtime source URL.
@@ -1568,8 +1667,37 @@ internal static partial class Program
     /// <returns>True when the extracted payload is structurally complete.</returns>
     private static bool TryValidateExtractedServiceRuntimePackagePayload(string extractionRoot, string manifestPath, out string error)
     {
-        error = string.Empty;
+        if (!TryValidateExtractedRuntimePackagePreconditions(extractionRoot, manifestPath, out error))
+        {
+            return false;
+        }
 
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(manifestPath, Encoding.UTF8));
+            var root = document.RootElement;
+
+            return TryResolveRuntimePackageHostPath(extractionRoot, manifestPath, root, out var hostPath, out error)
+                && TryValidateRuntimePackageHostPath(extractionRoot, hostPath, out error)
+                && TryValidateRuntimePackageModulesPath(extractionRoot, manifestPath, root, out error);
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to validate runtime package extraction at '{extractionRoot}': {ex.Message}";
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Validates that extraction root and runtime manifest are present before manifest inspection.
+    /// </summary>
+    /// <param name="extractionRoot">Extraction root path.</param>
+    /// <param name="manifestPath">Runtime package manifest path.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when required files and directories exist.</returns>
+    private static bool TryValidateExtractedRuntimePackagePreconditions(string extractionRoot, string manifestPath, out string error)
+    {
+        error = string.Empty;
         if (!Directory.Exists(extractionRoot))
         {
             error = $"Runtime extraction root '{extractionRoot}' does not exist.";
@@ -1582,53 +1710,68 @@ internal static partial class Program
             return false;
         }
 
-        try
+        return true;
+    }
+
+    /// <summary>
+    /// Validates that the runtime host executable resolved from manifest metadata exists.
+    /// </summary>
+    /// <param name="extractionRoot">Extraction root path.</param>
+    /// <param name="hostPath">Resolved host executable path.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when the host executable exists.</returns>
+    private static bool TryValidateRuntimePackageHostPath(string extractionRoot, string hostPath, out string error)
+    {
+        error = string.Empty;
+        if (File.Exists(hostPath))
         {
-            using var document = JsonDocument.Parse(File.ReadAllText(manifestPath, Encoding.UTF8));
-            var root = document.RootElement;
-
-            if (!TryResolveRuntimePackageHostPath(extractionRoot, manifestPath, root, out var hostPath, out error))
-            {
-                return false;
-            }
-
-            if (!File.Exists(hostPath))
-            {
-                error = $"Runtime package host executable '{hostPath}' was not found in extraction root '{extractionRoot}'.";
-                return false;
-            }
-
-            if (root.TryGetProperty("modulesPath", out var modulesPathProperty))
-            {
-                var modulesPath = modulesPathProperty.GetString();
-                if (!string.IsNullOrWhiteSpace(modulesPath))
-                {
-                    if (!TryResolveRuntimeManifestPayloadPath(
-                            extractionRoot,
-                            manifestPath,
-                            "modulesPath",
-                            modulesPath,
-                            out var resolvedModulesPath,
-                            out error))
-                    {
-                        return false;
-                    }
-
-                    if (!Directory.Exists(resolvedModulesPath))
-                    {
-                        error = $"Runtime package modules directory '{resolvedModulesPath}' was not found in extraction root '{extractionRoot}'.";
-                        return false;
-                    }
-                }
-            }
-
             return true;
         }
-        catch (Exception ex)
+
+        error = $"Runtime package host executable '{hostPath}' was not found in extraction root '{extractionRoot}'.";
+        return false;
+    }
+
+    /// <summary>
+    /// Validates the optional modules payload location declared in the runtime manifest.
+    /// </summary>
+    /// <param name="extractionRoot">Extraction root path.</param>
+    /// <param name="manifestPath">Runtime package manifest path.</param>
+    /// <param name="manifestRoot">Runtime manifest root element.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when modulesPath is absent, empty, or resolves to an existing directory.</returns>
+    private static bool TryValidateRuntimePackageModulesPath(string extractionRoot, string manifestPath, JsonElement manifestRoot, out string error)
+    {
+        error = string.Empty;
+        if (!manifestRoot.TryGetProperty("modulesPath", out var modulesPathProperty))
         {
-            error = $"Failed to validate runtime package extraction at '{extractionRoot}': {ex.Message}";
+            return true;
+        }
+
+        var modulesPath = modulesPathProperty.GetString();
+        if (string.IsNullOrWhiteSpace(modulesPath))
+        {
+            return true;
+        }
+
+        if (!TryResolveRuntimeManifestPayloadPath(
+                extractionRoot,
+                manifestPath,
+                "modulesPath",
+                modulesPath,
+                out var resolvedModulesPath,
+                out error))
+        {
             return false;
         }
+
+        if (Directory.Exists(resolvedModulesPath))
+        {
+            return true;
+        }
+
+        error = $"Runtime package modules directory '{resolvedModulesPath}' was not found in extraction root '{extractionRoot}'.";
+        return false;
     }
 
     /// <summary>

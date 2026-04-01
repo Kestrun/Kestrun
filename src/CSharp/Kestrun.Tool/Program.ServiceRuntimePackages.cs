@@ -36,7 +36,6 @@ internal static partial class Program
         out string error)
     {
         runtimePackageLayout = default!;
-        error = string.Empty;
 
         var hasExplicitRuntimeOverride =
             !string.IsNullOrWhiteSpace(runtimeSource)
@@ -56,12 +55,7 @@ internal static partial class Program
 
         if (!TryResolveRuntimeCacheRoot(runtimeCache, out var cacheRoot, out error))
         {
-            if (!hasExplicitRuntimeOverride && TryResolveServiceRuntimePackageFromToolDistribution(rid, requireModules, out runtimePackageLayout))
-            {
-                return true;
-            }
-
-            return false;
+            return !hasExplicitRuntimeOverride && TryResolveServiceRuntimePackageFromToolDistribution(rid, requireModules, out runtimePackageLayout);
         }
 
         if (!string.IsNullOrWhiteSpace(runtimePackage))
@@ -211,7 +205,6 @@ internal static partial class Program
         out string error)
     {
         runtimePackageLayout = default!;
-        error = string.Empty;
 
         var packagePath = Path.GetFullPath(runtimePackage);
         if (!File.Exists(packagePath))
@@ -280,7 +273,6 @@ internal static partial class Program
         out string error)
     {
         runtimePackageLayout = default!;
-        error = string.Empty;
 
         var packageFileName = $"{packageId}.{packageVersion}{RuntimePackageExtension}";
         var cachedPackagePath = Path.Combine(cacheRoot, "packages", SanitizePathToken(packageId), packageVersion, packageFileName);
@@ -351,14 +343,12 @@ internal static partial class Program
         out string error)
     {
         runtimePackageLayout = default!;
-        error = string.Empty;
-
         if (!TryEnsureExtractedServiceRuntimePackage(packageBytes, extractionRoot, out error))
         {
             return false;
         }
-
-        if (!TryResolveExtractedServiceRuntimePackageLayout(
+        // The extracted layout is expected to contain the service host executable at the root of the package, with bundled modules in a 'modules' subdirectory when present. This is validated and enforced by the runtime package creation process, but is not guaranteed for arbitrary packages, so the presence of these components is verified before returning a resolved layout.
+        return TryResolveExtractedServiceRuntimePackageLayout(
                 rid,
                 packageId,
                 packageVersion,
@@ -366,12 +356,7 @@ internal static partial class Program
                 extractionRoot,
                 requireModules,
                 out runtimePackageLayout,
-                out error))
-        {
-            return false;
-        }
-
-        return true;
+                out error);
     }
 
     /// <summary>
@@ -379,14 +364,8 @@ internal static partial class Program
     /// </summary>
     /// <param name="runtimeSource">Optional explicit source override.</param>
     /// <returns>Ordered source candidates.</returns>
-    private static IReadOnlyList<string> GetServiceRuntimeSourceCandidates(string? runtimeSource)
-    {
-        if (!string.IsNullOrWhiteSpace(runtimeSource))
-        {
-            return [runtimeSource.Trim()];
-        }
-        return [DefaultNuGetServiceIndexUrl];
-    }
+    private static IReadOnlyList<string> GetServiceRuntimeSourceCandidates(string? runtimeSource) =>
+    !string.IsNullOrWhiteSpace(runtimeSource) ? [runtimeSource.Trim()] : [DefaultNuGetServiceIndexUrl];
 
     /// <summary>
     /// Resolves the effective cache root used for runtime packages.
@@ -423,16 +402,22 @@ internal static partial class Program
     /// <returns>Default cache root path.</returns>
     private static string GetDefaultRuntimeCacheRoot()
     {
+        // Use a subdirectory within the OS-designated common cache location to allow sharing of acquired runtime
+        // packages across users while avoiding permission issues with per-user cache locations.
+        // This also allows non-admin users to acquire runtime packages when the tool is installed in a machine-wide location.
         if (OperatingSystem.IsWindows())
         {
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Kestrun", "RuntimePackages");
         }
-
+        // Use a subdirectory within the OS-designated user cache location on Unix-based platforms,
+        // as common cache locations are typically not writable by non-admin users and the tool may be installed in a user-specific location.
         if (OperatingSystem.IsMacOS())
         {
             return Path.Combine(Path.DirectorySeparatorChar.ToString(), "Library", "Caches", "Kestrun", "RuntimePackages");
         }
-
+        // Use a subdirectory within /var/cache on Linux, as this is the standard location for application cache data that is shared across users.
+        // This also allows non-admin users to acquire runtime packages when the tool is installed in a machine-wide location,
+        // while avoiding permission issues with user-specific cache locations.
         return Path.Combine(Path.DirectorySeparatorChar.ToString(), "var", "cache", "Kestrun", "RuntimePackages");
     }
 
@@ -504,13 +489,8 @@ internal static partial class Program
                 _ = Directory.CreateDirectory(downloadDirectory);
             }
 
-            if (!File.Exists(downloadPath)
-                && !TryDownloadRuntimePackageFile(packageUri, downloadPath, bearerToken, customHeaders, ignoreCertificate, out error))
-            {
-                return false;
-            }
-
-            return TryResolveServiceRuntimePackageFromExplicitPackage(
+            return (File.Exists(downloadPath)
+                || TryDownloadRuntimePackageFile(packageUri, downloadPath, bearerToken, customHeaders, ignoreCertificate, out error)) && TryResolveServiceRuntimePackageFromExplicitPackage(
                 rid,
                 expectedPackageId,
                 expectedVersion,
@@ -554,8 +534,6 @@ internal static partial class Program
         bool ignoreCertificate,
         out string error)
     {
-        error = string.Empty;
-
         if (TryResolveDirectRuntimeSourceLocalPackagePath(sourceCandidate, out var localPackagePath, out var runtimeSourceWasDirect, out error))
         {
             File.Copy(localPackagePath, destinationPath, overwrite: true);
@@ -778,7 +756,6 @@ internal static partial class Program
         bool ignoreCertificate,
         out string error)
     {
-        error = string.Empty;
         if (!TryResolvePackageBaseAddress(sourceUri, bearerToken, customHeaders, ignoreCertificate, out var packageBaseAddress, out error))
         {
             return false;

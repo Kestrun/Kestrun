@@ -966,6 +966,47 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryResolveServiceRuntimePackage_WithMissingLocalRuntimeSource_DoesNotLeaveEmptyCacheDirectories()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-missing-source-{Guid.NewGuid():N}");
+        try
+        {
+            var sourceRoot = Path.Combine(tempRoot, "source");
+            var cacheRoot = Path.Combine(tempRoot, "cache");
+            _ = Directory.CreateDirectory(sourceRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = "9.9.9-test";
+
+            var (success, _, error) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: sourceRoot,
+                runtimePackage: null,
+                runtimeVersion: packageVersion,
+                runtimePackageId: packageId,
+                runtimeCache: cacheRoot,
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.False(success);
+            Assert.Contains("was not found in local source", error, StringComparison.Ordinal);
+
+            var expectedPackageDirectory = Path.Combine(cacheRoot, "packages", packageId, packageVersion);
+            Assert.False(Directory.Exists(expectedPackageDirectory));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void GetDefaultRuntimeCacheRoot_UsesMachineWideLocation()
     {
         var cacheRoot = InvokeGetDefaultRuntimeCacheRoot();

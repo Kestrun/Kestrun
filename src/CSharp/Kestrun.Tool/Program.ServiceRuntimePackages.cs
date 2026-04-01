@@ -137,6 +137,12 @@ internal static partial class Program
 
         if (!hasExplicitRuntimeOverride && TryResolveServiceRuntimePackageFromToolDistribution(rid, requireModules, out runtimePackageLayout))
         {
+            if (errors.Count > 0)
+            {
+                Console.Error.WriteLine("Warning: unable to acquire the service runtime package from cache/NuGet; falling back to the staged Kestrun.Tool runtime payload.");
+                Console.Error.WriteLine($"  {errors[0]}");
+            }
+
             return true;
         }
 
@@ -288,6 +294,7 @@ internal static partial class Program
 
             if (!TryAcquireRuntimePackageFromSource(sourceCandidate, packageId, packageVersion, cachedPackagePath, bearerToken, customHeaders, ignoreCertificate, out error))
             {
+                TryCleanupEmptyRuntimePackageDirectory(packageDirectory, cacheRoot);
                 return false;
             }
         }
@@ -600,6 +607,11 @@ internal static partial class Program
             return false;
         }
 
+        if (Directory.Exists(sourceCandidate))
+        {
+            return false;
+        }
+
         if (File.Exists(sourceCandidate))
         {
             if (!sourceCandidate.EndsWith(RuntimePackageExtension, StringComparison.OrdinalIgnoreCase))
@@ -619,6 +631,12 @@ internal static partial class Program
         {
             runtimeSourceWasDirect = true;
             var localPath = sourceUri.LocalPath;
+            if (Directory.Exists(localPath))
+            {
+                runtimeSourceWasDirect = false;
+                return false;
+            }
+
             if (!localPath.EndsWith(RuntimePackageExtension, StringComparison.OrdinalIgnoreCase))
             {
                 error = $"Runtime source file '{sourceCandidate}' must point to a '{RuntimePackageExtension}' package.";
@@ -705,6 +723,40 @@ internal static partial class Program
 
         File.Copy(sourcePath, destinationPath, overwrite: true);
         return true;
+    }
+
+    /// <summary>
+    /// Removes empty runtime package cache directories left behind by a failed acquisition attempt.
+    /// </summary>
+    /// <param name="packageDirectory">Package-version directory created for the attempted acquisition.</param>
+    /// <param name="cacheRoot">Resolved runtime cache root.</param>
+    private static void TryCleanupEmptyRuntimePackageDirectory(string? packageDirectory, string cacheRoot)
+    {
+        if (string.IsNullOrWhiteSpace(packageDirectory))
+        {
+            return;
+        }
+
+        var packagesRoot = Path.Combine(cacheRoot, "packages");
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var currentDirectory = Path.GetFullPath(packageDirectory);
+        var normalizedPackagesRoot = Path.GetFullPath(packagesRoot);
+
+        while (currentDirectory.StartsWith(normalizedPackagesRoot, comparison) && Directory.Exists(currentDirectory))
+        {
+            if (Directory.EnumerateFileSystemEntries(currentDirectory).Any())
+            {
+                break;
+            }
+
+            Directory.Delete(currentDirectory, recursive: false);
+            if (string.Equals(currentDirectory, normalizedPackagesRoot, comparison))
+            {
+                break;
+            }
+
+            currentDirectory = Path.GetDirectoryName(currentDirectory) ?? string.Empty;
+        }
     }
 
     /// <summary>

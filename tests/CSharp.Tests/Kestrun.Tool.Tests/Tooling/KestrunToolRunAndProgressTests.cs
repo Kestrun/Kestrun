@@ -207,6 +207,19 @@ public class KestrunToolRunAndProgressTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void ConsoleProgressBar_BuildRenderedLine_TrimsToConsoleWidth()
+    {
+        var bar = CreateProgressBar("Bundling service runtime modules", 116, (value, total) => $"{value}/{total} files");
+
+        var rendered = Assert.IsType<string>(InvokeProgressMethod("BuildRenderedLine", bar, "116/116 files", 100, 79));
+
+        Assert.True(rendered.Length <= 79);
+        Assert.Contains("100%", rendered, StringComparison.Ordinal);
+        Assert.StartsWith("Bundling service runtime modules", rendered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void ConsoleProgressBar_ReportCompleteAndDispose_DoNotThrowWhenOutputRedirected()
     {
         var bar = CreateProgressBar("Install", 10, null);

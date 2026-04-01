@@ -238,6 +238,12 @@ Use a direct runtime package URL with auth headers:
 dotnet kestrun service install --package .\my-service.krpack --runtime-source https://packages.example.com/Kestrun.Service.win-x64.1.0.0-rc.1.nupkg --content-root-bearer-token <token>
 ```
 
+`service install` requires a resolvable runtime package and does not fall back to the runtime
+payload bundled with `Kestrun.Tool` when runtime acquisition fails.
+
+Runtime cache uses a canonical package path (`packages/<id>/<version>/<id>.<version>.nupkg`) and
+an extracted working payload path (`expanded/<id>/...`).
+
 With checksum verification:
 
 ```powershell

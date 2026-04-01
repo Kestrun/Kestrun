@@ -5241,7 +5241,9 @@ internal static partial class Program
                 Console.WriteLine("  - Service name and entry point are read from Service.psd1 in the package.");
                 Console.WriteLine("  - Service.psd1 requires FormatVersion='1.0', Name, EntryPoint, and Description.");
                 Console.WriteLine("  - Package file must use .krpack extension and contain zip content.");
-                Console.WriteLine("  - install resolves a runtime package for the current RID using Kestrun.Service.<rid> packages and caches extracted payloads locally.");
+                Console.WriteLine("  - install resolves a runtime package for the current RID using Kestrun.Service.<rid> packages.");
+                Console.WriteLine("  - install caches canonical runtime packages under packages/<id>/<version>/<id>.<version>.nupkg and extracted working payloads under expanded/<id>/... .");
+                Console.WriteLine("  - install does not fall back to the runtime bundled with Kestrun.Tool when package acquisition fails.");
                 Console.WriteLine("  - use --runtime-package for offline installs or --runtime-source to point at a local feed/NuGet endpoint.");
                 Console.WriteLine("  - --content-root-checksum is validated against the package file before extraction.");
                 Console.WriteLine("  - --content-root-bearer-token is used for HTTP(S) package URLs and HTTP(S) runtime-source downloads.");

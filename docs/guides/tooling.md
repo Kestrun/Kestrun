@@ -472,6 +472,14 @@ This writes the tool package to:
 Use `--runtime-package` for offline installs or `--runtime-source` to target a local feed,
 direct package artifact, or NuGet endpoint.
 
+`service install` requires a resolvable runtime package and does not fall back to the runtime
+payload bundled with `Kestrun.Tool` when package acquisition fails.
+
+Runtime cache layout defaults to:
+
+- canonical package cache: `packages/<id>/<version>/<id>.<version>.nupkg`
+- extracted working payload cache: `expanded/<id>/<version>` or `expanded/<id>/<version>-<content-hash>`
+
 ---
 
 Return to the [Guides index](./index).

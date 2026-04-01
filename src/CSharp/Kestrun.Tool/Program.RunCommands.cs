@@ -23,6 +23,7 @@ internal static partial class Program
             customHeaders: [],
             ignoreCertificate: false,
                 requireModules: false,
+                allowToolDistributionFallback: true,
                 out var runtimePackageLayout,
                 out var runtimeError))
         {

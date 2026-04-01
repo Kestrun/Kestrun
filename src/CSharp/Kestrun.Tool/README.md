@@ -183,7 +183,16 @@ install after package content is applied.
 - `service install --package` resolves `Kestrun.Service.<rid>` for the current platform by default.
     Use `--runtime-package` for offline installs or `--runtime-source` to target a
     local/private feed.
+- `service install` does not fall back to the runtime bundled with `Kestrun.Tool` when runtime package acquisition fails.
+    If the requested runtime package version is unavailable, provide `--runtime-package` or select a different `--runtime-version`.
 - runtime packages are cached under an OS-specific cache root unless `--runtime-cache` is supplied.
+    Canonical package cache: `packages/<id>/<version>/<id>.<version>.nupkg`.
+    Extracted working payload cache: `expanded/<id>/<version>` or `expanded/<id>/<version>-<content-hash>`.
+    The tool may reuse valid entries in `expanded/` before attempting a network download.
+- default runtime cache roots:
+  - Windows: `%ProgramData%\\Kestrun\\RuntimePackages`
+  - macOS: `~/Library/Caches/Kestrun/RuntimePackages`
+  - Linux: `$XDG_CACHE_HOME/kestrun/runtime-packages` (or `~/.cache/kestrun/runtime-packages`)
 - `Service.psd1` example for update-safe content:
 
 ```powershell

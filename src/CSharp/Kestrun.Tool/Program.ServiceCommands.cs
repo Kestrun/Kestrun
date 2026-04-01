@@ -221,6 +221,7 @@ internal static partial class Program
             command.ServiceContentRootHeaders,
             command.ServiceContentRootIgnoreCertificate,
             requireModules: true,
+            allowToolDistributionFallback: false,
             out var runtimePackageLayout,
             out var runtimeError))
         {

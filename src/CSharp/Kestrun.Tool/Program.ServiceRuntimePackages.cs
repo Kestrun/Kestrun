@@ -19,6 +19,7 @@ internal static partial class Program
     /// <param name="runtimePackageId">Optional runtime package id override.</param>
     /// <param name="runtimeCache">Optional runtime cache directory override.</param>
     /// <param name="requireModules">True when the resolved payload must also contain bundled modules.</param>
+    /// <param name="allowToolDistributionFallback">True to allow falling back to the staged runtime bundled with Kestrun.Tool when no explicit package is available. Should be false for service install, where only a proper versioned runtime package is acceptable.</param>
     /// <param name="runtimePackageLayout">Resolved runtime payload layout.</param>
     /// <param name="error">Resolution error details.</param>
     /// <returns>True when a usable runtime payload is available.</returns>
@@ -32,6 +33,7 @@ internal static partial class Program
         string[] customHeaders,
         bool ignoreCertificate,
         bool requireModules,
+        bool allowToolDistributionFallback,
         out ResolvedServiceRuntimePackage runtimePackageLayout,
         out string error)
     {
@@ -55,7 +57,7 @@ internal static partial class Program
 
         if (!TryResolveRuntimeCacheRoot(runtimeCache, out var cacheRoot, out error))
         {
-            return !hasExplicitRuntimeOverride && TryResolveServiceRuntimePackageFromToolDistribution(rid, requireModules, out runtimePackageLayout);
+            return allowToolDistributionFallback && !hasExplicitRuntimeOverride && TryResolveServiceRuntimePackageFromToolDistribution(rid, requireModules, out runtimePackageLayout);
         }
 
         if (!string.IsNullOrWhiteSpace(runtimePackage))
@@ -105,6 +107,24 @@ internal static partial class Program
 
         var sourceCandidates = GetServiceRuntimeSourceCandidates(runtimeSource);
         var errors = new List<string>();
+
+        if (TryResolveServiceRuntimePackageFromExpandedCache(
+                rid,
+                effectivePackageId,
+                effectiveVersion,
+                cacheRoot,
+                requireModules,
+                out runtimePackageLayout,
+                out error))
+        {
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(error))
+        {
+            errors.Add(error);
+        }
+
         foreach (var sourceCandidate in sourceCandidates)
         {
             if (TryResolveServiceRuntimePackageFromSource(
@@ -129,7 +149,7 @@ internal static partial class Program
             }
         }
 
-        if (!hasExplicitRuntimeOverride && TryResolveServiceRuntimePackageFromToolDistribution(rid, requireModules, out runtimePackageLayout))
+        if (allowToolDistributionFallback && !hasExplicitRuntimeOverride && TryResolveServiceRuntimePackageFromToolDistribution(rid, requireModules, out runtimePackageLayout))
         {
             if (errors.Count > 0)
             {
@@ -140,10 +160,44 @@ internal static partial class Program
             return true;
         }
 
-        error = errors.Count == 0
-            ? $"Unable to locate service runtime package '{effectivePackageId}' version '{effectiveVersion}' for RID '{rid}'."
-            : string.Join(Environment.NewLine, errors.Distinct(StringComparer.Ordinal));
+        error = BuildRuntimePackageNotFoundError(effectivePackageId, effectiveVersion, rid, allowToolDistributionFallback, errors);
         return false;
+    }
+
+    /// <summary>
+    /// Builds a user-facing error message when no usable runtime package could be located.
+    /// </summary>
+    /// <param name="packageId">Requested package id.</param>
+    /// <param name="packageVersion">Requested package version.</param>
+    /// <param name="rid">Runtime identifier.</param>
+    /// <param name="allowToolDistributionFallback">Whether the tool-distribution fallback was attempted.</param>
+    /// <param name="errors">Accumulated acquisition errors.</param>
+    /// <returns>Formatted error message.</returns>
+    private static string BuildRuntimePackageNotFoundError(
+        string packageId,
+        string packageVersion,
+        string rid,
+        bool allowToolDistributionFallback,
+        IReadOnlyList<string> errors)
+    {
+        if (errors.Count == 0)
+        {
+            var message = $"Unable to locate service runtime package '{packageId}' version '{packageVersion}' for RID '{rid}'.";
+            if (!allowToolDistributionFallback)
+            {
+                message += $" Use --runtime-package <path> to specify a local package file, or --runtime-version to target a published version.";
+            }
+
+            return message;
+        }
+
+        var baseError = string.Join(Environment.NewLine, errors.Distinct(StringComparer.Ordinal));
+        if (!allowToolDistributionFallback)
+        {
+            baseError += $"{Environment.NewLine}Use --runtime-package <path> to specify a local '{packageId}' package file, or --runtime-version to target a different published version.";
+        }
+
+        return baseError;
     }
 
     /// <summary>
@@ -233,13 +287,34 @@ internal static partial class Program
             return false;
         }
 
+        var packageFileName = $"{packageId}.{packageVersion}{RuntimePackageExtension}";
+        var cachedPackagePath = Path.Combine(cacheRoot, "packages", SanitizePathToken(packageId), packageVersion, packageFileName);
+        var cachedPackageDirectory = Path.GetDirectoryName(cachedPackagePath);
+        if (!string.IsNullOrWhiteSpace(cachedPackageDirectory))
+        {
+            _ = Directory.CreateDirectory(cachedPackageDirectory);
+        }
+
+        if (!File.Exists(cachedPackagePath))
+        {
+            try
+            {
+                File.Copy(packagePath, cachedPackagePath, overwrite: false);
+            }
+            catch (IOException)
+            {
+                // Another process may have created the cache entry concurrently.
+            }
+        }
+
+        var effectivePackagePath = File.Exists(cachedPackagePath) ? cachedPackagePath : packagePath;
         var packageHash = Convert.ToHexString(SHA256.HashData(packageBytes))[..12].ToLowerInvariant();
         var extractionRoot = Path.Combine(cacheRoot, "expanded", SanitizePathToken(packageId), $"{packageVersion}-{packageHash}");
         return TryPrepareResolvedServiceRuntimePackage(
             rid,
             packageId,
             packageVersion,
-            packagePath,
+            effectivePackagePath,
             packageBytes,
             extractionRoot,
             requireModules,
@@ -284,7 +359,23 @@ internal static partial class Program
                 _ = Directory.CreateDirectory(packageDirectory);
             }
 
-            if (!TryAcquireRuntimePackageFromSource(sourceCandidate, packageId, packageVersion, cachedPackagePath, bearerToken, customHeaders, ignoreCertificate, out error))
+            // Before downloading, check whether the package was placed flat in the cache root
+            // (e.g. copied there manually or left by an earlier tool version). If so, migrate it
+            // to the structured location so subsequent lookups use the normal path.
+            var flatPackagePath = Path.Combine(cacheRoot, packageFileName);
+            if (File.Exists(flatPackagePath))
+            {
+                try
+                {
+                    File.Copy(flatPackagePath, cachedPackagePath, overwrite: false);
+                }
+                catch (IOException)
+                {
+                    // Another process may have created it concurrently; continue with whatever is there.
+                }
+            }
+
+            if (!File.Exists(cachedPackagePath) && !TryAcquireRuntimePackageFromSource(sourceCandidate, packageId, packageVersion, cachedPackagePath, bearerToken, customHeaders, ignoreCertificate, out error))
             {
                 TryCleanupEmptyRuntimePackageDirectory(packageDirectory, cacheRoot);
                 return false;
@@ -316,6 +407,65 @@ internal static partial class Program
             requireModules,
             out runtimePackageLayout,
             out error);
+    }
+
+    /// <summary>
+    /// Attempts to resolve a runtime payload from a previously extracted cache entry.
+    /// </summary>
+    /// <param name="rid">Runtime identifier.</param>
+    /// <param name="packageId">Package id.</param>
+    /// <param name="packageVersion">Package version.</param>
+    /// <param name="cacheRoot">Cache root path.</param>
+    /// <param name="requireModules">True when bundled modules are required.</param>
+    /// <param name="runtimePackageLayout">Resolved runtime payload layout.</param>
+    /// <param name="error">Resolution error details.</param>
+    /// <returns>True when a compatible extracted runtime payload is found.</returns>
+    private static bool TryResolveServiceRuntimePackageFromExpandedCache(
+        string rid,
+        string packageId,
+        string packageVersion,
+        string cacheRoot,
+        bool requireModules,
+        out ResolvedServiceRuntimePackage runtimePackageLayout,
+        out string error)
+    {
+        runtimePackageLayout = default!;
+        error = string.Empty;
+
+        var expandedPackageRoot = Path.Combine(cacheRoot, "expanded", SanitizePathToken(packageId));
+        if (!Directory.Exists(expandedPackageRoot))
+        {
+            return false;
+        }
+
+        var versionCandidates = new List<string>();
+        var exactVersionRoot = Path.Combine(expandedPackageRoot, packageVersion);
+        if (Directory.Exists(exactVersionRoot))
+        {
+            versionCandidates.Add(exactVersionRoot);
+        }
+
+        versionCandidates.AddRange(
+            Directory.EnumerateDirectories(expandedPackageRoot, $"{packageVersion}-*", SearchOption.TopDirectoryOnly)
+                .OrderByDescending(path => path, StringComparer.OrdinalIgnoreCase));
+
+        foreach (var extractionRoot in versionCandidates)
+        {
+            if (TryResolveExtractedServiceRuntimePackageLayout(
+                    rid,
+                    packageId,
+                    packageVersion,
+                    packagePath: string.Empty,
+                    extractionRoot,
+                    requireModules,
+                    out runtimePackageLayout,
+                    out error))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -402,23 +552,40 @@ internal static partial class Program
     /// <returns>Default cache root path.</returns>
     private static string GetDefaultRuntimeCacheRoot()
     {
-        // Use a subdirectory within the OS-designated common cache location to allow sharing of acquired runtime
-        // packages across users while avoiding permission issues with per-user cache locations.
-        // This also allows non-admin users to acquire runtime packages when the tool is installed in a machine-wide location.
+        // On Windows, use the machine-wide common application data directory so that the cache is shared
+        // across all users without requiring per-user downloads.
         if (OperatingSystem.IsWindows())
         {
             return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Kestrun", "RuntimePackages");
         }
-        // Use a subdirectory within the OS-designated user cache location on Unix-based platforms,
-        // as common cache locations are typically not writable by non-admin users and the tool may be installed in a user-specific location.
+
+        // On Unix-based platforms, system-wide cache directories (/Library/Caches, /var/cache) are typically
+        // not writable by non-root users, so fall back to the per-user cache directory — consistent with the
+        // approach used for service deployment roots on the same platforms.
         if (OperatingSystem.IsMacOS())
         {
-            return Path.Combine(Path.DirectorySeparatorChar.ToString(), "Library", "Caches", "Kestrun", "RuntimePackages");
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (!string.IsNullOrWhiteSpace(userProfile))
+            {
+                return Path.Combine(userProfile, "Library", "Caches", "Kestrun", "RuntimePackages");
+            }
         }
-        // Use a subdirectory within /var/cache on Linux, as this is the standard location for application cache data that is shared across users.
-        // This also allows non-admin users to acquire runtime packages when the tool is installed in a machine-wide location,
-        // while avoiding permission issues with user-specific cache locations.
-        return Path.Combine(Path.DirectorySeparatorChar.ToString(), "var", "cache", "Kestrun", "RuntimePackages");
+
+        // On Linux, honour XDG_CACHE_HOME when set; otherwise fall back to ~/.cache, which is the XDG default.
+        var xdgCacheHome = Environment.GetEnvironmentVariable("XDG_CACHE_HOME");
+        if (!string.IsNullOrWhiteSpace(xdgCacheHome))
+        {
+            return Path.Combine(xdgCacheHome, "kestrun", "runtime-packages");
+        }
+
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (!string.IsNullOrWhiteSpace(home))
+        {
+            return Path.Combine(home, ".cache", "kestrun", "runtime-packages");
+        }
+
+        // Ultimate fallback: /tmp is always writable and avoids a hard failure on unusual setups.
+        return Path.Combine(Path.GetTempPath(), "kestrun", "runtime-packages");
     }
 
     /// <summary>

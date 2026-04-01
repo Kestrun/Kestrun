@@ -1001,9 +1001,9 @@ public class KestrunToolCommandSurfaceTests
             Assert.True(firstSuccess, firstError);
             Assert.NotNull(firstRuntimePackage);
 
-            var extractionRoot = GetRecordField(firstRuntimePackage!, "ExtractionRoot");
-            var extractedHostPath = GetRecordField(firstRuntimePackage!, "ServiceHostExecutablePath");
-            var extractedModulesPath = GetRecordField(firstRuntimePackage!, "ModulesPath");
+            var extractionRoot = GetRecordField(firstRuntimePackage, "ExtractionRoot");
+            var extractedHostPath = GetRecordField(firstRuntimePackage, "ServiceHostExecutablePath");
+            var extractedModulesPath = GetRecordField(firstRuntimePackage, "ModulesPath");
             Assert.False(string.IsNullOrWhiteSpace(extractionRoot));
             Assert.False(string.IsNullOrWhiteSpace(extractedHostPath));
             Assert.False(string.IsNullOrWhiteSpace(extractedModulesPath));
@@ -1028,9 +1028,9 @@ public class KestrunToolCommandSurfaceTests
             Assert.True(secondSuccess, secondError);
             Assert.NotNull(secondRuntimePackage);
 
-            var recoveredHostPath = GetRecordField(secondRuntimePackage!, "ServiceHostExecutablePath");
-            var recoveredModulesPath = GetRecordField(secondRuntimePackage!, "ModulesPath");
-            var recoveredExtractionRoot = GetRecordField(secondRuntimePackage!, "ExtractionRoot");
+            var recoveredHostPath = GetRecordField(secondRuntimePackage, "ServiceHostExecutablePath");
+            var recoveredModulesPath = GetRecordField(secondRuntimePackage, "ModulesPath");
+            var recoveredExtractionRoot = GetRecordField(secondRuntimePackage, "ExtractionRoot");
             Assert.False(string.IsNullOrWhiteSpace(recoveredHostPath));
             Assert.False(string.IsNullOrWhiteSpace(recoveredModulesPath));
             Assert.False(string.IsNullOrWhiteSpace(recoveredExtractionRoot));
@@ -1039,6 +1039,81 @@ public class KestrunToolCommandSurfaceTests
             Assert.True(Directory.Exists(recoveredModulesPath));
             Assert.Equal("host-binary", File.ReadAllText(recoveredHostPath, Encoding.UTF8));
             Assert.True(File.Exists(Path.Combine(recoveredExtractionRoot, ".runtime-extraction-complete")));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceRuntimePackage_WithPartialExtractedPayloadAndCompletionMarker_ReextractsAndSucceeds()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-partial-marker-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = "9.9.9-test";
+            var packagePath = Path.Combine(tempRoot, $"{packageId}.{packageVersion}.nupkg");
+            var cacheRoot = Path.Combine(tempRoot, "cache");
+
+            CreateRuntimePackageForTests(tempRoot, packagePath, packageId, packageVersion, rid);
+
+            var (firstSuccess, firstRuntimePackage, firstError) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: packagePath,
+                runtimePackage: null,
+                runtimeVersion: null,
+                runtimePackageId: packageId,
+                runtimeCache: cacheRoot,
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.True(firstSuccess, firstError);
+            Assert.NotNull(firstRuntimePackage);
+
+            var extractionRoot = GetRecordField(firstRuntimePackage, "ExtractionRoot");
+            var extractedHostPath = GetRecordField(firstRuntimePackage, "ServiceHostExecutablePath");
+
+            Assert.False(string.IsNullOrWhiteSpace(extractionRoot));
+            Assert.False(string.IsNullOrWhiteSpace(extractedHostPath));
+            var validatedExtractionRoot = extractionRoot;
+            var extractionMarkerPath = Path.Combine(validatedExtractionRoot, ".runtime-extraction-complete");
+
+            Assert.True(File.Exists(extractedHostPath));
+            Assert.True(File.Exists(extractionMarkerPath));
+
+            File.Delete(extractedHostPath);
+            Assert.False(File.Exists(extractedHostPath));
+            Assert.True(File.Exists(extractionMarkerPath));
+            Assert.True(File.Exists(Path.Combine(validatedExtractionRoot, "runtime-manifest.json")));
+
+            var (secondSuccess, secondRuntimePackage, secondError) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: packagePath,
+                runtimePackage: null,
+                runtimeVersion: null,
+                runtimePackageId: packageId,
+                runtimeCache: cacheRoot,
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.True(secondSuccess, secondError);
+            Assert.NotNull(secondRuntimePackage);
+
+            var recoveredHostPath = GetRecordField(secondRuntimePackage, "ServiceHostExecutablePath");
+            Assert.False(string.IsNullOrWhiteSpace(recoveredHostPath));
+            Assert.True(File.Exists(recoveredHostPath));
+            Assert.Equal("host-binary", File.ReadAllText(recoveredHostPath, Encoding.UTF8));
         }
         finally
         {

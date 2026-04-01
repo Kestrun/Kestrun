@@ -1506,6 +1506,16 @@ internal static partial class Program
         error = string.Empty;
         var manifestPath = Path.Combine(extractionRoot, RuntimePackageManifestFileName);
         var extractionCompleteMarkerPath = Path.Combine(extractionRoot, RuntimePackageExtractionCompleteMarkerFileName);
+
+        // Prefer the explicit extraction-complete marker, but always validate the extracted payload
+        // structure so interrupted/partial extractions cannot be treated as complete.
+        if (File.Exists(extractionCompleteMarkerPath)
+            && TryValidateExtractedServiceRuntimePackagePayload(extractionRoot, manifestPath, out _))
+        {
+            return true;
+        }
+
+        // Backfill the completion marker for valid legacy extractions that predate marker creation.
         if (TryValidateExtractedServiceRuntimePackagePayload(extractionRoot, manifestPath, out _))
         {
             TryWriteRuntimePackageExtractionMarker(extractionCompleteMarkerPath);

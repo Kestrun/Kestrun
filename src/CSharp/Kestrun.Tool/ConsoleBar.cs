@@ -226,13 +226,13 @@ internal sealed class ConsoleProgressBar(string label, long? total, Func<long, l
     }
 
     /// <summary>
-    /// Builds a progress bar string using the default bar width.
+    /// Builds a progress bar string with the specified width. The bar is filled proportionally to the given percentage, using '#' for filled segments and '-' for unfilled segments.
+    /// The total width of the bar is determined by the 'width' parameter, and the filled portion is calculated based on the percentage of completion. The resulting string is enclosed in brackets, e.g., "[#####-----]"
+    /// for a 50% completion with a width of 10.
     /// </summary>
     /// <param name="percent">Progress percentage (0-100).</param>
+    /// <param name="width">Total width of the progress bar.</param>
     /// <returns>Progress bar text enclosed in brackets.</returns>
-    private static string BuildBar(int percent)
-        => BuildBarWithWidth(percent, ProgressBarWidth);
-
     private static string BuildBarWithWidth(int percent, int width)
     {
         var normalizedWidth = Math.Max(1, width);

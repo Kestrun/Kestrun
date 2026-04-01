@@ -39,33 +39,35 @@ internal static partial class Program
     {
         runtimePackageLayout = default!;
 
-        var hasExplicitRuntimeOverride =
-            !string.IsNullOrWhiteSpace(runtimeSource)
-            || !string.IsNullOrWhiteSpace(runtimePackage)
-            || !string.IsNullOrWhiteSpace(runtimeVersion)
-            || !string.IsNullOrWhiteSpace(runtimePackageId)
-            || !string.IsNullOrWhiteSpace(runtimeCache);
+        var hasExplicitRuntimeOverride = HasExplicitRuntimeOverride(
+            runtimeSource,
+            runtimePackage,
+            runtimeVersion,
+            runtimePackageId,
+            runtimeCache);
 
         if (!TryGetServiceRuntimeRid(out var rid, out error))
         {
             return false;
         }
 
-        var effectivePackageId = string.IsNullOrWhiteSpace(runtimePackageId)
-            ? $"{RuntimePackageIdPrefix}.{rid}"
-            : runtimePackageId.Trim();
+        var effectivePackageId = GetEffectiveRuntimePackageId(rid, runtimePackageId);
+        var requestedVersion = NormalizeRuntimeVersion(runtimeVersion);
 
         if (!TryResolveRuntimeCacheRoot(runtimeCache, out var cacheRoot, out error))
         {
             return allowToolDistributionFallback && !hasExplicitRuntimeOverride && TryResolveServiceRuntimePackageFromToolDistribution(rid, requireModules, out runtimePackageLayout);
         }
 
+        // When an explicit runtime package path is provided, attempt to resolve it directly without involving source or cache resolution,
+        // since the intent is clear and this avoids unexpected results from misconfigured source/cache arguments.
+        // If this fails, do not proceed with source/cache resolution to avoid further unexpected results and instead return the explicit resolution error to the user for corrective action.
         if (!string.IsNullOrWhiteSpace(runtimePackage))
         {
             return TryResolveServiceRuntimePackageFromExplicitPackage(
                 rid,
                 effectivePackageId,
-                string.IsNullOrWhiteSpace(runtimeVersion) ? null : runtimeVersion.Trim(),
+                requestedVersion,
                 runtimePackage,
                 cacheRoot,
                 requireModules,
@@ -73,10 +75,12 @@ internal static partial class Program
                 out error);
         }
 
+        // When a direct runtime source is provided, attempt to resolve it as a local package path or a direct URL before proceeding with normal cache/source resolution.
+        // This allows users to specify direct overrides without needing to also configure the cache or sources, and avoids unexpected cache/source resolution when the intent is to use a specific provided package.
         if (TryResolveServiceRuntimePackageFromDirectSource(
                 rid,
                 effectivePackageId,
-                string.IsNullOrWhiteSpace(runtimeVersion) ? null : runtimeVersion.Trim(),
+                requestedVersion,
                 runtimeSource,
                 cacheRoot,
                 bearerToken,
@@ -90,14 +94,107 @@ internal static partial class Program
             return true;
         }
 
+        // If the runtime source was treated as a direct package source but failed to resolve, do not proceed with source/cache resolution to avoid unexpected results from misconfigured source arguments
+        // (e.g. a URL missing the package file name or a directory missing the expected package file).
         if (runtimeSourceWasDirect)
         {
             return false;
         }
 
-        var effectiveVersion = string.IsNullOrWhiteSpace(runtimeVersion)
+        // When no direct source overrides are provided or the direct source fails to resolve, proceed with normal resolution from cache and configured sources.
+        return TryResolveServiceRuntimePackageFromCacheOrSources(
+            rid,
+            effectivePackageId,
+            requestedVersion,
+            runtimeSource,
+            cacheRoot,
+            bearerToken,
+            customHeaders,
+            ignoreCertificate,
+            requireModules,
+            allowToolDistributionFallback,
+            hasExplicitRuntimeOverride,
+            out runtimePackageLayout,
+            out error);
+    }
+
+    /// <summary>
+    /// Determines whether any runtime-resolution override was provided explicitly.
+    /// </summary>
+    /// <param name="runtimeSource">Optional runtime package source override.</param>
+    /// <param name="runtimePackage">Optional explicit runtime package path.</param>
+    /// <param name="runtimeVersion">Optional runtime package version override.</param>
+    /// <param name="runtimePackageId">Optional runtime package id override.</param>
+    /// <param name="runtimeCache">Optional runtime cache directory override.</param>
+    /// <returns>True when at least one runtime override argument was supplied.</returns>
+    private static bool HasExplicitRuntimeOverride(
+        string? runtimeSource,
+        string? runtimePackage,
+        string? runtimeVersion,
+        string? runtimePackageId,
+        string? runtimeCache)
+        => !string.IsNullOrWhiteSpace(runtimeSource)
+            || !string.IsNullOrWhiteSpace(runtimePackage)
+            || !string.IsNullOrWhiteSpace(runtimeVersion)
+            || !string.IsNullOrWhiteSpace(runtimePackageId)
+            || !string.IsNullOrWhiteSpace(runtimeCache);
+
+    /// <summary>
+    /// Resolves the effective runtime package id for the current RID.
+    /// </summary>
+    /// <param name="rid">Resolved runtime identifier.</param>
+    /// <param name="runtimePackageId">Optional runtime package id override.</param>
+    /// <returns>Effective package id.</returns>
+    private static string GetEffectiveRuntimePackageId(string rid, string? runtimePackageId)
+        => string.IsNullOrWhiteSpace(runtimePackageId)
+            ? $"{RuntimePackageIdPrefix}.{rid}"
+            : runtimePackageId.Trim();
+
+    /// <summary>
+    /// Normalizes an optional runtime package version override.
+    /// </summary>
+    /// <param name="runtimeVersion">Optional runtime package version override.</param>
+    /// <returns>Trimmed runtime version, or null when unspecified.</returns>
+    private static string? NormalizeRuntimeVersion(string? runtimeVersion)
+        => string.IsNullOrWhiteSpace(runtimeVersion) ? null : runtimeVersion.Trim();
+
+    /// <summary>
+    /// Resolves a runtime payload using extracted cache entries, configured sources, and optional tool fallback.
+    /// </summary>
+    /// <param name="rid">Runtime identifier.</param>
+    /// <param name="effectivePackageId">Effective package id.</param>
+    /// <param name="requestedVersion">Optional requested package version override.</param>
+    /// <param name="runtimeSource">Optional runtime source override.</param>
+    /// <param name="cacheRoot">Resolved runtime cache root.</param>
+    /// <param name="bearerToken">Optional bearer token for HTTP sources.</param>
+    /// <param name="customHeaders">Optional custom headers for HTTP sources.</param>
+    /// <param name="ignoreCertificate">True to allow insecure HTTPS for HTTP sources.</param>
+    /// <param name="requireModules">True when bundled modules are required.</param>
+    /// <param name="allowToolDistributionFallback">True to allow staged tool fallback when package acquisition fails.</param>
+    /// <param name="hasExplicitRuntimeOverride">True when explicit runtime-resolution overrides were provided.</param>
+    /// <param name="runtimePackageLayout">Resolved runtime payload layout.</param>
+    /// <param name="error">Resolution error details.</param>
+    /// <returns>True when a usable runtime payload is available.</returns>
+    private static bool TryResolveServiceRuntimePackageFromCacheOrSources(
+        string rid,
+        string effectivePackageId,
+        string? requestedVersion,
+        string? runtimeSource,
+        string cacheRoot,
+        string? bearerToken,
+        string[] customHeaders,
+        bool ignoreCertificate,
+        bool requireModules,
+        bool allowToolDistributionFallback,
+        bool hasExplicitRuntimeOverride,
+        out ResolvedServiceRuntimePackage runtimePackageLayout,
+        out string error)
+    {
+        runtimePackageLayout = default!;
+
+        var effectiveVersion = string.IsNullOrWhiteSpace(requestedVersion)
             ? GetDefaultServiceRuntimePackageVersion()
-            : runtimeVersion.Trim();
+            : requestedVersion;
 
         if (string.IsNullOrWhiteSpace(effectiveVersion))
         {
@@ -260,15 +357,79 @@ internal static partial class Program
     {
         runtimePackageLayout = default!;
 
-        var packagePath = Path.GetFullPath(runtimePackage);
+        if (!TryLoadAndValidateExplicitRuntimePackage(
+                rid,
+                expectedPackageId,
+                expectedVersion,
+                runtimePackage,
+                out var packagePath,
+                out var packageBytes,
+                out var packageId,
+                out var packageVersion,
+                out error))
+        {
+            return false;
+        }
+
+        var effectivePackagePath = TryPrepareExplicitRuntimePackageCacheEntry(
+            packagePath,
+            cacheRoot,
+            packageId,
+            packageVersion,
+            out _);
+
+        var packageHash = Convert.ToHexString(SHA256.HashData(packageBytes))[..12].ToLowerInvariant();
+        var extractionRoot = Path.Combine(cacheRoot, "expanded", SanitizePathToken(packageId), $"{packageVersion}-{packageHash}");
+        return TryPrepareResolvedServiceRuntimePackage(
+            rid,
+            packageId,
+            packageVersion,
+            effectivePackagePath,
+            packageBytes,
+            extractionRoot,
+            requireModules,
+            out runtimePackageLayout,
+            out error);
+    }
+
+    /// <summary>
+    /// Loads an explicit runtime package and validates its identity metadata against expected values.
+    /// </summary>
+    /// <param name="rid">Runtime identifier.</param>
+    /// <param name="expectedPackageId">Expected package id.</param>
+    /// <param name="expectedVersion">Optional expected package version.</param>
+    /// <param name="runtimePackage">Explicit runtime package path.</param>
+    /// <param name="packagePath">Resolved absolute runtime package path.</param>
+    /// <param name="packageBytes">Runtime package bytes.</param>
+    /// <param name="packageId">Resolved package id.</param>
+    /// <param name="packageVersion">Resolved package version.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when the explicit runtime package path exists and matches expected identity metadata.</returns>
+    private static bool TryLoadAndValidateExplicitRuntimePackage(
+        string rid,
+        string expectedPackageId,
+        string? expectedVersion,
+        string runtimePackage,
+        out string packagePath,
+        out byte[] packageBytes,
+        out string packageId,
+        out string packageVersion,
+        out string error)
+    {
+        packagePath = Path.GetFullPath(runtimePackage);
+        packageBytes = [];
+        packageId = string.Empty;
+        packageVersion = string.Empty;
+        error = string.Empty;
+
         if (!File.Exists(packagePath))
         {
             error = $"Runtime package file was not found: {packagePath}";
             return false;
         }
 
-        var packageBytes = File.ReadAllBytes(packagePath);
-        if (!TryReadPackageIdentity(packageBytes, out var packageId, out var packageVersion))
+        packageBytes = File.ReadAllBytes(packagePath);
+        if (!TryReadPackageIdentity(packageBytes, out packageId, out packageVersion))
         {
             error = $"Runtime package '{packagePath}' does not contain a readable nuspec id/version.";
             return false;
@@ -287,8 +448,27 @@ internal static partial class Program
             return false;
         }
 
+        return true;
+    }
+
+    /// <summary>
+    /// Creates or reuses the structured cache entry for an explicit runtime package.
+    /// </summary>
+    /// <param name="packagePath">Resolved source package path.</param>
+    /// <param name="cacheRoot">Resolved runtime cache root.</param>
+    /// <param name="packageId">Runtime package id.</param>
+    /// <param name="packageVersion">Runtime package version.</param>
+    /// <param name="cachedPackagePath">Structured cache package path.</param>
+    /// <returns>Path to use for subsequent package resolution (cached path when present; otherwise original package path).</returns>
+    private static string TryPrepareExplicitRuntimePackageCacheEntry(
+        string packagePath,
+        string cacheRoot,
+        string packageId,
+        string packageVersion,
+        out string cachedPackagePath)
+    {
         var packageFileName = $"{packageId}.{packageVersion}{RuntimePackageExtension}";
-        var cachedPackagePath = Path.Combine(cacheRoot, "packages", SanitizePathToken(packageId), packageVersion, packageFileName);
+        cachedPackagePath = Path.Combine(cacheRoot, "packages", SanitizePathToken(packageId), packageVersion, packageFileName);
         var cachedPackageDirectory = Path.GetDirectoryName(cachedPackagePath);
         if (!string.IsNullOrWhiteSpace(cachedPackageDirectory))
         {
@@ -307,19 +487,7 @@ internal static partial class Program
             }
         }
 
-        var effectivePackagePath = File.Exists(cachedPackagePath) ? cachedPackagePath : packagePath;
-        var packageHash = Convert.ToHexString(SHA256.HashData(packageBytes))[..12].ToLowerInvariant();
-        var extractionRoot = Path.Combine(cacheRoot, "expanded", SanitizePathToken(packageId), $"{packageVersion}-{packageHash}");
-        return TryPrepareResolvedServiceRuntimePackage(
-            rid,
-            packageId,
-            packageVersion,
-            effectivePackagePath,
-            packageBytes,
-            extractionRoot,
-            requireModules,
-            out runtimePackageLayout,
-            out error);
+        return File.Exists(cachedPackagePath) ? cachedPackagePath : packagePath;
     }
 
     /// <summary>
@@ -349,50 +517,27 @@ internal static partial class Program
     {
         runtimePackageLayout = default!;
 
-        var packageFileName = $"{packageId}.{packageVersion}{RuntimePackageExtension}";
-        var cachedPackagePath = Path.Combine(cacheRoot, "packages", SanitizePathToken(packageId), packageVersion, packageFileName);
-        if (!File.Exists(cachedPackagePath))
+        if (!TryEnsureCachedRuntimePackageForSource(
+                sourceCandidate,
+                packageId,
+                packageVersion,
+                cacheRoot,
+                bearerToken,
+                customHeaders,
+                ignoreCertificate,
+                out var cachedPackagePath,
+                out error))
         {
-            var packageDirectory = Path.GetDirectoryName(cachedPackagePath);
-            if (!string.IsNullOrWhiteSpace(packageDirectory))
-            {
-                _ = Directory.CreateDirectory(packageDirectory);
-            }
-
-            // Before downloading, check whether the package was placed flat in the cache root
-            // (e.g. copied there manually or left by an earlier tool version). If so, migrate it
-            // to the structured location so subsequent lookups use the normal path.
-            var flatPackagePath = Path.Combine(cacheRoot, packageFileName);
-            if (File.Exists(flatPackagePath))
-            {
-                try
-                {
-                    File.Copy(flatPackagePath, cachedPackagePath, overwrite: false);
-                }
-                catch (IOException)
-                {
-                    // Another process may have created it concurrently; continue with whatever is there.
-                }
-            }
-
-            if (!File.Exists(cachedPackagePath) && !TryAcquireRuntimePackageFromSource(sourceCandidate, packageId, packageVersion, cachedPackagePath, bearerToken, customHeaders, ignoreCertificate, out error))
-            {
-                TryCleanupEmptyRuntimePackageDirectory(packageDirectory, cacheRoot);
-                return false;
-            }
-        }
-
-        var packageBytes = File.ReadAllBytes(cachedPackagePath);
-        if (!TryReadPackageIdentity(packageBytes, out var resolvedPackageId, out var resolvedPackageVersion))
-        {
-            error = $"Runtime package '{cachedPackagePath}' does not contain a readable nuspec id/version.";
             return false;
         }
 
-        if (!string.Equals(resolvedPackageId, packageId, StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(resolvedPackageVersion, packageVersion, StringComparison.OrdinalIgnoreCase))
+        if (!TryLoadAndValidateCachedRuntimePackage(
+                cachedPackagePath,
+                packageId,
+                packageVersion,
+                out var packageBytes,
+                out error))
         {
-            error = $"Runtime package '{cachedPackagePath}' resolved to '{resolvedPackageId}' version '{resolvedPackageVersion}', but '{packageId}' version '{packageVersion}' was requested.";
             return false;
         }
 
@@ -407,6 +552,108 @@ internal static partial class Program
             requireModules,
             out runtimePackageLayout,
             out error);
+    }
+
+    /// <summary>
+    /// Ensures a source-provided runtime package exists in the structured cache location.
+    /// </summary>
+    /// <param name="sourceCandidate">Source candidate (directory or URL).</param>
+    /// <param name="packageId">Package id.</param>
+    /// <param name="packageVersion">Package version.</param>
+    /// <param name="cacheRoot">Cache root path.</param>
+    /// <param name="bearerToken">Optional bearer token for HTTP sources.</param>
+    /// <param name="customHeaders">Optional custom headers for HTTP sources.</param>
+    /// <param name="ignoreCertificate">True to allow insecure HTTPS for HTTP sources.</param>
+    /// <param name="cachedPackagePath">Resolved structured cache package path.</param>
+    /// <param name="error">Acquisition error details.</param>
+    /// <returns>True when the requested package is present in the structured cache path.</returns>
+    private static bool TryEnsureCachedRuntimePackageForSource(
+        string sourceCandidate,
+        string packageId,
+        string packageVersion,
+        string cacheRoot,
+        string? bearerToken,
+        string[] customHeaders,
+        bool ignoreCertificate,
+        out string cachedPackagePath,
+        out string error)
+    {
+        error = string.Empty;
+        var packageFileName = $"{packageId}.{packageVersion}{RuntimePackageExtension}";
+        cachedPackagePath = Path.Combine(cacheRoot, "packages", SanitizePathToken(packageId), packageVersion, packageFileName);
+        if (File.Exists(cachedPackagePath))
+        {
+            return true;
+        }
+
+        var packageDirectory = Path.GetDirectoryName(cachedPackagePath);
+        if (!string.IsNullOrWhiteSpace(packageDirectory))
+        {
+            _ = Directory.CreateDirectory(packageDirectory);
+        }
+
+        // Before downloading, check whether the package was placed flat in the cache root
+        // (e.g. copied there manually or left by an earlier tool version). If so, migrate it
+        // to the structured location so subsequent lookups use the normal path.
+        var flatPackagePath = Path.Combine(cacheRoot, packageFileName);
+        if (File.Exists(flatPackagePath))
+        {
+            try
+            {
+                File.Copy(flatPackagePath, cachedPackagePath, overwrite: false);
+            }
+            catch (IOException)
+            {
+                // Another process may have created it concurrently; continue with whatever is there.
+            }
+        }
+
+        if (File.Exists(cachedPackagePath))
+        {
+            return true;
+        }
+
+        if (TryAcquireRuntimePackageFromSource(sourceCandidate, packageId, packageVersion, cachedPackagePath, bearerToken, customHeaders, ignoreCertificate, out error))
+        {
+            return true;
+        }
+
+        TryCleanupEmptyRuntimePackageDirectory(packageDirectory, cacheRoot);
+        return false;
+    }
+
+    /// <summary>
+    /// Loads and validates identity metadata for a cached runtime package.
+    /// </summary>
+    /// <param name="cachedPackagePath">Structured cache package path.</param>
+    /// <param name="packageId">Expected package id.</param>
+    /// <param name="packageVersion">Expected package version.</param>
+    /// <param name="packageBytes">Cached package bytes.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when the cached package exists and matches the requested id/version.</returns>
+    private static bool TryLoadAndValidateCachedRuntimePackage(
+        string cachedPackagePath,
+        string packageId,
+        string packageVersion,
+        out byte[] packageBytes,
+        out string error)
+    {
+        packageBytes = File.ReadAllBytes(cachedPackagePath);
+        if (!TryReadPackageIdentity(packageBytes, out var resolvedPackageId, out var resolvedPackageVersion))
+        {
+            error = $"Runtime package '{cachedPackagePath}' does not contain a readable nuspec id/version.";
+            return false;
+        }
+
+        if (!string.Equals(resolvedPackageId, packageId, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(resolvedPackageVersion, packageVersion, StringComparison.OrdinalIgnoreCase))
+        {
+            error = $"Runtime package '{cachedPackagePath}' resolved to '{resolvedPackageId}' version '{resolvedPackageVersion}', but '{packageId}' version '{packageVersion}' was requested.";
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
     }
 
     /// <summary>
@@ -882,25 +1129,32 @@ internal static partial class Program
             return;
         }
 
-        var packagesRoot = Path.Combine(cacheRoot, "packages");
-        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        var currentDirectory = Path.GetFullPath(packageDirectory);
-        var normalizedPackagesRoot = Path.GetFullPath(packagesRoot);
-
-        while (currentDirectory.StartsWith(normalizedPackagesRoot, comparison) && Directory.Exists(currentDirectory))
+        try
         {
-            if (Directory.EnumerateFileSystemEntries(currentDirectory).Any())
-            {
-                break;
-            }
+            var packagesRoot = Path.Combine(cacheRoot, "packages");
+            var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+            var currentDirectory = Path.GetFullPath(packageDirectory);
+            var normalizedPackagesRoot = Path.GetFullPath(packagesRoot);
 
-            Directory.Delete(currentDirectory, recursive: false);
-            if (string.Equals(currentDirectory, normalizedPackagesRoot, comparison))
+            while (currentDirectory.StartsWith(normalizedPackagesRoot, comparison) && Directory.Exists(currentDirectory))
             {
-                break;
-            }
+                if (Directory.EnumerateFileSystemEntries(currentDirectory).Any())
+                {
+                    break;
+                }
 
-            currentDirectory = Path.GetDirectoryName(currentDirectory) ?? string.Empty;
+                Directory.Delete(currentDirectory, recursive: false);
+                if (string.Equals(currentDirectory, normalizedPackagesRoot, comparison))
+                {
+                    break;
+                }
+
+                currentDirectory = Path.GetDirectoryName(currentDirectory) ?? string.Empty;
+            }
+        }
+        catch
+        {
+            // Best-effort cleanup only. Runtime package resolution should continue even when cache cleanup fails.
         }
     }
 
@@ -1191,8 +1445,10 @@ internal static partial class Program
     {
         error = string.Empty;
         var manifestPath = Path.Combine(extractionRoot, RuntimePackageManifestFileName);
-        if (File.Exists(manifestPath))
+        var extractionCompleteMarkerPath = Path.Combine(extractionRoot, RuntimePackageExtractionCompleteMarkerFileName);
+        if (TryValidateExtractedServiceRuntimePackagePayload(extractionRoot, manifestPath, out _))
         {
+            TryWriteRuntimePackageExtractionMarker(extractionCompleteMarkerPath);
             return true;
         }
 
@@ -1204,12 +1460,22 @@ internal static partial class Program
             }
 
             _ = Directory.CreateDirectory(extractionRoot);
-            using var packageStream = new MemoryStream(packageBytes, writable: false);
             var temporaryPackagePath = Path.Combine(extractionRoot, $"payload{RuntimePackageExtension}");
             File.WriteAllBytes(temporaryPackagePath, packageBytes);
             try
             {
-                return TryExtractZipArchiveSafely(temporaryPackagePath, extractionRoot, out error);
+                if (!TryExtractZipArchiveSafely(temporaryPackagePath, extractionRoot, out error))
+                {
+                    return false;
+                }
+
+                if (!TryValidateExtractedServiceRuntimePackagePayload(extractionRoot, manifestPath, out error))
+                {
+                    return false;
+                }
+
+                TryWriteRuntimePackageExtractionMarker(extractionCompleteMarkerPath);
+                return true;
             }
             finally
             {
@@ -1220,6 +1486,101 @@ internal static partial class Program
         {
             error = $"Failed to extract runtime package into '{extractionRoot}': {ex.Message}";
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Validates the required structure of an extracted runtime package payload.
+    /// </summary>
+    /// <param name="extractionRoot">Extraction root path.</param>
+    /// <param name="manifestPath">Runtime package manifest path.</param>
+    /// <param name="error">Validation error details.</param>
+    /// <returns>True when the extracted payload is structurally complete.</returns>
+    private static bool TryValidateExtractedServiceRuntimePackagePayload(string extractionRoot, string manifestPath, out string error)
+    {
+        error = string.Empty;
+
+        if (!Directory.Exists(extractionRoot))
+        {
+            error = $"Runtime extraction root '{extractionRoot}' does not exist.";
+            return false;
+        }
+
+        if (!File.Exists(manifestPath))
+        {
+            error = $"Runtime package manifest '{manifestPath}' was not found in extraction root '{extractionRoot}'.";
+            return false;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(manifestPath, Encoding.UTF8));
+            var root = document.RootElement;
+
+            var hostPath = ResolveRuntimePackageHostPath(extractionRoot, root);
+            if (!File.Exists(hostPath))
+            {
+                error = $"Runtime package host executable '{hostPath}' was not found in extraction root '{extractionRoot}'.";
+                return false;
+            }
+
+            if (root.TryGetProperty("modulesPath", out var modulesPathProperty))
+            {
+                var modulesPath = modulesPathProperty.GetString();
+                if (!string.IsNullOrWhiteSpace(modulesPath))
+                {
+                    var resolvedModulesPath = Path.GetFullPath(Path.Combine(extractionRoot, modulesPath.Replace('/', Path.DirectorySeparatorChar)));
+                    if (!Directory.Exists(resolvedModulesPath))
+                    {
+                        error = $"Runtime package modules directory '{resolvedModulesPath}' was not found in extraction root '{extractionRoot}'.";
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = $"Failed to validate runtime package extraction at '{extractionRoot}': {ex.Message}";
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the expected service host executable path from the runtime manifest.
+    /// </summary>
+    /// <param name="extractionRoot">Extraction root path.</param>
+    /// <param name="manifestRoot">Runtime manifest root element.</param>
+    /// <returns>Resolved host executable path.</returns>
+    private static string ResolveRuntimePackageHostPath(string extractionRoot, JsonElement manifestRoot)
+    {
+        if (manifestRoot.TryGetProperty("entryPoint", out var entryPointProperty))
+        {
+            var entryPoint = entryPointProperty.GetString();
+            if (!string.IsNullOrWhiteSpace(entryPoint))
+            {
+                return Path.GetFullPath(Path.Combine(extractionRoot, entryPoint.Replace('/', Path.DirectorySeparatorChar)));
+            }
+        }
+
+        var hostBinaryName = OperatingSystem.IsWindows() ? "kestrun-service-host.exe" : "kestrun-service-host";
+        return Path.Combine(extractionRoot, "host", hostBinaryName);
+    }
+
+    /// <summary>
+    /// Writes an extraction-complete marker file for extracted runtime payloads.
+    /// </summary>
+    /// <param name="markerPath">Marker file path.</param>
+    private static void TryWriteRuntimePackageExtractionMarker(string markerPath)
+    {
+        try
+        {
+            File.WriteAllText(markerPath, "ok", Encoding.UTF8);
+        }
+        catch
+        {
+            // Marker creation is opportunistic; payload validation remains authoritative.
         }
     }
 

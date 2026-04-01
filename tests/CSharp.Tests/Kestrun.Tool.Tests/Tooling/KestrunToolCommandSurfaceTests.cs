@@ -910,7 +910,10 @@ public class KestrunToolCommandSurfaceTests
 
             Assert.True(success, error);
             Assert.NotNull(runtimePackage);
-            Assert.Equal(packagePath, GetRecordField(runtimePackage, "PackagePath"));
+            var resolvedPackagePath = GetRecordField(runtimePackage, "PackagePath");
+            Assert.False(string.IsNullOrWhiteSpace(resolvedPackagePath));
+            Assert.EndsWith($"{packageId}.{packageVersion}.nupkg", resolvedPackagePath, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+            Assert.True(File.Exists(resolvedPackagePath));
             Assert.Equal(packageVersion, GetRecordField(runtimePackage, "PackageVersion"));
             Assert.EndsWith(Path.Combine("host", OperatingSystem.IsWindows() ? "kestrun-service-host.exe" : "kestrun-service-host"), GetRecordField(runtimePackage, "ServiceHostExecutablePath"), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
         }
@@ -952,8 +955,90 @@ public class KestrunToolCommandSurfaceTests
 
             Assert.True(success, error);
             Assert.NotNull(runtimePackage);
-            Assert.Equal(packagePath, GetRecordField(runtimePackage, "PackagePath"));
+            var resolvedPackagePath = GetRecordField(runtimePackage, "PackagePath");
+            Assert.False(string.IsNullOrWhiteSpace(resolvedPackagePath));
+            Assert.EndsWith($"{packageId}.{packageVersion}.nupkg", resolvedPackagePath, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+            Assert.True(File.Exists(resolvedPackagePath));
             Assert.Equal(packageVersion, GetRecordField(runtimePackage, "PackageVersion"));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceRuntimePackage_WithPartialExtractedPayload_ReextractsAndSucceeds()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-partial-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = "9.9.9-test";
+            var packagePath = Path.Combine(tempRoot, $"{packageId}.{packageVersion}.nupkg");
+            var cacheRoot = Path.Combine(tempRoot, "cache");
+
+            CreateRuntimePackageForTests(tempRoot, packagePath, packageId, packageVersion, rid);
+
+            var (firstSuccess, firstRuntimePackage, firstError) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: packagePath,
+                runtimePackage: null,
+                runtimeVersion: null,
+                runtimePackageId: packageId,
+                runtimeCache: cacheRoot,
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.True(firstSuccess, firstError);
+            Assert.NotNull(firstRuntimePackage);
+
+            var extractionRoot = GetRecordField(firstRuntimePackage!, "ExtractionRoot");
+            var extractedHostPath = GetRecordField(firstRuntimePackage!, "ServiceHostExecutablePath");
+            var extractedModulesPath = GetRecordField(firstRuntimePackage!, "ModulesPath");
+            Assert.False(string.IsNullOrWhiteSpace(extractionRoot));
+            Assert.False(string.IsNullOrWhiteSpace(extractedHostPath));
+            Assert.False(string.IsNullOrWhiteSpace(extractedModulesPath));
+            Assert.True(File.Exists(extractedHostPath));
+            Assert.True(Directory.Exists(extractedModulesPath));
+
+            File.Delete(extractedHostPath);
+            Assert.False(File.Exists(extractedHostPath));
+            Assert.True(File.Exists(Path.Combine(extractionRoot, "runtime-manifest.json")));
+
+            var (secondSuccess, secondRuntimePackage, secondError) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: packagePath,
+                runtimePackage: null,
+                runtimeVersion: null,
+                runtimePackageId: packageId,
+                runtimeCache: cacheRoot,
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.True(secondSuccess, secondError);
+            Assert.NotNull(secondRuntimePackage);
+
+            var recoveredHostPath = GetRecordField(secondRuntimePackage!, "ServiceHostExecutablePath");
+            var recoveredModulesPath = GetRecordField(secondRuntimePackage!, "ModulesPath");
+            var recoveredExtractionRoot = GetRecordField(secondRuntimePackage!, "ExtractionRoot");
+            Assert.False(string.IsNullOrWhiteSpace(recoveredHostPath));
+            Assert.False(string.IsNullOrWhiteSpace(recoveredModulesPath));
+            Assert.False(string.IsNullOrWhiteSpace(recoveredExtractionRoot));
+
+            Assert.True(File.Exists(recoveredHostPath));
+            Assert.True(Directory.Exists(recoveredModulesPath));
+            Assert.Equal("host-binary", File.ReadAllText(recoveredHostPath, Encoding.UTF8));
+            Assert.True(File.Exists(Path.Combine(recoveredExtractionRoot, ".runtime-extraction-complete")));
         }
         finally
         {
@@ -995,6 +1080,29 @@ public class KestrunToolCommandSurfaceTests
 
             var expectedPackageDirectory = Path.Combine(cacheRoot, "packages", packageId, packageVersion);
             Assert.False(Directory.Exists(expectedPackageDirectory));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryCleanupEmptyRuntimePackageDirectory_WithInvalidPath_DoesNotThrow()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-cleanup-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var invalidPath = "invalid\0path";
+
+            // Cleanup is best-effort and must never propagate path/IO errors.
+            InvokeVoid("TryCleanupEmptyRuntimePackageDirectory", invalidPath, tempRoot);
         }
         finally
         {
@@ -3308,10 +3416,10 @@ public class KestrunToolCommandSurfaceTests
     {
         var method = GetRequiredProgramMethod("TryResolveServiceRuntimePackage");
 
-        var values = new object?[] { runtimeSource, runtimePackage, runtimeVersion, runtimePackageId, runtimeCache, bearerToken, customHeaders, ignoreCertificate, requireModules, null, null };
+        var values = new object?[] { runtimeSource, runtimePackage, runtimeVersion, runtimePackageId, runtimeCache, bearerToken, customHeaders, ignoreCertificate, requireModules, false, null, null };
         var success = InvokeRequiredBool(method, values);
-        var error = values[10]?.ToString() ?? string.Empty;
-        return (success, values[9], error);
+        var error = values[11]?.ToString() ?? string.Empty;
+        return (success, values[10], error);
     }
 
     private static string InvokeGetDefaultRuntimeCacheRoot()
@@ -3440,11 +3548,11 @@ public class KestrunToolCommandSurfaceTests
     private static object InvokeRequiredResolvedRuntimePackage()
     {
         var method = GetRequiredProgramMethod("TryResolveServiceRuntimePackage");
-        var values = new object?[] { null, null, null, null, null, null, Array.Empty<string>(), false, true, null, null };
+        var values = new object?[] { null, null, null, null, null, null, Array.Empty<string>(), false, true, true, null, null };
         var success = InvokeRequiredBool(method, values);
-        Assert.True(success, values[10]?.ToString() ?? "Failed to resolve runtime package for current test environment.");
-        Assert.NotNull(values[9]);
-        return values[9]!;
+        Assert.True(success, values[11]?.ToString() ?? "Failed to resolve runtime package for current test environment.");
+        Assert.NotNull(values[10]);
+        return values[10]!;
     }
 
     private static void CreateRuntimePackageForTests(string tempRoot, string packagePath, string packageId, string packageVersion, string rid)

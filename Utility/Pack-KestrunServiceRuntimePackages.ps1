@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Packs staged Kestrun service runtime payloads into per-RID NuGet packages.
 .DESCRIPTION

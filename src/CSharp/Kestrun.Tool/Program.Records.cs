@@ -9,6 +9,7 @@ internal static partial class Program
     private const string ServicePackageExtension = ".krpack";
     private const string RuntimePackageExtension = ".nupkg";
     private const string RuntimePackageManifestFileName = "runtime-manifest.json";
+    private const string RuntimePackageExtractionCompleteMarkerFileName = ".runtime-extraction-complete";
     private const string ModuleName = "Kestrun";
     private const string RunDefaultScriptFileName = "Service.ps1";
     private const string ServiceDefaultScriptFileName = "Service.ps1";

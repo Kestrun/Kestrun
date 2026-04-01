@@ -4887,7 +4887,7 @@ internal static partial class Program
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseArguments(string[] args, out ParsedCommand parsedCommand, out string error)
     {
-        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, false, [], null, null, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
+        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, false, [], null, null, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, null, null, null, null, null, false, [], false, false, false, false);
         if (args.Length == 0)
         {
             error = $"No command provided. Use '{ProductName} help' to list commands.";
@@ -5018,7 +5018,7 @@ internal static partial class Program
             return TryParseModuleArguments(args, commandTokenIndex + 1, out parsedCommand, out error);
         }
 
-        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, false, [], null, null, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
+        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, false, [], null, null, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, null, null, null, null, null, false, [], false, false, false, false);
         error = $"Unknown command: {commandToken}. Use '{ProductName} help' to list commands.";
         return false;
     }
@@ -5199,7 +5199,7 @@ internal static partial class Program
 
             case "service":
                 Console.WriteLine("Usage:");
-                Console.WriteLine("  kestrun [--nocheck] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --package <path-or-url-to-.krpack> [--service-log-path <path-to-log-file>] [--service-user <account>] [--service-password <password>] [--deployment-root <folder>] [--content-root-checksum <hex>] [--content-root-checksum-algorithm <name>] [--content-root-bearer-token <token>] [--content-root-header <name:value> ...] [--content-root-ignore-certificate] [--arguments <script arguments...>]");
+                Console.WriteLine("  kestrun [--nocheck] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --package <path-or-url-to-.krpack> [--service-log-path <path-to-log-file>] [--service-user <account>] [--service-password <password>] [--deployment-root <folder>] [--runtime-source <path-or-url>] [--runtime-package <path-to-.nupkg>] [--runtime-version <version>] [--runtime-package-id <package-id>] [--runtime-cache <folder>] [--content-root-checksum <hex>] [--content-root-checksum-algorithm <name>] [--content-root-bearer-token <token>] [--content-root-header <name:value> ...] [--content-root-ignore-certificate] [--arguments <script arguments...>]");
                 Console.WriteLine("  kestrun [--nocheck] service update --name <service-name> [--package <path-or-url-to-.krpack>] [--kestrun | --kestrun-module <path-to-Kestrun.psd1-or-folder> | --kestrun-manifest <path-to-Kestrun.psd1-or-folder>] [--deployment-root <folder>] [--content-root-checksum <hex>] [--content-root-checksum-algorithm <name>] [--content-root-bearer-token <token>] [--content-root-header <name:value> ...] [--content-root-ignore-certificate] [--failback]");
                 Console.WriteLine("  kestrun service remove --name <service-name>");
                 Console.WriteLine("  kestrun service start --name <service-name> [--json | --raw]");
@@ -5215,6 +5215,11 @@ internal static partial class Program
                 Console.WriteLine("  --content-root-header <name:value>  Add custom HTTP request header for HTTP(S) package download. Repeatable.");
                 Console.WriteLine("  --content-root-ignore-certificate  Ignore HTTPS certificate validation for package download (insecure).");
                 Console.WriteLine("  --deployment-root <folder>  Override where per-service bundles are created (default is OS-specific).");
+                Console.WriteLine("  --runtime-source <path-or-url>  Override runtime acquisition using a local folder, local .nupkg, direct .nupkg URL, NuGet service index, or flat-container base URL.");
+                Console.WriteLine("  --runtime-package <path>    Use an explicit local Kestrun.Service.<rid> .nupkg for offline installs.");
+                Console.WriteLine("  --runtime-version <version> Override the runtime package version (defaults to the current tool version).");
+                Console.WriteLine("  --runtime-package-id <id>   Override the runtime package id (defaults to Kestrun.Service.<rid>).");
+                Console.WriteLine("  --runtime-cache <folder>    Override the local runtime package cache directory.");
                 Console.WriteLine("  --kestrun-manifest <path>   Use an explicit Kestrun.psd1 manifest for the service runtime.");
                 Console.WriteLine("  --service-log-path <path>   Set service bootstrap/operation log file path.");
                 Console.WriteLine("  --service-user <account>    Run installed service/daemon under a specific OS account.");
@@ -5236,13 +5241,15 @@ internal static partial class Program
                 Console.WriteLine("  - Service name and entry point are read from Service.psd1 in the package.");
                 Console.WriteLine("  - Service.psd1 requires FormatVersion='1.0', Name, EntryPoint, and Description.");
                 Console.WriteLine("  - Package file must use .krpack extension and contain zip content.");
+                Console.WriteLine("  - install resolves a runtime package for the current RID using Kestrun.Service.<rid> packages and caches extracted payloads locally.");
+                Console.WriteLine("  - use --runtime-package for offline installs or --runtime-source to point at a local feed/NuGet endpoint.");
                 Console.WriteLine("  - --content-root-checksum is validated against the package file before extraction.");
-                Console.WriteLine("  - --content-root-bearer-token is only used for HTTP(S) package URLs.");
-                Console.WriteLine("  - --content-root-header is only used for HTTP(S) package URLs and can be supplied multiple times.");
-                Console.WriteLine("  - --content-root-ignore-certificate applies only to HTTPS package URLs and is insecure.");
+                Console.WriteLine("  - --content-root-bearer-token is used for HTTP(S) package URLs and HTTP(S) runtime-source downloads.");
+                Console.WriteLine("  - --content-root-header is used for HTTP(S) package URLs and HTTP(S) runtime-source downloads; it can be supplied multiple times.");
+                Console.WriteLine("  - --content-root-ignore-certificate applies only to HTTPS package URLs/runtime-source URLs and is insecure.");
                 Console.WriteLine("  - --deployment-root overrides the OS default bundle root used during install and remove cleanup.");
                 Console.WriteLine("  - --service-user enables platform account mapping: Windows service account, Linux systemd User=, macOS LaunchDaemon UserName.");
-                Console.WriteLine("  - install snapshots runtime/module/script plus dedicated service-host from Kestrun.Tool payload into a per-service bundle before registration.");
+                Console.WriteLine("  - install snapshots runtime/module/script plus the dedicated service host from the resolved runtime package into a per-service bundle before registration.");
                 Console.WriteLine("  - install shows progress bars during bundle staging in interactive terminals.");
                 Console.WriteLine("  - bundle roots: Windows %ProgramData%\\Kestrun\\services; Linux /var/kestrun/services or /usr/local/kestrun/services (with user fallback); macOS /usr/local/kestrun/services (with user fallback).");
                 Console.WriteLine("  - remove/start/stop/query require --name and do not accept script paths.");

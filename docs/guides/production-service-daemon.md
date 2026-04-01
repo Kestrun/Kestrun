@@ -220,6 +220,24 @@ Keep the resulting hex hash for `--content-root-checksum`.
 dotnet kestrun service install --package .\my-service.krpack
 ```
 
+Use an explicit local runtime package for offline installs:
+
+```powershell
+dotnet kestrun service install --package .\my-service.krpack --runtime-package .\Kestrun.Service.win-x64.1.0.0-rc.1.nupkg
+```
+
+Use a local/private runtime feed:
+
+```powershell
+dotnet kestrun service install --package .\my-service.krpack --runtime-source .\artifacts\nuget --runtime-cache .\.kestrun-runtime-cache
+```
+
+Use a direct runtime package URL with auth headers:
+
+```powershell
+dotnet kestrun service install --package .\my-service.krpack --runtime-source https://packages.example.com/Kestrun.Service.win-x64.1.0.0-rc.1.nupkg --content-root-bearer-token <token>
+```
+
 With checksum verification:
 
 ```powershell
@@ -321,8 +339,10 @@ dotnet kestrun service start --name my-service
 ## Current Limits
 
 - `service install --package` and `service update --package` support local `.krpack` files and HTTP(S) package URLs.
-- Private package URLs can use bearer token auth via `--content-root-bearer-token`.
-- HTTPS certificate bypass is available via `--content-root-ignore-certificate` and should be used only for controlled environments.
+- `service install --package` resolves `Kestrun.Service.<rid>` for the current platform automatically.
+  Use `--runtime-package` or `--runtime-source` to override runtime acquisition.
+- Private package URLs and HTTP(S) runtime-source downloads can use bearer token auth via `--content-root-bearer-token`.
+- HTTPS certificate bypass is available via `--content-root-ignore-certificate` for package/runtime-source downloads and should be used only for controlled environments.
 
 ---
 

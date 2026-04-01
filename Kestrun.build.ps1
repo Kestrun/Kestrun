@@ -215,7 +215,7 @@ Add-BuildTask Help {
     Write-Host '- Clean: Cleans the solution.'
     Write-Host '- Restore: Restores NuGet packages.'
     Write-Host '- Build: Builds the solution.'
-    Write-Host '- Pack-KestrunTool: Packs Kestrun.Tool as a dotnet tool package (dotnet-kestrun) into artifacts/nuget using Release configuration.'
+    Write-Host '- Pack-KestrunTool: Packs Kestrun.Tool as a dotnet tool package and emits Kestrun.Service.<rid> runtime packages into artifacts/nuget using Release configuration.'
     Write-Host '- Test: Runs tests and Pester tests.'
     Write-Host '- Package: Packages the solution and includes the Kestrun dotnet tool package.'
     Write-Host '- All: Runs Clean, Build, and Test tasks in sequence.'
@@ -410,7 +410,7 @@ Add-BuildTask 'Build-KestrunTool' {
 }
 
 Add-BuildTask 'Pack-KestrunTool' 'Set-PackageConfiguration', 'Build-KestrunTool', {
-    Write-Host '📦 Packing Kestrun dotnet tool package (dotnet-kestrun)...'
+    Write-Host '📦 Packing Kestrun dotnet tool package (dotnet-kestrun) and service runtime packages...'
 
     $toolOutputDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'nuget'
     if (-not (Test-Path -Path $toolOutputDirectory)) {
@@ -419,6 +419,7 @@ Add-BuildTask 'Pack-KestrunTool' 'Set-PackageConfiguration', 'Build-KestrunTool'
 
     Remove-Item -Path (Join-Path -Path $toolOutputDirectory -ChildPath 'Kestrun.Tool*.nupkg') -Force -ErrorAction SilentlyContinue
     Remove-Item -Path (Join-Path -Path $toolOutputDirectory -ChildPath 'Kestrun.Tool*.snupkg') -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path (Join-Path -Path $toolOutputDirectory -ChildPath 'Kestrun.Service*.nupkg') -Force -ErrorAction SilentlyContinue
 
     # Build first to avoid intermittent pack-time publish artifact resolution issues.
     dotnet build "$KestrunToolProjectPath" -c $Configuration -v:$DotNetVerbosity `
@@ -445,6 +446,12 @@ Add-BuildTask 'Pack-KestrunTool' 'Set-PackageConfiguration', 'Build-KestrunTool'
         }
     }
 
+    & .\Utility\Pack-KestrunServiceRuntimePackages.ps1 `
+        -ServiceHostRuntimesDirectory $serviceHostRuntimesRoot `
+        -OutputDirectory $toolOutputDirectory `
+        -Version $Version `
+        -RuntimeIdentifiers $KestrunToolRuntimeIdentifiers
+
     dotnet pack "$KestrunToolProjectPath" --no-build -c $Configuration -o "$toolOutputDirectory" -v:$DotNetVerbosity `
         -p:Version=$Version -p:InformationalVersion=$VersionDetails.InformationalVersion
     if ($LASTEXITCODE -ne 0) {
@@ -452,6 +459,7 @@ Add-BuildTask 'Pack-KestrunTool' 'Set-PackageConfiguration', 'Build-KestrunTool'
     }
 
     Write-Host "✅ Kestrun dotnet tool package created in: $toolOutputDirectory"
+    Write-Host "✅ Kestrun service runtime packages created in: $toolOutputDirectory"
     Write-Host "   Install with: dotnet tool install --global Kestrun.Tool --add-source $toolOutputDirectory"
     Write-Host '   Run with: dotnet kestrun help'
 }

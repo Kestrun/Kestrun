@@ -125,6 +125,15 @@ dotnet kestrun run --script .\Service.ps1
 # Install from a service package (.krpack)
 dotnet kestrun service install --package .\my-service.krpack
 
+# Install with an explicit local runtime package (offline)
+dotnet kestrun service install --package .\my-service.krpack --runtime-package .\Kestrun.Service.win-x64.1.0.0-rc.1.nupkg
+
+# Install using a local/private runtime feed and explicit cache root
+dotnet kestrun service install --package .\my-service.krpack --runtime-source .\artifacts\nuget --runtime-cache .\.kestrun-runtime-cache
+
+# Install from a direct runtime package URL
+dotnet kestrun service install --package .\my-service.krpack --runtime-source https://packages.example.com/Kestrun.Service.win-x64.1.0.0-rc.1.nupkg --content-root-bearer-token <token>
+
 # Install from a remote package URL
 dotnet kestrun service install --package https://downloads.example.com/my-service.krpack
 
@@ -457,6 +466,11 @@ Invoke-Build Pack-KestrunTool
 This writes the tool package to:
 
 - `artifacts/nuget/Kestrun.Tool.<version>.nupkg`
+- `artifacts/nuget/Kestrun.Service.<rid>.<version>.nupkg`
+
+`service install --package` resolves `Kestrun.Service.<rid>` for the current platform automatically.
+Use `--runtime-package` for offline installs or `--runtime-source` to target a local feed,
+direct package artifact, or NuGet endpoint.
 
 ---
 

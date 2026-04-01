@@ -76,9 +76,15 @@ Describe 'KestrunTool service command surface' {
         $result.Output | Should -Match 'service-password <secret>'
         $result.Output | Should -Match '--package <path-or-url>'
         $result.Output | Should -Match 'deployment-root <folder>'
+        $result.Output | Should -Match '--runtime-source <path-or-url>'
+        $result.Output | Should -Match '--runtime-package <path>'
+        $result.Output | Should -Match '--runtime-version <version>'
+        $result.Output | Should -Match '--runtime-package-id <id>'
+        $result.Output | Should -Match '--runtime-cache <folder>'
         $result.Output | Should -Match '--json\s+For service start/stop/query/info'
         $result.Output | Should -Match '--raw\s+For service start/stop/query'
         $result.Output | Should -Match 'shows progress bars during bundle staging'
+        $result.Output | Should -Match 'resolves a runtime package for the current RID'
     }
 
     It 'fails service install when --service-password is provided without --service-user' {

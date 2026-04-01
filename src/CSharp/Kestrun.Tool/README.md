@@ -53,6 +53,24 @@ Install a service:
 dotnet kestrun service install --package .\my-kestrun.krpack
 ```
 
+Install using an explicit offline runtime package:
+
+```powershell
+dotnet kestrun service install --package .\my-kestrun.krpack --runtime-package .\Kestrun.Service.win-x64.1.0.0-rc.1.nupkg
+```
+
+Install from a local feed with an explicit runtime cache:
+
+```powershell
+dotnet kestrun service install --package .\my-kestrun.krpack --runtime-source .\artifacts\nuget --runtime-cache .\.kestrun-runtime-cache
+```
+
+Install from a direct runtime package URL:
+
+```powershell
+dotnet kestrun service install --package .\my-kestrun.krpack --runtime-source https://packages.example.com/Kestrun.Service.win-x64.1.0.0-rc.1.nupkg --content-root-bearer-token <token>
+```
+
 Install with package checksum verification (default algorithm is SHA-256):
 
 ```powershell
@@ -162,6 +180,10 @@ dotnet kestrun service update --name my-kestrun --failback
 - `service update` creates backup folders for updated application/module/service-host content.
 - `service update --package` respects descriptor `PreservePaths` (relative file/folder paths) and restores those paths from the current
 install after package content is applied.
+- `service install --package` resolves `Kestrun.Service.<rid>` for the current platform by default.
+    Use `--runtime-package` for offline installs or `--runtime-source` to target a
+    local/private feed.
+- runtime packages are cached under an OS-specific cache root unless `--runtime-cache` is supplied.
 - `Service.psd1` example for update-safe content:
 
 ```powershell
@@ -183,9 +205,10 @@ install after package content is applied.
 otherwise it prints a skip message.
 - `service update --failback` restores from the latest backup (application/module) and removes that backup folder after restore.
 - `service install --package` expects a `.krpack` package.
-- `--content-root-bearer-token` sends bearer auth for HTTP(S) package downloads.
-- `--content-root-header <name:value>` adds custom HTTP headers for HTTP(S) package downloads and can be repeated.
-- `--content-root-ignore-certificate` skips HTTPS certificate validation for package downloads.
+- runtime package ids default to `Kestrun.Service.<rid>` and versions default to the current `Kestrun.Tool` version.
+- `--content-root-bearer-token` sends bearer auth for HTTP(S) package downloads and HTTP(S) runtime-source downloads.
+- `--content-root-header <name:value>` adds custom HTTP headers for HTTP(S) package downloads and HTTP(S) runtime-source downloads; it can be repeated.
+- `--content-root-ignore-certificate` skips HTTPS certificate validation for package downloads and runtime-source downloads.
 - `--content-root-checksum` verifies package integrity before extraction.
 - On Windows, global module operations and some service operations may require elevation.
 

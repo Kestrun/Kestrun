@@ -1004,45 +1004,24 @@ internal static partial class Program
             return false;
         }
 
-        if (File.Exists(sourceCandidate))
+        if (TryResolveDirectRuntimeSourceExistingFilePath(sourceCandidate, out packagePath, out runtimeSourceWasDirect, out error))
         {
-            if (!sourceCandidate.EndsWith(RuntimePackageExtension, StringComparison.OrdinalIgnoreCase))
-            {
-                runtimeSourceWasDirect = true;
-                error = $"Runtime source file '{sourceCandidate}' must point to a '{RuntimePackageExtension}' package.";
-                return false;
-            }
-
-            runtimeSourceWasDirect = true;
-            packagePath = Path.GetFullPath(sourceCandidate);
             return true;
         }
 
-        if (Uri.TryCreate(sourceCandidate, UriKind.Absolute, out var sourceUri)
-            && sourceUri.IsFile)
+        if (runtimeSourceWasDirect)
         {
-            runtimeSourceWasDirect = true;
-            var localPath = sourceUri.LocalPath;
-            if (Directory.Exists(localPath))
-            {
-                runtimeSourceWasDirect = false;
-                return false;
-            }
+            return false;
+        }
 
-            if (!localPath.EndsWith(RuntimePackageExtension, StringComparison.OrdinalIgnoreCase))
-            {
-                error = $"Runtime source file '{sourceCandidate}' must point to a '{RuntimePackageExtension}' package.";
-                return false;
-            }
-
-            if (!File.Exists(localPath))
-            {
-                error = $"Runtime package file was not found: {localPath}";
-                return false;
-            }
-
-            packagePath = Path.GetFullPath(localPath);
+        if (TryResolveDirectRuntimeSourceFileUri(sourceCandidate, out packagePath, out runtimeSourceWasDirect, out error))
+        {
             return true;
+        }
+
+        if (runtimeSourceWasDirect)
+        {
+            return false;
         }
 
         if (sourceCandidate.EndsWith(RuntimePackageExtension, StringComparison.OrdinalIgnoreCase)
@@ -1055,6 +1034,87 @@ internal static partial class Program
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Resolves an existing local file path as a direct runtime package source.
+    /// </summary>
+    /// <param name="sourceCandidate">Source candidate to inspect.</param>
+    /// <param name="packagePath">Resolved package path when successful.</param>
+    /// <param name="runtimeSourceWasDirect">True when the source is a direct file reference.</param>
+    /// <param name="error">Resolution error details.</param>
+    /// <returns>True when the candidate resolves to an existing local package file.</returns>
+    private static bool TryResolveDirectRuntimeSourceExistingFilePath(
+        string sourceCandidate,
+        out string packagePath,
+        out bool runtimeSourceWasDirect,
+        out string error)
+    {
+        packagePath = string.Empty;
+        error = string.Empty;
+        runtimeSourceWasDirect = false;
+
+        if (!File.Exists(sourceCandidate))
+        {
+            return false;
+        }
+
+        runtimeSourceWasDirect = true;
+        if (!sourceCandidate.EndsWith(RuntimePackageExtension, StringComparison.OrdinalIgnoreCase))
+        {
+            error = $"Runtime source file '{sourceCandidate}' must point to a '{RuntimePackageExtension}' package.";
+            return false;
+        }
+
+        packagePath = Path.GetFullPath(sourceCandidate);
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves a file URI as a direct runtime package source.
+    /// </summary>
+    /// <param name="sourceCandidate">Source candidate to inspect.</param>
+    /// <param name="packagePath">Resolved package path when successful.</param>
+    /// <param name="runtimeSourceWasDirect">True when the source was interpreted as a direct file URI reference.</param>
+    /// <param name="error">Resolution error details.</param>
+    /// <returns>True when the source resolves to a valid local package file URI.</returns>
+    private static bool TryResolveDirectRuntimeSourceFileUri(
+        string sourceCandidate,
+        out string packagePath,
+        out bool runtimeSourceWasDirect,
+        out string error)
+    {
+        packagePath = string.Empty;
+        error = string.Empty;
+        runtimeSourceWasDirect = false;
+
+        if (!Uri.TryCreate(sourceCandidate, UriKind.Absolute, out var sourceUri) || !sourceUri.IsFile)
+        {
+            return false;
+        }
+
+        runtimeSourceWasDirect = true;
+        var localPath = sourceUri.LocalPath;
+        if (Directory.Exists(localPath))
+        {
+            runtimeSourceWasDirect = false;
+            return false;
+        }
+
+        if (!localPath.EndsWith(RuntimePackageExtension, StringComparison.OrdinalIgnoreCase))
+        {
+            error = $"Runtime source file '{sourceCandidate}' must point to a '{RuntimePackageExtension}' package.";
+            return false;
+        }
+
+        if (!File.Exists(localPath))
+        {
+            error = $"Runtime package file was not found: {localPath}";
+            return false;
+        }
+
+        packagePath = Path.GetFullPath(localPath);
+        return true;
     }
 
     /// <summary>
@@ -1517,7 +1577,11 @@ internal static partial class Program
             using var document = JsonDocument.Parse(File.ReadAllText(manifestPath, Encoding.UTF8));
             var root = document.RootElement;
 
-            var hostPath = ResolveRuntimePackageHostPath(extractionRoot, root);
+            if (!TryResolveRuntimePackageHostPath(extractionRoot, manifestPath, root, out var hostPath, out error))
+            {
+                return false;
+            }
+
             if (!File.Exists(hostPath))
             {
                 error = $"Runtime package host executable '{hostPath}' was not found in extraction root '{extractionRoot}'.";
@@ -1529,7 +1593,17 @@ internal static partial class Program
                 var modulesPath = modulesPathProperty.GetString();
                 if (!string.IsNullOrWhiteSpace(modulesPath))
                 {
-                    var resolvedModulesPath = Path.GetFullPath(Path.Combine(extractionRoot, modulesPath.Replace('/', Path.DirectorySeparatorChar)));
+                    if (!TryResolveRuntimeManifestPayloadPath(
+                            extractionRoot,
+                            manifestPath,
+                            "modulesPath",
+                            modulesPath,
+                            out var resolvedModulesPath,
+                            out error))
+                    {
+                        return false;
+                    }
+
                     if (!Directory.Exists(resolvedModulesPath))
                     {
                         error = $"Runtime package modules directory '{resolvedModulesPath}' was not found in extraction root '{extractionRoot}'.";
@@ -1551,21 +1625,78 @@ internal static partial class Program
     /// Resolves the expected service host executable path from the runtime manifest.
     /// </summary>
     /// <param name="extractionRoot">Extraction root path.</param>
+    /// <param name="manifestPath">Manifest file path.</param>
     /// <param name="manifestRoot">Runtime manifest root element.</param>
-    /// <returns>Resolved host executable path.</returns>
-    private static string ResolveRuntimePackageHostPath(string extractionRoot, JsonElement manifestRoot)
+    /// <param name="hostPath">Resolved host executable path.</param>
+    /// <param name="error">Manifest validation error details.</param>
+    /// <returns>True when host path resolves inside extraction root.</returns>
+    private static bool TryResolveRuntimePackageHostPath(
+        string extractionRoot,
+        string manifestPath,
+        JsonElement manifestRoot,
+        out string hostPath,
+        out string error)
     {
+        error = string.Empty;
         if (manifestRoot.TryGetProperty("entryPoint", out var entryPointProperty))
         {
             var entryPoint = entryPointProperty.GetString();
             if (!string.IsNullOrWhiteSpace(entryPoint))
             {
-                return Path.GetFullPath(Path.Combine(extractionRoot, entryPoint.Replace('/', Path.DirectorySeparatorChar)));
+                return TryResolveRuntimeManifestPayloadPath(
+                    extractionRoot,
+                    manifestPath,
+                    "entryPoint",
+                    entryPoint,
+                    out hostPath,
+                    out error);
             }
         }
 
         var hostBinaryName = OperatingSystem.IsWindows() ? "kestrun-service-host.exe" : "kestrun-service-host";
-        return Path.Combine(extractionRoot, "host", hostBinaryName);
+        hostPath = Path.Combine(extractionRoot, "host", hostBinaryName);
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves a runtime manifest payload-relative path and validates that it remains within the extraction root.
+    /// </summary>
+    /// <param name="extractionRoot">Extraction root path.</param>
+    /// <param name="manifestPath">Manifest file path.</param>
+    /// <param name="propertyName">Manifest property name.</param>
+    /// <param name="propertyValue">Manifest property value.</param>
+    /// <param name="resolvedPath">Resolved absolute payload path.</param>
+    /// <param name="error">Manifest validation error details.</param>
+    /// <returns>True when the resolved path is anchored under extraction root.</returns>
+    private static bool TryResolveRuntimeManifestPayloadPath(
+        string extractionRoot,
+        string manifestPath,
+        string propertyName,
+        string propertyValue,
+        out string resolvedPath,
+        out string error)
+    {
+        resolvedPath = string.Empty;
+        error = string.Empty;
+
+        var normalizedExtractionRoot = Path.GetFullPath(extractionRoot);
+        var extractionRootWithSeparator = normalizedExtractionRoot.EndsWith(Path.DirectorySeparatorChar)
+            ? normalizedExtractionRoot
+            : normalizedExtractionRoot + Path.DirectorySeparatorChar;
+
+        var candidatePath = Path.GetFullPath(Path.Combine(
+            normalizedExtractionRoot,
+            propertyValue.Replace('/', Path.DirectorySeparatorChar)));
+
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        if (!candidatePath.StartsWith(extractionRootWithSeparator, comparison))
+        {
+            error = $"Runtime manifest '{manifestPath}' property '{propertyName}' resolves outside extraction root '{normalizedExtractionRoot}'.";
+            return false;
+        }
+
+        resolvedPath = candidatePath;
+        return true;
     }
 
     /// <summary>
@@ -1682,7 +1813,18 @@ internal static partial class Program
                 var entryPoint = entryPointProperty.GetString();
                 if (!string.IsNullOrWhiteSpace(entryPoint))
                 {
-                    serviceHostExecutablePath = Path.GetFullPath(Path.Combine(extractionRoot, entryPoint.Replace('/', Path.DirectorySeparatorChar)));
+                    if (!TryResolveRuntimeManifestPayloadPath(
+                            extractionRoot,
+                            manifestPath,
+                            "entryPoint",
+                            entryPoint,
+                            out var resolvedHostPath,
+                            out error))
+                    {
+                        return false;
+                    }
+
+                    serviceHostExecutablePath = resolvedHostPath;
                 }
             }
 
@@ -1691,7 +1833,18 @@ internal static partial class Program
                 var relativeModulesPath = modulesPathProperty.GetString();
                 if (!string.IsNullOrWhiteSpace(relativeModulesPath))
                 {
-                    modulesPath = Path.GetFullPath(Path.Combine(extractionRoot, relativeModulesPath.Replace('/', Path.DirectorySeparatorChar)));
+                    if (!TryResolveRuntimeManifestPayloadPath(
+                            extractionRoot,
+                            manifestPath,
+                            "modulesPath",
+                            relativeModulesPath,
+                            out var resolvedModulesPath,
+                            out error))
+                    {
+                        return false;
+                    }
+
+                    modulesPath = resolvedModulesPath;
                 }
             }
 

@@ -225,6 +225,14 @@ internal sealed class ConsoleProgressBar(string label, long? total, Func<long, l
         }
     }
 
+    /// <summary>
+    /// Builds a progress bar string using the default bar width.
+    /// </summary>
+    /// <param name="percent">Progress percentage (0-100).</param>
+    /// <returns>Progress bar text enclosed in brackets.</returns>
+    private static string BuildBar(int percent)
+        => BuildBarWithWidth(percent, ProgressBarWidth);
+
     private static string BuildBarWithWidth(int percent, int width)
     {
         var normalizedWidth = Math.Max(1, width);

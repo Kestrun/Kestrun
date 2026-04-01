@@ -1051,6 +1051,98 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryResolveServiceRuntimePackage_WithManifestEntryPointOutsideExtractionRoot_Fails()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-escape-entry-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = "9.9.9-test";
+            var packagePath = Path.Combine(tempRoot, $"{packageId}.{packageVersion}.nupkg");
+
+            CreateRuntimePackageForTests(
+                tempRoot,
+                packagePath,
+                packageId,
+                packageVersion,
+                rid,
+                manifestEntryPoint: "../outside-host");
+
+            var (success, _, error) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: packagePath,
+                runtimePackage: null,
+                runtimeVersion: null,
+                runtimePackageId: packageId,
+                runtimeCache: Path.Combine(tempRoot, "cache"),
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.False(success);
+            Assert.Contains("entryPoint", error, StringComparison.Ordinal);
+            Assert.Contains("resolves outside extraction root", error, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceRuntimePackage_WithManifestModulesPathOutsideExtractionRoot_Fails()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-escape-modules-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = "9.9.9-test";
+            var packagePath = Path.Combine(tempRoot, $"{packageId}.{packageVersion}.nupkg");
+
+            CreateRuntimePackageForTests(
+                tempRoot,
+                packagePath,
+                packageId,
+                packageVersion,
+                rid,
+                manifestModulesPath: "../outside-modules");
+
+            var (success, _, error) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: packagePath,
+                runtimePackage: null,
+                runtimeVersion: null,
+                runtimePackageId: packageId,
+                runtimeCache: Path.Combine(tempRoot, "cache"),
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.False(success);
+            Assert.Contains("modulesPath", error, StringComparison.Ordinal);
+            Assert.Contains("resolves outside extraction root", error, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void TryResolveServiceRuntimePackage_WithMissingLocalRuntimeSource_DoesNotLeaveEmptyCacheDirectories()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-missing-source-{Guid.NewGuid():N}");
@@ -3555,7 +3647,14 @@ public class KestrunToolCommandSurfaceTests
         return values[10]!;
     }
 
-    private static void CreateRuntimePackageForTests(string tempRoot, string packagePath, string packageId, string packageVersion, string rid)
+    private static void CreateRuntimePackageForTests(
+        string tempRoot,
+        string packagePath,
+        string packageId,
+        string packageVersion,
+        string rid,
+        string? manifestEntryPoint = null,
+        string? manifestModulesPath = "modules")
     {
         var stagingRoot = Path.Combine(tempRoot, "package");
         var hostRoot = Path.Combine(stagingRoot, "host");
@@ -3567,10 +3666,19 @@ public class KestrunToolCommandSurfaceTests
         File.WriteAllText(Path.Combine(hostRoot, hostFileName), "host-binary", Encoding.UTF8);
         File.WriteAllText(Path.Combine(modulesRoot, "Demo.Module.psd1"), "@{}", Encoding.UTF8);
 
+        var effectiveEntryPoint = string.IsNullOrWhiteSpace(manifestEntryPoint)
+            ? $"host/{hostFileName}"
+            : manifestEntryPoint;
+
+        var manifestModulesSegment = string.IsNullOrWhiteSpace(manifestModulesPath)
+            ? string.Empty
+            : $",\"modulesPath\":\"{manifestModulesPath}\"";
+
         var manifest = "{" +
             $"\"rid\":\"{rid}\"," +
-            $"\"entryPoint\":\"host/{hostFileName}\"," +
-            "\"modulesPath\":\"modules\"}";
+            $"\"entryPoint\":\"{effectiveEntryPoint}\"" +
+            manifestModulesSegment +
+            "}";
         File.WriteAllText(Path.Combine(stagingRoot, "runtime-manifest.json"), manifest, Encoding.UTF8);
 
         var nuspec = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +

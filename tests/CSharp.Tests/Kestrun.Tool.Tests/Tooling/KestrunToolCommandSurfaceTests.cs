@@ -1213,17 +1213,46 @@ public class KestrunToolCommandSurfaceTests
 
         if (OperatingSystem.IsWindows())
         {
-            Assert.Equal(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Kestrun", "RuntimePackages"), cacheRoot, ignoreCase: true);
+            // Windows uses a machine-wide common application data location.
+            var expectedWindowsRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                "Kestrun",
+                "RuntimePackages");
+
+            Assert.Equal(expectedWindowsRoot, cacheRoot, ignoreCase: true);
             return;
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            Assert.Equal(Path.Combine(Path.DirectorySeparatorChar.ToString(), "Library", "Caches", "Kestrun", "RuntimePackages"), cacheRoot, ignoreCase: false);
+            // macOS uses a per-user cache directory under the user's Library.
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var expectedMacRoot = Path.Combine(
+                userProfile,
+                "Library",
+                "Caches",
+                "Kestrun",
+                "RuntimePackages");
+
+            Assert.Equal(expectedMacRoot, cacheRoot, ignoreCase: true);
             return;
         }
 
-        Assert.Equal(Path.Combine(Path.DirectorySeparatorChar.ToString(), "var", "cache", "Kestrun", "RuntimePackages"), cacheRoot, ignoreCase: false);
+        // Unix-like systems (Linux, etc.) use XDG per-user cache paths.
+        var xdgCacheHome = Environment.GetEnvironmentVariable("XDG_CACHE_HOME");
+        string expectedUnixRoot;
+
+        if (!string.IsNullOrWhiteSpace(xdgCacheHome))
+        {
+            expectedUnixRoot = Path.Combine(xdgCacheHome, "kestrun", "runtime-packages");
+        }
+        else
+        {
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            expectedUnixRoot = Path.Combine(userProfile, ".cache", "kestrun", "runtime-packages");
+        }
+
+        Assert.Equal(expectedUnixRoot, cacheRoot, ignoreCase: false);
     }
 
     [Fact]

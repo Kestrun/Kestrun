@@ -42,16 +42,10 @@ Kestrun — PowerShell brains. Kestrel speed.
 [![Docs](https://img.shields.io/badge/docs-online-blue)](https://docs.kestrun.dev)
 [![NuGet](https://img.shields.io/nuget/v/Kestrun)](https://www.nuget.org/packages/Kestrun/)
 [![PowerShell Gallery](https://img.shields.io/powershellgallery/v/Kestrun)](https://www.powershellgallery.com/packages/Kestrun)
-<!-- Support -->
----
 
-<sup>Using Kestrun in your projects? Support its development </sup> [![☕ Buy Me a Coffee](https://img.shields.io/badge/☕%20Buy%20Me%20a%20Coffee-Kestrun-FFDD00)](https://buymeacoffee.com/kestrun)
+#### Kestrun is a hybrid web framework that combines the speed of ASP.NET Core (Kestrel) with the flexibility of PowerShell
 
----
-
-#### Kestrun is a hybrid web framework that combines the speed of ASP.NET Core (Kestrel) with the flexibility of PowerShell.
-
-#### Build APIs, automation endpoints, and dynamic services using both C# and PowerShell in a single, integrated environment.
+#### Build APIs, automation endpoints, and dynamic services using both C# and PowerShell in a single, integrated environment
 
 ## Rich Documentation and Tutorial
 
@@ -319,3 +313,8 @@ Licensed under the MIT License. See [LICENSE](LICENSE).
 
 - [PoShLog](https://github.com/PoShLog/PoShLog) — inspiration and portions of code for logging (MIT License)
 - [powershell-yaml](https://github.com/cloudbase/powershell-yaml) — adapted tests and implementation code for YAML serialization (Apache-2.0 License)
+
+---
+
+### Using Kestrun in your projects? Support its development [![☕ Buy Me a Coffee](https://img.shields.io/badge/☕%20Buy%20Me%20a%20Coffee-Kestrun-FFDD00)](https://buymeacoffee.com/kestrun)
+

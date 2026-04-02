@@ -18,9 +18,6 @@ blending scriptable flexibility with modern .NET performance.
 
 [Get started now](#getting-started){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
 [View it on GitHub][Kestrun repo]{: .btn .fs-5 .mb-4 .mb-md-0 }
-[☕ Support Kestrun](https://buymeacoffee.com/kestrun){: .btn .btn-outline .fs-5 .mb-4 .mb-md-0 }
-
-<small>If Kestrun helps you, consider supporting the project ☕</small>
 
 ---
 

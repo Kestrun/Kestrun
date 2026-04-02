@@ -90,8 +90,11 @@ if (($null -eq $PSCmdlet.MyInvocation) -or ([string]::IsNullOrEmpty($PSCmdlet.My
     return
 }
 
+# Define utility paths
+$utilityPath = Join-Path -Path $PSScriptRoot -ChildPath 'Utility'
+
 # Add Helper utility module
-Import-Module -Name './Utility/Modules/Helper.psm1'
+Import-Module -Name "$utilityPath/Modules/Helper.psm1"
 
 # Quiet env handling with optional verbose debug
 $krDebug = -not [string]::IsNullOrWhiteSpace($env:KR_DEBUG_UPSTASH) -and ($env:KR_DEBUG_UPSTASH -in @('1', 'true', 'True'))
@@ -114,7 +117,7 @@ if ($isDebug) {
         if (Test-Path '.env.json') {
             Write-Host '🔄 Attempting to load .env.json...' -ForegroundColor Yellow
             try {
-                . ./Utility/Import-EnvFile.ps1 -Path '.env.json' -Overwrite
+                . "$utilityPath\Import-EnvFile.ps1" -Path '.env.json' -Overwrite
                 $upstashAfterLoad = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
                 if ($upstashAfterLoad -and -not [string]::IsNullOrWhiteSpace($upstashAfterLoad)) {
                     Write-Host "✅ UPSTASH_REDIS_URL loaded from .env.json (length: $($upstashAfterLoad.Length))" -ForegroundColor Green
@@ -142,7 +145,7 @@ if ($isDebug) {
     # Silent hydration: best-effort import without noisy logs
     $upstashValue = [System.Environment]::GetEnvironmentVariable('UPSTASH_REDIS_URL')
     if ([string]::IsNullOrWhiteSpace($upstashValue) -and (Test-Path '.env.json')) {
-        try { . ./Utility/Import-EnvFile.ps1 -Path '.env.json' -Overwrite }
+        try { . "$utilityPath\Import-EnvFile.ps1" -Path '.env.json' -Overwrite }
         catch { Write-Information "⚠️ Failed to silently load .env.json: $($_.Exception.Message)" -InformationAction SilentlyContinue }
     }
 }
@@ -397,7 +400,7 @@ Add-BuildTask 'Build-KestrunTool' {
     $kestrunToolPublishRoot = Join-Path -Path $PSScriptRoot -ChildPath 'artifacts' -AdditionalChildPath 'Kestrun.Tool'
     $kestrunToolServiceHostRuntimesDirectory = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/kestrun-service'
 
-    & .\Utility\Build-KestrunTool.ps1 `
+    & "$utilityPath\Build-KestrunTool.ps1" `
         -KestrunServiceHostProjectPath $KestrunServiceHostProjectPath `
         -Configuration $Configuration `
         -DotNetVerbosity $DotNetVerbosity `
@@ -446,7 +449,7 @@ Add-BuildTask 'Pack-KestrunTool' 'Set-PackageConfiguration', 'Build-KestrunTool'
         }
     }
 
-    & .\Utility\Pack-KestrunServiceRuntimePackages.ps1 `
+    & "$utilityPath\Pack-KestrunServiceRuntimePackages.ps1" `
         -ServiceHostRuntimesDirectory $serviceHostRuntimesRoot `
         -OutputDirectory $toolOutputDirectory `
         -Version $Version `
@@ -522,7 +525,7 @@ Add-BuildTask 'Prepare-PesterAssets' {
 
 Add-BuildTask 'Nuget-CodeAnalysis' {
     Write-Host '♻️ Updating CodeAnalysis packages...'
-    & .\Utility\Download-CodeAnalysis.ps1
+    & "$utilityPath\Download-CodeAnalysis.ps1"
 }
 
 # XUnit tests
@@ -573,7 +576,7 @@ Add-BuildTask 'Test-xUnit' {
 Add-BuildTask 'Format' {
     Write-Host '✨ Formatting code...'
     dotnet format "$SolutionPath" -v:$DotNetVerbosity
-    & .\Utility\Normalize-Files.ps1 `
+    & "$utilityPath\Normalize-Files.ps1" `
         -Root (Join-Path -Path $PSScriptRoot -ChildPath 'src') `
         -ReformatFunctionHelp -FunctionHelpPlacement BeforeFunction -NoFooter -UseGitForCreated
 }
@@ -599,7 +602,7 @@ Add-BuildTask 'Test-Pester-LogContext' 'Prepare-PesterAssets', {
 
 Add-BuildTask 'Test-Pester-NonTutorial' 'Test-Pester-LogContext', {
     Write-Host 'ðŸ§ª Running non-tutorial Pester tests...'
-    $res = & .\Utility\Test-Pester.ps1 `
+    $res = & "$utilityPath\Test-Pester.ps1" `
         -ReRunFailed `
         -Verbosity $PesterVerbosity `
         -DebugMode:$isDebug `
@@ -612,7 +615,7 @@ Add-BuildTask 'Test-Pester-NonTutorial' 'Test-Pester-LogContext', {
 Add-BuildTask 'Test-Pester-Tutorial-Shard1' 'Test-Pester-LogContext', {
     Write-Host 'ðŸ“˜ Running tutorial Pester tests (shard 1/2)...'
     $reRunFailed = -not $IsWindows
-    $res = & .\Utility\Test-Pester.ps1 `
+    $res = & "$utilityPath\Test-Pester.ps1" `
         -ReRunFailed:$reRunFailed `
         -Verbosity $PesterVerbosity `
         -DebugMode:$isDebug `
@@ -626,7 +629,7 @@ Add-BuildTask 'Test-Pester-Tutorial-Shard1' 'Test-Pester-LogContext', {
 Add-BuildTask 'Test-Pester-Tutorial-Shard2' 'Test-Pester-LogContext', {
     Write-Host 'ðŸ“˜ Running tutorial Pester tests (shard 2/2)...'
     $reRunFailed = -not $IsWindows
-    $res = & .\Utility\Test-Pester.ps1 `
+    $res = & "$utilityPath\Test-Pester.ps1" `
         -ReRunFailed:$reRunFailed `
         -Verbosity $PesterVerbosity `
         -DebugMode:$isDebug `
@@ -647,17 +650,17 @@ Add-BuildTask 'Test' 'Test-xUnit', 'Test-Pester'
 
 Add-BuildTask 'Test-Tutorials' {
     Write-Host '🧪 Running Kestrun Tutorial tests...'
-    & .\Utility\Test-TutorialDocs.ps1
+    & "$utilityPath\Test-TutorialDocs.ps1"
 }
 
 Add-BuildTask 'Build-TutorialIndex' {
     Write-Host '🧩 Regenerating tutorial index...'
-    & .\Utility\Build-TutorialIndex.ps1
+    & "$utilityPath\Build-TutorialIndex.ps1"
 }
 
 Add-BuildTask 'Export-OpenApiSamples' {
     Write-Host '🧾 Exporting OpenAPI sample JSON assets (v3.0, v3.1, v3.2)...'
-    pwsh -NoProfile -File .\Utility\Export-OpenApiSampleJson.ps1
+    pwsh -NoProfile -File "$utilityPath\Export-OpenApiSampleJson.ps1"
     if ($LASTEXITCODE -ne 0) {
         throw 'Export-OpenApiSamples failed.'
     }
@@ -680,7 +683,7 @@ Add-BuildTask 'Package' 'Set-PackageConfiguration', 'Build', 'Pack-KestrunTool',
     New-Item -Path $out -ItemType Directory -Force | Out-Null
     $kestrunReleasePath = Join-Path -Path $out -ChildPath 'modules' -AdditionalChildPath 'Kestrun'
 
-    & .\Utility\Create-Distribution.ps1 -SignModule:$SignModule -ArtifactsPath $out
+    & "$utilityPath\Create-Distribution.ps1" -SignModule:$SignModule -ArtifactsPath $out
     if ($LASTEXITCODE -ne 0) {
         Write-Host '❌ Failed to pack Kestrun' -ForegroundColor Red
         throw 'Failed to pack Kestrun'
@@ -705,7 +708,7 @@ Add-BuildTask 'Package' 'Set-PackageConfiguration', 'Build', 'Pack-KestrunTool',
 
 Add-BuildTask 'Build_Powershell_Help' {
     Write-Host '📖 Generating PowerShell Help...'
-    pwsh -NoProfile -File .\Utility\Build-Help.ps1
+    pwsh -NoProfile -File "$utilityPath\Build-Help.ps1"
 }
 
 Add-BuildTask 'Build_CSharp_Help' {
@@ -717,8 +720,8 @@ Add-BuildTask 'Build_CSharp_Help' {
     } else {
         Write-Host '✅ xmldocmd already installed'
     }
-    & .\Utility\Build-DocRefs.ps1
-    & .\Utility\Update-JustTheDocs.ps1 -ApiRoot 'docs/cs/api' -TopParent 'C# API'
+    & "$utilityPath\Build-DocRefs.ps1"
+    & "$utilityPath\Update-JustTheDocs.ps1" -ApiRoot 'docs/cs/api' -TopParent 'C# API'
 }
 
 # Build Help will call Build_Powershell_Help and Build_CSharp_Help
@@ -742,19 +745,19 @@ Add-BuildTask 'Clean-Help' {
 # Clean PowerShell Help
 Add-BuildTask 'Clean_Powershell_Help' {
     Write-Host '🧼 Cleaning PowerShell Help...'
-    & .\Utility\Build-Help.ps1 -Clean
+    & "$utilityPath\Build-Help.ps1" -Clean
 }
 
 # Clean CSharp Help
 Add-BuildTask 'Clean_CSharp_Help' {
     Write-Host '🧼 Cleaning C# Help...'
-    & .\Utility\Build-DocRefs.ps1 -Clean
+    & "$utilityPath\Build-DocRefs.ps1" -Clean
 }
 
 # Code Coverage
 Add-BuildTask 'Coverage' {
     Write-Host '📊 Creating coverage report...'
-    & .\Utility\Build-Coverage.ps1 -TestProjects @(
+    & "$utilityPath\Build-Coverage.ps1" -TestProjects @(
         $KestrunCoreTestProjectPath,
         $KestrunToolTestProjectPath,
         $KestrunServiceHostTestProjectPath,
@@ -769,7 +772,7 @@ Add-BuildTask 'Coverage' {
 # Report coverage
 Add-BuildTask 'Report-Coverage' {
     Write-Host '🌐 Creating coverage report webpage...'
-    & .\Utility\Build-Coverage.ps1 -ReportGenerator -TestProjects @(
+    & "$utilityPath\Build-Coverage.ps1" -ReportGenerator -TestProjects @(
         $KestrunCoreTestProjectPath,
         $KestrunToolTestProjectPath,
         $KestrunServiceHostTestProjectPath,
@@ -784,13 +787,13 @@ Add-BuildTask 'Report-Coverage' {
 # Clean coverage reports
 Add-BuildTask 'Clean-Coverage' {
     Write-Host '🗑️ Cleaning coverage reports...'
-    & .\Utility\Build-Coverage.ps1 -Clean
+    & "$utilityPath\Build-Coverage.ps1" -Clean
 }
 
 # Update the module manifest
 Add-BuildTask 'Manifest' {
     Write-Host '📝 Updating Kestrun.psd1 manifest...'
-    pwsh -NoProfile -File .\Utility\Update-Manifest.ps1
+    pwsh -NoProfile -File "$utilityPath\Update-Manifest.ps1"
 }
 
 Add-BuildTask 'New-LargeFile' 'Clean-LargeFile', {
@@ -800,8 +803,8 @@ Add-BuildTask 'New-LargeFile' 'Clean-LargeFile', {
     }
     (10, 100, 1000, 3000) | ForEach-Object {
         $sizeMB = $_
-        & .\Utility\New-LargeFile.ps1 -Path ".\examples\files\LargeFiles\file-$sizeMB-MB.bin" -Mode 'Binary' -SizeMB $sizeMB
-        & .\Utility\New-LargeFile.ps1 -Path ".\examples\files\LargeFiles\file-$sizeMB-MB.txt" -Mode 'Text' -SizeMB $sizeMB
+        & "$utilityPath\New-LargeFile.ps1" -Path ".\examples\files\LargeFiles\file-$sizeMB-MB.bin" -Mode 'Binary' -SizeMB $sizeMB
+        & "$utilityPath\New-LargeFile.ps1" -Path ".\examples\files\LargeFiles\file-$sizeMB-MB.txt" -Mode 'Text' -SizeMB $sizeMB
     }
 }
 Add-BuildTask 'Clean-LargeFile' {
@@ -811,19 +814,19 @@ Add-BuildTask 'Clean-LargeFile' {
 
 Add-BuildTask 'ThirdPartyNotices' {
     Write-Host '📄 Updating third-party notices...'
-    & .\Utility\Update-ThirdPartyNotices.ps1 -Project '.\src\CSharp\Kestrun\Kestrun.csproj' -Path '.\THIRD-PARTY-NOTICES.md' -FileVersion $FileVersion
+    & "$utilityPath\Update-ThirdPartyNotices.ps1" -Project '.\src\CSharp\Kestrun\Kestrun.csproj' -Path '.\THIRD-PARTY-NOTICES.md' -FileVersion $FileVersion
 }
 
 Add-BuildTask All 'Clean', 'Restore', 'Build', 'Test'
 
 Add-BuildTask Install-Module {
     Write-Host '📥 Installing Kestrun module...'
-    & .\Utility\Install-Kestrun.ps1 -FileVersion $FileVersion
+    & "$utilityPath\Install-Kestrun.ps1" -FileVersion $FileVersion
 }
 
 Add-BuildTask Remove-Module {
     Write-Host '🗑️ Removing Kestrun module...'
-    & .\Utility\Install-Kestrun.ps1 -FileVersion $FileVersion -Remove
+    & "$utilityPath\Install-Kestrun.ps1" -FileVersion $FileVersion -Remove
 }
 
 Add-BuildTask Update-Module {

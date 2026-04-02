@@ -1373,11 +1373,11 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Resolves a non-service-index source URI into a flat-container base address.
+    /// Determines whether a source URI can be treated as a direct flat-container package base address.
     /// </summary>
     /// <param name="sourceUri">Source URI.</param>
-    /// <param name="packageBaseAddress">Resolved base address when the source is not a service index.</param>
-    /// <returns>False when the source is a NuGet service index and requires JSON inspection; otherwise true.</returns>
+    /// <param name="packageBaseAddress">Resolved package base address when the source URI is a flat-container base address.</param>
+    /// <returns>True when the source URI is a flat-container base address; otherwise, false to indicate the source should
     private static bool TryResolveFlatContainerBaseAddress(Uri sourceUri, out Uri packageBaseAddress)
     {
         packageBaseAddress = null!;

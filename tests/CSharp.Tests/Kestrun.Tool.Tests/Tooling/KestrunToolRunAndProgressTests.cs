@@ -163,9 +163,9 @@ public class KestrunToolRunAndProgressTests
     [Trait("Category", "Tooling")]
     public void ConsoleProgressBar_BuildBar_ProducesExpectedWidth()
     {
-        var barAtZero = Assert.IsType<string>(InvokeProgressMethod("BuildBar", null, 0));
-        var barAtHalf = Assert.IsType<string>(InvokeProgressMethod("BuildBar", null, 50));
-        var barAtHundred = Assert.IsType<string>(InvokeProgressMethod("BuildBar", null, 100));
+        var barAtZero = Assert.IsType<string>(InvokeProgressMethod("BuildBarWithWidth", null, 0, 28));
+        var barAtHalf = Assert.IsType<string>(InvokeProgressMethod("BuildBarWithWidth", null, 50, 28));
+        var barAtHundred = Assert.IsType<string>(InvokeProgressMethod("BuildBarWithWidth", null, 100, 28));
 
         Assert.Equal(30, barAtZero.Length);
         Assert.StartsWith("[", barAtZero, StringComparison.Ordinal);
@@ -203,6 +203,19 @@ public class KestrunToolRunAndProgressTests
 
         Assert.True(hasRendered);
         Assert.True(lastLength > 0);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void ConsoleProgressBar_BuildRenderedLine_TrimsToConsoleWidth()
+    {
+        var bar = CreateProgressBar("Bundling service runtime modules", 116, (value, total) => $"{value}/{total} files");
+
+        var rendered = Assert.IsType<string>(InvokeProgressMethod("BuildRenderedLine", bar, "116/116 files", 100, 79));
+
+        Assert.True(rendered.Length <= 79);
+        Assert.Contains("100%", rendered, StringComparison.Ordinal);
+        Assert.StartsWith("Bundling service runtime modules", rendered, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -302,9 +315,40 @@ public class KestrunToolRunAndProgressTests
     private static object? InvokeProgressMethod(string methodName, object? instance, params object?[] args)
     {
         var flags = BindingFlags.NonPublic | BindingFlags.Public | (instance is null ? BindingFlags.Static : BindingFlags.Instance);
-        var method = ProgressBarType.GetMethod(methodName, flags);
+        var method = ProgressBarType
+            .GetMethods(flags)
+            .SingleOrDefault(candidate => candidate.Name == methodName && ParametersMatch(candidate.GetParameters(), args));
         Assert.NotNull(method);
         return method.Invoke(instance, args);
+    }
+
+    private static bool ParametersMatch(ParameterInfo[] parameters, object?[] args)
+    {
+        if (parameters.Length != args.Length)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < parameters.Length; index++)
+        {
+            var argument = args[index];
+            if (argument is null)
+            {
+                if (parameters[index].ParameterType.IsValueType && Nullable.GetUnderlyingType(parameters[index].ParameterType) is null)
+                {
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (!parameters[index].ParameterType.IsInstanceOfType(argument))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static object? GetProgressField(object instance, string fieldName)

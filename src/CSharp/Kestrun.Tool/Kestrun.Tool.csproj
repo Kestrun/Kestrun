@@ -49,8 +49,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <None Remove="kestrun-service\**\*" />
-        <Content Include="kestrun-service\**\*" Exclude="kestrun-service\**\InstallPSResourceGetPolicyDefinitions.ps1;kestrun-service\**\SamplePSReadLineProfile.ps1" Pack="true" PackagePath="tools/net10.0/any/kestrun-service/" Link="%(RecursiveDir)%(Filename)%(Extension)" />
         <None Include="README.md" Pack="true" PackagePath="\" />
         <None Include="../../../LICENSE.txt" Pack="true" PackagePath="\" />
     </ItemGroup>

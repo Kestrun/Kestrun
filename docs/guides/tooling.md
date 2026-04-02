@@ -125,39 +125,38 @@ dotnet kestrun run --script .\Service.ps1
 # Install from a service package (.krpack)
 dotnet kestrun service install --package .\my-service.krpack
 
+# Install with an explicit local runtime package (offline)
+dotnet kestrun service install --package .\my-service.krpack --runtime-package .\Kestrun.Service.win-x64.1.0.0-rc.1.nupkg
+
+# Install with a runtime-package folder; Kestrun selects the expected RID/version package
+dotnet kestrun service install --package .\my-service.krpack --runtime-package .\artifacts\nuget --runtime-version 1.0.0-rc.1
+
+# Install using a local/private runtime feed and explicit cache root
+dotnet kestrun service install --package .\my-service.krpack --runtime-source .\artifacts\nuget --runtime-cache .\.kestrun-runtime-cache
+
+# Prefetch only the runtime package into cache without installing a service bundle
+dotnet kestrun service install --runtime-version 1.0.0-rc.1 --runtime-source .\artifacts\nuget --runtime-cache .\.kestrun-runtime-cache
+
+# Install from a direct runtime package URL
+dotnet kestrun service install --package .\my-service.krpack --runtime-source https://packages.example.com/Kestrun.Service.win-x64.1.0.0-rc.1.nupkg --content-root-bearer-token <token>
+
 # Install from a remote package URL
 dotnet kestrun service install --package https://downloads.example.com/my-service.krpack
+
+# Install from a remote package URL with custom request headers
+dotnet kestrun service install --package https://downloads.example.com/my-service.krpack --content-root-header x-api-key:<key> --content-root-header x-env:prod
+
+# Ignore HTTPS certificate validation for a remote package URL (insecure)
+dotnet kestrun service install --package https://downloads.example.com/my-service.krpack --content-root-ignore-certificate
+
+# Verify package checksum before extraction (default algorithm: sha256)
+dotnet kestrun service install --package .\my-service.krpack --content-root-checksum <hex>
 
 # Update an installed service from a package
 dotnet kestrun service update --name MyService --package .\my-service-v2.krpack
 
-# Install from a script folder/archive/url content root.
-# Service.psd1 is required at the content-root root and defines FormatVersion/Name/Description/Version/EntryPoint.
-dotnet kestrun service install --content-root .\MyServiceApp
-
-# Install from an archive payload (.zip/.tar/.tgz/.tar.gz)
-dotnet kestrun service install --content-root .\MyServiceApp.zip
-
-# Install from a remote archive URL
-dotnet kestrun service install --content-root https://downloads.example.com/MyServiceApp.tgz
-
-# Install from a remote archive URL with bearer token auth
-dotnet kestrun service install --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-bearer-token <token>
-
-# Install from a remote archive URL with custom request headers
-dotnet kestrun service install --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-header x-api-key:<key> --content-root-header x-env:prod
-
-# Ignore HTTPS certificate validation for remote archive download (insecure)
-dotnet kestrun service install --content-root https://downloads.example.com/MyServiceApp.tgz --content-root-ignore-certificate
-
-# Verify archive checksum before extraction (default algorithm: sha256)
-dotnet kestrun service install --content-root .\MyServiceApp.tgz --content-root-checksum <hex>
-
-# Explicit checksum algorithm
-dotnet kestrun service install --content-root .\MyServiceApp.tar.gz --content-root-checksum <hex> --content-root-checksum-algorithm sha512
-
 # Override default per-OS service bundle root
-dotnet kestrun service install --content-root .\MyServiceApp --deployment-root D:\KestrunServices
+dotnet kestrun service install --package .\my-service.krpack --deployment-root D:\KestrunServices
 ```
 
 ## Important options
@@ -232,20 +231,23 @@ Values in `Platform`, `State`, and `Message` vary by OS and actual service state
 
 For `service install`:
 
+- `--package <path-or-url>`: `.krpack` package containing `Service.psd1` and application files.
 - `--kestrun-manifest <path>`: manifest used by the service runtime.
 - `--service-log-path <path>`: service bootstrap and operation log path.
 - `--service-user <name>`: install service/daemon to run under a specific OS account.
 - `--service-password <secret>`: password for `--service-user` on Windows service accounts.
 - `--deployment-root <folder>`: override where per-service bundles are created.
-- `--content-root <path>`: copy the full folder or extract a supported archive (`.zip`, `.tar`, `.tgz`, `.tar.gz`) into the service bundle.
-- `--content-root` also accepts an HTTP(S) URL that points to one of the supported archive formats.
-- When `--content-root` is provided, `Service.psd1` must exist at the content root (or archive root).
-- `Service.psd1` required keys: `FormatVersion` (must be `'1.0'`), `Name`, `Description`, `Version`, `EntryPoint`.
+- `--runtime-source <path-or-url>`: resolve runtime packages from a local folder, a direct `.nupkg`, a direct `.nupkg` URL, or a NuGet feed endpoint.
+- `--runtime-package <path-to-.nupkg-or-folder>`: use an explicit local runtime package file or a folder containing `Kestrun.Service.<rid>.<version>.nupkg` artifacts.
+- `--runtime-version <version>`: override the runtime package version; when used without `--package`, install only populates the runtime cache.
+- `--runtime-package-id <id>`: override the default runtime package id (`Kestrun.Service.<rid>`).
+- `--runtime-cache <folder>`: override the local runtime package cache root.
+- `Service.psd1` required keys inside the package: `FormatVersion` (must be `'1.0'`), `Name`, `Description`, `Version`, `EntryPoint`.
 - `Service.psd1` optional keys: `ServiceLogPath`, `PreservePaths`.
 - `Version` in `Service.psd1` must be compatible with `System.Version` parsing.
-- When `--content-root` is provided, `--name` and `--script` (including positional script path) are not supported.
 - If both `Service.psd1` and CLI provide a service log path, `--service-log-path` overrides descriptor `ServiceLogPath`.
-- Content-root installs create bundles at `<deployment-root>/<Name>/`.
+- Package installs create bundles at `<deployment-root>/<Name>/`.
+- Runtime-only prefetch (`service install` without `--package`) requires at least one runtime acquisition option and does not create a service bundle.
 - `PreservePaths` is an optional string array of relative file/folder paths to keep from the currently installed application during `service update --package`.
 - `PreservePaths` entries must be relative and resolve inside the service application root (absolute paths and root-escaping paths are rejected).
 
@@ -268,27 +270,31 @@ Example `Service.psd1` with `PreservePaths`:
 ```
 
 - Files and folders listed in `PreservePaths` are copied from the currently installed application before package replacement and restored afterward.
-- `--content-root-checksum <hex>`: verify archive checksum before extraction.
+- `--content-root-checksum <hex>`: verify package checksum before extraction.
 - `--content-root-checksum-algorithm <name>`: checksum algorithm (`md5`, `sha1`, `sha256`, `sha384`, `sha512`). Defaults to `sha256`.
-- `--content-root-bearer-token <token>`: sends `Authorization: Bearer <token>` for HTTP(S) archive downloads.
-- `--content-root-header <name:value>`: adds custom request headers for HTTP(S) archive downloads. Repeat to send multiple headers.
-- `--content-root-ignore-certificate`: skips HTTPS certificate validation for archive downloads (insecure; use only when necessary).
+- `--content-root-bearer-token <token>`: sends `Authorization: Bearer <token>` for HTTP(S) package downloads and HTTP(S) runtime-source downloads.
+- `--content-root-header <name:value>`: adds custom request headers for HTTP(S)
+  package downloads and HTTP(S) runtime-source downloads. Repeat to send
+  multiple headers.
+- `--content-root-ignore-certificate`: skips HTTPS certificate validation for
+  HTTPS package downloads and HTTPS runtime-source downloads (insecure; use
+  only when necessary).
 - `--arguments <args...>`: script arguments for installed service execution.
-- If the selected script does not exist inside `--content-root`, install fails with an error.
-- If `--content-root` points to an archive, Kestrun extracts it to a temporary folder before bundling.
-- If `--content-root-checksum` is provided, `--content-root` must point to a supported archive source: either a local archive file path or an HTTP(S) archive URL
-(folder paths are not valid with checksum verification).
+- `service install --package` resolves `Kestrun.Service.<rid>` for the current platform automatically.
+- `--runtime-package` folder input selects the expected
+  `Kestrun.Service.<rid>.<version>.nupkg` file for the current platform and
+  target version and fails if that file is missing.
+- Runtime cache layout uses a canonical package cache at
+  `packages/<id>/<version>/<id>.<version>.nupkg` and extracted working payloads
+  under `expanded/<id>/<version>` or
+  `expanded/<id>/<version>-<content-hash>`.
 - When `--deployment-root` is provided, install writes the service bundle under that root instead of OS defaults.
 - Install creates a per-service bundle containing runtime, module, script, and dedicated service-host assets before registration.
-- Dedicated `kestrun-service-host` is sourced from the `Kestrun.Tool` package's internal `kestrun-service` folder under the dotnet tool install location,
- not from the PowerShell module payload.
+- Install does not fall back to the runtime bundled with `Kestrun.Tool` when runtime package acquisition fails.
 - `Modules` are bundled from the PowerShell release matching `Microsoft.PowerShell.SDK` used by ServiceHost and
  copied into the service `Modules` folder during install.  This bundling is determined at package build time (during `Build-KestrunTool`),
  not discovered at service install or service runtime.
 - Install shows progress bars for bundle staging and module file copy in interactive terminals.
-- URL content roots are supported for HTTP(S) archive sources.
-- `--content-root-header` only applies to HTTP(S) URL content roots.
-- `--content-root-ignore-certificate` only applies to HTTPS URL content roots.
 - When `--service-user` is provided:
   - Windows: service is registered with that account (password may be required by SCM depending on account type).
     Built-in aliases are supported for convenience: `NetworkService`, `LocalService`, and `LocalSystem`.
@@ -457,6 +463,19 @@ Invoke-Build Pack-KestrunTool
 This writes the tool package to:
 
 - `artifacts/nuget/Kestrun.Tool.<version>.nupkg`
+- `artifacts/nuget/Kestrun.Service.<rid>.<version>.nupkg`
+
+`service install --package` resolves `Kestrun.Service.<rid>` for the current platform automatically.
+Use `--runtime-package` for offline installs or `--runtime-source` to target a local feed,
+direct package artifact, or NuGet endpoint.
+
+`service install` requires a resolvable runtime package and does not fall back to the runtime
+payload bundled with `Kestrun.Tool` when package acquisition fails.
+
+Runtime cache layout defaults to:
+
+- canonical package cache: `packages/<id>/<version>/<id>.<version>.nupkg`
+- extracted working payload cache: `expanded/<id>/<version>` or `expanded/<id>/<version>-<content-hash>`
 
 ---
 

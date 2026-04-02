@@ -41,6 +41,78 @@ BeforeAll {
         $match.Success | Should -BeTrue
         return $match.Value | ConvertFrom-Json
     }
+
+    $script:GetCurrentServiceRuntimeRid = {
+        $archSegment = switch ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) {
+            ([System.Runtime.InteropServices.Architecture]::X64) { 'x64' }
+            ([System.Runtime.InteropServices.Architecture]::Arm64) { 'arm64' }
+            default { throw "Unsupported architecture for runtime package tests: $([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)" }
+        }
+
+        if ($IsWindows) {
+            return "win-$archSegment"
+        }
+
+        if ($IsLinux) {
+            return "linux-$archSegment"
+        }
+
+        if ($IsMacOS) {
+            return "osx-$archSegment"
+        }
+
+        throw 'Unsupported operating system for runtime package tests.'
+    }
+
+    $script:NewTestRuntimePackage = {
+        param(
+            [Parameter(Mandatory)]
+            [string]$TempRoot,
+            [Parameter(Mandatory)]
+            [string]$PackagePath,
+            [Parameter(Mandatory)]
+            [string]$PackageId,
+            [Parameter(Mandatory)]
+            [string]$PackageVersion,
+            [Parameter(Mandatory)]
+            [string]$Rid
+        )
+
+        $stagingRoot = Join-Path $TempRoot 'runtime-package'
+        $hostRoot = Join-Path $stagingRoot 'host'
+        $moduleRoot = Join-Path $stagingRoot 'modules/Demo.Module'
+        $hostFileName = if ($IsWindows) { 'kestrun-service-host.exe' } else { 'kestrun-service-host' }
+        $manifest = @{
+            rid = $Rid
+            entryPoint = "host/$hostFileName"
+            modulesPath = 'modules'
+        } | ConvertTo-Json -Compress
+
+        New-Item -ItemType Directory -Path $hostRoot -Force | Out-Null
+        New-Item -ItemType Directory -Path $moduleRoot -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $hostRoot $hostFileName) -Value 'host-binary' -Encoding utf8NoBOM
+        Set-Content -LiteralPath (Join-Path $moduleRoot 'Demo.Module.psd1') -Value '@{}' -Encoding utf8NoBOM
+        Set-Content -LiteralPath (Join-Path $stagingRoot 'runtime-manifest.json') -Value $manifest -Encoding utf8NoBOM
+
+        $nuspec = @"
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>$PackageId</id>
+    <version>$PackageVersion</version>
+    <authors>Kestrun Team</authors>
+    <description>Test runtime package.</description>
+  </metadata>
+</package>
+"@
+        Set-Content -LiteralPath (Join-Path $stagingRoot "$PackageId.nuspec") -Value $nuspec -Encoding utf8NoBOM
+
+        if (Test-Path -LiteralPath $PackagePath) {
+            Remove-Item -LiteralPath $PackagePath -Force
+        }
+
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($stagingRoot, $PackagePath)
+    }
 }
 
 AfterAll {
@@ -66,7 +138,7 @@ Describe 'KestrunTool service command surface' {
         $result = & $script:InvokeKestrunCommand -Arguments @('service', 'help')
 
         $result.ExitCode | Should -Be 0
-        $result.Output | Should -Match 'service install --package <path-or-url-to-\.krpack>'
+        $result.Output | Should -Match 'service install \[--package <path-or-url-to-\.krpack>\]'
         $result.Output | Should -Match 'service remove --name <service-name>'
         $result.Output | Should -Match 'service start --name <service-name> \[--json \| --raw\]'
         $result.Output | Should -Match 'service stop --name <service-name> \[--json \| --raw\]'
@@ -76,9 +148,15 @@ Describe 'KestrunTool service command surface' {
         $result.Output | Should -Match 'service-password <secret>'
         $result.Output | Should -Match '--package <path-or-url>'
         $result.Output | Should -Match 'deployment-root <folder>'
+        $result.Output | Should -Match '--runtime-source <path-or-url>'
+        $result.Output | Should -Match '--runtime-package <path>'
+        $result.Output | Should -Match '--runtime-version <version>'
+        $result.Output | Should -Match '--runtime-package-id <id>'
+        $result.Output | Should -Match '--runtime-cache <folder>'
         $result.Output | Should -Match '--json\s+For service start/stop/query/info'
         $result.Output | Should -Match '--raw\s+For service start/stop/query'
         $result.Output | Should -Match 'shows progress bars during bundle staging'
+        $result.Output | Should -Match 'resolves a runtime package for the current RID'
     }
 
     It 'fails service install when --service-password is provided without --service-user' {
@@ -88,11 +166,56 @@ Describe 'KestrunTool service command surface' {
         $result.Output | Should -Match '--service-password requires --service-user\.'
     }
 
-    It 'fails service install without package/content-root or script' {
+    It 'fails service install without package or runtime acquisition options' {
         $result = & $script:InvokeKestrunCommand -Arguments @('service', 'install')
 
         $result.ExitCode | Should -Be 2
-        $result.Output | Should -Match 'Service install requires either --package/--content-root or --script\.'
+        $result.Output | Should -Match 'Service install requires --package or at least one runtime acquisition option \(--runtime-version, --runtime-source, --runtime-package, or --runtime-package-id\)\.'
+    }
+
+    It 'caches runtime-only install artifacts from a local runtime feed' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-runtime-cache-{0}' -f [guid]::NewGuid().ToString('N'))
+
+        try {
+            $runtimeFeed = Join-Path $tempRoot 'runtime-feed'
+            $runtimeCache = Join-Path $tempRoot 'runtime-cache'
+            $rid = & $script:GetCurrentServiceRuntimeRid
+            $packageId = "Kestrun.Service.$rid"
+            $packageVersion = '9.9.9-pester'
+            $packagePath = Join-Path $runtimeFeed "$packageId.$packageVersion.nupkg"
+            $cachedPackagePath = Join-Path $runtimeCache "packages/$packageId/$packageVersion/$packageId.$packageVersion.nupkg"
+            $expandedPackageRoot = Join-Path $runtimeCache "expanded/$packageId"
+            $hostFileName = if ($IsWindows) { 'kestrun-service-host.exe' } else { 'kestrun-service-host' }
+
+            New-Item -ItemType Directory -Path $runtimeFeed -Force | Out-Null
+            & $script:NewTestRuntimePackage -TempRoot $tempRoot -PackagePath $packagePath -PackageId $packageId -PackageVersion $packageVersion -Rid $rid
+
+            $result = & $script:InvokeKestrunCommand -Arguments @(
+                'service', 'install',
+                '--runtime-version', $packageVersion,
+                '--runtime-source', $runtimeFeed,
+                '--runtime-cache', $runtimeCache)
+
+            $result.ExitCode | Should -Be 0
+            $result.Output | Should -Match 'Cached service runtime package'
+            Test-Path -LiteralPath $cachedPackagePath -PathType Leaf | Should -BeTrue
+            Test-Path -LiteralPath $expandedPackageRoot -PathType Container | Should -BeTrue
+
+            $manifestFile = Get-ChildItem -Path $expandedPackageRoot -Filter 'runtime-manifest.json' -File -Recurse | Select-Object -First 1
+            $hostFile = Get-ChildItem -Path $expandedPackageRoot -Filter $hostFileName -File -Recurse | Select-Object -First 1
+            $moduleManifest = Get-ChildItem -Path $expandedPackageRoot -Filter 'Demo.Module.psd1' -File -Recurse | Select-Object -First 1
+
+            ($null -ne $manifestFile) | Should -BeTrue
+            ($null -ne $hostFile) | Should -BeTrue
+            ($null -ne $moduleManifest) | Should -BeTrue
+
+            $manifest = Get-Content -LiteralPath $manifestFile.FullName -Raw | ConvertFrom-Json
+            $manifest.rid | Should -Be $rid
+            $manifest.entryPoint | Should -Be "host/$hostFileName"
+            $manifest.modulesPath | Should -Be 'modules'
+        } finally {
+            Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
 
     It 'fails service remove without --name' {

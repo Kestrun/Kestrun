@@ -13,12 +13,25 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int ExecuteScriptViaServiceHost(string scriptPath, IReadOnlyList<string> scriptArguments, string moduleManifestPath)
     {
-        if (!TryResolveDedicatedServiceHostExecutableFromToolDistribution(out var serviceHostExecutablePath))
+        if (!TryResolveServiceRuntimePackage(
+                runtimeSource: null,
+                runtimePackage: null,
+                runtimeVersion: null,
+                runtimePackageId: null,
+                runtimeCache: null,
+            bearerToken: null,
+            customHeaders: [],
+            ignoreCertificate: false,
+                requireModules: false,
+                allowToolDistributionFallback: true,
+                out var runtimePackageLayout,
+                out var runtimeError))
         {
-            Console.Error.WriteLine("Unable to locate dedicated service host for current RID in Kestrun.Tool distribution.");
-            Console.Error.WriteLine("Expected 'kestrun-service/<rid>/(kestrun-service-host|kestrun-service-host.exe)'. Reinstall or update Kestrun.Tool.");
+            Console.Error.WriteLine(runtimeError);
             return 1;
         }
+
+        var serviceHostExecutablePath = runtimePackageLayout.ServiceHostExecutablePath;
 
         if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
         {
@@ -88,7 +101,7 @@ internal static partial class Program
     /// <returns>True when parsing succeeds.</returns>
     private static bool TryParseRunArguments(string[] args, int startIndex, string? kestrunFolder, string? kestrunManifestPath, out ParsedCommand parsedCommand, out string error)
     {
-        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, false, [], kestrunFolder, kestrunManifestPath, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
+        parsedCommand = new ParsedCommand(CommandMode.Run, string.Empty, false, [], kestrunFolder, kestrunManifestPath, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, null, null, null, null, null, false, [], false, false, false, false);
         error = string.Empty;
 
         var state = new RunParseState(startIndex, kestrunFolder, kestrunManifestPath);
@@ -133,7 +146,7 @@ internal static partial class Program
             state.ScriptPath = RunDefaultScriptFileName;
         }
 
-        parsedCommand = new ParsedCommand(CommandMode.Run, state.ScriptPath, state.ScriptPathSet, state.ScriptArguments, state.KestrunFolder, state.KestrunManifestPath, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, []);
+        parsedCommand = new ParsedCommand(CommandMode.Run, state.ScriptPath, state.ScriptPathSet, state.ScriptArguments, state.KestrunFolder, state.KestrunManifestPath, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, null, null, null, null, null, false, [], false, false, false, false);
 
         return true;
     }

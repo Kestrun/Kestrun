@@ -26,6 +26,16 @@ internal static partial class Program
 
         public string? ServiceDeploymentRoot { get; set; }
 
+        public string? ServiceRuntimeSource { get; set; }
+
+        public string? ServiceRuntimePackage { get; set; }
+
+        public string? ServiceRuntimeVersion { get; set; }
+
+        public string? ServiceRuntimePackageId { get; set; }
+
+        public string? ServiceRuntimeCache { get; set; }
+
         public string? ServiceContentRootChecksum { get; set; }
 
         public string? ServiceContentRootChecksumAlgorithm { get; set; }
@@ -106,7 +116,7 @@ internal static partial class Program
     /// <param name="kestrunManifestPath">Optional explicit path to Kestrun.psd1.</param>
     /// <returns>Default parsed command for service mode.</returns>
     private static ParsedCommand CreateDefaultServiceParsedCommand(string? kestrunFolder, string? kestrunManifestPath)
-        => new(CommandMode.ServiceInstall, string.Empty, false, [], kestrunFolder, kestrunManifestPath, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, false, [], false, false, false);
+        => new(CommandMode.ServiceInstall, string.Empty, false, [], kestrunFolder, kestrunManifestPath, null, false, null, null, null, null, ModuleStorageScope.Local, false, null, null, null, null, null, null, null, null, null, null, false, [], false, false, false, false);
 
     /// <summary>
     /// Validates service token bounds and resolves command mode.
@@ -211,6 +221,11 @@ internal static partial class Program
             false,
             state.ServiceContentRoot,
             state.ServiceDeploymentRoot,
+            state.ServiceRuntimeSource,
+            state.ServiceRuntimePackage,
+            state.ServiceRuntimeVersion,
+            state.ServiceRuntimePackageId,
+            state.ServiceRuntimeCache,
             state.ServiceContentRootChecksum,
             state.ServiceContentRootChecksumAlgorithm,
             state.ServiceContentRootBearerToken,
@@ -287,6 +302,11 @@ internal static partial class Program
             "--service-password" => TryConsumeServicePasswordOption(args, mode, state, ref index, out error),
             "--deployment-root" => TryConsumeServiceDeploymentRootOption(args, mode, state, ref index, out error),
             "--package" => TryConsumeServicePackageOption(args, mode, state, ref index, out error),
+            "--runtime-source" => TryConsumeServiceRuntimeSourceOption(args, mode, state, ref index, out error),
+            "--runtime-package" => TryConsumeServiceRuntimePackageOption(args, mode, state, ref index, out error),
+            "--runtime-version" => TryConsumeServiceRuntimeVersionOption(args, mode, state, ref index, out error),
+            "--runtime-package-id" => TryConsumeServiceRuntimePackageIdOption(args, mode, state, ref index, out error),
+            "--runtime-cache" => TryConsumeServiceRuntimeCacheOption(args, mode, state, ref index, out error),
             "--content-root" => TryConsumeDeprecatedServiceContentRootOption(args, mode, state, ref index, out error),
             "--content-root-checksum" => TryConsumeServiceContentRootChecksumOption(args, mode, state, ref index, out error),
             "--content-root-checksum-algorithm" => TryConsumeServiceContentRootChecksumAlgorithmOption(args, mode, state, ref index, out error),
@@ -606,6 +626,136 @@ internal static partial class Program
     }
 
     /// <summary>
+    /// Consumes and validates the runtime-source option.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceRuntimeSourceOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        if (mode != CommandMode.ServiceInstall)
+        {
+            error = "--runtime-source is only supported for service install.";
+            return true;
+        }
+
+        if (!TryConsumeOptionValue(args, ref index, "--runtime-source", out var value, out error))
+        {
+            return true;
+        }
+
+        state.ServiceRuntimeSource = value;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes and validates the runtime-package option.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceRuntimePackageOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        if (mode != CommandMode.ServiceInstall)
+        {
+            error = "--runtime-package is only supported for service install.";
+            return true;
+        }
+
+        if (!TryConsumeOptionValue(args, ref index, "--runtime-package", out var value, out error))
+        {
+            return true;
+        }
+
+        state.ServiceRuntimePackage = value;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes and validates the runtime-version option.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceRuntimeVersionOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        if (mode != CommandMode.ServiceInstall)
+        {
+            error = "--runtime-version is only supported for service install.";
+            return true;
+        }
+
+        if (!TryConsumeOptionValue(args, ref index, "--runtime-version", out var value, out error))
+        {
+            return true;
+        }
+
+        state.ServiceRuntimeVersion = value;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes and validates the runtime-package-id option.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceRuntimePackageIdOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        if (mode != CommandMode.ServiceInstall)
+        {
+            error = "--runtime-package-id is only supported for service install.";
+            return true;
+        }
+
+        if (!TryConsumeOptionValue(args, ref index, "--runtime-package-id", out var value, out error))
+        {
+            return true;
+        }
+
+        state.ServiceRuntimePackageId = value;
+        return true;
+    }
+
+    /// <summary>
+    /// Consumes and validates the runtime-cache option.
+    /// </summary>
+    /// <param name="args">Raw command-line arguments.</param>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="index">Current parser index.</param>
+    /// <param name="error">Error text when parsing fails.</param>
+    /// <returns>True when the option token is handled.</returns>
+    private static bool TryConsumeServiceRuntimeCacheOption(string[] args, CommandMode mode, ServiceParseState state, ref int index, out string error)
+    {
+        if (mode != CommandMode.ServiceInstall)
+        {
+            error = "--runtime-cache is only supported for service install.";
+            return true;
+        }
+
+        if (!TryConsumeOptionValue(args, ref index, "--runtime-cache", out var value, out error))
+        {
+            return true;
+        }
+
+        state.ServiceRuntimeCache = value;
+        return true;
+    }
+
+    /// <summary>
     /// Handles deprecated content-root option for service install.
     /// </summary>
     /// <param name="mode">Current service mode.</param>
@@ -840,8 +990,49 @@ internal static partial class Program
         ApplyDefaultServiceInstallScript(mode, state);
 
         return TryValidateServiceCredentialOptions(mode, state, out error)
+            && TryValidateServiceRuntimeOptions(mode, state, out error)
             && TryValidateServiceContentRootDependentOptions(mode, state, out error)
             && TryValidateServiceUpdateOptions(mode, state, out error);
+    }
+
+    /// <summary>
+    /// Validates service runtime package option combinations.
+    /// </summary>
+    /// <param name="mode">Current service mode.</param>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <param name="error">Validation error text.</param>
+    /// <returns>True when runtime option usage is valid.</returns>
+    private static bool TryValidateServiceRuntimeOptions(CommandMode mode, ServiceParseState state, out string error)
+    {
+        if (mode != CommandMode.ServiceInstall)
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(state.ServiceRuntimePackage))
+        {
+            if (!string.IsNullOrWhiteSpace(state.ServiceRuntimeSource))
+            {
+                error = "--runtime-package cannot be combined with --runtime-source.";
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(state.ServiceRuntimeVersion))
+            {
+                error = "--runtime-package cannot be combined with --runtime-version.";
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(state.ServiceRuntimePackageId))
+            {
+                error = "--runtime-package cannot be combined with --runtime-package-id.";
+                return false;
+            }
+        }
+
+        error = string.Empty;
+        return true;
     }
 
     /// <summary>
@@ -930,7 +1121,7 @@ internal static partial class Program
 
         if (state.ServiceNameSet && !string.IsNullOrWhiteSpace(state.ServiceContentRoot))
         {
-            error = "--name is no longer supported when installing from --package/--content-root. Define Name in Service.psd1 inside the package.";
+            error = "--name is no longer supported when installing from --package. Define Name in Service.psd1 inside the package.";
             return false;
         }
 
@@ -1021,19 +1212,30 @@ internal static partial class Program
     {
         if (state.ScriptPathSet && hasContentRoot)
         {
-            error = "--script (or positional script path) is not supported when --package/--content-root is used. Define EntryPoint in Service.psd1 (format 1.0).";
+            error = "An explicit script path is not supported when --package is used. Define EntryPoint in Service.psd1 (format 1.0).";
             return false;
         }
 
-        if (!hasContentRoot && !state.ScriptPathSet)
+        if (!hasContentRoot && !state.ScriptPathSet && !HasServiceRuntimeAcquisitionRequest(state))
         {
-            error = "Service install requires either --package/--content-root or --script.";
+            error = "Service install requires --package or at least one runtime acquisition option (--runtime-version, --runtime-source, --runtime-package, or --runtime-package-id).";
             return false;
         }
 
         error = string.Empty;
         return true;
     }
+
+    /// <summary>
+    /// Determines whether service-install parsing includes a runtime acquisition request.
+    /// </summary>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <returns>True when runtime acquisition options were supplied.</returns>
+    private static bool HasServiceRuntimeAcquisitionRequest(ServiceParseState state)
+        => !string.IsNullOrWhiteSpace(state.ServiceRuntimeSource)
+            || !string.IsNullOrWhiteSpace(state.ServiceRuntimePackage)
+            || !string.IsNullOrWhiteSpace(state.ServiceRuntimeVersion)
+            || !string.IsNullOrWhiteSpace(state.ServiceRuntimePackageId);
 
     /// <summary>
     /// Validates package extension requirements when --package semantics are in effect.
@@ -1086,22 +1288,25 @@ internal static partial class Program
     /// <returns>True when content-root dependent option usage is valid.</returns>
     private static bool TryValidateServiceContentRootLinkedOptions(ServiceParseState state, bool hasContentRoot, out string error)
     {
+        var hasRuntimeSource = !string.IsNullOrWhiteSpace(state.ServiceRuntimeSource);
+        var hasLinkedDownloadSource = hasContentRoot || hasRuntimeSource;
+
         if (!TryValidateServiceContentRootChecksumOptions(state, hasContentRoot, out error))
         {
             return false;
         }
 
-        if (!TryValidateContentRootLinkedOption(!string.IsNullOrWhiteSpace(state.ServiceContentRootBearerToken), hasContentRoot, "--content-root-bearer-token requires --content-root.", out error))
+        if (!TryValidateContentRootLinkedOption(!string.IsNullOrWhiteSpace(state.ServiceContentRootBearerToken), hasLinkedDownloadSource, "--content-root-bearer-token requires --content-root or --runtime-source.", out error))
         {
             return false;
         }
 
-        if (!TryValidateContentRootLinkedOption(state.ServiceContentRootIgnoreCertificate, hasContentRoot, "--content-root-ignore-certificate requires --content-root.", out error))
+        if (!TryValidateContentRootLinkedOption(state.ServiceContentRootIgnoreCertificate, hasLinkedDownloadSource, "--content-root-ignore-certificate requires --content-root or --runtime-source.", out error))
         {
             return false;
         }
 
-        if (!TryValidateContentRootLinkedOption(state.ServiceContentRootHeaders.Count > 0, hasContentRoot, "--content-root-header requires --content-root.", out error))
+        if (!TryValidateContentRootLinkedOption(state.ServiceContentRootHeaders.Count > 0, hasLinkedDownloadSource, "--content-root-header requires --content-root or --runtime-source.", out error))
         {
             return false;
         }

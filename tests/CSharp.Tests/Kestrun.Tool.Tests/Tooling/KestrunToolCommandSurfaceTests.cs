@@ -807,6 +807,937 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithRuntimeSourceOptions_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--script",
+            "Service.ps1",
+            "--runtime-source",
+            ".\\artifacts\\nuget",
+            "--runtime-version",
+            "1.2.3",
+            "--runtime-package-id",
+            "Kestrun.Service.win-x64",
+            "--runtime-cache",
+            ".\\.kestrun-runtime-cache",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal(@".\artifacts\nuget", GetParsedCommandField(ParsedCommand!, "ServiceRuntimeSource"));
+        Assert.Equal("1.2.3", GetParsedCommandField(ParsedCommand!, "ServiceRuntimeVersion"));
+        Assert.Equal("Kestrun.Service.win-x64", GetParsedCommandField(ParsedCommand!, "ServiceRuntimePackageId"));
+        Assert.Equal(@".\.kestrun-runtime-cache", GetParsedCommandField(ParsedCommand!, "ServiceRuntimeCache"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithRuntimeVersionOnly_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--runtime-version",
+            "1.2.3",
+            "--runtime-cache",
+            ".\\runtime-cache",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal("1.2.3", GetParsedCommandField(ParsedCommand!, "ServiceRuntimeVersion"));
+        Assert.Equal(@".\runtime-cache", GetParsedCommandField(ParsedCommand!, "ServiceRuntimeCache"));
+        Assert.Equal(string.Empty, GetParsedCommandField(ParsedCommand!, "ScriptPath"));
+        Assert.Null(GetParsedCommandField(ParsedCommand!, "ServiceContentRoot"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithRuntimeSourceAndDownloadOptions_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--script",
+            "Service.ps1",
+            "--runtime-source",
+            "https://example.com/packages/Kestrun.Service.win-x64.1.2.3.nupkg",
+            "--content-root-bearer-token",
+            "token-value",
+            "--content-root-header",
+            "x-api-key:abc",
+            "--content-root-ignore-certificate",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal("token-value", GetParsedCommandField(ParsedCommand!, "ServiceContentRootBearerToken"));
+        Assert.Equal("True", GetParsedCommandField(ParsedCommand!, "ServiceContentRootIgnoreCertificate"));
+        Assert.Equal("x-api-key:abc", Assert.Single(GetParsedCommandStringArrayField(ParsedCommand!, "ServiceContentRootHeaders")));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithExplicitRuntimePackage_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--script",
+            "Service.ps1",
+            "--runtime-package",
+            ".\\packages\\Kestrun.Service.win-x64.1.2.3.nupkg",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal(@".\packages\Kestrun.Service.win-x64.1.2.3.nupkg", GetParsedCommandField(ParsedCommand!, "ServiceRuntimePackage"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithExplicitRuntimePackageFolder_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--script",
+            "Service.ps1",
+            "--runtime-package",
+            ".\\packages",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal(@".\packages", GetParsedCommandField(ParsedCommand!, "ServiceRuntimePackage"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceRuntimePackage_WithExplicitPackage_PrefersSuppliedPackage()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-pkg-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = "9.9.9-test";
+            var packagePath = Path.Combine(tempRoot, $"{packageId}.{packageVersion}.nupkg");
+
+            CreateRuntimePackageForTests(tempRoot, packagePath, packageId, packageVersion, rid);
+
+            var (success, runtimePackage, error) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: null,
+                runtimePackage: packagePath,
+                runtimeVersion: packageVersion,
+                runtimePackageId: packageId,
+                runtimeCache: Path.Combine(tempRoot, "cache"),
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.True(success, error);
+            Assert.NotNull(runtimePackage);
+            var resolvedPackagePath = GetRecordField(runtimePackage, "PackagePath");
+            Assert.False(string.IsNullOrWhiteSpace(resolvedPackagePath));
+            Assert.EndsWith($"{packageId}.{packageVersion}.nupkg", resolvedPackagePath, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+            Assert.True(File.Exists(resolvedPackagePath));
+            Assert.Equal(packageVersion, GetRecordField(runtimePackage, "PackageVersion"));
+            Assert.EndsWith(Path.Combine("host", OperatingSystem.IsWindows() ? "kestrun-service-host.exe" : "kestrun-service-host"), GetRecordField(runtimePackage, "ServiceHostExecutablePath"), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceRuntimePackage_WithDirectRuntimeSourceFile_InfersPackageVersion()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-source-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = "9.9.9-test";
+            var packagePath = Path.Combine(tempRoot, $"{packageId}.{packageVersion}.nupkg");
+
+            CreateRuntimePackageForTests(tempRoot, packagePath, packageId, packageVersion, rid);
+
+            var (success, runtimePackage, error) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: packagePath,
+                runtimePackage: null,
+                runtimeVersion: null,
+                runtimePackageId: packageId,
+                runtimeCache: Path.Combine(tempRoot, "cache"),
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.True(success, error);
+            Assert.NotNull(runtimePackage);
+            var resolvedPackagePath = GetRecordField(runtimePackage, "PackagePath");
+            Assert.False(string.IsNullOrWhiteSpace(resolvedPackagePath));
+            Assert.EndsWith($"{packageId}.{packageVersion}.nupkg", resolvedPackagePath, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+            Assert.True(File.Exists(resolvedPackagePath));
+            Assert.Equal(packageVersion, GetRecordField(runtimePackage, "PackageVersion"));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceRuntimePackage_WithExplicitPackageFolder_SelectsExpectedVersion()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-pkg-dir-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = InvokeGetDefaultServiceRuntimePackageVersion();
+            var packagePath = Path.Combine(tempRoot, $"{packageId}.{packageVersion}.nupkg");
+
+            CreateRuntimePackageForTests(tempRoot, packagePath, packageId, packageVersion, rid);
+
+            var (success, runtimePackage, error) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: null,
+                runtimePackage: tempRoot,
+                runtimeVersion: null,
+                runtimePackageId: null,
+                runtimeCache: Path.Combine(tempRoot, "cache"),
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.True(success, error);
+            Assert.NotNull(runtimePackage);
+            Assert.Equal(packageVersion, GetRecordField(runtimePackage, "PackageVersion"));
+            Assert.EndsWith($"{packageId}.{packageVersion}.nupkg", GetRecordField(runtimePackage, "PackagePath"), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceRuntimePackage_WithExplicitPackageFolderMissingExpectedFile_ReturnsError()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-pkg-dir-missing-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = InvokeGetDefaultServiceRuntimePackageVersion();
+
+            var (success, _, error) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: null,
+                runtimePackage: tempRoot,
+                runtimeVersion: null,
+                runtimePackageId: null,
+                runtimeCache: Path.Combine(tempRoot, "cache"),
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.False(success);
+            Assert.Contains($"{packageId}.{packageVersion}.nupkg", error, StringComparison.Ordinal);
+            Assert.Contains("was not found in folder", error, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceRuntimePackage_WithPartialExtractedPayload_ReextractsAndSucceeds()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-partial-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = "9.9.9-test";
+            var packagePath = Path.Combine(tempRoot, $"{packageId}.{packageVersion}.nupkg");
+            var cacheRoot = Path.Combine(tempRoot, "cache");
+
+            CreateRuntimePackageForTests(tempRoot, packagePath, packageId, packageVersion, rid);
+
+            var (firstSuccess, firstRuntimePackage, firstError) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: packagePath,
+                runtimePackage: null,
+                runtimeVersion: null,
+                runtimePackageId: packageId,
+                runtimeCache: cacheRoot,
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.True(firstSuccess, firstError);
+            Assert.NotNull(firstRuntimePackage);
+
+            var extractionRoot = GetRecordField(firstRuntimePackage, "ExtractionRoot");
+            var extractedHostPath = GetRecordField(firstRuntimePackage, "ServiceHostExecutablePath");
+            var extractedModulesPath = GetRecordField(firstRuntimePackage, "ModulesPath");
+            Assert.False(string.IsNullOrWhiteSpace(extractionRoot));
+            Assert.False(string.IsNullOrWhiteSpace(extractedHostPath));
+            Assert.False(string.IsNullOrWhiteSpace(extractedModulesPath));
+            Assert.True(File.Exists(extractedHostPath));
+            Assert.True(Directory.Exists(extractedModulesPath));
+
+            File.Delete(extractedHostPath);
+            Assert.False(File.Exists(extractedHostPath));
+            Assert.True(File.Exists(Path.Combine(extractionRoot, "runtime-manifest.json")));
+
+            var (secondSuccess, secondRuntimePackage, secondError) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: packagePath,
+                runtimePackage: null,
+                runtimeVersion: null,
+                runtimePackageId: packageId,
+                runtimeCache: cacheRoot,
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.True(secondSuccess, secondError);
+            Assert.NotNull(secondRuntimePackage);
+
+            var recoveredHostPath = GetRecordField(secondRuntimePackage, "ServiceHostExecutablePath");
+            var recoveredModulesPath = GetRecordField(secondRuntimePackage, "ModulesPath");
+            var recoveredExtractionRoot = GetRecordField(secondRuntimePackage, "ExtractionRoot");
+            Assert.False(string.IsNullOrWhiteSpace(recoveredHostPath));
+            Assert.False(string.IsNullOrWhiteSpace(recoveredModulesPath));
+            Assert.False(string.IsNullOrWhiteSpace(recoveredExtractionRoot));
+
+            Assert.True(File.Exists(recoveredHostPath));
+            Assert.True(Directory.Exists(recoveredModulesPath));
+            Assert.Equal("host-binary", File.ReadAllText(recoveredHostPath, Encoding.UTF8));
+            Assert.True(File.Exists(Path.Combine(recoveredExtractionRoot, ".runtime-extraction-complete")));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceRuntimePackage_WithPartialExtractedPayloadAndCompletionMarker_ReextractsAndSucceeds()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-partial-marker-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = "9.9.9-test";
+            var packagePath = Path.Combine(tempRoot, $"{packageId}.{packageVersion}.nupkg");
+            var cacheRoot = Path.Combine(tempRoot, "cache");
+
+            CreateRuntimePackageForTests(tempRoot, packagePath, packageId, packageVersion, rid);
+
+            var (firstSuccess, firstRuntimePackage, firstError) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: packagePath,
+                runtimePackage: null,
+                runtimeVersion: null,
+                runtimePackageId: packageId,
+                runtimeCache: cacheRoot,
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.True(firstSuccess, firstError);
+            Assert.NotNull(firstRuntimePackage);
+
+            var extractionRoot = GetRecordField(firstRuntimePackage, "ExtractionRoot");
+            var extractedHostPath = GetRecordField(firstRuntimePackage, "ServiceHostExecutablePath");
+
+            Assert.False(string.IsNullOrWhiteSpace(extractionRoot));
+            Assert.False(string.IsNullOrWhiteSpace(extractedHostPath));
+            var validatedExtractionRoot = extractionRoot;
+            var extractionMarkerPath = Path.Combine(validatedExtractionRoot, ".runtime-extraction-complete");
+
+            Assert.True(File.Exists(extractedHostPath));
+            Assert.True(File.Exists(extractionMarkerPath));
+
+            File.Delete(extractedHostPath);
+            Assert.False(File.Exists(extractedHostPath));
+            Assert.True(File.Exists(extractionMarkerPath));
+            Assert.True(File.Exists(Path.Combine(validatedExtractionRoot, "runtime-manifest.json")));
+
+            var (secondSuccess, secondRuntimePackage, secondError) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: packagePath,
+                runtimePackage: null,
+                runtimeVersion: null,
+                runtimePackageId: packageId,
+                runtimeCache: cacheRoot,
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.True(secondSuccess, secondError);
+            Assert.NotNull(secondRuntimePackage);
+
+            var recoveredHostPath = GetRecordField(secondRuntimePackage, "ServiceHostExecutablePath");
+            Assert.False(string.IsNullOrWhiteSpace(recoveredHostPath));
+            Assert.True(File.Exists(recoveredHostPath));
+            Assert.Equal("host-binary", File.ReadAllText(recoveredHostPath, Encoding.UTF8));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceRuntimePackage_WithManifestEntryPointOutsideExtractionRoot_Fails()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-escape-entry-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = "9.9.9-test";
+            var packagePath = Path.Combine(tempRoot, $"{packageId}.{packageVersion}.nupkg");
+
+            CreateRuntimePackageForTests(
+                tempRoot,
+                packagePath,
+                packageId,
+                packageVersion,
+                rid,
+                manifestEntryPoint: "../outside-host");
+
+            var (success, _, error) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: packagePath,
+                runtimePackage: null,
+                runtimeVersion: null,
+                runtimePackageId: packageId,
+                runtimeCache: Path.Combine(tempRoot, "cache"),
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.False(success);
+            Assert.Contains("entryPoint", error, StringComparison.Ordinal);
+            Assert.Contains("resolves outside extraction root", error, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceRuntimePackage_WithManifestModulesPathOutsideExtractionRoot_Fails()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-escape-modules-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = "9.9.9-test";
+            var packagePath = Path.Combine(tempRoot, $"{packageId}.{packageVersion}.nupkg");
+
+            CreateRuntimePackageForTests(
+                tempRoot,
+                packagePath,
+                packageId,
+                packageVersion,
+                rid,
+                manifestModulesPath: "../outside-modules");
+
+            var (success, _, error) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: packagePath,
+                runtimePackage: null,
+                runtimeVersion: null,
+                runtimePackageId: packageId,
+                runtimeCache: Path.Combine(tempRoot, "cache"),
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.False(success);
+            Assert.Contains("modulesPath", error, StringComparison.Ordinal);
+            Assert.Contains("resolves outside extraction root", error, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceRuntimePackage_WithMissingLocalRuntimeSource_DoesNotLeaveEmptyCacheDirectories()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-missing-source-{Guid.NewGuid():N}");
+        try
+        {
+            var sourceRoot = Path.Combine(tempRoot, "source");
+            var cacheRoot = Path.Combine(tempRoot, "cache");
+            _ = Directory.CreateDirectory(sourceRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = "9.9.9-test";
+
+            var (success, _, error) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: sourceRoot,
+                runtimePackage: null,
+                runtimeVersion: packageVersion,
+                runtimePackageId: packageId,
+                runtimeCache: cacheRoot,
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.False(success);
+            Assert.Contains("was not found in local source", error, StringComparison.Ordinal);
+
+            var expectedPackageDirectory = Path.Combine(cacheRoot, "packages", packageId, packageVersion);
+            Assert.False(Directory.Exists(expectedPackageDirectory));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryCleanupEmptyRuntimePackageDirectory_WithInvalidPath_DoesNotThrow()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-cleanup-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var invalidPath = "invalid\0path";
+
+            // Cleanup is best-effort and must never propagate path/IO errors.
+            InvokeVoid("TryCleanupEmptyRuntimePackageDirectory", invalidPath, tempRoot);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void InstallService_WithInvalidRuntimeCache_Returns1AndWritesError()
+    {
+        var invalidRuntimeCache = "invalid\0path";
+
+        var (parseSuccess, parsedCommand, parseError) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--runtime-version",
+            "1.2.3",
+            "--runtime-cache",
+            invalidRuntimeCache,
+        ]);
+
+        Assert.True(parseSuccess, parseError);
+
+        var (exitCode, stdOut, stdErr) = InvokeInstallService(parsedCommand!, skipGalleryCheck: true);
+
+        Assert.Equal(1, exitCode);
+        Assert.True(string.IsNullOrWhiteSpace(stdOut));
+        Assert.Contains("Unable to use runtime cache directory", stdErr, StringComparison.Ordinal);
+        Assert.Contains("invalid", stdErr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void GetDefaultRuntimeCacheRoot_UsesMachineWideLocation()
+    {
+        var cacheRoot = InvokeGetDefaultRuntimeCacheRoot();
+
+        if (OperatingSystem.IsWindows())
+        {
+            // Windows uses a machine-wide common application data location.
+            var expectedWindowsRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                "Kestrun",
+                "RuntimePackages");
+
+            Assert.Equal(expectedWindowsRoot, cacheRoot, ignoreCase: true);
+            return;
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            // macOS uses a per-user cache directory under the user's Library.
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var expectedMacRoot = Path.Combine(
+                userProfile,
+                "Library",
+                "Caches",
+                "Kestrun",
+                "RuntimePackages");
+
+            Assert.Equal(expectedMacRoot, cacheRoot, ignoreCase: true);
+            return;
+        }
+
+        // Unix-like systems (Linux, etc.) use XDG per-user cache paths.
+        var xdgCacheHome = Environment.GetEnvironmentVariable("XDG_CACHE_HOME");
+        string expectedUnixRoot;
+
+        if (!string.IsNullOrWhiteSpace(xdgCacheHome))
+        {
+            expectedUnixRoot = Path.Combine(xdgCacheHome, "kestrun", "runtime-packages");
+        }
+        else
+        {
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            expectedUnixRoot = Path.Combine(userProfile, ".cache", "kestrun", "runtime-packages");
+        }
+
+        Assert.Equal(expectedUnixRoot, cacheRoot, ignoreCase: false);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryPrepareInstallServiceBundle_WithExplicitRuntimePackage_UsesSuppliedHostAndModules()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-install-runtime-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = "9.9.9-test";
+            var runtimePackagePath = Path.Combine(tempRoot, $"{packageId}.{packageVersion}.nupkg");
+            CreateRuntimePackageForTests(tempRoot, runtimePackagePath, packageId, packageVersion, rid);
+
+            var moduleRoot = Path.Combine(tempRoot, "module-src");
+            _ = Directory.CreateDirectory(moduleRoot);
+            var manifestPath = Path.Combine(moduleRoot, "Kestrun.psd1");
+            File.WriteAllText(manifestPath, "@{`n    ModuleVersion = '1.0.0'`n}", Encoding.UTF8);
+
+            var runtimeBinaryName = OperatingSystem.IsWindows() ? "kestrun.exe" : "kestrun";
+            var runtimeSourcePath = Path.Combine(moduleRoot, "runtimes", rid, runtimeBinaryName);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(runtimeSourcePath)!);
+            File.WriteAllText(runtimeSourcePath, "runtime-binary", Encoding.UTF8);
+
+            var packageContent = Path.Combine(tempRoot, "package-content");
+            _ = Directory.CreateDirectory(packageContent);
+            var krpackPath = Path.Combine(tempRoot, "demo-service.krpack");
+            var deploymentRoot = Path.Combine(tempRoot, "bundle-root");
+            CreateZipArchive(krpackPath, new Dictionary<string, string>
+            {
+                ["Service.psd1"] = "@{ FormatVersion = '1.0'; Name = 'demo-service'; Description = 'Demo service'; Version = '1.2.0'; EntryPoint = 'scripts/start.ps1' }",
+                ["scripts/start.ps1"] = "Write-Output 'hello'",
+                ["config/settings.json"] = "{}",
+            });
+
+            var (parseSuccess, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--package",
+                krpackPath,
+                "--runtime-package",
+                runtimePackagePath,
+                "--kestrun-manifest",
+                manifestPath,
+                "--deployment-root",
+                deploymentRoot,
+                "--runtime-cache",
+                Path.Combine(tempRoot, "runtime-cache"),
+            ]);
+            Assert.True(parseSuccess, parseError);
+
+            var (inputsSuccess, serviceName, serviceVersion, scriptSource, moduleManifestPath, _) = InvokeTryResolveInstallServiceInputsRaw(parsedCommand!);
+            Assert.True(inputsSuccess);
+            Assert.NotNull(scriptSource);
+            Assert.Equal(manifestPath, moduleManifestPath);
+
+            var (bundleSuccess, bundle, bundleRootPath, bundleError, _) = InvokeTryPrepareInstallServiceBundle(
+                parsedCommand!,
+                serviceName,
+                string.IsNullOrWhiteSpace(serviceVersion) ? null : serviceVersion,
+                scriptSource!,
+                moduleManifestPath);
+
+            Assert.True(bundleSuccess, bundleError);
+            Assert.NotNull(bundle);
+
+            var bundledServiceHostPath = GetBundleField(bundle, "ServiceHostExecutablePath");
+            var bundledModulesPath = Path.Combine(bundleRootPath, "Modules", "Demo.Module", "Demo.Module.psd1");
+            Assert.True(File.Exists(bundledServiceHostPath));
+            Assert.True(File.Exists(bundledModulesPath));
+            Assert.Equal("host-binary", File.ReadAllText(bundledServiceHostPath, Encoding.UTF8));
+            Assert.Equal("@{}", File.ReadAllText(bundledModulesPath, Encoding.UTF8));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void InstallService_WithRuntimeVersionOnly_CachesRuntimeWithoutInstallingService()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-install-runtime-only-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = "9.9.9-test";
+            var runtimeSourceRoot = Path.Combine(tempRoot, "runtime-feed");
+            var runtimeCacheRoot = Path.Combine(tempRoot, "runtime-cache");
+            var deploymentRoot = Path.Combine(tempRoot, "deployment-root");
+            _ = Directory.CreateDirectory(runtimeSourceRoot);
+
+            var runtimePackagePath = Path.Combine(runtimeSourceRoot, $"{packageId}.{packageVersion}.nupkg");
+            CreateRuntimePackageForTests(tempRoot, runtimePackagePath, packageId, packageVersion, rid);
+
+            var (parseSuccess, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--runtime-version",
+                packageVersion,
+                "--runtime-source",
+                runtimeSourceRoot,
+                "--runtime-cache",
+                runtimeCacheRoot,
+                "--deployment-root",
+                deploymentRoot,
+            ]);
+            Assert.True(parseSuccess, parseError);
+
+            var (exitCode, stdOut, stdErr) = InvokeInstallService(parsedCommand!, skipGalleryCheck: true);
+
+            Assert.Equal(0, exitCode);
+            Assert.True(string.IsNullOrWhiteSpace(stdErr));
+            Assert.Contains("Cached service runtime package", stdOut, StringComparison.Ordinal);
+
+            var cachedPackagePath = Path.Combine(runtimeCacheRoot, "packages", packageId, packageVersion, $"{packageId}.{packageVersion}.nupkg");
+            var extractionRoot = Path.Combine(runtimeCacheRoot, "expanded", packageId);
+            Assert.True(File.Exists(cachedPackagePath));
+            Assert.True(Directory.Exists(extractionRoot));
+            Assert.False(Directory.Exists(deploymentRoot));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void InstallService_WithRuntimeVersionOnly_FromLocalFeed_PopulatesRuntimeCacheContents()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-install-runtime-cache-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = "9.9.10-test";
+            var runtimeSourceRoot = Path.Combine(tempRoot, "runtime-feed");
+            var runtimeCacheRoot = Path.Combine(tempRoot, "runtime-cache");
+            _ = Directory.CreateDirectory(runtimeSourceRoot);
+
+            var runtimePackagePath = Path.Combine(runtimeSourceRoot, $"{packageId}.{packageVersion}.nupkg");
+            CreateRuntimePackageForTests(tempRoot, runtimePackagePath, packageId, packageVersion, rid);
+
+            var (parseSuccess, parsedCommand, parseError) = InvokeTryParseArguments([
+                "service",
+                "install",
+                "--runtime-version",
+                packageVersion,
+                "--runtime-source",
+                runtimeSourceRoot,
+                "--runtime-cache",
+                runtimeCacheRoot,
+            ]);
+            Assert.True(parseSuccess, parseError);
+
+            var (exitCode, stdOut, stdErr) = InvokeInstallService(parsedCommand!, skipGalleryCheck: true);
+
+            Assert.Equal(0, exitCode);
+            Assert.True(string.IsNullOrWhiteSpace(stdErr));
+            Assert.Contains("Cached service runtime package", stdOut, StringComparison.Ordinal);
+
+            var cachedPackagePath = Path.Combine(runtimeCacheRoot, "packages", packageId, packageVersion, $"{packageId}.{packageVersion}.nupkg");
+            var expandedPackageRoot = Path.Combine(runtimeCacheRoot, "expanded", packageId);
+            var hostFileName = OperatingSystem.IsWindows() ? "kestrun-service-host.exe" : "kestrun-service-host";
+
+            Assert.True(File.Exists(cachedPackagePath));
+            Assert.True(Directory.Exists(expandedPackageRoot));
+
+            var manifestFiles = Directory.GetFiles(expandedPackageRoot, "runtime-manifest.json", SearchOption.AllDirectories);
+            var hostFiles = Directory.GetFiles(expandedPackageRoot, hostFileName, SearchOption.AllDirectories);
+            var moduleManifestFiles = Directory.GetFiles(expandedPackageRoot, "Demo.Module.psd1", SearchOption.AllDirectories);
+
+            Assert.NotEmpty(manifestFiles);
+            Assert.NotEmpty(hostFiles);
+            Assert.NotEmpty(moduleManifestFiles);
+
+            var manifestJson = File.ReadAllText(manifestFiles[0], Encoding.UTF8);
+            Assert.Contains($"\"rid\":\"{rid}\"", manifestJson, StringComparison.Ordinal);
+            Assert.Contains($"\"entryPoint\":\"host/{hostFileName}\"", manifestJson, StringComparison.Ordinal);
+            Assert.Contains("\"modulesPath\":\"modules\"", manifestJson, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithRuntimePackageAndSource_Fails()
+    {
+        var (Success, _, Error) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--script",
+            "Service.ps1",
+            "--runtime-package",
+            ".\\packages\\Kestrun.Service.win-x64.1.2.3.nupkg",
+            "--runtime-source",
+            ".\\artifacts\\nuget",
+        ]);
+
+        Assert.False(Success);
+        Assert.Contains("cannot be combined", Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithNonPackageRuntimePackagePath_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--script",
+            "Service.ps1",
+            "--runtime-package",
+            ".\\packages\\not-a-package.zip",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal(@".\packages\not-a-package.zip", GetParsedCommandField(ParsedCommand!, "ServiceRuntimePackage"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceUpdate_WithRuntimeSource_Fails()
+    {
+        var (Success, _, Error) = InvokeTryParseArguments([
+            "service",
+            "update",
+            "--name",
+            "demo",
+            "--runtime-source",
+            ".\\artifacts\\nuget",
+        ]);
+
+        Assert.False(Success);
+        Assert.Contains("only supported for service install", Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void TryParseArguments_ServiceInfo_WithName_Succeeds()
     {
         var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
@@ -1081,9 +2012,9 @@ public class KestrunToolCommandSurfaceTests
     public static IEnumerable<object[]> ServiceInstallOptionsRequiringContentRootData()
     {
         yield return [new[] { "service", "install", "--name", "demo", "--script", "Service.ps1", "--content-root-checksum", "abcdef" }, "--content-root-checksum requires --content-root."];
-        yield return [new[] { "service", "install", "--name", "demo", "--script", "Service.ps1", "--content-root-bearer-token", "token-value" }, "--content-root-bearer-token requires --content-root."];
-        yield return [new[] { "service", "install", "--name", "demo", "--script", "Service.ps1", "--content-root-ignore-certificate" }, "--content-root-ignore-certificate requires --content-root."];
-        yield return [new[] { "service", "install", "--name", "demo", "--script", "Service.ps1", "--content-root-header", "x-api-key:abc" }, "--content-root-header requires --content-root."];
+        yield return [new[] { "service", "install", "--name", "demo", "--script", "Service.ps1", "--content-root-bearer-token", "token-value" }, "--content-root-bearer-token requires --content-root or --runtime-source."];
+        yield return [new[] { "service", "install", "--name", "demo", "--script", "Service.ps1", "--content-root-ignore-certificate" }, "--content-root-ignore-certificate requires --content-root or --runtime-source."];
+        yield return [new[] { "service", "install", "--name", "demo", "--script", "Service.ps1", "--content-root-header", "x-api-key:abc" }, "--content-root-header requires --content-root or --runtime-source."];
     }
 
     public static IEnumerable<object[]> ServiceUpdateFailbackRejectsContentRootOptionsData()
@@ -1583,7 +2514,7 @@ public class KestrunToolCommandSurfaceTests
         ]);
 
         Assert.False(Success);
-        Assert.Contains("--content-root-bearer-token requires --content-root", Error, StringComparison.Ordinal);
+        Assert.Contains("--content-root-bearer-token requires --content-root or --runtime-source", Error, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -2934,6 +3865,40 @@ public class KestrunToolCommandSurfaceTests
         return (success, runtimePath, error);
     }
 
+    private static (bool Success, object? RuntimePackage, string Error) InvokeTryResolveServiceRuntimePackage(
+        string? runtimeSource,
+        string? runtimePackage,
+        string? runtimeVersion,
+        string? runtimePackageId,
+        string? runtimeCache,
+        string? bearerToken,
+        string[] customHeaders,
+        bool ignoreCertificate,
+        bool requireModules)
+    {
+        var method = GetRequiredProgramMethod("TryResolveServiceRuntimePackage");
+
+        var values = new object?[] { runtimeSource, runtimePackage, runtimeVersion, runtimePackageId, runtimeCache, bearerToken, customHeaders, ignoreCertificate, requireModules, false, null, null };
+        var success = InvokeRequiredBool(method, values);
+        var error = values[11]?.ToString() ?? string.Empty;
+        return (success, values[10], error);
+    }
+
+    private static string InvokeGetDefaultRuntimeCacheRoot()
+        => Assert.IsType<string>(InvokeRaw("GetDefaultRuntimeCacheRoot", []));
+
+    private static string InvokeGetDefaultServiceRuntimePackageVersion()
+        => Assert.IsType<string>(InvokeRaw("GetDefaultServiceRuntimePackageVersion", []));
+
+    private static string InvokeCurrentServiceRuntimeRid()
+    {
+        var method = GetRequiredProgramMethod("TryGetServiceRuntimeRid");
+        var values = new object?[] { null, null };
+        var success = InvokeRequiredBool(method, values);
+        Assert.True(success, values[1]?.ToString() ?? "Unable to resolve service runtime RID for current test environment.");
+        return Assert.IsType<string>(values[0]);
+    }
+
     private static (bool Success, string Error) InvokeTryReplaceDirectoryFromSource(string sourceDirectory, string targetDirectory, IReadOnlyList<string> preservePaths)
     {
         var method = GetRequiredProgramMethod("TryReplaceDirectoryFromSource");
@@ -3016,6 +3981,7 @@ public class KestrunToolCommandSurfaceTests
             string? serviceVersion = null)
     {
         var method = GetRequiredProgramMethod("TryPrepareServiceBundle");
+        var runtimePackage = InvokeRequiredResolvedRuntimePackage();
 
         var values = new object?[]
         {
@@ -3024,14 +3990,15 @@ public class KestrunToolCommandSurfaceTests
             manifestPath,
             contentRoot,
             relativeScriptPath ?? Path.GetFileName(scriptPath),
+            runtimePackage,
             null,
             null,
             bundleRoot,
             serviceVersion,
         };
         var success = InvokeRequiredBool(method, values);
-        var bundle = values[5];
-        var error = values[6]?.ToString() ?? string.Empty;
+        var bundle = values[6];
+        var error = values[7]?.ToString() ?? string.Empty;
 
         return (
             success,
@@ -3041,6 +4008,64 @@ public class KestrunToolCommandSurfaceTests
             GetBundleField(bundle, "ScriptPath"),
             GetBundleField(bundle, "ModuleManifestPath"),
             error);
+    }
+
+    private static object InvokeRequiredResolvedRuntimePackage()
+    {
+        var method = GetRequiredProgramMethod("TryResolveServiceRuntimePackage");
+        var values = new object?[] { null, null, null, null, null, null, Array.Empty<string>(), false, true, true, null, null };
+        var success = InvokeRequiredBool(method, values);
+        Assert.True(success, values[11]?.ToString() ?? "Failed to resolve runtime package for current test environment.");
+        Assert.NotNull(values[10]);
+        return values[10]!;
+    }
+
+    private static void CreateRuntimePackageForTests(
+        string tempRoot,
+        string packagePath,
+        string packageId,
+        string packageVersion,
+        string rid,
+        string? manifestEntryPoint = null,
+        string? manifestModulesPath = "modules")
+    {
+        var stagingRoot = Path.Combine(tempRoot, "package");
+        var hostRoot = Path.Combine(stagingRoot, "host");
+        var modulesRoot = Path.Combine(stagingRoot, "modules", "Demo.Module");
+        _ = Directory.CreateDirectory(hostRoot);
+        _ = Directory.CreateDirectory(modulesRoot);
+
+        var hostFileName = OperatingSystem.IsWindows() ? "kestrun-service-host.exe" : "kestrun-service-host";
+        File.WriteAllText(Path.Combine(hostRoot, hostFileName), "host-binary", Encoding.UTF8);
+        File.WriteAllText(Path.Combine(modulesRoot, "Demo.Module.psd1"), "@{}", Encoding.UTF8);
+
+        var effectiveEntryPoint = string.IsNullOrWhiteSpace(manifestEntryPoint)
+            ? $"host/{hostFileName}"
+            : manifestEntryPoint;
+
+        var manifestModulesSegment = string.IsNullOrWhiteSpace(manifestModulesPath)
+            ? string.Empty
+            : $",\"modulesPath\":\"{manifestModulesPath}\"";
+
+        var manifest = "{" +
+            $"\"rid\":\"{rid}\"," +
+            $"\"entryPoint\":\"{effectiveEntryPoint}\"" +
+            manifestModulesSegment +
+            "}";
+        File.WriteAllText(Path.Combine(stagingRoot, "runtime-manifest.json"), manifest, Encoding.UTF8);
+
+        var nuspec = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+            "<package xmlns=\"http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd\">\n" +
+            "  <metadata>\n" +
+            $"    <id>{packageId}</id>\n" +
+            $"    <version>{packageVersion}</version>\n" +
+            "    <authors>Kestrun Team</authors>\n" +
+            "    <description>Test runtime package.</description>\n" +
+            "  </metadata>\n" +
+            "</package>\n";
+        File.WriteAllText(Path.Combine(stagingRoot, $"{packageId}.nuspec"), nuspec, Encoding.UTF8);
+
+        ZipFile.CreateFromDirectory(stagingRoot, packagePath);
     }
 
     private static (bool Success, string FullScriptPath, string FullContentRoot, string RelativeScriptPath, string Error)
@@ -3069,6 +4094,23 @@ public class KestrunToolCommandSurfaceTests
             fullContentRoot,
             relativeScriptPath,
             error);
+    }
+
+    private static (bool Success, string ServiceName, string ServiceVersion, object? ScriptSource, string ModuleManifestPath, int ExitCode)
+        InvokeTryResolveInstallServiceInputsRaw(object parsedCommand)
+    {
+        var method = GetRequiredProgramMethod("TryResolveInstallServiceInputs");
+
+        var values = new object?[] { parsedCommand, null, null, null, null, null, 0 };
+        var success = InvokeRequiredBool(method, values);
+
+        return (
+            success,
+            values[1]?.ToString() ?? string.Empty,
+            values[2]?.ToString() ?? string.Empty,
+            values[4],
+            values[5]?.ToString() ?? string.Empty,
+            values[6] is int exitCode ? exitCode : 0);
     }
 
     private static (bool Success, string NormalizedContentRoot, Uri? ContentRootUri, string FullContentRoot)
@@ -3111,6 +4153,57 @@ public class KestrunToolCommandSurfaceTests
         }
 
         return (success, serviceName, serviceVersion, effectiveServiceLogPath, fullScriptPath, relativeScriptPath, temporaryContentRootPath, moduleManifestPath, exitCode);
+    }
+
+    private static (bool Success, object? Bundle, string BundleRootPath, string Error, int ExitCode)
+        InvokeTryPrepareInstallServiceBundle(object parsedCommand, string serviceName, string? serviceVersion, object scriptSource, string moduleManifestPath)
+    {
+        var method = GetRequiredProgramMethod("TryPrepareInstallServiceBundle");
+
+        var values = new object?[] { parsedCommand, serviceName, serviceVersion, scriptSource, moduleManifestPath, null, 0 };
+        using var errorWriter = new StringWriter();
+        var originalError = Console.Error;
+        bool success;
+        try
+        {
+            Console.SetError(errorWriter);
+            success = InvokeRequiredBool(method, values);
+        }
+        finally
+        {
+            Console.SetError(originalError);
+        }
+
+        var bundle = values[5];
+        var exitCode = values[6] is int code ? code : 0;
+        var error = errorWriter.ToString().Trim();
+        if (string.IsNullOrWhiteSpace(error) && !success && bundle is null)
+        {
+            error = "Service bundle preparation failed.";
+        }
+
+        return (success, bundle, GetBundleField(bundle, "RootPath"), error, exitCode);
+    }
+
+    private static (int ExitCode, string StdOut, string StdErr) InvokeInstallService(object parsedCommand, bool skipGalleryCheck)
+    {
+        using var outputWriter = new StringWriter();
+        using var errorWriter = new StringWriter();
+        var originalOut = Console.Out;
+        var originalError = Console.Error;
+
+        try
+        {
+            Console.SetOut(outputWriter);
+            Console.SetError(errorWriter);
+            var exitCode = Assert.IsType<int>(InvokeRaw("InstallService", [parsedCommand, skipGalleryCheck]));
+            return (exitCode, outputWriter.ToString().Trim(), errorWriter.ToString().Trim());
+        }
+        finally
+        {
+            Console.SetOut(originalOut);
+            Console.SetError(originalError);
+        }
     }
 
     private static IReadOnlyList<string> InvokeBuildElevatedRelaunchArguments(string executablePath, IReadOnlyList<string> args) => Assert.IsAssignableFrom<IReadOnlyList<string>>(InvokeRaw("BuildElevatedRelaunchArguments", [executablePath, args]));

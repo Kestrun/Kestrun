@@ -7,10 +7,15 @@ internal static partial class Program
     private const string ModuleManifestFileName = "Kestrun.psd1";
     private const string ServiceDescriptorFileName = "Service.psd1";
     private const string ServicePackageExtension = ".krpack";
+    private const string RuntimePackageExtension = ".nupkg";
+    private const string RuntimePackageManifestFileName = "runtime-manifest.json";
+    private const string RuntimePackageExtractionCompleteMarkerFileName = ".runtime-extraction-complete";
     private const string ModuleName = "Kestrun";
     private const string RunDefaultScriptFileName = "Service.ps1";
     private const string ServiceDefaultScriptFileName = "Service.ps1";
     private const string ProductName = "kestrun";
+    private const string RuntimePackageIdPrefix = "Kestrun.Service";
+    private const string DefaultNuGetServiceIndexUrl = "https://api.nuget.org/v3/index.json";
     private const string ServiceDeploymentProductFolderName = "Kestrun";
     private const string ServiceDeploymentServicesFolderName = "Services";
     private const string ServiceBundleRuntimeDirectoryName = "Runtime";
@@ -83,6 +88,11 @@ internal static partial class Program
         bool ModuleForce,
         string? ServiceContentRoot,
         string? ServiceDeploymentRoot,
+        string? ServiceRuntimeSource,
+        string? ServiceRuntimePackage,
+        string? ServiceRuntimeVersion,
+        string? ServiceRuntimePackageId,
+        string? ServiceRuntimeCache,
         string? ServiceContentRootChecksum,
         string? ServiceContentRootChecksumAlgorithm,
         string? ServiceContentRootBearerToken,
@@ -118,6 +128,15 @@ internal static partial class Program
         string ServiceHostExecutablePath,
         string ScriptPath,
         string ModuleManifestPath);
+
+    private sealed record ResolvedServiceRuntimePackage(
+        string Rid,
+        string PackageId,
+        string PackageVersion,
+        string PackagePath,
+        string ExtractionRoot,
+        string ServiceHostExecutablePath,
+        string ModulesPath);
 
     private sealed record ResolvedServiceScriptSource(
         string FullScriptPath,

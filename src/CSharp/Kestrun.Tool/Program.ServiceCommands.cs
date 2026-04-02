@@ -12,6 +12,11 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int InstallService(ParsedCommand command, bool skipGalleryCheck)
     {
+        if (IsRuntimeOnlyServiceInstall(command))
+        {
+            return CacheServiceRuntimePackage(command);
+        }
+
         if (!TryResolveInstallServiceInputs(
                 command,
                 out var serviceName,
@@ -42,6 +47,54 @@ internal static partial class Program
         {
             TryCleanupTemporaryServiceContentRoot(scriptSource.TemporaryContentRootPath);
         }
+    }
+
+    /// <summary>
+    /// Determines whether the service install request is runtime-only and should only populate the runtime cache.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <returns>True when no service content root or script was supplied and runtime acquisition options were requested.</returns>
+    private static bool IsRuntimeOnlyServiceInstall(ParsedCommand command)
+        => string.IsNullOrWhiteSpace(command.ServiceContentRoot)
+            && !command.ScriptPathProvided
+            && (!string.IsNullOrWhiteSpace(command.ServiceRuntimeSource)
+                || !string.IsNullOrWhiteSpace(command.ServiceRuntimePackage)
+                || !string.IsNullOrWhiteSpace(command.ServiceRuntimeVersion)
+                || !string.IsNullOrWhiteSpace(command.ServiceRuntimePackageId));
+
+    /// <summary>
+    /// Resolves and stores the requested service runtime package in the local cache without installing a service.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <returns>Process exit code.</returns>
+    private static int CacheServiceRuntimePackage(ParsedCommand command)
+    {
+        if (!TryResolveServiceRuntimePackage(
+                command.ServiceRuntimeSource,
+                command.ServiceRuntimePackage,
+                command.ServiceRuntimeVersion,
+                command.ServiceRuntimePackageId,
+                command.ServiceRuntimeCache,
+                command.ServiceContentRootBearerToken,
+                command.ServiceContentRootHeaders,
+                command.ServiceContentRootIgnoreCertificate,
+                requireModules: true,
+                allowToolDistributionFallback: false,
+                out var runtimePackageLayout,
+                out var runtimeError))
+        {
+            Console.Error.WriteLine(runtimeError);
+            return 1;
+        }
+
+        Console.WriteLine($"Cached service runtime package '{runtimePackageLayout.PackageId}' version '{runtimePackageLayout.PackageVersion}' for RID '{runtimePackageLayout.Rid}'.");
+        if (!string.IsNullOrWhiteSpace(runtimePackageLayout.PackagePath))
+        {
+            Console.WriteLine($"Package: {runtimePackageLayout.PackagePath}");
+        }
+
+        Console.WriteLine($"Extracted: {runtimePackageLayout.ExtractionRoot}");
+        return 0;
     }
 
     /// <summary>
@@ -211,12 +264,32 @@ internal static partial class Program
         serviceBundle = default!;
         exitCode = 0;
 
+        if (!TryResolveServiceRuntimePackage(
+            command.ServiceRuntimeSource,
+            command.ServiceRuntimePackage,
+            command.ServiceRuntimeVersion,
+            command.ServiceRuntimePackageId,
+            command.ServiceRuntimeCache,
+            command.ServiceContentRootBearerToken,
+            command.ServiceContentRootHeaders,
+            command.ServiceContentRootIgnoreCertificate,
+            requireModules: true,
+            allowToolDistributionFallback: false,
+            out var runtimePackageLayout,
+            out var runtimeError))
+        {
+            Console.Error.WriteLine(runtimeError);
+            exitCode = 1;
+            return false;
+        }
+
         if (!TryPrepareServiceBundle(
                 serviceName,
                 scriptSource.FullScriptPath,
                 moduleManifestPath,
                 scriptSource.FullContentRoot,
                 scriptSource.RelativeScriptPath,
+            runtimePackageLayout,
                 out var preparedServiceBundle,
                 out var bundleError,
                 command.ServiceDeploymentRoot,
@@ -3069,6 +3142,7 @@ internal static partial class Program
         string sourceModuleManifestPath,
         string? sourceContentRoot,
         string relativeScriptPath,
+        ResolvedServiceRuntimePackage runtimePackage,
         out ServiceBundleLayout? serviceBundle,
         out string error,
         string? deploymentRootOverride = null,
@@ -3081,6 +3155,7 @@ internal static partial class Program
                 serviceName,
                 sourceScriptPath,
                 sourceModuleManifestPath,
+                runtimePackage,
                 deploymentRootOverride,
                 serviceVersion,
                 out var context,
@@ -3106,12 +3181,12 @@ internal static partial class Program
             completedBundleSteps++;
             bundleProgress?.Report(completedBundleSteps);
 
-            if (!TryCopyServiceHostExecutable(context.RuntimeDirectory, out var bundledServiceHostPath, out error))
+            if (!TryCopyServiceHostExecutable(context, out var bundledServiceHostPath, out error))
             {
                 return false;
             }
 
-            if (!TryCopyBundledToolModules(context.ModulesDirectory, showProgress, out error))
+            if (!TryCopyBundledRuntimeModules(context, showProgress, out error))
             {
                 return false;
             }
@@ -3168,6 +3243,7 @@ internal static partial class Program
         string serviceName,
         string sourceScriptPath,
         string sourceModuleManifestPath,
+        ResolvedServiceRuntimePackage runtimePackage,
         string? deploymentRootOverride,
         string? serviceVersion,
         out ServiceBundleContext context,
@@ -3215,6 +3291,8 @@ internal static partial class Program
             fullManifestPath,
             runtimeExecutablePath,
             moduleRoot,
+            runtimePackage.ServiceHostExecutablePath,
+            runtimePackage.ModulesPath,
             serviceRoot,
             runtimeDirectory,
             modulesDirectory,
@@ -3259,19 +3337,19 @@ internal static partial class Program
     /// <param name="bundledServiceHostPath">Bundled service host executable path.</param>
     /// <param name="error">Error details when host resolution or copy fails.</param>
     /// <returns>True when the service host executable is copied successfully.</returns>
-    private static bool TryCopyServiceHostExecutable(string runtimeDirectory, out string bundledServiceHostPath, out string error)
+    private static bool TryCopyServiceHostExecutable(ServiceBundleContext context, out string bundledServiceHostPath, out string error)
     {
         bundledServiceHostPath = string.Empty;
         error = string.Empty;
 
-        if (!TryResolveDedicatedServiceHostExecutableFromToolDistribution(out var serviceHostExecutablePath))
+        if (!File.Exists(context.RuntimePackageServiceHostPath))
         {
-            error = $"Unable to locate dedicated service host for current RID in Kestrun.Tool distribution. Expected '{(OperatingSystem.IsWindows() ? "kestrun-service-host.exe" : "kestrun-service-host")}' under 'kestrun-service/<rid>/'. Reinstall or update Kestrun.Tool.";
+            error = $"Resolved runtime payload does not contain the dedicated service host at '{context.RuntimePackageServiceHostPath}'.";
             return false;
         }
 
-        bundledServiceHostPath = Path.Combine(runtimeDirectory, Path.GetFileName(serviceHostExecutablePath));
-        File.Copy(serviceHostExecutablePath, bundledServiceHostPath, overwrite: true);
+        bundledServiceHostPath = Path.Combine(context.RuntimeDirectory, Path.GetFileName(context.RuntimePackageServiceHostPath));
+        File.Copy(context.RuntimePackageServiceHostPath, bundledServiceHostPath, overwrite: true);
         return true;
     }
 
@@ -3282,19 +3360,19 @@ internal static partial class Program
     /// <param name="showProgress">True to print copy progress details.</param>
     /// <param name="error">Error details when payload resolution fails.</param>
     /// <returns>True when bundled modules copy succeeds.</returns>
-    private static bool TryCopyBundledToolModules(string modulesDirectory, bool showProgress, out string error)
+    private static bool TryCopyBundledRuntimeModules(ServiceBundleContext context, bool showProgress, out string error)
     {
         error = string.Empty;
 
-        if (!TryResolvePowerShellModulesPayloadFromToolDistribution(out var toolModulesPayloadPath))
+        if (string.IsNullOrWhiteSpace(context.RuntimePackageModulesPath) || !Directory.Exists(context.RuntimePackageModulesPath))
         {
-            error = "Unable to locate bundled PowerShell Modules payload for current RID in Kestrun.Tool distribution. Expected payload under 'kestrun-service/<rid>/Modules/'. Reinstall or update Kestrun.Tool.";
+            error = $"Resolved runtime payload does not contain bundled PowerShell modules at '{context.RuntimePackageModulesPath}'.";
             return false;
         }
 
         CopyDirectoryContents(
-            toolModulesPayloadPath,
-            modulesDirectory,
+            context.RuntimePackageModulesPath,
+            context.ModulesDirectory,
             showProgress,
             "Bundling service runtime modules",
             exclusionPatterns: null);
@@ -3406,6 +3484,8 @@ internal static partial class Program
     /// <param name="FullManifestPath">Resolved source module manifest path.</param>
     /// <param name="RuntimeExecutablePath">Resolved runtime executable source path.</param>
     /// <param name="ModuleRoot">Resolved module directory root.</param>
+    /// <param name="RuntimePackageServiceHostPath">Resolved service host path from runtime payload.</param>
+    /// <param name="RuntimePackageModulesPath">Resolved modules path from runtime payload.</param>
     /// <param name="ServiceRoot">Resolved service bundle root path.</param>
     /// <param name="RuntimeDirectory">Resolved runtime directory inside bundle.</param>
     /// <param name="ModulesDirectory">Resolved modules directory inside bundle.</param>
@@ -3416,6 +3496,8 @@ internal static partial class Program
         string FullManifestPath,
         string RuntimeExecutablePath,
         string ModuleRoot,
+        string RuntimePackageServiceHostPath,
+        string RuntimePackageModulesPath,
         string ServiceRoot,
         string RuntimeDirectory,
         string ModulesDirectory,

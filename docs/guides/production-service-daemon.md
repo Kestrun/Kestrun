@@ -226,10 +226,23 @@ Use an explicit local runtime package for offline installs:
 dotnet kestrun service install --package .\my-service.krpack --runtime-package .\Kestrun.Service.win-x64.1.0.0-rc.1.nupkg
 ```
 
+`--runtime-package` also accepts a folder. Kestrun selects the expected
+`Kestrun.Service.<rid>.<version>.nupkg` file for the current platform and target version.
+
+```powershell
+dotnet kestrun service install --package .\my-service.krpack --runtime-package .\artifacts\nuget --runtime-version 1.0.0-rc.1
+```
+
 Use a local/private runtime feed:
 
 ```powershell
 dotnet kestrun service install --package .\my-service.krpack --runtime-source .\artifacts\nuget --runtime-cache .\.kestrun-runtime-cache
+```
+
+Prefetch the service runtime into cache without installing a service bundle:
+
+```powershell
+dotnet kestrun service install --runtime-version 1.0.0-rc.1 --runtime-source .\artifacts\nuget --runtime-cache .\.kestrun-runtime-cache
 ```
 
 Use a direct runtime package URL with auth headers:
@@ -347,6 +360,8 @@ dotnet kestrun service start --name my-service
 - `service install --package` and `service update --package` support local `.krpack` files and HTTP(S) package URLs.
 - `service install --package` resolves `Kestrun.Service.<rid>` for the current platform automatically.
   Use `--runtime-package` or `--runtime-source` to override runtime acquisition.
+- `--runtime-package` can point to a single `.nupkg` file or to a folder containing per-RID runtime packages.
+- `service install` can run without `--package` to prefetch the runtime cache when at least one runtime acquisition option is supplied.
 - Private package URLs and HTTP(S) runtime-source downloads can use bearer token auth via `--content-root-bearer-token`.
 - HTTPS certificate bypass is available via `--content-root-ignore-certificate` for package/runtime-source downloads and should be used only for controlled environments.
 

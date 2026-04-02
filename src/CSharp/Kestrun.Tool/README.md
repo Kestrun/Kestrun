@@ -69,6 +69,12 @@ Install from a local feed with an explicit runtime cache:
 dotnet kestrun service install --package .\my-kestrun.krpack --runtime-source .\artifacts\nuget --runtime-cache .\.kestrun-runtime-cache
 ```
 
+Prefetch only the service runtime into cache without installing a service:
+
+```powershell
+dotnet kestrun service install --runtime-version 1.0.0-rc.1 --runtime-source .\artifacts\nuget --runtime-cache .\.kestrun-runtime-cache
+```
+
 Install from a direct runtime package URL:
 
 ```powershell
@@ -187,6 +193,8 @@ install after package content is applied.
 - `service install --package` resolves `Kestrun.Service.<rid>` for the current platform by default.
     Use `--runtime-package` for offline installs or `--runtime-source` to target a
     local/private feed.
+- `service install` can be used without `--package` when you only want to populate the runtime cache.
+    Supply at least one runtime acquisition option such as `--runtime-version`, `--runtime-source`, `--runtime-package`, or `--runtime-package-id`.
 - `service install` does not fall back to the runtime bundled with `Kestrun.Tool` when runtime package acquisition fails.
     If the requested runtime package version is unavailable, provide `--runtime-package` or select a different `--runtime-version`.
 - runtime packages are cached under an OS-specific cache root unless `--runtime-cache` is supplied.

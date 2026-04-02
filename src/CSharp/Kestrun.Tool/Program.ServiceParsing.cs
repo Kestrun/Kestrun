@@ -1121,7 +1121,7 @@ internal static partial class Program
 
         if (state.ServiceNameSet && !string.IsNullOrWhiteSpace(state.ServiceContentRoot))
         {
-            error = "--name is no longer supported when installing from --package/--content-root. Define Name in Service.psd1 inside the package.";
+            error = "--name is no longer supported when installing from --package. Define Name in Service.psd1 inside the package.";
             return false;
         }
 
@@ -1212,19 +1212,30 @@ internal static partial class Program
     {
         if (state.ScriptPathSet && hasContentRoot)
         {
-            error = "--script (or positional script path) is not supported when --package/--content-root is used. Define EntryPoint in Service.psd1 (format 1.0).";
+            error = "An explicit script path is not supported when --package is used. Define EntryPoint in Service.psd1 (format 1.0).";
             return false;
         }
 
-        if (!hasContentRoot && !state.ScriptPathSet)
+        if (!hasContentRoot && !state.ScriptPathSet && !HasServiceRuntimeAcquisitionRequest(state))
         {
-            error = "Service install requires either --package/--content-root or --script.";
+            error = "Service install requires --package or at least one runtime acquisition option (--runtime-version, --runtime-source, --runtime-package, or --runtime-package-id).";
             return false;
         }
 
         error = string.Empty;
         return true;
     }
+
+    /// <summary>
+    /// Determines whether service-install parsing includes a runtime acquisition request.
+    /// </summary>
+    /// <param name="state">Mutable service parse state.</param>
+    /// <returns>True when runtime acquisition options were supplied.</returns>
+    private static bool HasServiceRuntimeAcquisitionRequest(ServiceParseState state)
+        => !string.IsNullOrWhiteSpace(state.ServiceRuntimeSource)
+            || !string.IsNullOrWhiteSpace(state.ServiceRuntimePackage)
+            || !string.IsNullOrWhiteSpace(state.ServiceRuntimeVersion)
+            || !string.IsNullOrWhiteSpace(state.ServiceRuntimePackageId);
 
     /// <summary>
     /// Validates package extension requirements when --package semantics are in effect.

@@ -12,6 +12,11 @@ internal static partial class Program
     /// <returns>Process exit code.</returns>
     private static int InstallService(ParsedCommand command, bool skipGalleryCheck)
     {
+        if (IsRuntimeOnlyServiceInstall(command))
+        {
+            return CacheServiceRuntimePackage(command);
+        }
+
         if (!TryResolveInstallServiceInputs(
                 command,
                 out var serviceName,
@@ -42,6 +47,54 @@ internal static partial class Program
         {
             TryCleanupTemporaryServiceContentRoot(scriptSource.TemporaryContentRootPath);
         }
+    }
+
+    /// <summary>
+    /// Determines whether the service install request is runtime-only and should only populate the runtime cache.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <returns>True when no service content root or script was supplied and runtime acquisition options were requested.</returns>
+    private static bool IsRuntimeOnlyServiceInstall(ParsedCommand command)
+        => string.IsNullOrWhiteSpace(command.ServiceContentRoot)
+            && !command.ScriptPathProvided
+            && (!string.IsNullOrWhiteSpace(command.ServiceRuntimeSource)
+                || !string.IsNullOrWhiteSpace(command.ServiceRuntimePackage)
+                || !string.IsNullOrWhiteSpace(command.ServiceRuntimeVersion)
+                || !string.IsNullOrWhiteSpace(command.ServiceRuntimePackageId));
+
+    /// <summary>
+    /// Resolves and stores the requested service runtime package in the local cache without installing a service.
+    /// </summary>
+    /// <param name="command">Parsed command information.</param>
+    /// <returns>Process exit code.</returns>
+    private static int CacheServiceRuntimePackage(ParsedCommand command)
+    {
+        if (!TryResolveServiceRuntimePackage(
+                command.ServiceRuntimeSource,
+                command.ServiceRuntimePackage,
+                command.ServiceRuntimeVersion,
+                command.ServiceRuntimePackageId,
+                command.ServiceRuntimeCache,
+                command.ServiceContentRootBearerToken,
+                command.ServiceContentRootHeaders,
+                command.ServiceContentRootIgnoreCertificate,
+                requireModules: true,
+                allowToolDistributionFallback: false,
+                out var runtimePackageLayout,
+                out var runtimeError))
+        {
+            Console.Error.WriteLine(runtimeError);
+            return 1;
+        }
+
+        Console.WriteLine($"Cached service runtime package '{runtimePackageLayout.PackageId}' version '{runtimePackageLayout.PackageVersion}' for RID '{runtimePackageLayout.Rid}'.");
+        if (!string.IsNullOrWhiteSpace(runtimePackageLayout.PackagePath))
+        {
+            Console.WriteLine($"Package: {runtimePackageLayout.PackagePath}");
+        }
+
+        Console.WriteLine($"Extracted: {runtimePackageLayout.ExtractionRoot}");
+        return 0;
     }
 
     /// <summary>

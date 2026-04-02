@@ -1494,7 +1494,7 @@ internal static partial class Program
         if (command.ScriptPathProvided)
         {
             scriptSource = CreateEmptyResolvedServiceScriptSource();
-            error = "--script (or positional script path) is not supported when --package/--content-root is used. Define Script in Service.psd1 (EntryPoint in format 1.0).";
+            error = "An explicit script path is not supported when --package is used. Define EntryPoint in Service.psd1 (format 1.0).";
             return false;
         }
 
@@ -2286,7 +2286,7 @@ internal static partial class Program
         if (!string.IsNullOrWhiteSpace(requestedScriptPath))
         {
             resolvedScriptPath = string.Empty;
-            error = "--script (or positional script path) is not supported when --package/--content-root is used. Define Script in Service.psd1 (EntryPoint in format 1.0).";
+            error = "An explicit script path is not supported when --package is used. Define EntryPoint in Service.psd1 (format 1.0).";
             return false;
         }
 
@@ -5199,7 +5199,7 @@ internal static partial class Program
 
             case "service":
                 Console.WriteLine("Usage:");
-                Console.WriteLine("  kestrun [--nocheck] [--kestrun-manifest <path-to-Kestrun.psd1>] service install --package <path-or-url-to-.krpack> [--service-log-path <path-to-log-file>] [--service-user <account>] [--service-password <password>] [--deployment-root <folder>] [--runtime-source <path-or-url>] [--runtime-package <path-to-.nupkg-or-folder>] [--runtime-version <version>] [--runtime-package-id <package-id>] [--runtime-cache <folder>] [--content-root-checksum <hex>] [--content-root-checksum-algorithm <name>] [--content-root-bearer-token <token>] [--content-root-header <name:value> ...] [--content-root-ignore-certificate] [--arguments <script arguments...>]");
+                Console.WriteLine("  kestrun [--nocheck] [--kestrun-manifest <path-to-Kestrun.psd1>] service install [--package <path-or-url-to-.krpack>] [--service-log-path <path-to-log-file>] [--service-user <account>] [--service-password <password>] [--deployment-root <folder>] [--runtime-source <path-or-url>] [--runtime-package <path-to-.nupkg-or-folder>] [--runtime-version <version>] [--runtime-package-id <package-id>] [--runtime-cache <folder>] [--content-root-checksum <hex>] [--content-root-checksum-algorithm <name>] [--content-root-bearer-token <token>] [--content-root-header <name:value> ...] [--content-root-ignore-certificate] [--arguments <script arguments...>]");
                 Console.WriteLine("  kestrun [--nocheck] service update --name <service-name> [--package <path-or-url-to-.krpack>] [--kestrun | --kestrun-module <path-to-Kestrun.psd1-or-folder> | --kestrun-manifest <path-to-Kestrun.psd1-or-folder>] [--deployment-root <folder>] [--content-root-checksum <hex>] [--content-root-checksum-algorithm <name>] [--content-root-bearer-token <token>] [--content-root-header <name:value> ...] [--content-root-ignore-certificate] [--failback]");
                 Console.WriteLine("  kestrun service remove --name <service-name>");
                 Console.WriteLine("  kestrun service start --name <service-name> [--json | --raw]");
@@ -5217,7 +5217,7 @@ internal static partial class Program
                 Console.WriteLine("  --deployment-root <folder>  Override where per-service bundles are created (default is OS-specific).");
                 Console.WriteLine("  --runtime-source <path-or-url>  Override runtime acquisition using a local folder, local .nupkg, direct .nupkg URL, NuGet service index, or flat-container base URL.");
                 Console.WriteLine("  --runtime-package <path>    Use an explicit local Kestrun.Service.<rid> .nupkg for offline installs.");
-                Console.WriteLine("  --runtime-version <version> Override the runtime package version (defaults to the current tool version).");
+                Console.WriteLine("  --runtime-version <version> Override the runtime package version (defaults to the current tool version). When used without --package, only the runtime cache is populated.");
                 Console.WriteLine("  --runtime-package-id <id>   Override the runtime package id (defaults to Kestrun.Service.<rid>).");
                 Console.WriteLine("  --runtime-cache <folder>    Override the local runtime package cache directory.");
                 Console.WriteLine("  --kestrun-manifest <path>   Use an explicit Kestrun.psd1 manifest for the service runtime.");
@@ -5243,6 +5243,7 @@ internal static partial class Program
                 Console.WriteLine("  - Package file must use .krpack extension and contain zip content.");
                 Console.WriteLine("  - install resolves a runtime package for the current RID using Kestrun.Service.<rid> packages.");
                 Console.WriteLine("  - install caches canonical runtime packages under packages/<id>/<version>/<id>.<version>.nupkg and extracted working payloads under expanded/<id>/... .");
+                Console.WriteLine("  - install can be used without --package to prefetch a runtime package into cache only; supply at least one runtime acquisition option.");
                 Console.WriteLine("  - install does not fall back to the runtime bundled with Kestrun.Tool when package acquisition fails.");
                 Console.WriteLine("  - use --runtime-package for offline installs or --runtime-source to point at a local feed/NuGet endpoint.");
                 Console.WriteLine("  - --content-root-checksum is validated against the package file before extraction.");

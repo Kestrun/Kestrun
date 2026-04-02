@@ -1012,12 +1012,6 @@ internal static partial class Program
 
         if (!string.IsNullOrWhiteSpace(state.ServiceRuntimePackage))
         {
-            if (!state.ServiceRuntimePackage.EndsWith(RuntimePackageExtension, StringComparison.OrdinalIgnoreCase))
-            {
-                error = $"--runtime-package must point to a '{RuntimePackageExtension}' file.";
-                return false;
-            }
-
             if (!string.IsNullOrWhiteSpace(state.ServiceRuntimeSource))
             {
                 error = "--runtime-package cannot be combined with --runtime-source.";

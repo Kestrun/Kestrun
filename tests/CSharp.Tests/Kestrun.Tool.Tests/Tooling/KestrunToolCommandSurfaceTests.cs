@@ -883,6 +883,26 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryParseArguments_ServiceInstall_WithExplicitRuntimePackageFolder_Succeeds()
+    {
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--name",
+            "demo",
+            "--script",
+            "Service.ps1",
+            "--runtime-package",
+            ".\\packages",
+        ]);
+
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal(@".\packages", GetParsedCommandField(ParsedCommand!, "ServiceRuntimePackage"));
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void TryResolveServiceRuntimePackage_WithExplicitPackage_PrefersSuppliedPackage()
     {
         var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-pkg-{Guid.NewGuid():N}");
@@ -960,6 +980,84 @@ public class KestrunToolCommandSurfaceTests
             Assert.EndsWith($"{packageId}.{packageVersion}.nupkg", resolvedPackagePath, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
             Assert.True(File.Exists(resolvedPackagePath));
             Assert.Equal(packageVersion, GetRecordField(runtimePackage, "PackageVersion"));
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceRuntimePackage_WithExplicitPackageFolder_SelectsExpectedVersion()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-pkg-dir-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = InvokeGetDefaultServiceRuntimePackageVersion();
+            var packagePath = Path.Combine(tempRoot, $"{packageId}.{packageVersion}.nupkg");
+
+            CreateRuntimePackageForTests(tempRoot, packagePath, packageId, packageVersion, rid);
+
+            var (success, runtimePackage, error) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: null,
+                runtimePackage: tempRoot,
+                runtimeVersion: null,
+                runtimePackageId: null,
+                runtimeCache: Path.Combine(tempRoot, "cache"),
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.True(success, error);
+            Assert.NotNull(runtimePackage);
+            Assert.Equal(packageVersion, GetRecordField(runtimePackage, "PackageVersion"));
+            Assert.EndsWith($"{packageId}.{packageVersion}.nupkg", GetRecordField(runtimePackage, "PackagePath"), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceRuntimePackage_WithExplicitPackageFolderMissingExpectedFile_ReturnsError()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-runtime-pkg-dir-missing-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+
+            var rid = InvokeCurrentServiceRuntimeRid();
+            var packageId = $"Kestrun.Service.{rid}";
+            var packageVersion = InvokeGetDefaultServiceRuntimePackageVersion();
+
+            var (success, _, error) = InvokeTryResolveServiceRuntimePackage(
+                runtimeSource: null,
+                runtimePackage: tempRoot,
+                runtimeVersion: null,
+                runtimePackageId: null,
+                runtimeCache: Path.Combine(tempRoot, "cache"),
+                bearerToken: null,
+                customHeaders: [],
+                ignoreCertificate: false,
+                requireModules: true);
+
+            Assert.False(success);
+            Assert.Contains($"{packageId}.{packageVersion}.nupkg", error, StringComparison.Ordinal);
+            Assert.Contains("was not found in folder", error, StringComparison.Ordinal);
         }
         finally
         {
@@ -1436,9 +1534,9 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
-    public void TryParseArguments_ServiceInstall_WithNonPackageRuntimePackage_Fails()
+    public void TryParseArguments_ServiceInstall_WithNonPackageRuntimePackagePath_Succeeds()
     {
-        var (Success, _, Error) = InvokeTryParseArguments([
+        var (Success, ParsedCommand, Error) = InvokeTryParseArguments([
             "service",
             "install",
             "--name",
@@ -1449,8 +1547,9 @@ public class KestrunToolCommandSurfaceTests
             ".\\packages\\not-a-package.zip",
         ]);
 
-        Assert.False(Success);
-        Assert.Contains("must point to a '.nupkg' file", Error, StringComparison.Ordinal);
+        Assert.True(Success);
+        Assert.True(string.IsNullOrWhiteSpace(Error));
+        Assert.Equal(@".\packages\not-a-package.zip", GetParsedCommandField(ParsedCommand!, "ServiceRuntimePackage"));
     }
 
     [Fact]
@@ -3620,6 +3719,9 @@ public class KestrunToolCommandSurfaceTests
 
     private static string InvokeGetDefaultRuntimeCacheRoot()
         => Assert.IsType<string>(InvokeRaw("GetDefaultRuntimeCacheRoot", []));
+
+    private static string InvokeGetDefaultServiceRuntimePackageVersion()
+        => Assert.IsType<string>(InvokeRaw("GetDefaultServiceRuntimePackageVersion", []));
 
     private static string InvokeCurrentServiceRuntimeRid()
     {

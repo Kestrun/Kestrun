@@ -416,15 +416,14 @@ internal static partial class Program
         out string packageVersion,
         out string error)
     {
-        packagePath = Path.GetFullPath(runtimePackage);
+        packagePath = string.Empty;
         packageBytes = [];
         packageId = string.Empty;
         packageVersion = string.Empty;
         error = string.Empty;
 
-        if (!File.Exists(packagePath))
+        if (!TryResolveExplicitRuntimePackagePath(runtimePackage, expectedPackageId, expectedVersion, out packagePath, out error))
         {
-            error = $"Runtime package file was not found: {packagePath}";
             return false;
         }
 
@@ -449,6 +448,83 @@ internal static partial class Program
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Resolves an explicit runtime package argument to a concrete package file path.
+    /// </summary>
+    /// <param name="runtimePackage">Explicit runtime package file or directory path.</param>
+    /// <param name="expectedPackageId">Expected runtime package id.</param>
+    /// <param name="expectedVersion">Optional expected runtime package version.</param>
+    /// <param name="packagePath">Resolved runtime package file path.</param>
+    /// <param name="error">Resolution error details.</param>
+    /// <returns>True when the explicit runtime package argument resolves to a readable package file.</returns>
+    private static bool TryResolveExplicitRuntimePackagePath(
+        string runtimePackage,
+        string expectedPackageId,
+        string? expectedVersion,
+        out string packagePath,
+        out string error)
+    {
+        packagePath = Path.GetFullPath(runtimePackage);
+        error = string.Empty;
+
+        if (Directory.Exists(packagePath))
+        {
+            return TryResolveExplicitRuntimePackageFromDirectory(packagePath, expectedPackageId, expectedVersion, out packagePath, out error);
+        }
+
+        if (!File.Exists(packagePath))
+        {
+            error = runtimePackage.EndsWith(RuntimePackageExtension, StringComparison.OrdinalIgnoreCase)
+                ? $"Runtime package file was not found: {packagePath}"
+                : $"Runtime package path was not found: {packagePath}";
+            return false;
+        }
+
+        if (!packagePath.EndsWith(RuntimePackageExtension, StringComparison.OrdinalIgnoreCase))
+        {
+            error = $"Runtime package file '{packagePath}' must point to a '{RuntimePackageExtension}' package.";
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Resolves the expected runtime package file from a directory passed to <c>--runtime-package</c>.
+    /// </summary>
+    /// <param name="runtimePackageDirectory">Directory containing runtime packages.</param>
+    /// <param name="expectedPackageId">Expected runtime package id.</param>
+    /// <param name="expectedVersion">Optional expected runtime package version.</param>
+    /// <param name="packagePath">Resolved runtime package file path.</param>
+    /// <param name="error">Resolution error details.</param>
+    /// <returns>True when the directory contains the expected runtime package file.</returns>
+    private static bool TryResolveExplicitRuntimePackageFromDirectory(
+        string runtimePackageDirectory,
+        string expectedPackageId,
+        string? expectedVersion,
+        out string packagePath,
+        out string error)
+    {
+        var effectiveVersion = string.IsNullOrWhiteSpace(expectedVersion)
+            ? GetDefaultServiceRuntimePackageVersion()
+            : expectedVersion;
+        var expectedFileName = $"{expectedPackageId}.{effectiveVersion}{RuntimePackageExtension}";
+
+        packagePath = Directory
+            .EnumerateFiles(runtimePackageDirectory, $"*{RuntimePackageExtension}", SearchOption.TopDirectoryOnly)
+            .FirstOrDefault(path => string.Equals(Path.GetFileName(path), expectedFileName, StringComparison.OrdinalIgnoreCase))
+            ?? string.Empty;
+
+        if (!string.IsNullOrWhiteSpace(packagePath))
+        {
+            error = string.Empty;
+            return true;
+        }
+
+        error = $"Runtime package '{expectedFileName}' was not found in folder '{runtimePackageDirectory}'.";
+        return false;
     }
 
     /// <summary>

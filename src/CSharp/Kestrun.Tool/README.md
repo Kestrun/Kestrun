@@ -59,6 +59,10 @@ Install using an explicit offline runtime package:
 dotnet kestrun service install --package .\my-kestrun.krpack --runtime-package .\Kestrun.Service.win-x64.1.0.0-rc.1.nupkg
 ```
 
+`--runtime-package` also accepts a folder. In that case Kestrun selects the expected
+`Kestrun.Service.<rid>.<version>.nupkg` file for the current platform and target version
+from that folder, and returns an error if the file is not present.
+
 Install from a local feed with an explicit runtime cache:
 
 ```powershell

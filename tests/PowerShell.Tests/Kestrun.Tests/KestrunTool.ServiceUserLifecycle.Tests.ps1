@@ -67,6 +67,10 @@ BeforeAll {
     $script:root = Get-ProjectRootDirectory
     $script:kestrunLauncher = Join-Path $script:root 'src/PowerShell/Kestrun/kestrun.ps1'
     $script:kestrunToolProject = Join-Path $script:root 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
+    $script:localRuntimeFeed = Join-Path $script:root 'artifacts/nuget'
+    $script:hasLocalRuntimeFeed = (Test-Path -Path $script:localRuntimeFeed -PathType Container) -and @(
+        Get-ChildItem -Path $script:localRuntimeFeed -Filter 'Kestrun.Service.*.nupkg' -File -ErrorAction SilentlyContinue
+    ).Count -gt 0
     $script:hasDotnetKestrunTool = [bool](Get-Command dotnet-kestrun -ErrorAction SilentlyContinue)
     $script:kestrunCommandTimeoutSeconds = 90
 
@@ -80,8 +84,8 @@ BeforeAll {
             [string[]]$Arguments
         )
 
-        $stdoutPath = Join-Path ([System.IO.Path]::GetTempPath()) ("kestrun-tool-{0}.stdout.log" -f [System.IO.Path]::GetRandomFileName())
-        $stderrPath = Join-Path ([System.IO.Path]::GetTempPath()) ("kestrun-tool-{0}.stderr.log" -f [System.IO.Path]::GetRandomFileName())
+        $stdoutPath = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-tool-{0}.stdout.log' -f [System.IO.Path]::GetRandomFileName())
+        $stderrPath = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-tool-{0}.stderr.log' -f [System.IO.Path]::GetRandomFileName())
 
         try {
             if (Test-Path -Path $script:kestrunLauncher -PathType Leaf) {
@@ -106,7 +110,7 @@ BeforeAll {
                 try {
                     $process.Kill($true)
                 } catch {
-                    Write-Verbose ("Failed to terminate timed-out Kestrun command: {0}" -f $_.Exception.Message)
+                    Write-Verbose ('Failed to terminate timed-out Kestrun command: {0}' -f $_.Exception.Message)
                 }
 
                 $stdout = if (Test-Path -Path $stdoutPath) { Get-Content -Path $stdoutPath -Raw } else { '' }
@@ -169,6 +173,34 @@ BeforeAll {
             $stderr
         ) -join [Environment]::NewLine
     }
+
+    $script:GetServiceInstallRuntimeArguments = {
+        param(
+            [Parameter(Mandatory)]
+            [string]$DeploymentRoot
+        )
+
+        if (-not $script:hasLocalRuntimeFeed) {
+            return @()
+        }
+
+        $runtimeCache = Join-Path $DeploymentRoot '.runtime-cache'
+        return @('--runtime-source', $script:localRuntimeFeed, '--runtime-cache', $runtimeCache)
+    }
+
+    $script:InvokeKestrunServiceInstall = {
+        param(
+            [Parameter(Mandatory)]
+            [string[]]$Arguments,
+            [Parameter(Mandatory)]
+            [string]$DeploymentRoot,
+            [Parameter(Mandatory)]
+            [string]$ScriptPath
+        )
+
+        $installArguments = @($Arguments) + @(& $script:GetServiceInstallRuntimeArguments -DeploymentRoot $DeploymentRoot) + @($ScriptPath)
+        & $script:InvokeKestrunCommand -Arguments $installArguments
+    }
 }
 
 Describe 'KestrunTool service user lifecycle' {
@@ -179,11 +211,11 @@ Describe 'KestrunTool service user lifecycle' {
         $scriptPath = Join-Path $script:root 'docs/_includes/examples/pwsh/10.2-OpenAPI-Component-Schema.ps1'
 
         try {
-            $installResult = & $script:InvokeKestrunCommand -Arguments @(
+            $installResult = & $script:InvokeKestrunServiceInstall -Arguments @(
                 'service', 'install',
                 '--name', $serviceName,
-                '--deployment-root', $deploymentRoot,
-                $scriptPath)
+                '--deployment-root', $deploymentRoot
+            ) -DeploymentRoot $deploymentRoot -ScriptPath $scriptPath
             & $script:AssertKestrunCommandSucceeded $installResult 'Linux default service install'
 
             $startResult = & $script:InvokeKestrunCommand -Arguments @('service', 'start', '--name', $serviceName)
@@ -227,12 +259,12 @@ Describe 'KestrunTool service user lifecycle' {
             & useradd --system --no-create-home --shell /usr/sbin/nologin $serviceUser | Out-Null
             $LASTEXITCODE | Should -Be 0
 
-            $installResult = & $script:InvokeKestrunCommand -Arguments @(
+            $installResult = & $script:InvokeKestrunServiceInstall -Arguments @(
                 'service', 'install',
                 '--name', $serviceName,
                 '--service-user', $serviceUser,
-                '--deployment-root', $deploymentRoot,
-                $scriptPath)
+                '--deployment-root', $deploymentRoot
+            ) -DeploymentRoot $deploymentRoot -ScriptPath $scriptPath
 
             & $script:AssertKestrunCommandSucceeded $installResult 'Linux dedicated-user service install'
 
@@ -299,12 +331,12 @@ Describe 'KestrunTool service user lifecycle' {
             & dscl . -create "/Users/$serviceUser" NFSHomeDirectory /var/empty | Out-Null
             $LASTEXITCODE | Should -Be 0
 
-            $installResult = & $script:InvokeKestrunCommand -Arguments @(
+            $installResult = & $script:InvokeKestrunServiceInstall -Arguments @(
                 'service', 'install',
                 '--name', $serviceName,
                 '--service-user', $serviceUser,
-                '--deployment-root', $deploymentRoot,
-                $scriptPath)
+                '--deployment-root', $deploymentRoot
+            ) -DeploymentRoot $deploymentRoot -ScriptPath $scriptPath
             & $script:AssertKestrunCommandSucceeded $installResult 'macOS dedicated-user service install'
 
             $startResult = & $script:InvokeKestrunCommand -Arguments @('service', 'start', '--name', $serviceName)
@@ -335,11 +367,11 @@ Describe 'KestrunTool service user lifecycle' {
         $plistPath = "$HOME/Library/LaunchAgents/$serviceName.plist"
 
         try {
-            $installResult = & $script:InvokeKestrunCommand -Arguments @(
+            $installResult = & $script:InvokeKestrunServiceInstall -Arguments @(
                 'service', 'install',
                 '--name', $serviceName,
-                '--deployment-root', $deploymentRoot,
-                $scriptPath)
+                '--deployment-root', $deploymentRoot
+            ) -DeploymentRoot $deploymentRoot -ScriptPath $scriptPath
             & $script:AssertKestrunCommandSucceeded $installResult 'macOS default service install'
 
             $startResult = & $script:InvokeKestrunCommand -Arguments @('service', 'start', '--name', $serviceName)
@@ -403,13 +435,13 @@ Describe 'KestrunTool service user lifecycle' {
                 return
             }
 
-            $installResult = & $script:InvokeKestrunCommand -Arguments @(
+            $installResult = & $script:InvokeKestrunServiceInstall -Arguments @(
                 'service', 'install',
                 '--name', $serviceName,
                 '--service-user', $machineQualifiedServiceUser,
                 '--service-password', $servicePassword,
-                '--deployment-root', $deploymentRoot,
-                $scriptPath)
+                '--deployment-root', $deploymentRoot
+            ) -DeploymentRoot $deploymentRoot -ScriptPath $scriptPath
             & $script:AssertKestrunCommandSucceeded $installResult 'Windows dedicated-user service install'
 
             & icacls.exe $deploymentRoot /grant "${machineQualifiedServiceUser}:(OI)(CI)M" /t /c | Out-Null
@@ -445,11 +477,11 @@ Describe 'KestrunTool service user lifecycle' {
         $scriptPath = Join-Path $script:root 'docs/_includes/examples/pwsh/10.2-OpenAPI-Component-Schema.ps1'
 
         try {
-            $installResult = & $script:InvokeKestrunCommand -Arguments @(
+            $installResult = & $script:InvokeKestrunServiceInstall -Arguments @(
                 'service', 'install',
                 '--name', $serviceName,
-                '--deployment-root', $deploymentRoot,
-                $scriptPath)
+                '--deployment-root', $deploymentRoot
+            ) -DeploymentRoot $deploymentRoot -ScriptPath $scriptPath
             & $script:AssertKestrunCommandSucceeded $installResult 'Windows default service install'
 
             $startResult = & $script:InvokeKestrunCommand -Arguments @('service', 'start', '--name', $serviceName)
@@ -493,12 +525,12 @@ Describe 'KestrunTool service user lifecycle' {
                 return
             }
 
-            $installResult = & $script:InvokeKestrunCommand -Arguments @(
+            $installResult = & $script:InvokeKestrunServiceInstall -Arguments @(
                 'service', 'install',
                 '--name', $serviceName,
                 '--service-user', 'NetworkService',
-                '--deployment-root', $deploymentRoot,
-                $scriptPath)
+                '--deployment-root', $deploymentRoot
+            ) -DeploymentRoot $deploymentRoot -ScriptPath $scriptPath
 
             if ($installResult.ExitCode -ne 0) {
                 if ($installResult.Output -match '(?i)access is denied|logon failure|service logon|cannot find the account|networkservice') {

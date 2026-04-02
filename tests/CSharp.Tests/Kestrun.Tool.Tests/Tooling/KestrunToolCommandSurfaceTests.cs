@@ -1401,6 +1401,31 @@ public class KestrunToolCommandSurfaceTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void InstallService_WithInvalidRuntimeCache_Returns1AndWritesError()
+    {
+        var invalidRuntimeCache = "invalid\0path";
+
+        var (parseSuccess, parsedCommand, parseError) = InvokeTryParseArguments([
+            "service",
+            "install",
+            "--runtime-version",
+            "1.2.3",
+            "--runtime-cache",
+            invalidRuntimeCache,
+        ]);
+
+        Assert.True(parseSuccess, parseError);
+
+        var (exitCode, stdOut, stdErr) = InvokeInstallService(parsedCommand!, skipGalleryCheck: true);
+
+        Assert.Equal(1, exitCode);
+        Assert.True(string.IsNullOrWhiteSpace(stdOut));
+        Assert.Contains("Unable to use runtime cache directory", stdErr, StringComparison.Ordinal);
+        Assert.Contains("invalid", stdErr, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void GetDefaultRuntimeCacheRoot_UsesMachineWideLocation()
     {
         var cacheRoot = InvokeGetDefaultRuntimeCacheRoot();

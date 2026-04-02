@@ -416,11 +416,9 @@ internal static partial class Program
         out string packageVersion,
         out string error)
     {
-        packagePath = string.Empty;
         packageBytes = [];
         packageId = string.Empty;
         packageVersion = string.Empty;
-        error = string.Empty;
 
         if (!TryResolveExplicitRuntimePackagePath(runtimePackage, expectedPackageId, expectedVersion, out packagePath, out error))
         {
@@ -852,19 +850,23 @@ internal static partial class Program
         cacheRoot = string.Empty;
         error = string.Empty;
 
-        var candidate = string.IsNullOrWhiteSpace(runtimeCache)
+        var candidateDisplay = string.IsNullOrWhiteSpace(runtimeCache)
             ? GetDefaultRuntimeCacheRoot()
-            : Path.GetFullPath(runtimeCache);
+            : runtimeCache;
 
         try
         {
+            var candidate = string.IsNullOrWhiteSpace(runtimeCache)
+                ? candidateDisplay
+                : Path.GetFullPath(runtimeCache);
+
             _ = Directory.CreateDirectory(candidate);
             cacheRoot = candidate;
             return true;
         }
         catch (Exception ex)
         {
-            error = $"Unable to use runtime cache directory '{candidate}': {ex.Message}";
+            error = $"Unable to use runtime cache directory '{candidateDisplay}': {ex.Message}";
             return false;
         }
     }
@@ -1453,7 +1455,7 @@ internal static partial class Program
     /// </summary>
     /// <param name="sourceUri">Source URI.</param>
     /// <param name="packageBaseAddress">Resolved package base address when the source URI is a flat-container base address.</param>
-    /// <returns>True when the source URI is a flat-container base address; otherwise, false to indicate the source should
+    /// <returns>True when the source URI is a flat-container base address; otherwise, false to indicate the source should be treated as a service index.</returns>
     private static bool TryResolveFlatContainerBaseAddress(Uri sourceUri, out Uri packageBaseAddress)
     {
         packageBaseAddress = null!;

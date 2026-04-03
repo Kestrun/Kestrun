@@ -99,10 +99,7 @@ function Add-KrEndpoint {
         [Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols]$Protocols,
 
         [Parameter()]
-        [switch]$UseConnectionLogging,
-
-        [Parameter()]
-        [switch]$PassThru
+        [switch]$UseConnectionLogging
     )
     # Ensure the server instance is resolved
     $Server = Resolve-KestrunServer

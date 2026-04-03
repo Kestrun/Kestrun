@@ -17,6 +17,30 @@ Core cmdlets:
 
 > Tip: Stage listeners & runtime first, then call `Enable-KrConfiguration`. You can still add routes afterwards.
 
+`Add-KrEndpoint` can now resolve its listener from environment variables when you do not pass an explicit
+binding target. This is useful for containers, PaaS hosts, and local launch profiles.
+
+Binding precedence:
+
+1. `-Uri`
+2. `-HostName`
+3. `-Port` / `-IPAddress`
+4. `ASPNETCORE_URLS`
+5. `PORT`
+6. Built-in defaults
+
+Examples:
+
+```powershell
+$env:PORT = '8080'
+Add-KrEndpoint
+
+$env:ASPNETCORE_URLS = 'http://localhost:5000;http://+:5001'
+Add-KrEndpoint
+```
+
+`ASPNETCORE_URLS` uses the first non-empty entry. `PORT` binds to `0.0.0.0` on the specified port.
+
 ## Chapters
 
 | #   | Chapter                                         | Focus                                           |
@@ -68,6 +92,7 @@ Browse: <http://127.0.0.1:5000/ping>
 | 404 on basic route | Route added before enabling configuration | Call `Enable-KrConfiguration` before adding routes |
 | No output/logs     | No default logger registered        | Register logger with `-SetAsDefault`                          |
 | Port in use        | Another process bound               | Change `-Port` or free port                                   |
+| Unexpected bind address | `ASPNETCORE_URLS` or `PORT` is set in the current environment | Clear the environment variable or pass an explicit binding target |
 
 See also: [Routes Overview](../2.routes/index) · [Simple Logging](../5.logging/1.Simple-Logging)
 

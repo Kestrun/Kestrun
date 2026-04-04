@@ -2,8 +2,7 @@
   FileName: 15.1-Antiforgery.ps1 (with antiforgery)
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 # 1. Logging
 New-KrLogger |
@@ -13,7 +12,7 @@ New-KrLogger |
 # 2. Server
 New-KrServer -Name 'Simple Server'
 # 3. Listener
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
+Add-KrEndpoint -Port $Port -SelfSignedCert
 
 # Required to run PowerShell routes/middleware
 

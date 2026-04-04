@@ -18,8 +18,7 @@
         Remove-Item -Recurse -Force (Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.1-basic-multipart')
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 New-KrLogger |
@@ -29,7 +28,7 @@ New-KrLogger |
 
 New-KrServer -Name 'Forms 22.1'
 
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
+Add-KrEndpoint -Port $Port | Out-Null
 
 # =========================================================
 #                 TOP-LEVEL OPENAPI

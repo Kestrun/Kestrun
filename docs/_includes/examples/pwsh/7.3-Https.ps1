@@ -7,8 +7,7 @@
 
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 # (Optional) Configure console logging
@@ -30,22 +29,22 @@ $port2 = $Port + 443
 New-KrServer -Name 'Endpoints Https'
 
 # HTTP listener (optional)
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 # HTTPS listener
-Add-KrEndpoint -Port $port2 -IPAddress $IPAddress -CertPath $certPath -CertPassword $pw
+Add-KrEndpoint -Port $port2 -CertPath $certPath -CertPassword $pw
 
 # Enable configuration
 Enable-KrConfiguration
 
 # Secure route
-Add-KrMapRoute -Verbs Get -Pattern '/secure' -Endpoints "$($IPAddress.ToString()):$port2" -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/secure' -Endpoints "localhost:$port2" -ScriptBlock {
     Write-KrLog -Level Information -Message 'Secure endpoint invoked'
     Write-KrTextResponse -InputObject 'Secure hello' -StatusCode 200
 }
 
 # Unsecure route (available on HTTP listener)
-Add-KrMapRoute -Verbs Get -Pattern '/unsecure' -Endpoints "$($IPAddress.ToString()):$Port" -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/unsecure' -Endpoints "localhost:$Port" -ScriptBlock {
     Write-KrLog -Level Information -Message 'Unsecure endpoint invoked'
     Write-KrTextResponse -InputObject 'Unsecure hello' -StatusCode 200
 }

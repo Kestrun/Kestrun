@@ -5,8 +5,7 @@
     Notes:   Uses symmetric HMAC key; store securely (e.g., KeyVault, env var) in production.
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 # 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
@@ -15,7 +14,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Auth JWT'
 
 # 3. Listener
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
+Add-KrEndpoint -Port $Port -SelfSignedCert
 
 
 # 5. Initial Basic scheme for token issuance

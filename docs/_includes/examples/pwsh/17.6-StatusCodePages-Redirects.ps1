@@ -5,8 +5,7 @@
 # FileName: 17.6-StatusCodePages-Redirects.ps1
 #
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback # Use 'Loopback' for safety in tests/examples
+    [int]$Port = $env:PORT ?? 5000
 )
 Initialize-KrRoot -Path $PSScriptRoot
 
@@ -17,7 +16,7 @@ New-KrLogger | #Set-KrLoggerLevel -Level Debug |
 New-KrServer -Name 'Status Code Pages with Redirects Server'
 
 # Add a listener on the specified port and IP address
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 # Enable status code pages with redirects
 # The {0} placeholder will be replaced with the actual status code
@@ -82,13 +81,13 @@ Add-KrMapRoute -Verbs Get -Pattern '/error/{statusCode}' -ScriptBlock {
     }
 }
 
-Write-Host "Server starting on http://$($IPAddress):$Port" -ForegroundColor Green
+Write-Host "Server starting on http://localhost:$Port" -ForegroundColor Green
 Write-Host 'Try these URLs:' -ForegroundColor Yellow
-Write-Host "  http://$($IPAddress):$Port/hello     - Welcome page with redirect test links" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/notfound  - Redirects to /error/404" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/error     - Redirects to /error/500" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/forbidden - Redirects to /error/403" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/missing   - Redirects to /error/404 (unmapped route)" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/hello     - Welcome page with redirect test links" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/notfound  - Redirects to /error/404" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/error     - Redirects to /error/500" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/forbidden - Redirects to /error/403" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/missing   - Redirects to /error/404 (unmapped route)" -ForegroundColor Cyan
 Write-Host '' -ForegroundColor White
 Write-Host 'Note: Watch the browser URL change during redirects!' -ForegroundColor Magenta
 

@@ -5,8 +5,7 @@
     Notes:   Shows basic text responses and structured JSON responses.
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 # 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
@@ -15,7 +14,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Responses 9.1'
 
 # 3. Listener
-Add-KrEndpoint -IPAddress $IPAddress -Port $Port -SelfSignedCert
+Add-KrEndpoint -Port $Port -SelfSignedCert
 
 # 4. Finalize configuration
 Enable-KrConfiguration

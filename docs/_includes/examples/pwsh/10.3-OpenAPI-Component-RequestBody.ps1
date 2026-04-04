@@ -5,8 +5,7 @@
     Notes:   Shows class inheritance, component wrapping, and content type negotiation.
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 
@@ -18,7 +17,7 @@ New-KrLogger | Add-KrSinkConsole |
 
 New-KrServer -Name 'OpenAPI RequestBody Component'
 
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 # =========================================================
 #                 TOP-LEVEL OPENAPI
 # =========================================================

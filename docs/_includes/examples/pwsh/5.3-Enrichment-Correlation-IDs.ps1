@@ -6,8 +6,7 @@
 #>
 
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 $appLogger = New-KrLogger |
@@ -19,7 +18,7 @@ $appLogger = New-KrLogger |
     Register-KrLogger -Name 'app' -PassThru
 
 New-KrServer -Name "Enrichment & Correlation IDs"
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 
 Enable-KrConfiguration

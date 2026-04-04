@@ -145,6 +145,17 @@ function Add-KrEndpoint {
         $X509Certificate = New-KrSelfSignedCertificate -DnsNames localhost, 127.0.0.1 -ValidDays 30
     }
 
+    $defaultIPAddress = [System.Net.IPAddress]::Loopback
+    if ($null -eq $IPAddress -and $AddressFamily) {
+        $requestedFamilies = [System.Net.Sockets.AddressFamily[]]($AddressFamily | Select-Object -Unique)
+        $ipv4Requested = $requestedFamilies -contains [System.Net.Sockets.AddressFamily]::InterNetwork
+        $ipv6Requested = $requestedFamilies -contains [System.Net.Sockets.AddressFamily]::InterNetworkV6
+
+        if ($ipv6Requested -and -not $ipv4Requested) {
+            $defaultIPAddress = [System.Net.IPAddress]::IPv6Loopback
+        }
+    }
+
     # Resolve the binding information based on the provided parameters and environment variables
     $binding = Resolve-KrEndpointBinding `
         -BoundParameters $PSBoundParameters `
@@ -153,7 +164,7 @@ function Add-KrEndpoint {
         -HostName $HostName `
         -Uri $Uri `
         -DefaultPort 5000 `
-        -DefaultIPAddress ([System.Net.IPAddress]::Loopback)
+        -DefaultIPAddress $defaultIPAddress
 
     switch ($binding.Mode) {
         'Uri' {

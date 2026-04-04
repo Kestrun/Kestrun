@@ -4,8 +4,7 @@
     Demonstrates basic health endpoint with script + HTTP probes.
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 ## 1. Logging (console sink for visibility)
@@ -15,7 +14,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Health Demo'
 
 ## 3. Listener (loopback port 5000)
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 
 ## 5. Enable configuration (locks in components)

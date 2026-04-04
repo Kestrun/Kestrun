@@ -4,8 +4,7 @@
 # FileName: 17.2-StatusCodePages-Options.ps1
 #
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 Initialize-KrRoot -Path $PSScriptRoot
@@ -16,7 +15,7 @@ New-KrLogger |
 
 # Create server and listener
 New-KrServer -Name 'Status Code Pages with Options'
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 # Choose ONE of the following blocks (uncomment the one you want)
 

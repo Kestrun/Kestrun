@@ -6,8 +6,7 @@
     Notes:   Shows validation and exception error payloads.
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 # 1. Logging
 New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
@@ -16,7 +15,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Responses 9.7'
 
 # 3. Listener
-Add-KrEndpoint -IPAddress $IPAddress -Port $Port
+Add-KrEndpoint -Port $Port
 
 
 # Finalize configuration

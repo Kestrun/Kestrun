@@ -5,8 +5,7 @@
     Notes:   Shows component wrapping, CRUD operations, and complete error handling.
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 
@@ -17,7 +16,7 @@ New-KrLogger | Add-KrSinkConsole |
     Register-KrLogger -Name 'console' -SetAsDefault
 
 New-KrServer -Name 'OpenAPI RequestBody & Response Components'
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 # =========================================================
 #                 TOP-LEVEL OPENAPI
 # =========================================================

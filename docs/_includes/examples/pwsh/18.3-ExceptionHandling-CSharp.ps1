@@ -4,8 +4,7 @@
 # FileName: 18.3-ExceptionHandling-CSharp.ps1
 #
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 Initialize-KrRoot -Path $PSScriptRoot
@@ -13,7 +12,7 @@ New-KrLogger | Set-KrLoggerLevel -Level Debug |
     Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
 New-KrServer -Name 'Exception Handling - CSharp'
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 $cs = @"
 // The Context variable is available and typed to Kestrun.Models.KestrunContext
@@ -39,10 +38,10 @@ Add-KrMapRoute -Verbs Get -Pattern '/fail' -ScriptBlock {
     throw 'C# handler demo'
 }
 
-Write-Host "Server starting on http://$($IPAddress):$Port" -ForegroundColor Green
+Write-Host "Server starting on http://localhost:$Port" -ForegroundColor Green
 Write-Host 'Try these URLs:' -ForegroundColor Yellow
-Write-Host "  http://$($IPAddress):$Port/hello   - Happy path" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/fail  - Triggers exception handled by C#" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/hello   - Happy path" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/fail  - Triggers exception handled by C#" -ForegroundColor Cyan
 Write-Host ''
 
 Start-KrServer

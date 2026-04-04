@@ -14,8 +14,7 @@
       - Do NOT hardcode real secrets in sample code.
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback,
+    [int]$Port = $env:PORT ?? 5000
     [string]$ClientId = $env:GITHUB_CLIENT_ID,
     [string]$ClientSecret = $env:GITHUB_CLIENT_SECRET,
     [string]$CallbackPath = '/signin-oauth'
@@ -46,7 +45,7 @@ New-KrLogger |
 New-KrServer -Name 'GitHub Authentication Demo'
 
 # 3) HTTPS listener (self-signed)
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
+Add-KrEndpoint -Port $Port -SelfSignedCert
 
 # 4) GitHub auth (adds 'GitHub', 'GitHub.Cookies', 'GitHub.Policy')
 #    Customize callback if your GitHub App uses a different path (e.g. '/signin-oauth').

@@ -5,8 +5,7 @@
 # FileName: 17.7-StatusCodePages-ReExecute.ps1
 #
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback # Use 'Loopback' for safety in tests/examples
+    [int]$Port = $env:PORT ?? 5000
 )
 
 Initialize-KrRoot -Path $PSScriptRoot
@@ -17,7 +16,7 @@ New-KrLogger | Set-KrLoggerLevel -Level Debug |
 New-KrServer -Name 'Status Code Pages with Re-execution Server'
 
 # Add a listener on the specified port and IP address
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 
 # Enable status code pages with re-execution
@@ -114,13 +113,13 @@ Add-KrMapRoute -Verbs Get -Pattern '/errors/{statusCode}' -ScriptBlock {
     Write-KrHtmlResponse -FilePath $htmlTemplate -StatusCode 200 -Variables $variables
 }
 
-Write-Host "Server starting on http://$($IPAddress):$Port" -ForegroundColor Green
+Write-Host "Server starting on http://localhost:$Port" -ForegroundColor Green
 Write-Host 'Try these URLs:' -ForegroundColor Yellow
-Write-Host "  http://$($IPAddress):$Port/hello     - Welcome page with re-execution test links" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/notfound  - Re-executes as /errors/404" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/error     - Re-executes as /errors/500" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/forbidden - Re-executes as /errors/403" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/missing   - Re-executes as /errors/404 (unmapped route)" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/hello     - Welcome page with re-execution test links" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/notfound  - Re-executes as /errors/404" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/error     - Re-executes as /errors/500" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/forbidden - Re-executes as /errors/403" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/missing   - Re-executes as /errors/404 (unmapped route)" -ForegroundColor Cyan
 Write-Host '' -ForegroundColor White
 Write-Host 'Note: The URL stays the same, but the content is from re-executed routes!' -ForegroundColor Magenta
 

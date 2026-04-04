@@ -6,8 +6,7 @@
 #>
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 # 1. (Optional) Logging pipeline
@@ -102,7 +101,7 @@ Set-KrServerHttpsOptions -ClientCertificateMode AllowCertificate `
 # Tip: If you prefer storing the snippet in a file, use -ClientCertificateValidationCodePath with a .cs/.csx or .vb file.
 
 # 6. Add HTTPS endpoint
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress -X509Certificate $serverCert
+Add-KrEndpoint -Port $Port -X509Certificate $serverCert
 
 # 7. Configure client certificate authentication
 # Note: For self-signed client certificates, we need to allow all certificate types

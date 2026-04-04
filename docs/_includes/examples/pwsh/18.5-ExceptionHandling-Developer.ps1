@@ -5,8 +5,7 @@
 # FileName: 18.5-ExceptionHandling-Developer.ps1
 #
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 Initialize-KrRoot -Path $PSScriptRoot
@@ -15,7 +14,7 @@ New-KrLogger | Set-KrLoggerLevel -Level Debug |
 
 # Create server and listener
 New-KrServer -Name 'Exception Handling - Developer'
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 # Configure exception handling to use the Developer Exception Page
 Enable-KrExceptionHandling -DeveloperExceptionPage -SourceCodeLineCount 10
@@ -34,9 +33,9 @@ Add-KrMapRoute -Verbs Get -Pattern '/throw' -ScriptBlock {
 }
 
 
-Write-Host "Server starting on http://$($IPAddress):$Port" -ForegroundColor Green
+Write-Host "Server starting on http://localhost:$Port" -ForegroundColor Green
 Write-Host 'Try these URLs:' -ForegroundColor Yellow
-Write-Host "  http://$($IPAddress):$Port/hello   - Happy path" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/throw   - Triggers exception, shows developer exception page" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/hello   - Happy path" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/throw   - Triggers exception, shows developer exception page" -ForegroundColor Cyan
 
 Start-KrServer

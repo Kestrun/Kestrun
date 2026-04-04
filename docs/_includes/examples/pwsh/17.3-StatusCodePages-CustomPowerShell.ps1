@@ -5,8 +5,7 @@
 # FileName: 17.3-StatusCodePages-Handler.ps1
 #
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback # Use 'Loopback' for safety in tests/examples
+    [int]$Port = $env:PORT ?? 5000
 )
 
 # Step 1: Set up logging
@@ -17,7 +16,7 @@ New-KrLogger | Set-KrLoggerLevel -Level Information |
 New-KrServer -Name 'Status Code Pages with Handler Server'
 
 # Add a listener on the specified port and IP address
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 
 # Create a custom handler function
@@ -81,14 +80,14 @@ Add-KrMapRoute -Verbs Get -Pattern '/unauthorized' -ScriptBlock {
     Write-KrStatusResponse -StatusCode 401
 }
 
-Write-Host "Server starting on http://$($IPAddress):$Port" -ForegroundColor Green
+Write-Host "Server starting on http://localhost:$Port" -ForegroundColor Green
 Write-Host 'Try these URLs:' -ForegroundColor Yellow
-Write-Host "  http://$($IPAddress):$Port/hello        - Styled welcome page with test links" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/notfound     - Styled 404 error page" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/error        - Styled 500 error page" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/forbidden    - Styled 403 error page" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/unauthorized - Styled 401 error page" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/missing      - Styled 404 for unmapped route" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/hello        - Styled welcome page with test links" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/notfound     - Styled 404 error page" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/error        - Styled 500 error page" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/forbidden    - Styled 403 error page" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/unauthorized - Styled 401 error page" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/missing      - Styled 404 for unmapped route" -ForegroundColor Cyan
 
 
 # Start the server

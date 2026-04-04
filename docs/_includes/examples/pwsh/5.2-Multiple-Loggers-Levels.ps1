@@ -6,8 +6,7 @@
 #>
 
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 $appLogger = New-KrLogger |
@@ -23,7 +22,7 @@ $auditLogger = New-KrLogger |
 
 # Create server and listener
 New-KrServer -Name 'Multiple Loggers Server'
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 # PowerShell runtime is required for script block routes
 

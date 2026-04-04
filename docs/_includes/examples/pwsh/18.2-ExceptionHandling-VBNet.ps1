@@ -5,8 +5,7 @@
 # FileName: 18.2-ExceptionHandling-VBNet.ps1
 #
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 Initialize-KrRoot -Path $PSScriptRoot
@@ -14,7 +13,7 @@ New-KrLogger | Set-KrLoggerLevel -Level Debug |
     Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault
 
 New-KrServer -Name 'Exception Handling - VB.NET Handler'
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 # Exception handling middleware using VB.NET (recommended for custom handlers)
 $vbCode = @'
@@ -36,11 +35,11 @@ Add-KrMapRoute -Verbs Get -Pattern '/oops' -ScriptBlock {
 # This C# endpoint will use the exception middleware if it throws
 Add-KrMapRoute -Verbs Get -Pattern '/csharp-error' -Code 'throw new Exception("C# error");' -Language CSharp
 
-Write-Host "Server starting on http://$($IPAddress):$Port" -ForegroundColor Green
+Write-Host "Server starting on http://localhost:$Port" -ForegroundColor Green
 Write-Host 'Try these URLs:' -ForegroundColor Yellow
-Write-Host "  http://$($IPAddress):$Port/ok            - Happy path" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/oops          - PowerShell exception (handled by VB.NET middleware)" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/csharp-error  - C# exception (handled by VB.NET middleware)" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/ok            - Happy path" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/oops          - PowerShell exception (handled by VB.NET middleware)" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/csharp-error  - C# exception (handled by VB.NET middleware)" -ForegroundColor Cyan
 Write-Host ''
 
 Start-KrServer

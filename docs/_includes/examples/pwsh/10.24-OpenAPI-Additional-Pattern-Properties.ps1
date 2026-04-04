@@ -7,8 +7,7 @@
             - Shows PatternProperties with regex-constrained keys
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 # --- Logging / Server ---
@@ -18,7 +17,7 @@ New-KrLogger | Add-KrSinkConsole |
 
 New-KrServer -Name 'OpenAPI AdditionalProperties + PatternProperties'
 
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 # =========================================================
 #                 TOP-LEVEL OPENAPI

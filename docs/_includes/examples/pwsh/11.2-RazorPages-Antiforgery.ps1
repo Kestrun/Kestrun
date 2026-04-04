@@ -5,8 +5,7 @@
 #>
 
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 # Initialize Kestrun root directory
@@ -24,7 +23,7 @@ New-KrLogger |
 New-KrServer -Name 'RazorPages'
 
 # Add a listener on the configured port and IP address
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCertificate
+Add-KrEndpoint -Port $Port -SelfSignedCertificate
 
 # Add a Razor Pages handler to the server
 Add-KrPowerShellRazorPagesRuntime -RootPath './Assets/Pages'
@@ -38,7 +37,7 @@ $AppInfo = [pscustomobject]@{
 }
 
 Write-KrLog -Level Information -Message "Starting Kestrun RazorPages server '{name}' version {version} in {environment} environment on {ipaddress}:{port}" `
-    -Values $AppInfo.Name, $AppInfo.Version, $AppInfo.Environment, $IPAddress, $Port
+    -Values $AppInfo.Name, $AppInfo.Version, $AppInfo.Environment, 'localhost', $Port
 
 # Define feature flags for the application
 $FeatureFlags = @{

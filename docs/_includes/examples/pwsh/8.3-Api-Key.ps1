@@ -5,8 +5,7 @@
     Notes:   Keys are static for illustration. Rotate & store securely in production.
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 # 1. Logging
 New-KrLogger | Set-KrLoggerLevel -Value Debug | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefault | Out-Null
@@ -15,7 +14,7 @@ New-KrLogger | Set-KrLoggerLevel -Value Debug | Add-KrSinkConsole | Register-KrL
 New-KrServer -Name 'Auth API Key'
 
 # 3. Listener
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 
 # 5. Fixed key scheme

@@ -4,8 +4,7 @@
     FileName: 12.2-Scheduling-Cron.ps1
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 ## 1. Logging
@@ -15,7 +14,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Scheduling Cron Demo'
 
 ## 3. Listener
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 ## 4. Runtime + Scheduler
 Add-KrScheduling -MaxRunspaces 2

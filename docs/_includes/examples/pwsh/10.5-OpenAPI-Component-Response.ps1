@@ -5,8 +5,7 @@
     Notes:   Uses the variable-based response component pattern.
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
@@ -19,7 +18,7 @@ New-KrLogger | Add-KrSinkConsole |
 
 New-KrServer -Name 'OpenAPI Response Component'
 
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 # =========================================================
 #                 TOP-LEVEL OPENAPI
 # =========================================================

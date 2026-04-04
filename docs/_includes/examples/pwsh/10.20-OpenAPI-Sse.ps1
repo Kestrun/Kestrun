@@ -7,8 +7,7 @@
     - Write-KrSseEvent
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
@@ -25,7 +24,7 @@ New-KrLogger |
 New-KrServer -Name 'Kestrun SSE Demo with OpenAPI'
 
 ## 3. Configure Listener
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 # =========================================================
 #                 TOP-LEVEL OPENAPI

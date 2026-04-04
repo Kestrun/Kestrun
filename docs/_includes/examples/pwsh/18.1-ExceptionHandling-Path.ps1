@@ -4,8 +4,7 @@
 # FileName: 18.1-ExceptionHandling-Path.ps1
 #
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 Initialize-KrRoot -Path $PSScriptRoot
@@ -14,7 +13,7 @@ New-KrLogger | Set-KrLoggerLevel -Level Debug |
 
 # Create server and listener
 New-KrServer -Name 'Exception Handling - ReExecute'
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 # Configure exception handling to re-execute the pipeline at /error
 Enable-KrExceptionHandling -ExceptionHandlingPath '/error'
@@ -40,9 +39,9 @@ Add-KrMapRoute -Verbs Get -Pattern '/error' -ScriptBlock {
     Write-KrJsonResponse @{ error = $true; message = 'Request re-executed to /error'; path = $path; method = $method } -StatusCode 500
 }
 
-Write-Host "Server starting on http://$($IPAddress):$Port" -ForegroundColor Green
+Write-Host "Server starting on http://localhost:$Port" -ForegroundColor Green
 Write-Host 'Try these URLs:' -ForegroundColor Yellow
-Write-Host "  http://$($IPAddress):$Port/hello   - Happy path" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/throw   - Triggers exception, re-executes to /error" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/hello   - Happy path" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/throw   - Triggers exception, re-executes to /error" -ForegroundColor Cyan
 
 Start-KrServer

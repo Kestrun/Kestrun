@@ -8,8 +8,7 @@
 #>
 
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback,
+    [int]$Port = $env:PORT ?? 5000,
     [string]$PartnerOrigin = 'http://localhost:5000'
 )
 
@@ -22,7 +21,7 @@ New-KrLogger | Add-KrSinkConsole |
     Set-KrLoggerLevel -Value Debug |
     Register-KrLogger -Name 'console' -SetAsDefault
 New-KrServer -Name 'Swagger Petstore - OpenAPI 3.1'
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 # Align the UI/API origins to the active listener port so CORS policies match test requests.
 # Use 'localhost' to match what test clients typically send as Origin header.

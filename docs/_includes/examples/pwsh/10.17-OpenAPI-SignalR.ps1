@@ -3,8 +3,7 @@
     FileName: 10.17-OpenAPI-SignalR.ps1
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 if (-not (Get-Module Kestrun)) { Import-Module Kestrun }
@@ -21,7 +20,7 @@ New-KrLogger |
 New-KrServer -Name 'Kestrun SignalR Demo with OpenAPI'
 
 ## 3. Configure Listener
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 ## 4. Add SignalR with KestrunHub
 Add-KrSignalRHubMiddleware -Path '/hubs/kestrun' -IncludeNegotiateEndpoint

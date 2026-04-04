@@ -34,8 +34,7 @@
         Remove-Item -Recurse -Force (Join-Path ([System.IO.Path]::GetTempPath()) 'kestrun-uploads-22.5-nested-multipart')
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 New-KrLogger |
@@ -45,7 +44,7 @@ New-KrLogger |
 
 New-KrServer -Name 'Forms 22.5'
 
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress | Out-Null
+Add-KrEndpoint -Port $Port | Out-Null
 
 # Upload directory
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($PSCommandPath)

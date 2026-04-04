@@ -6,8 +6,7 @@
 #>
 
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 # Configure logging
@@ -20,7 +19,7 @@ New-KrLogger |
 New-KrServer -Name 'OpenAPI Document Info Demo'
 
 # Configure endpoint
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 # Set document-level metadata: title, version, description, summary, and terms
 Add-KrOpenApiInfo -Title 'Document Info API' -Version '1.0.0' -Description 'Shows how to populate document metadata.' -Summary 'Document metadata demo' -TermsOfService 'https://example.com/terms'

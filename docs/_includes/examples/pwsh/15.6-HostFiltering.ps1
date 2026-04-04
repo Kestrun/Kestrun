@@ -5,8 +5,7 @@
 #>
 
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 # Optional: console logger so we can see events
@@ -18,7 +17,7 @@ New-KrLogger | Set-KrLoggerLevel -Value Debug |
 New-KrServer -Name 'Endpoints HostFiltering'
 
 # 2) Listener
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 # 3)  Configure Host Filtering via parameters
 #    - Only allow requests with Host header "example.com" or "www.example.com"

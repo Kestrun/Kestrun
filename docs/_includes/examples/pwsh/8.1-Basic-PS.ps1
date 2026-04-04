@@ -5,8 +5,7 @@
     Notes:   Plain-text password comparison for tutorial purposes only. Use secure storage in production.
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 # 1. (Optional) Logging pipeline
 New-KrLogger |
@@ -17,7 +16,7 @@ New-KrLogger |
 New-KrServer -Name 'Auth Basic PS'
 
 # 3. Add HTTP listener on specified port and IP address
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 # 4. Define Basic auth scheme with inline validation script
 Add-KrBasicAuthentication -AuthenticationScheme 'PowershellBasic' -Realm 'Demo' -AllowInsecureHttp -ScriptBlock {

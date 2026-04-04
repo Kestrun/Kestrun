@@ -5,8 +5,7 @@
 #>
 
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 # (Optional) Configure console logging
@@ -19,10 +18,10 @@ $Port2 = if ($Port -le 65102) { $Port + 433 } else { $Port - 433 }
 New-KrServer -Name 'Endpoints Multi'
 
 # Loopback listener on primary port
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 # Second loopback listener on secondary port
-Add-KrEndpoint -Port $Port2 -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port2
 
 # Add the PowerShell runtime
 

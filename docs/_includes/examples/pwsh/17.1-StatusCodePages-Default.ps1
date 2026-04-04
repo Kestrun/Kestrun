@@ -6,8 +6,7 @@
 #
 
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback # Use 'Loopback' for safety in tests/examples
+    [int]$Port = $env:PORT ?? 5000
 )
 
 # Step 1: Set up logging
@@ -17,7 +16,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Default Status Code Pages Server'
 
 # Step 3: Add a listener on the specified port and IP address
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 # Step 4: Enable default status code pages middleware
 Enable-KrStatusCodePage
@@ -51,14 +50,14 @@ Add-KrMapRoute -Verbs Get -Pattern '/unauthorized' -ScriptBlock {
     Write-KrStatusResponse -StatusCode 401
 }
 
-Write-Host "Server starting on http://$($IPAddress):$Port" -ForegroundColor Green
+Write-Host "Server starting on http://localhost:$Port" -ForegroundColor Green
 Write-Host 'Try these URLs:' -ForegroundColor Yellow
-Write-Host "  http://$($IPAddress):$Port/hello        - Styled welcome page with test links" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/notfound     - Styled 404 error page" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/error        - Styled 500 error page" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/forbidden    - Styled 403 error page" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/unauthorized - Styled 401 error page" -ForegroundColor Cyan
-Write-Host "  http://$($IPAddress):$Port/missing      - Styled 404 for unmapped route" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/hello        - Styled welcome page with test links" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/notfound     - Styled 404 error page" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/error        - Styled 500 error page" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/forbidden    - Styled 403 error page" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/unauthorized - Styled 401 error page" -ForegroundColor Cyan
+Write-Host "  http://localhost:$Port/missing      - Styled 404 for unmapped route" -ForegroundColor Cyan
 
 
 # Step 7: Start the server

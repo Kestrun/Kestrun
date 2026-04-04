@@ -3,8 +3,7 @@
     FileName: 15.3-Https-Redirection.ps1
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 # Initialize Kestrun root directory
@@ -22,8 +21,8 @@ $cert = New-KrSelfSignedCertificate -DnsNames localhost, 127.0.0.1 -Exportable -
 
 # Configure HTTPS listener with the certificate
 New-KrServer -Name "HTTPS Redirection Demo"
-Add-KrEndpoint -Port ($Port) -IPAddress $IPAddress
-Add-KrEndpoint -Port ($Port + 443) -IPAddress $IPAddress -X509Certificate $cert
+Add-KrEndpoint -Port ($Port)
+Add-KrEndpoint -Port ($Port + 443) -X509Certificate $cert
 
 Add-KrHttpsRedirection -RedirectStatusCode 301 -HttpsPort ($Port + 443)
 

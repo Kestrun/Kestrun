@@ -3,8 +3,7 @@
     FileName: 6.1-Cert-SelfSigned.ps1
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 # Initialize Kestrun root directory
@@ -24,7 +23,7 @@ Get-KrCertificatePurpose -Certificate $cert | Out-Host
 
 # Configure HTTPS listener with the certificate
 New-KrServer -Name "HTTPS Demo"
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress -X509Certificate $cert -Protocols Http1
+Add-KrEndpoint -Port $Port -X509Certificate $cert -Protocols Http1
 
 # Minimal route to verify HTTPS works
 

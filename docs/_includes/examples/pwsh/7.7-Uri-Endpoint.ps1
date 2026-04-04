@@ -5,10 +5,9 @@
     FileName: 7.1-Basic-Server.ps1
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
-$uri = [uri]::new("http://$($IPAddress.ToString()):$Port")
+$uri = [uri]::new("http://localhost:$Port")
 # (Optional) Configure console logging so we can see events
 New-KrLogger |
     Add-KrSinkConsole |

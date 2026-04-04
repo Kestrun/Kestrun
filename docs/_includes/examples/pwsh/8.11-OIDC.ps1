@@ -37,8 +37,7 @@
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
 param(
     # Default HTTPS port changed to 5000 (common ASP.NET dev cert port; matches many demo redirect registrations)
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback,
+    [int]$Port = $env:PORT ?? 5000,
     [string]$Authority = 'https://demo.duendesoftware.com',
     [ValidateSet(
         'interactive.confidential',
@@ -200,10 +199,10 @@ New-KrLogger |
 New-KrServer -Name 'OIDC Duende Demo'
 
 # 3) HTTPS endpoint (primary)
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
+Add-KrEndpoint -Port $Port -SelfSignedCert
 
 # 4) HTTP endpoint for redirect (optional - redirects HTTP to HTTPS)
-# Add-KrEndpoint -Port 5001 -IPAddress $IPAddress
+# Add-KrEndpoint -Port 5001
 # Add-KrHttpsRedirection -HttpPort 5001 -HttpsPort $Port
 
 # 5) OpenID Connect auth (adds 'oidc', 'oidc.Cookies', 'oidc.Policy')
@@ -276,7 +275,6 @@ if ($UseJwtAuth) {
     #   $oidcOptions.JwkJson = ($clientAssertionJwkJson | ConvertTo-Json -Compress)
     #>
     Add-KrOpenIdConnectAuthentication -AuthenticationScheme 'oidc' -Options $oidcOptions
-
 } else {
     # Standard configuration with client secret
     # Apply fallback at configuration time for non-JWT modes if requested (rare)

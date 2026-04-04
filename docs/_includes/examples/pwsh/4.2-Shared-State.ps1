@@ -5,8 +5,7 @@
 #>
 
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 # Initialize Kestrun root directory
@@ -16,7 +15,7 @@ Initialize-KrRoot -Path $PSScriptRoot
 New-KrServer -Name 'Shared State Server'
 
 # Add a listener using provided parameters
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 # Define shared state using Set-KrSharedState
 # This creates thread-safe, cross-runspace accessible state

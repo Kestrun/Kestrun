@@ -5,8 +5,7 @@
     Notes:   Use HTTPS. For OAuth redirects, SameSite=Lax is recommended (Strict can block cross-site return).
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback,
+    [int]$Port = $env:PORT ?? 5000,
 
     # Put your app creds in env vars for convenience
     [string]$ClientId = $env:OKTA_CLIENT_ID,
@@ -41,7 +40,7 @@ New-KrLogger |
 New-KrServer -Name 'Auth Okta Demo'
 
 # 3) Listener (self-signed for local https)
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert
+Add-KrEndpoint -Port $Port -SelfSignedCert
 
 
 $options = [Kestrun.Authentication.OidcOptions]::new()

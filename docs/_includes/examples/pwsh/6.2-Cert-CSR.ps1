@@ -4,8 +4,7 @@
     FileName: 6.2-Cert-CSR.ps1
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 Initialize-KrRoot -Path $PSScriptRoot
@@ -17,7 +16,7 @@ New-KrLogger |
     Register-KrLogger -Name 'myLogger' -SetAsDefault
 
 New-KrServer -Name "CSR API"
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 
 Enable-KrConfiguration

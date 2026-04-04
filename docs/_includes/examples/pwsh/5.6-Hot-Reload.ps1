@@ -6,8 +6,7 @@
 #>
 
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 # Dynamic level switch logger
@@ -24,7 +23,7 @@ New-KrLogger |
     Register-KrLogger -Name 'Default'
 
 New-KrServer -Name "Hot Reload" -LoggerName 'Default'
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 
 Enable-KrConfiguration

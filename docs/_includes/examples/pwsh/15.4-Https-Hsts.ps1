@@ -3,8 +3,7 @@
     FileName: 15.4-Https-Hsts.ps1
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 # Initialize Kestrun root directory
@@ -21,8 +20,8 @@ $cert = New-KrSelfSignedCertificate -DnsNames localhost, 127.0.0.1 -Exportable -
 
 # Configure HTTPS listener with the certificate
 New-KrServer -Name "HTTPS HSTS Demo"
-Add-KrEndpoint -Port ($Port) -IPAddress $IPAddress
-Add-KrEndpoint -Port ($Port + 443) -IPAddress $IPAddress -X509Certificate $cert
+Add-KrEndpoint -Port ($Port)
+Add-KrEndpoint -Port ($Port + 443) -X509Certificate $cert
 
 # Add HSTS middleware with development support
 Add-KrHsts -MaxAgeDays 30 -IncludeSubDomains -Preload -AllowInDevelopment

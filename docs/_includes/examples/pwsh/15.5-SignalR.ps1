@@ -3,8 +3,7 @@
     FileName: 15.5-SignalR.ps1
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 # Initialize Kestrun root directory
@@ -19,7 +18,7 @@ New-KrLogger |
 New-KrServer -Name 'Kestrun SignalR Demo'
 
 ## 3. Configure Listener
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 ## 4. Add SignalR with KestrunHub
 Add-KrSignalRHubMiddleware -Path '/hubs/kestrun'

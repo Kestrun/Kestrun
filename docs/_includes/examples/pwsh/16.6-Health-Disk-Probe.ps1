@@ -5,8 +5,7 @@
     Notes:   Demonstrates the use of a custom disk probe with specific health thresholds.
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 ## 1. Logging
@@ -16,7 +15,7 @@ New-KrLogger | Add-KrSinkConsole | Register-KrLogger -Name 'console' -SetAsDefau
 New-KrServer -Name 'Health Disk Probe'
 
 ## 3. Listener (port 5000)
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress
+Add-KrEndpoint -Port $Port
 
 #
 # Override disk probe by registering a custom one with same name

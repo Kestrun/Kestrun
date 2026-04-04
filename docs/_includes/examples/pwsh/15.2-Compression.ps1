@@ -13,8 +13,7 @@
           on server heuristics; all payloads below are padded to be >1KB.
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 
 # 1. Logging (console only for clarity)
@@ -26,7 +25,7 @@ New-KrLogger |
 New-KrServer -Name 'Compression Demo'
 
 # 3. Listener (HTTP + self-signed HTTPS)
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress -SelfSignedCert | Out-Null
+Add-KrEndpoint -Port $Port -SelfSignedCert | Out-Null
 
 <#
 .SYNOPSIS

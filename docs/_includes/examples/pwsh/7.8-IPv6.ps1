@@ -5,8 +5,7 @@
     FileName: 7.1-Basic-Server.ps1
 #>
 param(
-    [int]$Port = 5000,
-    [IPAddress]$IPv6Address = [IPAddress]::IPv6loopback
+    [int]$Port = $env:PORT ?? 5000
 )
 # (Optional) Configure console logging so we can see events
 New-KrLogger |
@@ -16,8 +15,8 @@ New-KrLogger |
 # Create a new Kestrun server
 New-KrServer -Name 'Endpoints Basic'
 
-# Add a listener on port 5000 and IP address 127.0.0.1 (localhost)
-Add-KrEndpoint -IPAddress $IPv6Address -Port $Port -AddressFamily InterNetworkV6
+# Add an IPv6 loopback listener
+Add-KrEndpoint -Port $Port -AddressFamily InterNetworkV6
 
 # Enable Kestrun configuration
 Enable-KrConfiguration

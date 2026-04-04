@@ -5,7 +5,7 @@
 #>
 
 param(
-    [int]$Port = $env:PORT ?? 5000
+    [int]$Port = $env:PORT ?? 5000,
     [string]$UpstashUrl = $env:UPSTASH_REDIS_URL
 )
 # Configure default logging

@@ -5,7 +5,7 @@
     Notes:   Use HTTPS. For OAuth redirects, SameSite=Lax is recommended (Strict can block cross-site return).
 #>
 param(
-    [int]$Port = $env:PORT ?? 5000
+    [int]$Port = $env:PORT ?? 5000,
 
     # Put your app creds in env vars for convenience
     [string]$ClientId = $env:OKTA_CLIENT_ID,

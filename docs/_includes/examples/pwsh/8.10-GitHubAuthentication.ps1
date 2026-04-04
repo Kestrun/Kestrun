@@ -14,7 +14,7 @@
       - Do NOT hardcode real secrets in sample code.
 #>
 param(
-    [int]$Port = $env:PORT ?? 5000
+    [int]$Port = $env:PORT ?? 5000,
     [string]$ClientId = $env:GITHUB_CLIENT_ID,
     [string]$ClientSecret = $env:GITHUB_CLIENT_SECRET,
     [string]$CallbackPath = '/signin-oauth'

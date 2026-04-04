@@ -8,7 +8,7 @@
 #>
 
 param(
-    [int]$Port = $env:PORT ?? 5000
+    [int]$Port = $env:PORT ?? 5000,
     [string]$PartnerOrigin = 'http://localhost:5000'
 )
 

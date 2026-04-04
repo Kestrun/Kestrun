@@ -37,7 +37,7 @@
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
 param(
     # Default HTTPS port changed to 5000 (common ASP.NET dev cert port; matches many demo redirect registrations)
-    [int]$Port = $env:PORT ?? 5000
+    [int]$Port = $env:PORT ?? 5000,
     [string]$Authority = 'https://demo.duendesoftware.com',
     [ValidateSet(
         'interactive.confidential',

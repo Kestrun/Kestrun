@@ -28,23 +28,25 @@ $port2 = $Port + 443
 # Create a new Kestrun server
 New-KrServer -Name 'Endpoints Https'
 
+
 # HTTP listener (optional)
-Add-KrEndpoint -Port $Port
+$httpEndpoints = Add-KrEndpoint -Port $Port -PassThru
 
 # HTTPS listener
-Add-KrEndpoint -Port $port2 -CertPath $certPath -CertPassword $pw
+$httpsEndpoints = Add-KrEndpoint -Port $port2 -CertPath $certPath -CertPassword $pw -PassThru
+
 
 # Enable configuration
 Enable-KrConfiguration
 
 # Secure route
-Add-KrMapRoute -Verbs Get -Pattern '/secure' -Endpoints "localhost:$port2" -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/secure' -Endpoints $httpsEndpoints -ScriptBlock {
     Write-KrLog -Level Information -Message 'Secure endpoint invoked'
     Write-KrTextResponse -InputObject 'Secure hello' -StatusCode 200
 }
 
 # Unsecure route (available on HTTP listener)
-Add-KrMapRoute -Verbs Get -Pattern '/unsecure' -Endpoints "localhost:$Port" -ScriptBlock {
+Add-KrMapRoute -Verbs Get -Pattern '/unsecure' -Endpoints $httpEndpoints -ScriptBlock {
     Write-KrLog -Level Information -Message 'Unsecure endpoint invoked'
     Write-KrTextResponse -InputObject 'Unsecure hello' -StatusCode 200
 }

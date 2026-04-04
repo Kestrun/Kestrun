@@ -33,4 +33,18 @@ Describe 'Add-KrEndpoint' {
         $listener.IPAddress | Should -Be ([System.Net.IPAddress]::Loopback)
         $listener.Port | Should -Be 5051
     }
+
+    It 'returns route endpoint specs for a default loopback listener when PassThru is specified' {
+        $endpointNames = @(Add-KrEndpoint -Port 5052 -PassThru)
+
+        $endpointNames | Should -Contain 'localhost:5052'
+        $endpointNames | Should -Contain '127.0.0.1:5052'
+    }
+
+    It 'returns IPv6-friendly route endpoint specs for an IPv6 loopback listener when PassThru is specified' {
+        $endpointNames = @(Add-KrEndpoint -Port 5053 -AddressFamily InterNetworkV6 -PassThru)
+
+        $endpointNames | Should -Contain 'localhost:5053'
+        $endpointNames | Should -Contain '[::1]:5053'
+    }
 }

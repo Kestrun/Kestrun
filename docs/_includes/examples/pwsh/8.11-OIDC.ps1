@@ -275,7 +275,6 @@ if ($UseJwtAuth) {
     #   $oidcOptions.JwkJson = ($clientAssertionJwkJson | ConvertTo-Json -Compress)
     #>
     Add-KrOpenIdConnectAuthentication -AuthenticationScheme 'oidc' -Options $oidcOptions
-
 } else {
     # Standard configuration with client secret
     # Apply fallback at configuration time for non-JWT modes if requested (rare)

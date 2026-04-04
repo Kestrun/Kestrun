@@ -96,6 +96,8 @@ Start-KrServer
 
 `Add-KrEndpoint` also supports environment-based binding when no explicit target is provided. For example,
 `$env:PORT='8080'; Add-KrEndpoint` binds to `0.0.0.0:8080`, and `ASPNETCORE_URLS` supports full listener URLs.
+When you need listener-specific routing, `Add-KrEndpoint -PassThru` returns endpoint spec strings that can be
+passed directly to `Add-KrMapRoute -Endpoints`.
 
 ## OpenAPI example
 

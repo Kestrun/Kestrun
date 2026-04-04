@@ -20,6 +20,10 @@ Core cmdlets:
 `Add-KrEndpoint` can now resolve its listener from environment variables when you do not pass an explicit
 binding target. This is useful for containers, PaaS hosts, and local launch profiles.
 
+`Add-KrEndpoint -PassThru` can also return endpoint spec strings that feed directly into
+`Add-KrMapRoute -Endpoints`. This is the preferred way to bind routes to specific listeners without
+hardcoding `host:port` strings that can drift from the actual listener configuration.
+
 Binding precedence:
 
 1. `-Uri`
@@ -37,6 +41,11 @@ Add-KrEndpoint
 
 $env:ASPNETCORE_URLS = 'http://localhost:5000;http://+:5001'
 Add-KrEndpoint
+
+$httpsEndpoints = Add-KrEndpoint -Port 5443 -SelfSignedCert -PassThru
+Add-KrMapRoute -Pattern '/secure' -Verbs Get -Endpoints $httpsEndpoints -ScriptBlock {
+    Write-KrTextResponse 'Secure hello'
+}
 ```
 
 `ASPNETCORE_URLS` uses the first non-empty entry. `PORT` binds to `0.0.0.0` on the specified port.
@@ -74,6 +83,28 @@ Start-KrServer
 ```
 
 Browse: <http://127.0.0.1:5000/ping>
+
+## Listener-specific routing
+
+When you need a route on only one listener, capture the endpoint specs from `Add-KrEndpoint`:
+
+```powershell
+New-KrServer -Name 'demo'
+$httpEndpoints = Add-KrEndpoint -Port 5000 -PassThru
+$httpsEndpoints = Add-KrEndpoint -Port 5443 -SelfSignedCert -PassThru
+
+Enable-KrConfiguration
+
+Add-KrMapRoute -Pattern '/http-only' -Verbs Get -Endpoints $httpEndpoints -ScriptBlock {
+    Write-KrTextResponse 'Only on HTTP'
+}
+
+Add-KrMapRoute -Pattern '/https-only' -Verbs Get -Endpoints $httpsEndpoints -ScriptBlock {
+    Write-KrTextResponse 'Only on HTTPS'
+}
+```
+
+This avoids hand-maintaining `"localhost:5000"` or `"127.0.0.1:5443"` strings in route definitions.
 
 ## Choosing a transport
 

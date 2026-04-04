@@ -63,6 +63,8 @@ Describe 'Resolve-KrEndpointBinding' {
             $binding.Source | Should -Be 'Explicit'
             $binding.Port | Should -Be 8080
             $binding.IPAddress | Should -Be $ipAddress
+            $binding.EndpointNames | Should -Contain '127.0.0.1:8080'
+            $binding.EndpointNames | Should -Contain 'localhost:8080'
         }
 
         It 'uses the first ASPNETCORE_URLS entry when no explicit binding was supplied' {
@@ -78,6 +80,7 @@ Describe 'Resolve-KrEndpointBinding' {
             $binding.HostName | Should -Be 'localhost'
             $binding.Port | Should -Be 6010
             $binding.Scheme | Should -Be 'http'
+            $binding.EndpointNames | Should -Contain 'localhost:6010'
             $binding.RawUrl | Should -Be 'http://localhost:6010'
         }
 

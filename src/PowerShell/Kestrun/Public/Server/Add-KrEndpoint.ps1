@@ -46,6 +46,9 @@
         The HTTP protocols to use (e.g., Http1, Http2). Defaults to Http1 for HTTP listeners and Http1OrHttp2 for HTTPS listeners.
     .PARAMETER UseConnectionLogging
         If specified, enables connection logging for the listener. This is useful for debugging and monitoring purposes. This parameter is optional.
+    .PARAMETER PassThru
+        If specified, returns one or more endpoint spec strings that can be passed
+        directly to Add-KrMapRoute -Endpoints for listener-specific routing.
     .EXAMPLE
         New-KrServer -Name 'MyKestrunServer'
         Add-KrEndpoint -Port 5000 -IPAddress ([System.Net.IPAddress]::Loopback)
@@ -60,6 +63,10 @@
         New-KrServer -Name 'MyKestrunServer'
         Add-KrEndpoint
         Uses the first ASPNETCORE_URLS entry and binds to localhost:5000.
+    .EXAMPLE
+        $httpsEndpoint = Add-KrEndpoint -Port 5443 -CertPath .\devcert.pfx -CertPassword $pw -PassThru
+        Add-KrMapRoute -Pattern '/secure' -Endpoints $httpsEndpoint -ScriptBlock { Write-KrTextResponse 'Secure hello' }
+        Adds an HTTPS listener and returns route endpoint specs for endpoint-specific routing.
     .NOTES
         This function is designed to be used while staging server listeners before
         Enable-KrConfiguration is called.
@@ -67,6 +74,7 @@
 function Add-KrEndpoint {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(defaultParameterSetName = 'NoCert')]
+    [OutputType([string[]])]
     param(
         [Parameter()]
         [int]$Port = 0,
@@ -99,7 +107,10 @@ function Add-KrEndpoint {
         [Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols]$Protocols,
 
         [Parameter()]
-        [switch]$UseConnectionLogging
+        [switch]$UseConnectionLogging,
+
+        [Parameter()]
+        [switch]$PassThru
     )
     # Ensure the server instance is resolved
     $Server = Resolve-KestrunServer
@@ -201,5 +212,9 @@ function Add-KrEndpoint {
         default {
             throw "Unsupported binding mode '$($binding.Mode)'."
         }
+    }
+
+    if ($PassThru.IsPresent) {
+        return $binding.EndpointNames
     }
 }

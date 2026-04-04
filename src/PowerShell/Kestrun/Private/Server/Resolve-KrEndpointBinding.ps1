@@ -14,7 +14,7 @@
 
     Environment binding is only considered when no explicit listener target
     was supplied by the caller.
-.PARAMETER PSBoundParameters
+.PARAMETER BoundParameters
     The caller's $BoundParameters dictionary.
 .PARAMETER Port
     The current Port value from the caller.
@@ -29,7 +29,7 @@
 .PARAMETER DefaultIPAddress
     The default IP address to use when no explicit or environment binding exists.
 .PARAMETER IgnoreEnvironment
-    If specified, environment lookup is disabled. Enabled by default.
+    If specified, environment lookup is disabled.
 .OUTPUTS
     PSCustomObject with:
         - Mode   : Uri | HostName | PortIPAddress
@@ -42,7 +42,7 @@
         - RawUrl
 .EXAMPLE
     $binding = Resolve-KrEndpointBinding `
-        -PSBoundParameters $BoundParameters `
+        -BoundParameters $BoundParameters `
         -Port $Port `
         -IPAddress $IPAddress `
         -HostName $HostName `
@@ -156,7 +156,7 @@ function Resolve-KrEndpointBinding {
         .PARAMETER Mode
             The mode of binding resolution: 'Uri', 'HostName', or 'PortIPAddress'.
         .PARAMETER Source
-            The source of the binding information, e.g., 'Explicit', 'Environment:ASPNCORE_URLS', 'Environment:PORT', or 'Default'.
+            The source of the binding information, e.g., 'Explicit', 'Environment:ASPNETCORE_URLS', 'Environment:PORT', or 'Default'.
         .PARAMETER Scheme
             The URI scheme (e.g., 'http' or 'https') if applicable.
         .PARAMETER Uri

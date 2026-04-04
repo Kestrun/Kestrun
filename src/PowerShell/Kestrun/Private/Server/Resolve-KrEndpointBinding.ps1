@@ -70,24 +70,53 @@ function Resolve-KrEndpointBinding {
         [switch]$IgnoreEnvironment
     )
     function Format-KrEndpointName {
+        <#
+        .SYNOPSIS
+            Formats an endpoint name from a server and port.
+        .PARAMETER Server
+            The server name or IP address.
+        .PARAMETER Port
+            The port number.
+        .OUTPUTS
+            A formatted endpoint name string.
+        #>
         param(
             [Parameter(Mandatory)]
-            [string]$Host,
+            [string]$Server,
             [Parameter(Mandatory)]
             [int]$Port
         )
 
         $parsedIp = $null
-        $formattedHost = if ([System.Net.IPAddress]::TryParse($Host, [ref]$parsedIp) -and $parsedIp.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetworkV6) {
-            "[$Host]"
+        $formattedHost = if ([System.Net.IPAddress]::TryParse($Server, [ref]$parsedIp) -and $parsedIp.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetworkV6) {
+            "[$Server]"
         } else {
-            $Host
+            $Server
         }
 
         return "${formattedHost}:$Port"
     }
 
-    function Get-KrEndpointNames {
+    function Get-KrEndpointName {
+        <#
+        .SYNOPSIS
+            Generates a list of endpoint names based on the binding mode and parameters.
+        .DESCRIPTION
+            This function constructs a list of endpoint names that correspond to the resolved binding information.
+            It takes into account special cases such as wildcard hosts and localhost to ensure that all relevant endpoint names are included for logging and diagnostics.
+        .PARAMETER Mode
+            The mode of binding resolution: 'Uri', 'HostName', or 'PortIPAddress'.
+        .PARAMETER Uri
+            The resolved URI if Mode is 'Uri'.
+        .PARAMETER HostName
+            The resolved HostName if Mode is 'HostName'.
+        .PARAMETER Port
+            The resolved Port if Mode is 'HostName' or 'PortIPAddress'.
+        .PARAMETER IPAddress
+            The resolved IPAddress if Mode is 'PortIPAddress'.
+        .OUTPUTS
+            An array of endpoint name strings corresponding to the resolved binding.
+        #>
         param(
             [Parameter(Mandatory)]
             [ValidateSet('Uri', 'HostName', 'PortIPAddress')]
@@ -100,6 +129,12 @@ function Resolve-KrEndpointBinding {
 
         $names = [System.Collections.Generic.List[string]]::new()
         function Add-EndpointName {
+            <#
+            .SYNOPSIS
+                Adds an endpoint name to the list if it is not null, empty, or already present.
+            .PARAMETER Name
+                The endpoint name to add.
+            #>
             param([string]$Name)
             if (-not [string]::IsNullOrWhiteSpace($Name) -and -not $names.Contains($Name)) {
                 $names.Add($Name)
@@ -109,19 +144,19 @@ function Resolve-KrEndpointBinding {
         switch ($Mode) {
             'Uri' {
                 if ($null -ne $Uri) {
-                    Add-EndpointName (Format-KrEndpointName -Host $Uri.Host -Port $Uri.Port)
+                    Add-EndpointName (Format-KrEndpointName -Server $Uri.Host -Port $Uri.Port)
                     if ($Uri.Host -eq 'localhost') {
-                        Add-EndpointName (Format-KrEndpointName -Host ([System.Net.IPAddress]::Loopback.ToString()) -Port $Uri.Port)
-                        Add-EndpointName (Format-KrEndpointName -Host ([System.Net.IPAddress]::IPv6Loopback.ToString()) -Port $Uri.Port)
+                        Add-EndpointName (Format-KrEndpointName -Server ([System.Net.IPAddress]::Loopback.ToString()) -Port $Uri.Port)
+                        Add-EndpointName (Format-KrEndpointName -Server ([System.Net.IPAddress]::IPv6Loopback.ToString()) -Port $Uri.Port)
                     }
                 }
             }
 
             'HostName' {
-                Add-EndpointName (Format-KrEndpointName -Host $HostName -Port $Port)
+                Add-EndpointName (Format-KrEndpointName -Server $HostName -Port $Port)
                 if ($HostName -eq 'localhost') {
-                    Add-EndpointName (Format-KrEndpointName -Host ([System.Net.IPAddress]::Loopback.ToString()) -Port $Port)
-                    Add-EndpointName (Format-KrEndpointName -Host ([System.Net.IPAddress]::IPv6Loopback.ToString()) -Port $Port)
+                    Add-EndpointName (Format-KrEndpointName -Server ([System.Net.IPAddress]::Loopback.ToString()) -Port $Port)
+                    Add-EndpointName (Format-KrEndpointName -Server ([System.Net.IPAddress]::IPv6Loopback.ToString()) -Port $Port)
                 }
             }
 
@@ -131,13 +166,13 @@ function Resolve-KrEndpointBinding {
                 }
 
                 if ($IPAddress.Equals([System.Net.IPAddress]::Any) -or $IPAddress.Equals([System.Net.IPAddress]::IPv6Any)) {
-                    Add-EndpointName (Format-KrEndpointName -Host 'localhost' -Port $Port)
-                    Add-EndpointName (Format-KrEndpointName -Host ([System.Net.IPAddress]::Loopback.ToString()) -Port $Port)
-                    Add-EndpointName (Format-KrEndpointName -Host ([System.Net.IPAddress]::IPv6Loopback.ToString()) -Port $Port)
+                    Add-EndpointName (Format-KrEndpointName -Server 'localhost' -Port $Port)
+                    Add-EndpointName (Format-KrEndpointName -Server ([System.Net.IPAddress]::Loopback.ToString()) -Port $Port)
+                    Add-EndpointName (Format-KrEndpointName -Server ([System.Net.IPAddress]::IPv6Loopback.ToString()) -Port $Port)
                 } else {
-                    Add-EndpointName (Format-KrEndpointName -Host $IPAddress.ToString() -Port $Port)
+                    Add-EndpointName (Format-KrEndpointName -Server $IPAddress.ToString() -Port $Port)
                     if ($IPAddress.Equals([System.Net.IPAddress]::Loopback) -or $IPAddress.Equals([System.Net.IPAddress]::IPv6Loopback)) {
-                        Add-EndpointName (Format-KrEndpointName -Host 'localhost' -Port $Port)
+                        Add-EndpointName (Format-KrEndpointName -Server 'localhost' -Port $Port)
                     }
                 }
             }
@@ -192,7 +227,7 @@ function Resolve-KrEndpointBinding {
             HostName = $HostName
             Port = $Port
             IPAddress = $IPAddress
-            EndpointNames = @(Get-KrEndpointNames -Mode $Mode -Uri $Uri -HostName $HostName -Port $Port -IPAddress $IPAddress)
+            EndpointNames = @(Get-KrEndpointName -Mode $Mode -Uri $Uri -HostName $HostName -Port $Port -IPAddress $IPAddress)
             RawUrl = $RawUrl
         }
     }

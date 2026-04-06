@@ -193,7 +193,8 @@ New-KrServiceDescriptor `
   -Version 1.2.0 `
   -EntryPoint '.\Service.ps1' `
   -ServiceLogPath '.\logs\service.log' `
-  -PreservePaths @('config/production.json', 'data/', 'logs/')
+  -PreservePaths @('config/production.json') `
+  -ApplicationDataFolders @('data/', 'logs/')
 ```
 
 Package a single script (auto-generates `Service.psd1`):
@@ -317,4 +318,3 @@ Licensed under the MIT License. See [LICENSE](LICENSE).
 ---
 
 ### Using Kestrun in your projects? Support its development [![☕ Buy Me a Coffee](https://img.shields.io/badge/☕%20Buy%20Me%20a%20Coffee-Kestrun-FFDD00)](https://buymeacoffee.com/kestrun)
-

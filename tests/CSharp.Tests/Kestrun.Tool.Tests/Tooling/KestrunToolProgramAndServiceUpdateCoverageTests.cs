@@ -376,7 +376,8 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
             description: "Demo",
             version: "1.2.3",
             serviceLogPath: "./logs/service.log",
-            preservePaths: ["keep/secret.txt"]);
+            preservePaths: ["keep/secret.txt"],
+            applicationDataFolders: ["data/", "state/cache"]);
 
         var backup = CreateServiceBackupSnapshot(
             version: "20260321121212",
@@ -406,6 +407,7 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
 
         var output = writer.ToString();
         Assert.Contains("Name: demo", output, StringComparison.Ordinal);
+        Assert.Contains("ApplicationDataFolders: data/, state/cache", output, StringComparison.Ordinal);
         Assert.Contains("Backups: 1", output, StringComparison.Ordinal);
         Assert.Contains("\"ServiceName\": \"demo\"", output, StringComparison.Ordinal);
         Assert.Contains("\"ServiceHostUpdated\": true", output, StringComparison.OrdinalIgnoreCase);
@@ -514,7 +516,7 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
         File.WriteAllText(Path.Combine(incomingContentRoot, "Service.ps1"), "new-script", Encoding.UTF8);
         File.WriteAllText(
             Path.Combine(incomingContentRoot, "Service.psd1"),
-            "@{`nFormatVersion='1.0'`nName='demo-service'`nEntryPoint='Service.ps1'`nDescription='Demo update'`nVersion='2.0.0'`nPreservePaths=@('keep/secret.txt')`n}",
+            "@{`nFormatVersion='1.0'`nName='demo-service'`nEntryPoint='Service.ps1'`nDescription='Demo update'`nVersion='2.0.0'`nApplicationDataFolders=@('keep')`n}",
             Encoding.UTF8);
         File.WriteAllText(Path.Combine(incomingModuleRoot, "Kestrun.psd1"), "@{`nModuleVersion='2.0.0'`n}", Encoding.UTF8);
 
@@ -540,7 +542,8 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
                     "Demo update",
                     "2.0.0",
                     null,
-                    new[] { "keep/secret.txt" }
+                    Array.Empty<string>(),
+                    new[] { "keep" }
                 ],
                 culture: null);
             Assert.NotNull(scriptSource);
@@ -1198,13 +1201,14 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
         string description,
         string? version,
         string? serviceLogPath,
-        IReadOnlyList<string> preservePaths)
+        IReadOnlyList<string> preservePaths,
+        IReadOnlyList<string> applicationDataFolders)
     {
         var descriptor = Activator.CreateInstance(
             ServiceInstallDescriptorType,
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
             binder: null,
-            args: [formatVersion, name, entryPoint, description, version, serviceLogPath, preservePaths],
+            args: [formatVersion, name, entryPoint, description, version, serviceLogPath, preservePaths, applicationDataFolders],
             culture: null);
         Assert.NotNull(descriptor);
         return descriptor;

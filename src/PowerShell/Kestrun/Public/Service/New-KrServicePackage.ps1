@@ -23,6 +23,8 @@
     Optional ServiceLogPath written to generated Service.psd1.
 .PARAMETER PreservePaths
     Optional relative file/folder paths to preserve during service update.
+.PARAMETER ApplicationDataFolders
+    Optional relative application-data folders to preserve during service update.
 .PARAMETER OutputPath
     Output .krpack path.
     Defaults:
@@ -70,6 +72,9 @@ function New-KrServicePackage {
 
         [Parameter(ParameterSetName = 'FromScript')]
         [string[]]$PreservePaths,
+
+        [Parameter(ParameterSetName = 'FromScript')]
+        [string[]]$ApplicationDataFolders,
 
         [Parameter()]
         [ValidateNotNullOrEmpty()]
@@ -233,6 +238,20 @@ function New-KrServicePackage {
                 $descriptorLines.Add('    )')
             }
 
+            if ($null -ne $ApplicationDataFolders -and $ApplicationDataFolders.Count -gt 0) {
+                $descriptorLines.Add('    ApplicationDataFolders = @(')
+                foreach ($applicationDataFolder in $ApplicationDataFolders) {
+                    if ([string]::IsNullOrWhiteSpace($applicationDataFolder)) {
+                        continue
+                    }
+
+                    $escapedApplicationDataFolder = $applicationDataFolder.Replace("'", "''")
+                    $descriptorLines.Add("        '$escapedApplicationDataFolder'")
+                }
+
+                $descriptorLines.Add('    )')
+            }
+
             $descriptorLines.Add('}')
 
             $descriptorPath = [System.IO.Path]::Combine($packageRoot, 'Service.psd1')
@@ -262,6 +281,7 @@ function New-KrServicePackage {
                 Version = $descriptorInfo.Version
                 ServiceLogPath = $descriptorInfo.ServiceLogPath
                 PreservePaths = @($descriptorInfo.PreservePaths)
+                ApplicationDataFolders = @($descriptorInfo.ApplicationDataFolders)
             }
         )
     } finally {

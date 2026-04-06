@@ -780,6 +780,8 @@ internal static partial class Program
         Console.WriteLine($"Description: {descriptor.Description}");
         Console.WriteLine($"Version: {(string.IsNullOrWhiteSpace(descriptor.Version) ? "(not set)" : descriptor.Version)}");
         Console.WriteLine($"ServiceLogPath: {(string.IsNullOrWhiteSpace(descriptor.ServiceLogPath) ? "(not set)" : descriptor.ServiceLogPath)}");
+        Console.WriteLine($"PreservePaths: {(descriptor.PreservePaths.Count == 0 ? "(none)" : string.Join(", ", descriptor.PreservePaths))}");
+        Console.WriteLine($"ApplicationDataFolders: {(descriptor.ApplicationDataFolders.Count == 0 ? "(none)" : string.Join(", ", descriptor.ApplicationDataFolders))}");
 
         if (backups.Count == 0)
         {
@@ -1243,7 +1245,11 @@ internal static partial class Program
             return false;
         }
 
-        if (!TryApplyServiceApplicationReplacement(paths, contentRoot, scriptSource.DescriptorPreservePaths, out exitCode))
+        var preserveRelativePaths = scriptSource.DescriptorPreservePaths
+            .Concat(scriptSource.DescriptorApplicationDataFolders)
+            .ToArray();
+
+        if (!TryApplyServiceApplicationReplacement(paths, contentRoot, preserveRelativePaths, out exitCode))
         {
             return false;
         }

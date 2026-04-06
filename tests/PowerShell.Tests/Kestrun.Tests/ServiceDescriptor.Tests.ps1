@@ -33,7 +33,7 @@ Describe 'Service descriptor cmdlets' {
         try {
             $null = New-Item -ItemType Directory -Path $tempRoot -Force
             Set-Content -LiteralPath $scriptPath -Value "Write-Output 'descriptor'" -Encoding utf8NoBOM
-            $created = New-KrServiceDescriptor -Path $descriptorPath -Name 'demo' -Description 'Demo service' -Version ([Version]'1.2.0') -EntryPoint './server.ps1' -ServiceLogPath './logs/service.log' -PreservePaths @('config/settings.json', 'data/', 'logs/')
+            $created = New-KrServiceDescriptor -Path $descriptorPath -Name 'demo' -Description 'Demo service' -Version ([Version]'1.2.0') -EntryPoint './server.ps1' -ServiceLogPath './logs/service.log' -PreservePaths @('config/settings.json', 'data/', 'logs/') -ApplicationDataFolders @('data/', 'state/')
 
             Test-Path -LiteralPath $descriptorPath | Should -BeTrue
             $created.Name | Should -Be 'demo'
@@ -42,12 +42,14 @@ Describe 'Service descriptor cmdlets' {
             $created.EntryPoint | Should -Be './server.ps1'
             $created.ServiceLogPath | Should -Be './logs/service.log'
             @($created.PreservePaths) | Should -Be @('config/settings.json', 'data/', 'logs/')
+            @($created.ApplicationDataFolders) | Should -Be @('data/', 'state/')
 
             $read = Get-KrServiceDescriptor -Path $descriptorPath
             $read.Name | Should -Be 'demo'
             $read.Description | Should -Be 'Demo service'
             $read.Version | Should -Be '1.2.0'
             @($read.PreservePaths) | Should -Be @('config/settings.json', 'data/', 'logs/')
+            @($read.ApplicationDataFolders) | Should -Be @('data/', 'state/')
         } finally {
             if (Test-Path -LiteralPath $tempRoot) {
                 Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
@@ -103,15 +105,19 @@ Describe 'Service descriptor cmdlets' {
             Set-Content -LiteralPath $scriptPath -Value "Write-Output 'descriptor'" -Encoding utf8NoBOM
             $null = New-KrServiceDescriptor -Path $descriptorPath -Name 'demo' -Description 'Demo service' -Version ([Version]'1.2.0') -EntryPoint './server.ps1'
 
-            $updated = Set-KrServiceDescriptor -Path $descriptorPath -Description 'Updated service' -Version ([Version]'1.2.1') -ServiceLogPath './logs/updated.log' -PreservePaths @('db/app.db', 'cache/')
+            $updated = Set-KrServiceDescriptor -Path $descriptorPath -Description 'Updated service' -Version ([Version]'1.2.1') -ServiceLogPath './logs/updated.log' -PreservePaths @('db/app.db', 'cache/') -ApplicationDataFolders @('data/', 'cache/state/')
             $updated.Name | Should -Be 'demo'
             $updated.Description | Should -Be 'Updated service'
             $updated.Version | Should -Be '1.2.1'
             $updated.ServiceLogPath | Should -Be './logs/updated.log'
             @($updated.PreservePaths) | Should -Be @('db/app.db', 'cache/')
+            @($updated.ApplicationDataFolders) | Should -Be @('data/', 'cache/state/')
 
             $preserveCleared = Set-KrServiceDescriptor -Path $descriptorPath -ClearPreservePaths
             @($preserveCleared.PreservePaths) | Should -Be @()
+
+            $appDataCleared = Set-KrServiceDescriptor -Path $descriptorPath -ClearApplicationDataFolders
+            @($appDataCleared.ApplicationDataFolders) | Should -Be @()
         } finally {
             if (Test-Path -LiteralPath $tempRoot) {
                 Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
@@ -189,6 +195,7 @@ Describe 'Service descriptor cmdlets' {
                 EntryPoint = 'Service.ps1'
                 ServiceLogPath = $null
                 PreservePaths = @()
+                ApplicationDataFolders = @()
             }
         }
 
@@ -207,6 +214,7 @@ Describe 'Service descriptor cmdlets' {
                 EntryPoint = 'Service.ps1'
                 ServiceLogPath = $null
                 PreservePaths = @()
+                ApplicationDataFolders = @()
             }
         }
 

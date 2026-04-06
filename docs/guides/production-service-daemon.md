@@ -79,7 +79,7 @@ When using package or descriptor-based content deployments, `Service.psd1` shoul
 - `Version`
 - `EntryPoint`
 
-Optional keys include `ServiceLogPath` and `PreservePaths`.
+Optional keys include `ServiceLogPath`, `PreservePaths`, and `ApplicationDataFolders`.
 
 Example:
 
@@ -92,6 +92,8 @@ Example:
   EntryPoint = './Service.ps1'
   PreservePaths = @(
     'config/production.json'
+  )
+  ApplicationDataFolders = @(
     'data/'
     'logs/'
   )
@@ -99,6 +101,7 @@ Example:
 ```
 
 `PreservePaths` values must be relative paths that resolve inside the app root (absolute paths and root-escaping paths are rejected).
+`ApplicationDataFolders` values follow the same relative-path rules.
 During `service update --package`, those paths are
 staged from the current install and restored after the package content is applied.
 

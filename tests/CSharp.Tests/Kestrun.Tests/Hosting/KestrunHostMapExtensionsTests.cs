@@ -808,12 +808,14 @@ public class KestrunHostMapExtensionsTests
 
     [Theory]
     [Trait("Category", "Hosting")]
-    [InlineData("::1", 5000, "[::1]:5000")]
-    [InlineData("2001:db8::1", 8080, "[2001:db8::1]:8080")]
-    [InlineData("fe80::1", 443, "[fe80::1]:443")]
-    [InlineData("::ffff:192.0.2.1", 3000, "[::ffff:192.0.2.1]:3000")]
-    public void ToRequireHost_WithIPv6Addresses_AddsSquareBrackets(string host, int port, string expected)
+    [InlineData("::1", 5000, "*:5000")]
+    [InlineData("2001:db8::1", 8080, "*:8080")]
+    [InlineData("fe80::1", 443, "*:443")]
+    [InlineData("::ffff:192.0.2.1", 3000, "*:3000")]
+    public void ToRequireHost_WithIPv6Addresses_UsesPortWildcard(string host, int port, string expected)
     {
+        // ASP.NET Core HostMatcherPolicy cannot parse bracketed IPv6 literals (e.g. [::1]:5000),
+        // so IPv6 addresses are converted to "*:{port}" (port-only wildcard) to avoid a runtime crash.
         var result = KestrunHostMapExtensions.ToRequireHost(host, port);
 
         Assert.Equal(expected, result);

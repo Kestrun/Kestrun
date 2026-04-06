@@ -67,6 +67,9 @@ Enable-KrConfiguration
 Start-KrServer | Out-Null
 ```
 
+`Add-KrEndpoint -Port 5000` now defaults to a wildcard listener. For local-only routing examples,
+specify `-IPAddress ([IPAddress]::Loopback)` explicitly.
+
 ## 2. Applying Conventions to Ad-Hoc Endpoints
 
 If you map endpoints directly with ASP.NET Core (e.g. `app.MapGet`), you can still apply the same

@@ -120,6 +120,7 @@
         'Invoke-KrChallenge', 'Invoke-KrCookieSignIn', 'Invoke-KrCookieSignOut',
         'Invoke-KrWebRequest', 'Limit-KrJWTNotBefore', 'Limit-KrJWTValidity',
         'New-KrCertificateRequest', 'New-KrClaimPolicy', 'New-KrCookieBuilder',
+        'New-KrDockerDeployment',
         'New-KrCorsPolicyBuilder', 'New-KrFormPartRule', 'New-KrJWTBuilder',
         'New-KrLogger', 'New-KrMapRouteOption', 'New-KrOpenApiExample',
         'New-KrOpenApiExternalDoc', 'New-KrOpenApiHeader', 'New-KrOpenApiLink',

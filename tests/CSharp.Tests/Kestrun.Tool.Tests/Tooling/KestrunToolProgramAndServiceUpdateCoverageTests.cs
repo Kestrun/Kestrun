@@ -330,6 +330,56 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryNormalizePreservePath_UsesKeyAgnosticValidationMessages()
+    {
+        var args = new object?[]
+        {
+            Path.Combine(Path.GetTempPath(), $"absolute-{Guid.NewGuid():N}"),
+            string.Empty,
+            string.Empty,
+        };
+
+        Assert.False(InvokeBool("TryNormalizePreservePath", args));
+        Assert.Equal(string.Empty, Assert.IsType<string>(args[1]));
+        Assert.Contains("preserved path entry", Assert.IsType<string>(args[2]), StringComparison.Ordinal);
+        Assert.DoesNotContain("PreservePaths entry", Assert.IsType<string>(args[2]), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryStagePreservedPaths_UsesKeyAgnosticEscapeMessages()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-stage-preserve-{Guid.NewGuid():N}");
+        _ = Directory.CreateDirectory(tempRoot);
+
+        string? stagingRoot = null;
+        try
+        {
+            var args = new object?[]
+            {
+                tempRoot,
+                new[] { "../state" },
+                string.Empty,
+                string.Empty,
+            };
+
+            Assert.False(InvokeBool("TryStagePreservedPaths", args));
+            stagingRoot = Assert.IsType<string>(args[2]);
+            Assert.Contains("Preserved path entry '../state' escapes the service application root.", Assert.IsType<string>(args[3]), StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(stagingRoot) && Directory.Exists(stagingRoot))
+            {
+                TryDeleteDirectory(stagingRoot);
+            }
+
+            TryDeleteDirectory(tempRoot);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void RepositoryManifestAndModuleUpdateEvaluation_WorkForMissingAndNewerBundledVersions()
     {
         var repoRoot = FindRepositoryRoot();

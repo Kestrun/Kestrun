@@ -185,6 +185,64 @@ Describe 'Service descriptor cmdlets' {
         }
     }
 
+    It 'Get-KrServiceDescriptor rejects hashtable PreservePaths values with a string-array error' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-descriptor-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $descriptorPath = Join-Path $tempRoot 'Service.psd1'
+        $scriptPath = Join-Path $tempRoot 'server.ps1'
+
+        try {
+            $null = New-Item -ItemType Directory -Path $tempRoot -Force
+            Set-Content -LiteralPath $scriptPath -Value "Write-Output 'descriptor'" -Encoding utf8NoBOM
+
+            $descriptor = @(
+                '@{',
+                "    FormatVersion = '1.0'",
+                "    Name = 'demo-package'",
+                "    Description = 'Demo package service'",
+                "    Version = '1.0.0'",
+                "    EntryPoint = 'server.ps1'",
+                "    PreservePaths = @{ config = 'settings.json' }",
+                '}'
+            ) -join [Environment]::NewLine
+            Set-Content -LiteralPath $descriptorPath -Value $descriptor -Encoding utf8NoBOM
+
+            { Get-KrServiceDescriptor -Path $descriptorPath } | Should -Throw "*key 'PreservePaths' must be a string array*"
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'Get-KrServiceDescriptor rejects hashtable ApplicationDataFolders values with a string-array error' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-service-descriptor-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $descriptorPath = Join-Path $tempRoot 'Service.psd1'
+        $scriptPath = Join-Path $tempRoot 'server.ps1'
+
+        try {
+            $null = New-Item -ItemType Directory -Path $tempRoot -Force
+            Set-Content -LiteralPath $scriptPath -Value "Write-Output 'descriptor'" -Encoding utf8NoBOM
+
+            $descriptor = @(
+                '@{',
+                "    FormatVersion = '1.0'",
+                "    Name = 'demo-package'",
+                "    Description = 'Demo package service'",
+                "    Version = '1.0.0'",
+                "    EntryPoint = 'server.ps1'",
+                "    ApplicationDataFolders = @{ state = 'cache' }",
+                '}'
+            ) -join [Environment]::NewLine
+            Set-Content -LiteralPath $descriptorPath -Value $descriptor -Encoding utf8NoBOM
+
+            { Get-KrServiceDescriptor -Path $descriptorPath } | Should -Throw "*key 'ApplicationDataFolders' must be a string array*"
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
     It 'Set-KrServiceDescriptor fails with clear error when descriptor Description is invalid' {
         Mock -CommandName Get-KrServiceDescriptor -ModuleName Kestrun -MockWith {
             [pscustomobject]@{

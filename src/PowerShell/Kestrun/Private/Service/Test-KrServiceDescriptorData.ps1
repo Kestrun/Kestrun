@@ -56,6 +56,16 @@ function Test-KrServiceDescriptorData {
     }
 
     function Get-KrNormalizedDescriptorRelativePathArray {
+        <#
+        .SYNOPSIS
+            Normalizes and validates relative paths from a descriptor key.
+        .PARAMETER KeyName
+            The key name in the descriptor hashtable to process.
+        .PARAMETER EntryLabel
+            A label for the entry, used in error messages.
+        .OUTPUTS
+            An array of normalized relative paths.
+        #>
         param(
             [string]$KeyName,
             [string]$EntryLabel
@@ -66,11 +76,14 @@ function Test-KrServiceDescriptorData {
             return $normalizedPaths
         }
 
+        $descriptorValue = $Descriptor[$KeyName]
         $rawPaths = @()
-        if ($Descriptor[$KeyName] -is [string]) {
-            $rawPaths = @([string]$Descriptor[$KeyName])
-        } elseif ($Descriptor[$KeyName] -is [System.Collections.IEnumerable]) {
-            $rawPaths = @($Descriptor[$KeyName])
+        if ($descriptorValue -is [string]) {
+            $rawPaths = @([string]$descriptorValue)
+        } elseif ($descriptorValue -is [hashtable] -or $descriptorValue -is [System.Collections.IDictionary]) {
+            throw "Descriptor '$DescriptorPath' key '$KeyName' must be a string array."
+        } elseif ($descriptorValue -is [System.Array] -or $descriptorValue -is [System.Collections.IList]) {
+            $rawPaths = @($descriptorValue)
         } else {
             throw "Descriptor '$DescriptorPath' key '$KeyName' must be a string array."
         }

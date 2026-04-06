@@ -81,6 +81,15 @@ function New-KrDockerDeployment {
     )
 
     function Get-KrDefaultModuleRoot {
+        <#
+        .SYNOPSIS
+            Resolves the default Kestrun module root path based on the current script location.
+        .DESCRIPTION
+            Assumes the script is located under `src/PowerShell/Kestrun/Public/Service` and traverses up to find the module root.
+            Validates that the resolved path contains `Kestrun.psd1` to ensure it's correct.
+        .OUTPUTS
+            String path to the Kestrun module root.
+        #>
         $moduleRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
         if (-not (Test-Path -LiteralPath (Join-Path -Path $moduleRoot -ChildPath 'Kestrun.psd1') -PathType Leaf)) {
             throw "Unable to resolve the Kestrun module root from '$PSScriptRoot'."
@@ -90,6 +99,19 @@ function New-KrDockerDeployment {
     }
 
     function Get-KrNormalizedDockerName {
+        <#
+        .SYNOPSIS
+            Normalizes a string to a valid Docker name.
+        .DESCRIPTION
+            Converts the input string to lowercase, replaces invalid characters with hyphens, and trims leading/trailing hyphens.
+            If the result is empty, returns a fallback name.
+        .PARAMETER Name
+            The input string to normalize.
+        .PARAMETER Fallback
+            The fallback name to use if normalization results in an empty string.
+        .OUTPUTS
+            String containing the normalized Docker name.
+        #>
         param(
             [Parameter(Mandatory)]
             [string]$Name,
@@ -109,6 +131,18 @@ function New-KrDockerDeployment {
     }
 
     function Get-KrDeploymentOutputPath {
+        <#
+        .SYNOPSIS
+            Resolves the output path for the Docker deployment bundle.
+        .DESCRIPTION
+            If a path is provided, it returns the full path. Otherwise, it combines the current location with a default directory name.
+        .PARAMETER ProvidedOutputPath
+            The user-provided output path.
+        .PARAMETER DefaultDirectoryName
+            The default directory name to use if no path is provided.
+        .OUTPUT
+            String containing the resolved output path.
+        #>
         param(
             [string]$ProvidedOutputPath,
             [string]$DefaultDirectoryName
@@ -122,6 +156,17 @@ function New-KrDockerDeployment {
     }
 
     function Set-KrGeneratedFileContent {
+        <#
+        .SYNOPSIS
+            Writes content to a file, ensuring the directory exists and handling overwrites based on the Force parameter.
+        .DESCRIPTION
+            Creates the target directory if it doesn't exist. If the file already exists and Force is not set, it throws an error. Writes the content using UTF-8 encoding without a BOM.
+        .PARAMETER Path
+            The file path where the content should be written.
+        .PARAMETER Content
+            The content to write to the file.
+        #>
+        [CmdletBinding(SupportsShouldProcess)]
         param(
             [Parameter(Mandatory)]
             [string]$Path,
@@ -144,6 +189,16 @@ function New-KrDockerDeployment {
     }
 
     function Copy-KrGeneratedDirectory {
+        <#
+        .SYNOPSIS
+            Copies a directory and its contents, handling overwrites based on the Force parameter.
+        .DESCRIPTION
+            If the destination directory already exists and Force is not set, it throws an error. Otherwise, it removes the existing directory and copies the source directory to the destination.
+        .PARAMETER SourcePath
+            The path of the source directory to copy.
+        .PARAMETER DestinationPath
+            The path of the destination directory.
+        #>
         param(
             [Parameter(Mandatory)]
             [string]$SourcePath,
@@ -189,7 +244,7 @@ function New-KrDockerDeployment {
             throw "Kestrun module manifest not found under: $resolvedModuleRoot"
         }
 
-        $temporaryExtractionRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("kestrun-docker-{0}" -f [Guid]::NewGuid().ToString('N'))
+        $temporaryExtractionRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-docker-{0}' -f [Guid]::NewGuid().ToString('N'))
         $null = New-Item -ItemType Directory -Path $temporaryExtractionRoot -Force
         Expand-Archive -LiteralPath $resolvedPackagePath -DestinationPath $temporaryExtractionRoot -Force
 
@@ -277,7 +332,10 @@ ENTRYPOINT ["/opt/kestrun/entrypoint.sh"]
             ''
             'pwsh -NoLogo -NoProfile -Command ''$ErrorActionPreference = "Stop"; Expand-Archive -LiteralPath "/opt/kestrun/app/app.krpack" -DestinationPath "/opt/kestrun/service" -Force'''
             ''
-            'ENTRYPOINT_PATH=$(pwsh -NoLogo -NoProfile -Command ''$ErrorActionPreference = "Stop"; $descriptorPath = [System.IO.Path]::Combine("/opt/kestrun/service", "Service.psd1"); $descriptor = Import-PowerShellDataFile -LiteralPath $descriptorPath; if (-not $descriptor.ContainsKey("EntryPoint") -or [string]::IsNullOrWhiteSpace([string]$descriptor["EntryPoint"])) { throw ("Descriptor {0} is missing required key EntryPoint." -f $descriptorPath) }; [System.IO.Path]::GetFullPath([System.IO.Path]::Combine("/opt/kestrun/service", [string]$descriptor["EntryPoint"]))'')'
+            'ENTRYPOINT_PATH=$(pwsh -NoLogo -NoProfile -Command ''$ErrorActionPreference = "Stop"; $descriptorPath = [System.IO.Path]::Combine("/opt/kestrun/service", "Service.psd1");'
+            '$descriptor = Import-PowerShellDataFile -LiteralPath $descriptorPath; if (-not $descriptor.ContainsKey("EntryPoint") -or [string]::IsNullOrWhiteSpace([string]$descriptor["EntryPoint"]))'
+            '{ throw ("Descriptor {0} is missing required key EntryPoint." -f $descriptorPath) };'
+            '[System.IO.Path]::GetFullPath([System.IO.Path]::Combine("/opt/kestrun/service", [string]$descriptor["EntryPoint"]))'')'
             ''
             ('export ASPNETCORE_URLS="${{ASPNETCORE_URLS:-http://+:{0}}}"' -f $ContainerPort)
             ('export PORT="${{PORT:-{0}}}"' -f $ContainerPort)
@@ -287,7 +345,7 @@ ENTRYPOINT ["/opt/kestrun/entrypoint.sh"]
         )
         $entrypointContent = $entrypointLines -join "`n"
 
-        $dockerignoreContent = @"
+        $dockerignoreContent = @'
 *
 !Dockerfile
 !docker-compose.yml
@@ -295,7 +353,7 @@ ENTRYPOINT ["/opt/kestrun/entrypoint.sh"]
 !app.krpack
 !Kestrun/
 !Kestrun/**
-"@
+'@
 
         if ($PSCmdlet.ShouldProcess($resolvedOutputPath, 'Create Docker deployment bundle')) {
             if (-not (Test-Path -LiteralPath $resolvedOutputPath -PathType Container)) {

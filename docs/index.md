@@ -73,7 +73,7 @@ Spin up your server, validate endpoints, and iterate quickly.
 Choose your deployment model:
 
 - **Service/daemon** → [Production Deployment](/guides/production-service-daemon)
-- **Container** → see the repository examples today; dedicated deployment docs are still planned
+- **Container** → [Production Deployment (Container)](/guides/production-container)
 
 ## Minimal example
 

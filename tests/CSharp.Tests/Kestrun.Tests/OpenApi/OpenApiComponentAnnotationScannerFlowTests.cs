@@ -141,6 +141,24 @@ public sealed class OpenApiComponentAnnotationScannerFlowTests
         Assert.Contains("No running script path", ex.Message);
     }
 
+    [Fact]
+    public void ScanFromPath_BikeRentalExample_FindsSplitResponseComponents()
+    {
+        var path = Path.Combine(Directory.GetCurrentDirectory(), "examples", "PowerShell", "BikeRentalShop", "Service.ps1");
+
+        Assert.True(File.Exists(path), $"Expected example script at '{path}'.");
+
+        var result = OpenApiComponentAnnotationScanner.ScanFromPath(path);
+
+        Assert.True(result.ContainsKey("StaffReturnRentalOk"));
+        Assert.True(result.ContainsKey("StaffReturnRentalNotFound"));
+        Assert.True(result.ContainsKey("StaffReturnRentalConflict"));
+
+        Assert.Contains(result["StaffReturnRentalOk"].Annotations, attribute => attribute is OpenApiResponseComponentAttribute);
+        Assert.Contains(result["StaffReturnRentalNotFound"].Annotations, attribute => attribute is OpenApiResponseComponentAttribute);
+        Assert.Contains(result["StaffReturnRentalConflict"].Annotations, attribute => attribute is OpenApiResponseComponentAttribute);
+    }
+
     private static string CreateTempDir()
     {
         var dir = Path.Combine(Path.GetTempPath(), "kestrun-scanner-flow-" + Guid.NewGuid().ToString("N"));

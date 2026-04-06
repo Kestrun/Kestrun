@@ -417,6 +417,7 @@ function Start-ExampleScript {
         [int]$StartupTimeoutSeconds = 40,
         [int]$HttpProbeDelayMs = 150,
         [switch]$SkipPortProbe,
+        [switch]$RunInPlace,
         [switch]$FromRootDirectory,
         [string[]]$EnvironmentVariables = @('UPSTASH_REDIS_URL')
     )
@@ -444,25 +445,27 @@ function Start-ExampleScript {
     $serverIp = 'localhost' # Use loopback for safety
 
     $kestrunModulePath = Get-KestrunModulePath
-    # Inject /shutdown and /online endpoints if not already present
-    if (-not $content.Contains('-Pattern "/shutdown"')) {
-        # Inject shutdown endpoint for legacy scripts (first occurrence of Start-KrServer)
+    if (-not $RunInPlace.IsPresent) {
+        # Inject /shutdown and /online endpoints if not already present
+        if (-not $content.Contains('-Pattern "/shutdown"')) {
+            # Inject shutdown endpoint for legacy scripts (first occurrence of Start-KrServer)
 
-        $content = [System.Text.RegularExpressions.Regex]::Replace(
-            $content,
-            '\bStart-KrServer\b', @'
+            $content = [System.Text.RegularExpressions.Regex]::Replace(
+                $content,
+                '\bStart-KrServer\b', @'
 Add-KrMapRoute -Verbs Get -Pattern "/shutdown" -ScriptBlock { Stop-KrServer }
 Add-KrMapRoute -Verbs Get -Pattern "/online" -ScriptBlock { Write-KrTextResponse -InputObject 'OK' -StatusCode 200 }
 Start-KrServer
 '@
-            , 1 # only first occurrence
-        )
-    }
+                , 1 # only first occurrence
+            )
+        }
 
 
-    # Adjust Initialize-KrRoot if present to the example script directory
-    if ( $content.Contains('Initialize-KrRoot -Path $PSScriptRoot')) {
-        $content = $content.Replace('Initialize-KrRoot -Path $PSScriptRoot', "Initialize-KrRoot -Path '$scriptDir'")
+        # Adjust Initialize-KrRoot if present to the example script directory
+        if ( $content.Contains('Initialize-KrRoot -Path $PSScriptRoot')) {
+            $content = $content.Replace('Initialize-KrRoot -Path $PSScriptRoot', "Initialize-KrRoot -Path '$scriptDir'")
+        }
     }
 
     # Heuristic: detect HTTPS usage if listener line includes cert/self-signed flags.
@@ -479,10 +482,21 @@ Start-KrServer
     # Generate a unique file name for the temp script
     $fileNameWithoutExtension = ([string]::IsNullOrEmpty($Name)) ? 'ScriptBlockExample' : [IO.Path]::GetFileNameWithoutExtension((Split-Path -Leaf $Name))
 
-    # Write modified legacy content to temp file
-    $scriptToRun = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
+    $tempScriptPath = $null
+    $scriptToRun = $null
     $exampleIdentifier = if (-not [string]::IsNullOrWhiteSpace($Name)) { $Name } else { $fileNameWithoutExtension }
-    Set-Content -Path $scriptToRun -Value $content -Encoding UTF8
+    if ($RunInPlace.IsPresent) {
+        if ($PSCmdlet.ParameterSetName -ne 'Name') {
+            throw 'RunInPlace is only supported when starting an example by name.'
+        }
+
+        $scriptToRun = $path
+    } else {
+        # Write modified legacy content to temp file
+        $tempScriptPath = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
+        $scriptToRun = $tempScriptPath
+        Set-Content -Path $scriptToRun -Value $content -Encoding UTF8
+    }
 
     $stdOut = $null
     $stdErr = $null
@@ -541,13 +555,22 @@ Start-KrServer
         $stdOut = & $newLogFilePath '.out.log'
         $stdErr = & $newLogFilePath '.err.log'
 
-        # This becomes: <current-pwsh> -NoLogo -NoProfile -Command "Import-Module Kestrun; . 'C:\...\myscript.ps1'"
-        $argList = @(
-            '-NoLogo'
-            '-NoProfile'
-            '-Command'
-            "Import-Module '$kestrunModulePath'; . '$scriptToRun' -Port $Port"
-        )
+        if ($RunInPlace.IsPresent) {
+            $argList = @(
+                '-NoLogo'
+                '-NoProfile'
+                '-Command'
+                ". '$scriptToRun' -Port $Port"
+            )
+        } else {
+            # This becomes: <current-pwsh> -NoLogo -NoProfile -Command "Import-Module Kestrun; . 'C:\...\myscript.ps1'"
+            $argList = @(
+                '-NoLogo'
+                '-NoProfile'
+                '-Command'
+                "Import-Module '$kestrunModulePath'; . '$scriptToRun' -Port $Port"
+            )
+        }
 
         # Create process start parameters
         $param = @{
@@ -676,7 +699,7 @@ Start-KrServer
         PortWasProvided = $portWasProvided
         PortsTried = @($portsTried)
         LastStartupProbeError = $errorMessage
-        TempPath = $scriptToRun
+        TempPath = $tempScriptPath
         Process = $proc
         Content = $content
         StdOut = $stdOut
@@ -770,7 +793,9 @@ function Stop-ExampleScript {
         }
 
         $Instance.Process = $p
-        Remove-Item -Path $Instance.TempPath -Force -ErrorAction SilentlyContinue
+        if (-not [string]::IsNullOrWhiteSpace($Instance.TempPath)) {
+            Remove-Item -Path $Instance.TempPath -Force -ErrorAction SilentlyContinue
+        }
         if ($Instance.PushedLocation) {
             try { Pop-Location -ErrorAction Stop } catch { Write-Warning "Pop-Location failed: $($_.Exception.Message)" }
         }

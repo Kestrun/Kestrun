@@ -5,7 +5,8 @@
 .DESCRIPTION
     The Get-KrLock function is designed to provide a mechanism for obtaining a lock object that is associated with a specific key.
     If a lock object for the given key does not already exist, it will be created. This allows for synchronization of access to shared resources that are identified by the key,
-    ensuring that only one thread within the current process can access the resource at a time when using the lock. The function uses a process-local registry of locks to manage and retrieve lock objects based on their associated keys.
+    ensuring that only one thread within the current process can access the resource at a time when using the lock.
+    The function uses a process-local registry of locks to manage and retrieve lock objects based on their associated keys.
     This is particularly useful in scenarios where multiple threads or runspaces in the same application instance need to coordinate access to shared resources, such as files, shared state, or critical sections of code.
     It does not synchronize access across separate processes or application instances.
 .PARAMETER Key

@@ -64,7 +64,7 @@ function Set-KrSharedState {
         }
         if ($Global.IsPresent) {
                 # Store in the global shared-state registry.
-            $null = [Kestrun.SharedState.GlobalStore]::Set($Name,
+                $null = [Kestrun.SharedState.GlobalStore]::Set($Name,
                 $Value,
                 $AllowsValueType.IsPresent  # Allow value types if specified
             )

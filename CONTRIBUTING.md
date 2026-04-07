@@ -196,6 +196,20 @@ Before submitting your PR, please confirm you’ve covered the essentials:
 - One behavioral concern per test; name tests descriptively.
 - When fixing a bug, add a failing test first.
 
+## 🔀 Pull Request Submission
+
+Use the repository pull request template when opening a PR:
+
+- [Pull Request Template](./.github/pull_request_template.md)
+
+When you fill it out, make sure the PR body clearly includes:
+
+- What changed and why.
+- How to validate the change (build/test commands you ran).
+- Any docs updates or breaking-change notes.
+- Issue linkage (`Fixes #NN` or `Refs #NN`).
+
+PRs with a complete template are much faster to review and merge
 ---
 
 ## 📚 Documentation (Just-the-Docs compatible)

@@ -68,9 +68,9 @@ function Use-KrLock {
     } finally {
         if ($acquired) {
             try {
-                $lock.Release()
+                $null = $lock.Release()
             } catch {
-                Write-KrLog -Level Verbose -Message "Failed to release mutex '{Key}'" -Args $Key -Exception $_
+                Write-KrLog -Level Verbose -Message "Failed to release mutex '{Key}'" -Values $Key -Exception $_
             }
         }
     }

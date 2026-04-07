@@ -16,7 +16,8 @@ public static class KestrunLockRegistry
     /// </summary>
     /// <param name="key">The resource key.</param>
     /// <returns>A <see cref="SemaphoreSlim"/> that can be awaited to serialize access to the resource identified by <paramref name="key"/>.</returns>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="key"/> is null, empty, or whitespace.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="key"/> is empty, or whitespace.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is null.</exception>
     public static SemaphoreSlim GetOrCreate(string key)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);

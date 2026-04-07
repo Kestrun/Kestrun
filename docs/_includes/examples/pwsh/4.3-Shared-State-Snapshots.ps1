@@ -42,10 +42,10 @@ Add-KrMapRoute -Verbs Get -Pattern '/state' -ScriptBlock {
 Add-KrMapRoute -Verbs Post -Pattern '/visit' -ScriptBlock {
     $response = Use-KrLock -Key $snapshotLockKey -ScriptBlock {
         $state = Get-KrSharedState -Name 'AppState'
-        $state.VisitCount = [int]$state.VisitCount + 1
-        $state.LastUpdated = (Get-Date).ToUniversalTime()
+       ($state.VisitCount = [int]$state.VisitCount + 1)
+       ($state.LastUpdated = (Get-Date).ToUniversalTime())
 
-        @{
+        return @{
             message = 'Visit recorded'
             visitCount = [int]$state.VisitCount
             notes = @($state.Notes)
@@ -69,7 +69,7 @@ Add-KrMapRoute -Verbs Post -Pattern '/note' -ScriptBlock {
         $state.Notes = @($state.Notes) + $note
         $state.LastUpdated = (Get-Date).ToUniversalTime()
 
-        @{
+        return @{
             message = 'Note added'
             visitCount = [int]$state.VisitCount
             notes = @($state.Notes)
@@ -106,11 +106,11 @@ Add-KrMapRoute -Verbs Post -Pattern '/snapshot/export' -ScriptBlock {
 Add-KrMapRoute -Verbs Post -Pattern '/snapshot/reset' -ScriptBlock {
     $response = Use-KrLock -Key $snapshotLockKey -ScriptBlock {
         $state = Get-KrSharedState -Name 'AppState'
-        $state.VisitCount = 0
-        $state.Notes = @()
-        $state.LastUpdated = (Get-Date).ToUniversalTime()
+        $null = ($state.VisitCount = 0)
+        $null = ($state.Notes = @())
+        $null = ($state.LastUpdated = (Get-Date).ToUniversalTime())
 
-        @{
+        return @{
             message = 'State reset'
             visitCount = 0
             notes = @()
@@ -132,11 +132,11 @@ Add-KrMapRoute -Verbs Post -Pattern '/snapshot/import' -ScriptBlock {
     $restored = Import-KrSharedState -InputString $snapshot
     $response = Use-KrLock -Key $snapshotLockKey -ScriptBlock {
         $state = Get-KrSharedState -Name 'AppState'
-        $state.VisitCount = [int]$restored.VisitCount
-        $state.Notes = if ($null -eq $restored.Notes) { @() } else { @($restored.Notes) }
-        $state.LastUpdated = [datetime]$restored.LastUpdated
+        $null = ($state.VisitCount = [int]$restored.VisitCount)
+        $null = ($state.Notes = if ($null -eq $restored.Notes) { @() } else { @($restored.Notes) })
+        $null = ($state.LastUpdated = [datetime]$restored.LastUpdated)
 
-        @{
+        return @{
             message = 'Snapshot restored'
             visitCount = [int]$state.VisitCount
             notes = @($state.Notes)

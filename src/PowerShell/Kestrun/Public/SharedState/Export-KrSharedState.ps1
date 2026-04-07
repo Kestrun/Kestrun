@@ -15,13 +15,17 @@
     The object to serialize.
 
 .PARAMETER Path
-    The destination file path when OutputType is File.
+    The destination file path. When provided, Export-KrSharedState writes the
+    serialized XML to this file and returns the written file.
 
 .PARAMETER OutputType
     Specifies how the serialized XML is returned:
     - String
     - ByteArray
     - File
+
+    When Path is provided, the effective output type is File. Supplying Path
+    with a different OutputType value results in an error.
 
 .PARAMETER Lock
     The semaphore used to synchronize access to shared state. If not provided,
@@ -41,6 +45,9 @@
 
 .EXAMPLE
     Export-KrSharedState -InputObject $state -OutputType File -Path '.\state.xml'
+
+.EXAMPLE
+    Export-KrSharedState -InputObject $state -Path '.\state.xml'
 
 .EXAMPLE
     $lock = Get-KrLock 'sharedstate:cache'
@@ -74,8 +81,17 @@ function Export-KrSharedState {
 
     $stateLock = $null
     $lockTaken = $false
+    $resolvedOutputType = $OutputType
 
     try {
+        if ($PSCmdlet.ParameterSetName -eq 'ToFile') {
+            if ($PSBoundParameters.ContainsKey('OutputType') -and $OutputType -ne 'File') {
+                throw "OutputType '$OutputType' cannot be used when Path is provided."
+            }
+
+            $resolvedOutputType = 'File'
+        }
+
         # Resolve lock
         $stateLock = ($Lock)? $Lock : [Kestrun.Utilities.KestrunLockRegistry]::Default
 
@@ -92,7 +108,7 @@ function Export-KrSharedState {
 
         $xml = [System.Management.Automation.PSSerializer]::Serialize($InputObject)
 
-        switch ($OutputType) {
+        switch ($resolvedOutputType) {
             'String' {
                 return $xml
             }
@@ -118,7 +134,7 @@ function Export-KrSharedState {
             }
 
             default {
-                throw "Unsupported OutputType '$OutputType'."
+                throw "Unsupported OutputType '$resolvedOutputType'."
             }
         }
     } finally {
@@ -126,7 +142,7 @@ function Export-KrSharedState {
             try {
                 $null = $stateLock.Release()
             } catch {
-                Write-KrLog -Level Verbose -Message 'Failed to release shared state lock' -Exception $_
+                Write-KrLog -Level Verbose -Message 'Failed to release shared state lock' -ErrorRecord $_
             }
         }
     }

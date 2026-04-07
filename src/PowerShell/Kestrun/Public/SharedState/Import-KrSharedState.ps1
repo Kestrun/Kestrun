@@ -111,7 +111,7 @@ function Import-KrSharedState {
             try {
                 $null = $stateLock.Release()
             } catch {
-                Write-KrLog -Level Verbose -Message 'Failed to release shared state lock' -Exception $_
+                Write-KrLog -Level Verbose -Message 'Failed to release shared state lock' -ErrorRecord $_
             }
         }
     }

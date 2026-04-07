@@ -251,7 +251,7 @@ For `service install`:
 - `PreservePaths` is an optional string array of relative file/folder paths to keep from the currently installed application during `service update --package`.
 - `PreservePaths` entries must be relative and resolve inside the service application root (absolute paths and root-escaping paths are rejected).
 - `ApplicationDataFolders` is an optional string array of relative application-data folders to keep from the
-currently installed application during `service update --package`.
+  currently installed application during `service update --package`.
 - `ApplicationDataFolders` entries must be relative and resolve inside the service application root (absolute paths and root-escaping paths are rejected).
 
 Example `Service.psd1` with `PreservePaths`:

@@ -77,13 +77,13 @@ if (-not (Test-Path -LiteralPath $openApiScriptPath -PathType Leaf)) {
 
 Initialize-BikeRentalStorage
 
-$logger = New-KrLogger |
+New-KrLogger |
     Set-KrLoggerLevel -Value Debug |
-    Add-KrSinkFile -Path '.\logs\bike-rental-shop.log' -RollingInterval Day |
+    Add-KrSinkFile -Path (Join-Path $LogsRoot 'bike-rental-shop.log') -RollingInterval Day |
     Add-KrSinkConsole |
-    Register-KrLogger -Name 'DefaultLogger' -PassThru -SetAsDefault
+    Register-KrLogger -Name 'DefaultLogger' -SetAsDefault
 
-$certificate = Get-BikeRentalCertificate
+$certificate = Get-BikeRentalCertificate -CertificatePath $CertificatePath -CertificatePassword (ConvertTo-SecureString -String $CertificatePassword -AsPlainText -Force)
 if (-not (Test-KrCertificate -Certificate $certificate)) {
     Write-Error 'Bike rental shop certificate validation failed.'
     exit 1

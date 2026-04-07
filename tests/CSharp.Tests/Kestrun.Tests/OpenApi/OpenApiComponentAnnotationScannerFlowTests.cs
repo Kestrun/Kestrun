@@ -144,7 +144,7 @@ public sealed class OpenApiComponentAnnotationScannerFlowTests
     [Fact]
     public void ScanFromPath_BikeRentalExample_FindsSplitResponseComponents()
     {
-        var path = Path.Combine(Directory.GetCurrentDirectory(), "examples", "PowerShell", "BikeRentalShop", "Service.ps1");
+        var path = LocateRepoFile("examples", "PowerShell", "BikeRentalShop", "Service.ps1");
 
         Assert.True(File.Exists(path), $"Expected example script at '{path}'.");
 
@@ -178,6 +178,58 @@ public sealed class OpenApiComponentAnnotationScannerFlowTests
         catch
         {
             // best-effort temp cleanup
+        }
+    }
+
+    private static string GetSafeStartDirectory()
+    {
+        try
+        {
+            return Directory.GetCurrentDirectory();
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or DirectoryNotFoundException
+                                   or FileNotFoundException)
+        {
+            return AppContext.BaseDirectory;
+        }
+    }
+
+    private static string LocateRepoFile(params string[] relativeSegments)
+    {
+        foreach (var root in EnumerateSearchRoots())
+        {
+            var current = root;
+            while (!string.IsNullOrWhiteSpace(current))
+            {
+                var candidate = Path.Combine([current, .. relativeSegments]);
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+
+                current = Path.GetDirectoryName(current);
+            }
+        }
+
+        return Path.Combine([GetSafeStartDirectory(), .. relativeSegments]);
+    }
+
+    private static IEnumerable<string> EnumerateSearchRoots()
+    {
+        var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            GetSafeStartDirectory(),
+            AppContext.BaseDirectory
+        };
+
+        foreach (var root in roots)
+        {
+            if (!string.IsNullOrWhiteSpace(root))
+            {
+                yield return root;
+            }
         }
     }
 }

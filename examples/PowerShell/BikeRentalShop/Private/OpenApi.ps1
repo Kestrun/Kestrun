@@ -1,4 +1,4 @@
-﻿enum BikeType {
+enum BikeType {
     city
     mountain
     hybrid
@@ -45,7 +45,10 @@ class CreateRentalRequest {
     [int]$plannedHours
 }
 
-[OpenApiSchemaComponent(Description = 'Confirmation returned after a rental is created.', RequiredProperties = ('rentalId', 'bikeId', 'customerName', 'bikeModel', 'status', 'pickupCode', 'startedAtUtc', 'dueAtUtc', 'totalEstimate'))]
+[OpenApiSchemaComponent(
+    Description = 'Confirmation returned after a rental is created.',
+    RequiredProperties = ('rentalId', 'bikeId', 'customerName', 'bikeModel', 'status', 'pickupCode', 'startedAtUtc', 'dueAtUtc', 'totalEstimate')
+)]
 class RentalStatusResponse {
     [OpenApiProperty(Description = 'Rental identifier.', Example = 'rent-6f7d2cae8a8b')]
     [string]$rentalId

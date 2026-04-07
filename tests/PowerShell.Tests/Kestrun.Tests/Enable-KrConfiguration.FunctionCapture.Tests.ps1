@@ -1,4 +1,4 @@
-﻿param()
+param()
 BeforeAll {
     . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
 }

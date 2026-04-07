@@ -1,5 +1,25 @@
-﻿function global:New-BikeCatalogItemObject {
-    param([hashtable]$Bike)
+<#
+.SYNOPSIS
+    Defines the API routes for the bike rental shop service.
+.DESCRIPTION
+    This script uses Kestrun's routing attributes to define the API endpoints for the bike rental shop service.
+    Each function corresponds to a specific route and HTTP verb, and includes OpenAPI annotations for documentation generation.
+    The routes cover public endpoints for listing bikes, creating rentals, checking rental status, and reporting shop health,
+    as well as authenticated staff endpoints for viewing the operations dashboard, managing inventory, and processing rental returns.
+    The functions implement the necessary logic to interact with the persisted state of the shop and return appropriate responses based on the API contract defined in the OpenAPI schema components.
+.EXAMPLE
+    The API routes are automatically registered when the service starts, and can be accessed using HTTP clients such as curl or Postman.
+    For example, to list available bikes, you can send a GET request to https://localhost:5443/api/bikes.
+    To create a rental, you can send a POST request to https://localhost:5443/api/rentals with a JSON payload containing the bikeId, customerName, phone, and plannedHours.
+    To access staff endpoints, include the X-Api-Key header with the value 'bike-shop-demo-key' in your request. For example, to view the staff dashboard,
+    send a GET request to https://localhost:5443/api/staff/dashboard with the appropriate API key header. The OpenAPI documentation for the API can be accessed at https://localhost:5443/docs/swagger.
+#>
+function New-BikeCatalogItemObject {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Bike
+    )
 
     return [BikeCatalogItem]@{
         bikeId = [string]$Bike['bikeId']
@@ -11,9 +31,29 @@
     }
 }
 
-function global:New-RentalStatusObject {
+<#
+.SYNOPSIS
+    Defines the API routes for the bike rental shop service.
+.DESCRIPTION
+    This script uses Kestrun's routing attributes to define the API endpoints for the bike rental shop service.
+    Each function corresponds to a specific route and HTTP verb, and includes OpenAPI annotations for documentation generation.
+    The routes cover public endpoints for listing bikes, creating rentals, checking rental status, and reporting shop health,
+    as well as authenticated staff endpoints for viewing the operations dashboard, managing inventory, and processing rental returns.
+    The functions implement the necessary logic to interact with the persisted state of the shop and return appropriate responses based on the API contract defined in the OpenAPI schema components.
+.EXAMPLE
+    The API routes are automatically registered when the service starts, and can be accessed using HTTP clients such as curl or Postman.
+    For example, to list available bikes, you can send a GET request to https://localhost:5443/api/bikes.
+    To create a rental, you can send a POST request to https://localhost:5443/api/rentals with a JSON payload containing the bikeId, customerName, phone, and plannedHours.
+    To access staff endpoints, include the X-Api-Key header with the value 'bike-shop-demo-key' in your request. For example, to view the staff dashboard,
+    send a GET request to https://localhost:5443/api/staff/dashboard with the appropriate API key header.
+    The OpenAPI documentation for the API can be accessed at https://localhost:5443/docs/swagger.
+#>
+function New-RentalStatusObject {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param(
+        [Parameter(Mandatory = $true)]
         [hashtable]$Rental,
+        [Parameter(Mandatory = $true)]
         [hashtable]$Bike
     )
 
@@ -33,14 +73,14 @@ function global:New-RentalStatusObject {
 
 Add-KrMapRoute -Verbs Get -Pattern '/' -AllowAnonymous -ScriptBlock {
     Write-KrJsonResponse -InputObject ([ordered]@{
-        service = 'Riverside Bike Rental'
-        openApi = '/openapi/v3.1/openapi.json'
-        docs = '/docs/swagger'
-        publicEndpoints = @('/api/bikes', '/api/rentals', '/api/rentals/{rentalId}', '/api/shop-health')
-        staffEndpoints = @('/api/staff/dashboard', '/api/staff/bikes', '/api/staff/bikes/{bikeId}', '/api/staff/rentals/{rentalId}/return')
-        demoApiKeyHeader = 'X-Api-Key: bike-shop-demo-key'
-        packageCommand = 'New-KrServicePackage -SourceFolder .\examples\PowerShell\BikeRentalShop -OutputPath .\bike-rental-shop-1.0.0.krpack'
-    }) -StatusCode 200
+            service = 'Riverside Bike Rental'
+            openApi = '/openapi/v3.1/openapi.json'
+            docs = '/docs/swagger'
+            publicEndpoints = @('/api/bikes', '/api/rentals', '/api/rentals/{rentalId}', '/api/shop-health')
+            staffEndpoints = @('/api/staff/dashboard', '/api/staff/bikes', '/api/staff/bikes/{bikeId}', '/api/staff/rentals/{rentalId}/return')
+            demoApiKeyHeader = 'X-Api-Key: bike-shop-demo-key'
+            packageCommand = 'New-KrServicePackage -SourceFolder .\examples\PowerShell\BikeRentalShop -OutputPath .\bike-rental-shop-1.0.0.krpack'
+        }) -StatusCode 200
 }
 
 <#
@@ -211,12 +251,12 @@ function getBikeRentalHealth {
     $activeRentals = @($state['rentals'] | Where-Object { [string]$_['status'] -eq 'active' }).Count
 
     Write-KrJsonResponse -InputObject ([BikeRentalHealthResponse]@{
-        status = 'healthy'
-        shopName = [string]$state['shopName']
-        availableBikes = $availableBikes
-        activeRentals = $activeRentals
-        timestamp = (Get-Date).ToUniversalTime().ToString('o')
-    }) -StatusCode 200
+            status = 'healthy'
+            shopName = [string]$state['shopName']
+            availableBikes = $availableBikes
+            activeRentals = $activeRentals
+            timestamp = (Get-Date).ToUniversalTime().ToString('o')
+        }) -StatusCode 200
 }
 
 <#
@@ -236,24 +276,24 @@ function getStaffDashboard {
     $rentedCount = @($state['bikes'] | Where-Object { [string]$_['status'] -eq 'rented' }).Count
     $activeRentals = @($state['rentals'] | Where-Object { [string]$_['status'] -eq 'active' })
     $completedToday = @($state['rentals'] | Where-Object {
-        -not [string]::IsNullOrWhiteSpace([string]$_['returnedAtUtc']) -and
-        ([DateTimeOffset]::Parse([string]$_['returnedAtUtc']).UtcDateTime.Date -eq [DateTime]::UtcNow.Date)
-    }).Count
+            -not [string]::IsNullOrWhiteSpace([string]$_['returnedAtUtc']) -and
+            ([DateTimeOffset]::Parse([string]$_['returnedAtUtc']).UtcDateTime.Date -eq [DateTime]::UtcNow.Date)
+        }).Count
 
     Write-KrJsonResponse -InputObject ([StaffDashboardResponse]@{
-        shopName = [string]$state['shopName']
-        generatedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
-        inventory = [StaffDashboardInventoryResponse]@{
-            total = @($state['bikes']).Count
-            available = $availableCount
-            rented = $rentedCount
-        }
-        rentals = [StaffDashboardRentalsResponse]@{
-            active = @($activeRentals).Count
-            completedToday = $completedToday
-            activeIds = @($activeRentals | ForEach-Object { [string]$_['rentalId'] })
-        }
-    }) -StatusCode 200
+            shopName = [string]$state['shopName']
+            generatedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+            inventory = [StaffDashboardInventoryResponse]@{
+                total = @($state['bikes']).Count
+                available = $availableCount
+                rented = $rentedCount
+            }
+            rentals = [StaffDashboardRentalsResponse]@{
+                active = @($activeRentals).Count
+                completedToday = $completedToday
+                activeIds = @($activeRentals | ForEach-Object { [string]$_['rentalId'] })
+            }
+        }) -StatusCode 200
 }
 
 <#

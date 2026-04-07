@@ -1,4 +1,4 @@
-﻿@{
+@{
     FormatVersion = '1.0'
     Name = 'bike-rental-shop'
     Description = 'Bike rental shop API with HTTPS, OpenAPI, API key authentication, and persistent data.'

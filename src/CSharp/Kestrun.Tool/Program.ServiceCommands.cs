@@ -665,6 +665,8 @@ internal static partial class Program
                     descriptor.Description,
                     descriptor.Version,
                     descriptor.ServiceLogPath,
+                    descriptor.PreservePaths,
+                    descriptor.ApplicationDataFolders,
                 },
                 Backups = backups.Select(static backup => new
                 {
@@ -732,6 +734,8 @@ internal static partial class Program
                         service.Descriptor.Description,
                         service.Descriptor.Version,
                         service.Descriptor.ServiceLogPath,
+                        service.Descriptor.PreservePaths,
+                        service.Descriptor.ApplicationDataFolders,
                     },
                     Backups = service.Backups.Select(static backup => new
                     {

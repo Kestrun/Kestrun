@@ -54,7 +54,8 @@ New-KrServiceDescriptor `
   -Version 1.2.0 `
   -EntryPoint '.\Service.ps1' `
   -ServiceLogPath '.\logs\service.log' `
-  -PreservePaths @('config/production.json', 'data/', 'logs/')
+  -PreservePaths @('config/production.json') `
+  -ApplicationDataFolders @('data/', 'logs/')
 ```
 
 Quick verification:

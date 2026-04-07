@@ -275,7 +275,7 @@ Example `Service.psd1` with `PreservePaths`:
 ```
 
 - Files and folders listed in `PreservePaths` and `ApplicationDataFolders` are copied from the currently installed
-  application before package replacement and restored afterward.
+    application before package replacement and restored afterward.
 - `--content-root-checksum <hex>`: verify package checksum before extraction.
 - `--content-root-checksum-algorithm <name>`: checksum algorithm (`md5`, `sha1`, `sha256`, `sha384`, `sha512`). Defaults to `sha256`.
 - `--content-root-bearer-token <token>`: sends `Authorization: Bearer <token>` for HTTP(S) package downloads and HTTP(S) runtime-source downloads.

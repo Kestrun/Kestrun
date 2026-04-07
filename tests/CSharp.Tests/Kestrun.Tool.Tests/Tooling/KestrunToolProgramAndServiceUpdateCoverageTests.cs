@@ -860,6 +860,8 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
             }
 
             Assert.Contains("\"ServiceName\": \"alpha-service\"", namedWriter.ToString(), StringComparison.Ordinal);
+            Assert.Contains("\"PreservePaths\": []", namedWriter.ToString(), StringComparison.Ordinal);
+            Assert.Contains("\"ApplicationDataFolders\": []", namedWriter.ToString(), StringComparison.Ordinal);
 
             using var listWriter = new StringWriter();
             originalOut = Console.Out;
@@ -878,6 +880,8 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
             var output = listWriter.ToString();
             Assert.Contains("\"ServiceName\": \"alpha-service\"", output, StringComparison.Ordinal);
             Assert.Contains("\"ServiceName\": \"beta-service\"", output, StringComparison.Ordinal);
+            Assert.Contains("\"PreservePaths\": []", output, StringComparison.Ordinal);
+            Assert.Contains("\"ApplicationDataFolders\": []", output, StringComparison.Ordinal);
         }
         finally
         {

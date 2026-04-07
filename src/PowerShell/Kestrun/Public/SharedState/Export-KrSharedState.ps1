@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Exports a PowerShell object to a serialized XML representation.
 

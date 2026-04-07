@@ -1,4 +1,4 @@
-﻿<#
+<#
     Sample Kestrun server demonstrating shared-state snapshot export/import.
     This example shows how to snapshot and restore a thread-safe shared
     state object while using a named lock for grouped updates.

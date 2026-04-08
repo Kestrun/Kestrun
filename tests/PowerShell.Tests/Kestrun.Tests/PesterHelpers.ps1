@@ -239,13 +239,13 @@ function Get-FreeTcpPortBlock {
         try {
             $Listener.Stop()
         } catch {
-            Write-Verbose ("Ignoring TCP listener stop error during port-block cleanup: {0}" -f $_.Exception.Message)
+            Write-Verbose ('Ignoring TCP listener stop error during port-block cleanup: {0}' -f $_.Exception.Message)
         }
 
         try {
             $Listener.Dispose()
         } catch {
-            Write-Verbose ("Ignoring TCP listener dispose error during port-block cleanup: {0}" -f $_.Exception.Message)
+            Write-Verbose ('Ignoring TCP listener dispose error during port-block cleanup: {0}' -f $_.Exception.Message)
         }
     }
     $disposeUdpClient = {
@@ -258,7 +258,7 @@ function Get-FreeTcpPortBlock {
         try {
             $UdpClient.Dispose()
         } catch {
-            Write-Verbose ("Ignoring UDP client dispose error during port-block cleanup: {0}" -f $_.Exception.Message)
+            Write-Verbose ('Ignoring UDP client dispose error during port-block cleanup: {0}' -f $_.Exception.Message)
         }
     }
 
@@ -374,12 +374,19 @@ function Get-PwshExecutable {
         Maximum time to wait for the example to start accepting connections. Default is 40 seconds.
 .PARAMETER HttpProbeDelayMs
     Delay between HTTP probes of the root URL when waiting for startup. Default is 150ms.
-    .PARAMETER SkipPortProbe
+.PARAMETER SkipPortProbe
         If specified, skips readiness probing and returns immediately after starting the child process.
 .PARAMETER FromRootDirectory
     If specified, resolves example script paths relative to the repository root instead of the module directory.
-    .PARAMETER EnvironmentVariables
+.PARAMETER EnvironmentVariables
         Environment variable names to copy from the current process into the child example process.
+.PARAMETER RunInPlace
+    If specified, runs the example script in place without writing a modified copy to a temp file.
+    This requires that the example script already listens on the desired port and includes a shutdown route, so it is only recommended for advanced use with custom scripts.
+    When using this option, the helper will not inject a shutdown route or modify the script content in any way, so the caller is responsible for ensuring the script can be cleanly started and stopped as needed.
+    This option is not compatible with starting from a script block and requires starting by name.
+.NOTES
+    This function is intended for use in tests of the tutorial example scripts, and is not a general-purpose script runner.
 .OUTPUTS
     A custom object with properties:
     - Name: The name of the example script.

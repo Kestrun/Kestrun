@@ -105,3 +105,4 @@ src/PowerShell/Kestrun/kestrun.sh
 *.krpack
 /Package-Sample
 /TestResults*
+/.codex_tmp

@@ -193,6 +193,56 @@ This delegates to underlying .NET atomic primitives (e.g., `Interlocked`) or syn
 | `$Visits.Count++` | No | Lost updates possible |
 | `Update-KrSynchronizedCounter` | Yes | Scales for high RPS counters |
 
+### 3.1 Named locks for compound updates
+
+Atomic counter helpers are ideal when you only need to change one field. When a request must perform a larger read-modify-write sequence, use a named lock.
+
+`Get-KrLock` returns a stable process-local `SemaphoreSlim` for a logical resource name:
+
+```powershell
+$snapshotLock = Get-KrLock -Key 'sharedstate:snapshot'
+```
+
+`Use-KrLock` is the ergonomic wrapper for grouped operations:
+
+```powershell
+Use-KrLock -Key 'sharedstate:snapshot' -ScriptBlock {
+    $state = Get-KrSharedState -Name 'AppState'
+    $state.VisitCount = [int]$state.VisitCount + 1
+    $state.LastUpdated = (Get-Date).ToUniversalTime()
+}
+```
+
+Choose named locks when you need to:
+
+- Update multiple properties on the same shared object.
+- Keep a read and its dependent write in one critical section.
+- Coordinate several routes around the same mutable document.
+
+Keep the protected block small. Do not hold a lock across slow I/O, long HTTP calls, or unrelated work.
+
+### 3.2 Snapshot export/import
+
+`Export-KrSharedState` and `Import-KrSharedState` let you serialize a shared object to PowerShell's XML representation and later restore it.
+
+```powershell
+$snapshotLock = Get-KrLock -Key 'sharedstate:snapshot'
+$state = Get-KrSharedState -Name 'AppState'
+
+$xml = Export-KrSharedState -InputObject $state -Lock $snapshotLock
+$restored = Import-KrSharedState -InputString $xml -Lock $snapshotLock
+Set-KrSharedState -Name 'AppState' -Value $restored -ThreadSafe
+```
+
+This pattern is useful for:
+
+- Demo resets where you want to restore a known in-memory baseline.
+- Operational troubleshooting where support needs a snapshot of current state.
+- Short-lived persistence between controlled steps in a workflow.
+
+> **Important:** `SemaphoreSlim` is not re-entrant. Do not call `Export-KrSharedState -Lock $snapshotLock` or `Import-KrSharedState -Lock $snapshotLock`
+from inside `Use-KrLock` with the same key in the same call path.
+
 ## 4. Lifecycle & Visibility
 
 - **Creation**: `Set-KrSharedState` early (startup script or first route); subsequent calls to the same name overwrite by design.
@@ -255,7 +305,7 @@ host.AddMapRoute("/visit", HttpVerb.Post, ctx =>
 | Lost counter increments | Non-atomic `++` | Use `Update-KrSynchronizedCounter` |
 | Stale date/time | Cached value type copy | Wrap in reference (`@{ Time = Get-Date }`) |
 | Variable missing in route | Not registered before request | Register at startup |
-| Race during complex updates | Multiple field changes without guard | Perform grouped mutations inside synchronized helper or design for immutability |
+| Race during complex updates | Multiple field changes without guard | Protect the critical section with `Use-KrLock` or redesign for immutability |
 
 ## 9. Performance Considerations
 

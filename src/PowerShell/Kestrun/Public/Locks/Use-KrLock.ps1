@@ -3,8 +3,8 @@
     Executes a script block while holding a named lock to ensure exclusive access to a resource.
 .DESCRIPTION
     The Use-KrLock function allows you to execute a script block while holding a lock associated with a specified key.
-    This is useful for synchronizing access to shared resources across different parts of the application or even across different instances of the application.
-    The function retrieves a lock object using the Get-KrLock function and attempts to acquire the lock before executing the script block.
+    This is useful for synchronizing access to shared resources within the current application instance.
+    The function retrieves a lock object using the lock registry and attempts to acquire the lock before executing the script block.
     If a timeout is specified and the lock cannot be acquired within that time frame, an error is thrown.
     After the script block is executed, the lock is released in a finally block to ensure that it happens even if an error occurs during execution.
 .PARAMETER Key

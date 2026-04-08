@@ -13,12 +13,16 @@
 
 .PARAMETER InputString
     The serialized XML content as a string.
+    If the string is null or empty, Import-KrSharedState returns null.
 
 .PARAMETER InputBytes
     The serialized XML content as a byte array.
+    If the byte array is null or empty, Import-KrSharedState returns null.
 
 .PARAMETER Path
     The file path containing the serialized XML content.
+    If the path is null, empty, or whitespace, Import-KrSharedState returns null.
+    If the file does not exist, an error is thrown.
 
 .PARAMETER Lock
     The semaphore used to synchronize access to shared state. If not provided,
@@ -87,15 +91,27 @@ function Import-KrSharedState {
 
         switch ($PSCmdlet.ParameterSetName) {
             'FromString' {
+                if ([string]::IsNullOrEmpty($InputString)) {
+                    return $null
+                }
+
                 return [System.Management.Automation.PSSerializer]::Deserialize($InputString)
             }
 
             'FromBytes' {
+                if ($null -eq $InputBytes -or $InputBytes.Length -eq 0) {
+                    return $null
+                }
+
                 $xml = $Encoding.GetString($InputBytes)
                 return [System.Management.Automation.PSSerializer]::Deserialize($xml)
             }
 
             'FromFile' {
+                if ([string]::IsNullOrWhiteSpace($Path)) {
+                    return $null
+                }
+
                 $fullPath = [System.IO.Path]::GetFullPath($Path)
 
                 if (-not (Test-Path -LiteralPath $fullPath)) {

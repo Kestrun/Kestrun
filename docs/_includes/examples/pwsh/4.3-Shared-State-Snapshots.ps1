@@ -42,8 +42,8 @@ Add-KrMapRoute -Verbs Get -Pattern '/state' -ScriptBlock {
 Add-KrMapRoute -Verbs Post -Pattern '/visit' -ScriptBlock {
     $response = Use-KrLock -Key $snapshotLockKey -ScriptBlock {
         $state = Get-KrSharedState -Name 'AppState'
-       ($state.VisitCount = [int]$state.VisitCount + 1)
-       ($state.LastUpdated = (Get-Date).ToUniversalTime())
+        $null = ($state.VisitCount = [int]$state.VisitCount + 1)
+        $null = ($state.LastUpdated = (Get-Date).ToUniversalTime())
 
         return @{
             message = 'Visit recorded'
@@ -66,8 +66,8 @@ Add-KrMapRoute -Verbs Post -Pattern '/note' -ScriptBlock {
 
     $response = Use-KrLock -Key $snapshotLockKey -ScriptBlock {
         $state = Get-KrSharedState -Name 'AppState'
-        $state.Notes = @($state.Notes) + $note
-        $state.LastUpdated = (Get-Date).ToUniversalTime()
+        $null = ($state.Notes = @($state.Notes) + $note)
+        $null = ($state.LastUpdated = (Get-Date).ToUniversalTime())
 
         return @{
             message = 'Note added'

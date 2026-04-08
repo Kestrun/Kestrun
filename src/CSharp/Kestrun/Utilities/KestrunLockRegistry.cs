@@ -30,7 +30,8 @@ public static class KestrunLockRegistry
     /// <param name="key">The resource key.</param>
     /// <param name="semaphore">The semaphore associated with the specified key, if it exists.</param>
     /// <returns>True if the semaphore exists; otherwise, false.</returns>
-    /// <exception cref="ArgumentException">Thrown when <paramref name="key"/> is null, empty, or whitespace.</exception>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="key"/> is empty, or whitespace.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is null.</exception>
     public static bool TryGet(string key, out SemaphoreSlim? semaphore)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);

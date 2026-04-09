@@ -68,6 +68,7 @@ function Set-KrSharedState {
                 $Value,
                 $AllowsValueType.IsPresent  # Allow value types if specified
             )
+            return
         }
         # Define or update the variable; throws if it was already read-only
         $null = $Server.SharedState.Set(

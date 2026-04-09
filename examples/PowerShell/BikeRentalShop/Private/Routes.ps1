@@ -33,20 +33,21 @@ function New-BikeCatalogItemObject {
 
 <#
 .SYNOPSIS
-    Defines the API routes for the bike rental shop service.
+    Creates a rental status response object from rental and bike data.
 .DESCRIPTION
-    This script uses Kestrun's routing attributes to define the API endpoints for the bike rental shop service.
-    Each function corresponds to a specific route and HTTP verb, and includes OpenAPI annotations for documentation generation.
-    The routes cover public endpoints for listing bikes, creating rentals, checking rental status, and reporting shop health,
-    as well as authenticated staff endpoints for viewing the operations dashboard, managing inventory, and processing rental returns.
-    The functions implement the necessary logic to interact with the persisted state of the shop and return appropriate responses based on the API contract defined in the OpenAPI schema components.
+    Builds a `RentalStatusResponse` instance by combining fields from the persisted rental record
+    with the related bike record. This helper keeps route handlers focused on request processing
+    while ensuring the response payload is shaped consistently for the API contract.
+.PARAMETER Rental
+    The rental record as a hashtable. Expected keys include rentalId, bikeId, customerName,
+    status, pickupCode, startedAtUtc, dueAtUtc, returnedAtUtc, and totalEstimate.
+.PARAMETER Bike
+    The bike record as a hashtable. Expected keys include model and any other bike metadata
+    needed to enrich the rental status response.
 .EXAMPLE
-    The API routes are automatically registered when the service starts, and can be accessed using HTTP clients such as curl or Postman.
-    For example, to list available bikes, you can send a GET request to https://localhost:5443/api/bikes.
-    To create a rental, you can send a POST request to https://localhost:5443/api/rentals with a JSON payload containing the bikeId, customerName, phone, and plannedHours.
-    To access staff endpoints, include the X-Api-Key header with the value 'bike-shop-demo-key' in your request. For example, to view the staff dashboard,
-    send a GET request to https://localhost:5443/api/staff/dashboard with the appropriate API key header.
-    The OpenAPI documentation for the API can be accessed at https://localhost:5443/docs/swagger.
+    $response = New-RentalStatusObject -Rental $rental -Bike $bike
+
+    Creates a `RentalStatusResponse` object for use in an API response.
 #>
 function New-RentalStatusObject {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]

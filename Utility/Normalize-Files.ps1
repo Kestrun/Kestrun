@@ -802,7 +802,7 @@ foreach ($path in $filesEnum) {
     # Final safety normalization
     $newContent = $newContent -replace "`r`n", "`n"
     $newContent = $newContent -replace "`r", "`n"
-    $newContent = [regex]::Replace($newContent, '[ \t]+(?=\n)', '') 
+    $newContent = [regex]::Replace($newContent, '[ \t]+(?=\n)', '')
     if (-not $newContent.EndsWith("`n")) {
         $newContent += "`n"
     }

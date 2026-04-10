@@ -17,7 +17,7 @@ public static class LoggerManager
     private static readonly Lock _sync = new();
 #else
     private static readonly object _sync = new();
-#endif 
+#endif
 
     /// <summary>
     /// A collection of named logging level switches for dynamic log level control.

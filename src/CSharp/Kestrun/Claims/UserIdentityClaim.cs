@@ -3,7 +3,7 @@ using System.Security.Claims;
 namespace Kestrun.Claims;
 /// <summary>
 /// Represents the set of claims supported by Kestrun for authentication and authorization purposes.
-/// </summary> 
+/// </summary>
 public enum UserIdentityClaim
 {
     /// <summary>
@@ -274,7 +274,7 @@ public enum UserIdentityClaim
     /// <summary>
     /// Specifies the Windows device claim, representing the user's Windows device information.
     /// http://schemas.xmlsoap.org/ws/2005/05/identity/claims/windowsdeviceClaim
-    /// </summary>    
+    /// </summary>
     WindowsDeviceClaim,
     /// <summary>
     /// Specifies the Windows sub-authority claim, representing a sub-authority in the Windows security identifier.

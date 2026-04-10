@@ -36,7 +36,7 @@ public class ClientCertificateAuthenticationOptions : CertificateAuthenticationO
     }
 
     /// <summary>
-    /// Helper to copy values from a user-supplied ClientCertificateAuthenticationOptions instance 
+    /// Helper to copy values from a user-supplied ClientCertificateAuthenticationOptions instance
     /// to the instance created by the framework inside AddCertificate().
     /// </summary>
     /// <param name="target">The target instance to which values will be copied.</param>

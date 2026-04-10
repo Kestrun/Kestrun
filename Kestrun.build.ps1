@@ -843,9 +843,17 @@ Add-BuildTask 'Normalize-LineEndings' {
         ForEach-Object {
             $text = Get-Content -Raw -Path $_.FullName
             # Replace CRLF with LF
-            $text = $text -replace "`r`n", "`n"
-            # Write back with UTF-8 (no BOM, cross-platform friendly)
-            [System.IO.File]::WriteAllText($_.FullName, $text, ([System.Text.UTF8Encoding]::new($false)))
-            Write-Host "Normalized line endings in $($_.FullName)"
+            $newContent = $text -replace "`r`n", "`n"
+            $newContent = $newContent -replace "`r", "`n"
+            $newContent = [regex]::Replace($newContent, '[ \t]+(?=\n)', '')
+            if (-not $newContent.EndsWith("`n")) {
+                $newContent += "`n"
+            }
+            if ($newContent -ne $text) {
+                # Write back with UTF-8 (no BOM, cross-platform friendly)
+                [System.IO.File]::WriteAllText($_.FullName, $newContent, ([System.Text.UTF8Encoding]::new($false)))
+                Write-Host "Normalized line endings in $($_.FullName)"
+            }
         }
 }
+

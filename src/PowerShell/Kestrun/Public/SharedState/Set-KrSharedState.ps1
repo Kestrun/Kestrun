@@ -63,7 +63,7 @@ function Set-KrSharedState {
             $Value = ConvertTo-KrThreadSafeValue -Value $Value
         }
         if ($Global.IsPresent) {
-            # Retrieve from server instance
+            # Store in the global shared-state registry.
             $null = [Kestrun.SharedState.GlobalStore]::Set($Name,
                 $Value,
                 $AllowsValueType.IsPresent  # Allow value types if specified

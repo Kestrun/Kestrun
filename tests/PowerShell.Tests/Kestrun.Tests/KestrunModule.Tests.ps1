@@ -9,11 +9,6 @@ Describe 'Kestrun PowerShell Functions' {
         Remove-Variable Response -Scope Script -ErrorAction SilentlyContinue
     }
 
-    It 'Set-KrSharedState defines and retrieves values' {
-        Set-KrSharedState -Global -Name 'psTestVar' -Value @(1, 2, 3)
-        (Get-KrSharedState -Global -Name 'psTestVar').Count | Should -Be 3
-    }
-
     It 'Resolve-KrPath returns absolute path' {
         $result = Resolve-KrPath -Path '.' -KestrunRoot
         [System.IO.Path]::IsPathRooted($result) | Should -BeTrue

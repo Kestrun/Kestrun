@@ -365,7 +365,8 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
 
             Assert.False(InvokeBool("TryStagePreservedPaths", args));
             stagingRoot = Assert.IsType<string>(args[2]);
-            Assert.Contains("Preserved path entry '../state' escapes the service application root.", Assert.IsType<string>(args[3]), StringComparison.Ordinal);
+            var normalizedPreservedPath = $"..{Path.DirectorySeparatorChar}state";
+            Assert.Contains($"Preserved path entry '{normalizedPreservedPath}' escapes the service application root.", Assert.IsType<string>(args[3]), StringComparison.Ordinal);
         }
         finally
         {

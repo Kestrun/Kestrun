@@ -192,6 +192,11 @@ Stop the server with Ctrl+C in the terminal.
 | 140 | File and Form Uploads | [OpenAPI: part-level compression][ch-22-14-part-compressed-openapi] | [Script][sc-22-14-part-compressed-openapi] | Document per-part Content-Encoding with OpenAPI annotations. |
 | 141 | File and Form Uploads | [OpenAPI: file hash upload][ch-22-15-file-hash-openapi] | [Script][sc-22-15-file-hash-openapi] | Upload a binary file and return MD5/SHA1/SHA256/SHA384/SHA512 hashes with OpenAPI annotations. |
 | 142 | File and Form Uploads | [Form rules: file hash upload][ch-22-16-file-hash-rule] | [Script][sc-22-16-file-hash-rule] | Upload a binary file using `New-KrFormPartRule` and return MD5/SHA1/SHA256/SHA384/SHA512 hashes. |
+| 143 | Applications | [Bike Rental Shop Application][ch-23-1-bike-rental-shop] | [Script][sc-23-1-bike-rental-shop] | Walk through a multi-route application with persisted rentals, staff operations, optional CORS, and a separate Razor client. |
+| 144 | Applications | [Bike Rental Shop Web Client][ch-23-2-bike-rental-shop-web] | [Script][sc-23-2-bike-rental-shop-web] | Connect a standalone Razor Pages client to the bike-rental backend while keeping browser concerns out of the API service. |
+| 145 | Applications | [Bike Rental Shop Backend Variants][ch-23-3-bike-rental-shop-variants] | [Script][sc-23-3-bike-rental-shop-variants] | Compare the synchronized and concurrent backends while preserving the same customer and staff API contract. |
+| 146 | Applications | [Bike Rental Shop Packaging][ch-23-4-bike-rental-shop-packaging] | [Script][sc-23-4-bike-rental-shop-packaging] | Package the backend or web client into a `.krpack` and verify deployment-friendly data and log folders are declared. |
+| 147 | Applications | [Bike Rental Shop Install and Update][ch-23-5-bike-rental-shop-install-update] | [Script][sc-23-5-bike-rental-shop-install-update] | Generate concrete `service install` and `service update` commands from a packaged BikeRentalShop target. |
 
 Static chapters and scripts are all linked directly above for quick navigation.
 
@@ -337,6 +342,11 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [ch-22-14-part-compressed-openapi]: ./22.file-and-form-uploads/22.14-Part-Compressed-OpenAPI
 [ch-22-15-file-hash-openapi]: ./22.file-and-form-uploads/22.15-File-Hash-OpenAPI
 [ch-22-16-file-hash-rule]: ./22.file-and-form-uploads/22.16-File-Hash-Rule
+[ch-23-1-bike-rental-shop]: ./23.applications/1.BikeRentalShop
+[ch-23-2-bike-rental-shop-web]: ./23.applications/2.BikeRentalShop-Web
+[ch-23-3-bike-rental-shop-variants]: ./23.applications/3.BikeRentalShop-Variants
+[ch-23-4-bike-rental-shop-packaging]: ./23.applications/4.BikeRentalShop-Packaging
+[ch-23-5-bike-rental-shop-install-update]: ./23.applications/5.BikeRentalShop-Install-Update
 [sc-1-1-hello-world]: /pwsh/tutorial/examples/1.1-Hello-World.ps1
 [sc-2-1-multiple-content-types]: /pwsh/tutorial/examples/2.1-Multiple-Content-Types.ps1
 [sc-2-2-multi-language-routes]: /pwsh/tutorial/examples/2.2-Multi-Language-Routes.ps1
@@ -479,3 +489,8 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-22-14-part-compressed-openapi]: /pwsh/tutorial/examples/22.14-Part-Compressed-OpenAPI.ps1
 [sc-22-15-file-hash-openapi]: /pwsh/tutorial/examples/22.15-File-Hash-OpenAPI.ps1
 [sc-22-16-file-hash-rule]: /pwsh/tutorial/examples/22.16-File-Hash-Rule.ps1
+[sc-23-1-bike-rental-shop]: /examples/PowerShell/BikeRentalShop/Synchronized/Service.ps1
+[sc-23-2-bike-rental-shop-web]: /examples/PowerShell/BikeRentalShop/Web/Service.ps1
+[sc-23-3-bike-rental-shop-variants]: /examples/PowerShell/BikeRentalShop/Concurrent/Service.ps1
+[sc-23-4-bike-rental-shop-packaging]: /examples/PowerShell/BikeRentalShop/Synchronized/Service.psd1
+[sc-23-5-bike-rental-shop-install-update]: /examples/PowerShell/BikeRentalShop/Synchronized/Service.psd1

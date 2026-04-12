@@ -1546,15 +1546,14 @@ public static class CertificateManager
             _ => "P-521"
         };
 
-        // ECNamedCurveTable knows about SEC *and* NIST names
-        var ecParams = ECNamedCurveTable.GetByName(name)
-                       ?? throw new InvalidOperationException($"Curve not found: {name}");
-
-        var domain = new ECDomainParameters(
-            ecParams.Curve, ecParams.G, ecParams.N, ecParams.H, ecParams.GetSeed());
+        // Use the named-curve OID so PKCS#8/PKCS#12 encodes the EC key with named
+        // parameters instead of explicit curve parameters, which improves cross-platform
+        // import compatibility on macOS and Windows.
+        var curveOid = ECNamedCurveTable.GetOid(name)
+                       ?? throw new InvalidOperationException($"Curve OID not found: {name}");
 
         var gen = new ECKeyPairGenerator();
-        gen.Init(new ECKeyGenerationParameters(domain, rng));
+        gen.Init(new ECKeyGenerationParameters(curveOid, rng));
         return gen.GenerateKeyPair();
     }
 

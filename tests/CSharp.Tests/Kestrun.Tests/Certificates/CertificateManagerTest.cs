@@ -141,6 +141,28 @@ public class CertificateManagerTest
 
     [Fact]
     [Trait("Category", "Certificates")]
+    public void NewSelfSigned_TreatsExplicitNoneKeyUsageAsUnspecified()
+    {
+        var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+            "localhost", "127.0.0.1"
+        ],
+        KeyType: KeyType.Rsa,
+        KeyLength: 2048,
+        KeyUsageFlags: X509KeyUsageFlags.None,
+        ValidDays: 30,
+        Ephemeral: true,
+        Exportable: true));
+
+        var keyUsage = Assert.IsType<X509KeyUsageExtension>(
+            cert.Extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>()
+                .Single(e => e.Oid?.Value == "2.5.29.15"));
+
+        Assert.True(keyUsage.Critical);
+        Assert.Equal(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment, keyUsage.KeyUsages);
+    }
+
+    [Fact]
+    [Trait("Category", "Certificates")]
     public void NewCertificateRequest_ReturnsPemAndPrivateKey_WithSAN()
     {
         var csr = CertificateManager.NewCertificateRequest(

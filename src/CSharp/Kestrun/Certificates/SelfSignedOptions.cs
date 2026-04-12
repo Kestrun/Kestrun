@@ -10,7 +10,7 @@ namespace Kestrun.Certificates;
 /// <param name="KeyType">The type of cryptographic key to use (RSA or ECDSA).</param>
 /// <param name="KeyLength">The length of the cryptographic key in bits.</param>
 /// <param name="Purposes">The key purposes (Extended Key Usage) for the certificate.</param>
-/// <param name="KeyUsageFlags">The X.509 Key Usage flags to apply to the certificate.</param>
+/// <param name="KeyUsageFlags">The X.509 Key Usage flags to apply to the certificate. Null or <see cref="X509KeyUsageFlags.None"/> uses the default flags for the selected key type.</param>
 /// <param name="ValidDays">The number of days the certificate will be valid.</param>
 /// <param name="Ephemeral">If true, the certificate will not be stored in the Windows certificate store.</param>
 /// <param name="Exportable">If true, the private key can be exported from the certificate.</param>

@@ -66,7 +66,7 @@ public static class CertificateManager
 
         if (normalizedDnsNames.Length == 0)
         {
-            throw new ArgumentException("At least one non-empty DNS name is required.", nameof(o.DnsNames));
+            throw new ArgumentException("At least one non-empty SAN value (hostname or IP address) is required.", nameof(o.DnsNames));
         }
 
         // ── 1. Key pair ───────────────────────────────────────────────────────────
@@ -127,7 +127,7 @@ public static class CertificateManager
 
         // KeyUsage – tailor for the selected key algorithm.
         var keyUsage =
-            o.KeyUsageFlags is { } explicitKeyUsage
+            o.KeyUsageFlags is { } explicitKeyUsage && explicitKeyUsage != X509KeyUsageFlags.None
                 ? (int)explicitKeyUsage
                 : o.KeyType == KeyType.Rsa
                     ? KeyUsage.DigitalSignature | KeyUsage.KeyEncipherment

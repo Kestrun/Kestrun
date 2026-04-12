@@ -1,14 +1,14 @@
-param()
+﻿param()
 BeforeAll {
     . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
 }
 
-Describe 'Bike rental shop example' {
+Describe 'Bike rental shop concurrent example' {
     BeforeAll {
-        $script:exampleRoot = Join-Path -Path 'examples' -ChildPath 'PowerShell' -AdditionalChildPath 'BikeRentalShop'
+        $script:exampleRoot = Join-Path -Path 'examples' -ChildPath 'PowerShell' -AdditionalChildPath 'BikeRentalShop', 'Concurrent'
         $script:scriptPath = Join-Path $script:exampleRoot 'Service.ps1'
         $script:statePath = Join-Path $script:exampleRoot 'data\bike-rental-state.clixml'
-        $script:backupPath = Join-Path ([System.IO.Path]::GetTempPath()) ('bike-rental-state-' + [Guid]::NewGuid().ToString('N') + '.clixml')
+        $script:backupPath = Join-Path ([System.IO.Path]::GetTempPath()) ('bike-rental-state-concurrent-' + [Guid]::NewGuid().ToString('N') + '.clixml')
         $script:legacyStatePath = Join-Path $script:exampleRoot 'data\bike-rental-state.json'
         $script:staffHeaders = @{ 'X-Api-Key' = 'bike-shop-demo-key' }
         $script:stateExisted = Test-Path -LiteralPath $script:statePath -PathType Leaf
@@ -18,7 +18,7 @@ Describe 'Bike rental shop example' {
         }
 
         $state = [ordered]@{
-            shopName = 'Riverside Bike Rental'
+            shopName = 'Riverside Bike Rental Concurrent'
             currency = 'USD'
             bikes = @(
                 [ordered]@{
@@ -96,7 +96,7 @@ Describe 'Bike rental shop example' {
     It 'serves landing metadata for the packaged service' {
         $result = Invoke-RestMethod -Uri "$($script:instance.Url)/" -SkipCertificateCheck
 
-        $result.service | Should -Be 'Riverside Bike Rental'
+        $result.service | Should -Be 'Riverside Bike Rental Concurrent'
         $result.openApi | Should -Be '/openapi/v3.1/openapi.json'
         $result.demoApiKeyHeader | Should -Be 'X-Api-Key: bike-shop-demo-key'
     }
@@ -152,8 +152,17 @@ Describe 'Bike rental shop example' {
         $payload = @{
             conditionNotes = 'Returned clean and ready for the next rider.'
         } | ConvertTo-Json
+        $returnUri = "$($script:instance.Url)/api/staff/rentals/$($script:rentalId)/return"
 
-        $returned = Invoke-RestMethod -Uri "$($script:instance.Url)/api/staff/rentals/$($script:rentalId)/return" -Method Post -ContentType 'application/json' -Body $payload -Headers $script:staffHeaders -SkipCertificateCheck
+        $request = @{
+            Uri = $returnUri
+            Method = 'Post'
+            ContentType = 'application/json'
+            Body = $payload
+            Headers = $script:staffHeaders
+            SkipCertificateCheck = $true
+        }
+        $returned = Invoke-RestMethod @request
 
         $returned.rentalId | Should -Be $script:rentalId
         $returned.status | Should -Be 'returned'

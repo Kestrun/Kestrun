@@ -265,7 +265,15 @@ See [docs/](docs/) for structure.
   - `CSharp/Scheduling` — task scheduling examples
   - `CSharp/SharedState` — shared state examples
   - `PowerShell/` — PowerShell examples
+    - `BikeRentalShop/Synchronized/` — package-ready rental API using a shared in-memory state object with serialized write/persist operations
+    - `BikeRentalShop/Concurrent/` — package-ready rental API using a fully concurrent dictionary-backed in-memory database
   - `Files/` — test files and resources
+
+The two bike rental PowerShell samples intentionally show different state models under
+`PowerShell/BikeRentalShop/`. Use `Synchronized` when you want a simpler shared-state
+pattern around a familiar PowerShell object graph, and `Concurrent` when you want the
+in-memory database itself to be keyed with concurrent dictionaries end to end.
+
 - `tests/` — Test projects (C#, PowerShell)
 - `docs/` — Documentation files (Just-the-Docs)
 - `Utility/` — Build and maintenance scripts

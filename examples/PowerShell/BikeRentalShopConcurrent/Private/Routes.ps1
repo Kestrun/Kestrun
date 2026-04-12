@@ -1,24 +1,30 @@
+﻿<#
+.SYNOPSIS
+    Defines the API routes for the concurrent bike rental shop service.
+.DESCRIPTION
+    This script uses Kestrun routing attributes to define the public and staff endpoints for
+    the concurrent bike rental sample. The routes work against a concurrent in-memory database
+    while keeping the same API contract as the original BikeRentalShop example.
+.EXAMPLE
+    The API routes are automatically registered when the service starts and can be called with
+    standard HTTP clients such as curl, Postman, or Invoke-RestMethod.
+#>
 <#
 .SYNOPSIS
-    Defines the API routes for the bike rental shop service.
+    Creates a bike catalog response object from a concurrent bike record.
 .DESCRIPTION
-    This script uses Kestrun's routing attributes to define the API endpoints for the bike rental shop service.
-    Each function corresponds to a specific route and HTTP verb, and includes OpenAPI annotations for documentation generation.
-    The routes cover public endpoints for listing bikes, creating rentals, checking rental status, and reporting shop health,
-    as well as authenticated staff endpoints for viewing the operations dashboard, managing inventory, and processing rental returns.
-    The functions implement the necessary logic to interact with the persisted state of the shop and return appropriate responses based on the API contract defined in the OpenAPI schema components.
+    This helper converts a concurrent bike dictionary into the strongly typed API response object
+    used by the catalog and staff inventory endpoints.
+.PARAMETER Bike
+    The bike record from the concurrent bike catalog.
 .EXAMPLE
-    The API routes are automatically registered when the service starts, and can be accessed using HTTP clients such as curl or Postman.
-    For example, to list available bikes, you can send a GET request to https://localhost:5443/api/bikes.
-    To create a rental, you can send a POST request to https://localhost:5443/api/rentals with a JSON payload containing the bikeId, customerName, phone, and plannedHours.
-    To access staff endpoints, include the X-Api-Key header with the value 'bike-shop-demo-key' in your request. For example, to view the staff dashboard,
-    send a GET request to https://localhost:5443/api/staff/dashboard with the appropriate API key header. The OpenAPI documentation for the API can be accessed at https://localhost:5443/docs/swagger.
+    $item = New-BikeCatalogItemObject -Bike $bike
 #>
 function New-BikeCatalogItemObject {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param(
         [Parameter(Mandatory = $true)]
-        [hashtable]$Bike
+        [System.Collections.IDictionary]$Bike
     )
 
     return [BikeCatalogItem]@{
@@ -33,29 +39,24 @@ function New-BikeCatalogItemObject {
 
 <#
 .SYNOPSIS
-    Creates a rental status response object from rental and bike data.
+    Creates a rental status response object from concurrent rental and bike records.
 .DESCRIPTION
-    Builds a `RentalStatusResponse` instance by combining fields from the persisted rental record
-    with the related bike record. This helper keeps route handlers focused on request processing
-    while ensuring the response payload is shaped consistently for the API contract.
+    This helper combines rental and bike fields from the concurrent in-memory database into the
+    strongly typed response returned by rental endpoints.
 .PARAMETER Rental
-    The rental record as a hashtable. Expected keys include rentalId, bikeId, customerName,
-    status, pickupCode, startedAtUtc, dueAtUtc, returnedAtUtc, and totalEstimate.
+    The rental record from the concurrent rental catalog.
 .PARAMETER Bike
-    The bike record as a hashtable. Expected keys include model and any other bike metadata
-    needed to enrich the rental status response.
+    The related bike record from the concurrent bike catalog.
 .EXAMPLE
     $response = New-RentalStatusObject -Rental $rental -Bike $bike
-
-    Creates a `RentalStatusResponse` object for use in an API response.
 #>
 function New-RentalStatusObject {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
     param(
         [Parameter(Mandatory = $true)]
-        [hashtable]$Rental,
+        [System.Collections.IDictionary]$Rental,
         [Parameter(Mandatory = $true)]
-        [hashtable]$Bike
+        [System.Collections.IDictionary]$Bike
     )
 
     return [RentalStatusResponse]@{
@@ -74,19 +75,19 @@ function New-RentalStatusObject {
 
 Add-KrMapRoute -Verbs Get -Pattern '/' -AllowAnonymous -ScriptBlock {
     Write-KrJsonResponse -InputObject ([ordered]@{
-            service = 'Riverside Bike Rental'
+            service = 'Riverside Bike Rental Concurrent'
             openApi = '/openapi/v3.1/openapi.json'
             docs = '/docs/swagger'
             publicEndpoints = @('/api/bikes', '/api/rentals', '/api/rentals/{rentalId}', '/api/shop-health')
             staffEndpoints = @('/api/staff/dashboard', '/api/staff/bikes', '/api/staff/bikes/{bikeId}', '/api/staff/rentals/{rentalId}/return')
             demoApiKeyHeader = 'X-Api-Key: bike-shop-demo-key'
-            packageCommand = 'New-KrServicePackage -SourceFolder .\examples\PowerShell\BikeRentalShop -OutputPath .\bike-rental-shop-1.0.0.krpack'
+            packageCommand = 'New-KrServicePackage -SourceFolder .\examples\PowerShell\BikeRentalShopConcurrent -OutputPath .\bike-rental-shop-concurrent-1.0.0.krpack'
         }) -StatusCode 200
 }
 
 <#
 .SYNOPSIS
-    List bikes in the rental catalog.
+    List bikes in the concurrent rental catalog.
 .DESCRIPTION
     Returns the current bike inventory and supports filtering by availability status and bike type.
 .PARAMETER status
@@ -107,7 +108,7 @@ function listBikes {
     )
 
     $state = Get-BikeRentalState
-    $bikes = @($state['bikes'])
+    $bikes = Get-BikeRentalBikes -State $state
 
     if ($status -ne 'all') {
         $bikes = @($bikes | Where-Object { [string]$_['status'] -eq $status })
@@ -127,9 +128,10 @@ function listBikes {
 
 <#
 .SYNOPSIS
-    Create a new rental booking.
+    Create a new rental booking in the concurrent bike rental database.
 .DESCRIPTION
-    Starts a rental for an available bike, assigns a pickup code, and records the reservation in persisted state.
+    Starts a rental for an available bike, assigns a pickup code, and records the reservation in the
+    concurrent in-memory rental catalog.
 .PARAMETER Body
     Rental request payload containing the bike selection, customer identity, contact phone, and planned rental hours.
 #>
@@ -144,9 +146,9 @@ function createRental {
     )
 
     $result = Update-BikeRentalState {
-        param([hashtable]$State)
+        param([System.Collections.IDictionary]$State)
 
-        $bike = @($State['bikes']) | Where-Object { [string]$_['bikeId'] -eq $Body.bikeId } | Select-Object -First 1
+        $bike = Get-BikeRentalBikeById -State $State -BikeId $Body.bikeId
         if ($null -eq $bike) {
             return [ordered]@{
                 StatusCode = 404
@@ -174,23 +176,24 @@ function createRental {
         $pickupCode = (Get-Random -Minimum 100000 -Maximum 999999).ToString()
         $estimate = [Math]::Round(([double]$bike['hourlyRate'] * $Body.plannedHours), 2)
 
-        $rental = [ordered]@{
-            rentalId = $rentalId
-            bikeId = [string]$bike['bikeId']
-            customerName = [string]$Body.customerName
-            phone = [string]$Body.phone
-            plannedHours = [int]$Body.plannedHours
-            startedAtUtc = $now.ToString('o')
-            dueAtUtc = $due.ToString('o')
-            returnedAtUtc = $null
-            pickupCode = $pickupCode
-            status = 'active'
-            totalEstimate = $estimate
-        }
+        $rental = ConvertTo-BikeRentalConcurrentRecord -Record ([ordered]@{
+                rentalId = $rentalId
+                bikeId = [string]$bike['bikeId']
+                customerName = [string]$Body.customerName
+                phone = [string]$Body.phone
+                plannedHours = [int]$Body.plannedHours
+                startedAtUtc = $now.ToString('o')
+                dueAtUtc = $due.ToString('o')
+                returnedAtUtc = $null
+                pickupCode = $pickupCode
+                status = 'active'
+                totalEstimate = $estimate
+                conditionNotes = $null
+            })
 
         $bike['status'] = 'rented'
         $bike['currentRentalId'] = $rentalId
-        $State['rentals'] = @($State['rentals']) + $rental
+        $null = Add-BikeRentalRentalRecord -State $State -Rental $rental
 
         return [ordered]@{
             StatusCode = 201
@@ -209,7 +212,7 @@ function createRental {
 
 <#
 .SYNOPSIS
-    Get the status of a rental.
+    Get the status of a rental from the concurrent bike rental database.
 .DESCRIPTION
     Looks up a rental by identifier and returns its current lifecycle state together with the assigned bike details.
 .PARAMETER rentalId
@@ -225,19 +228,19 @@ function getRentalStatus {
     )
 
     $state = Get-BikeRentalState
-    $rental = @($state['rentals']) | Where-Object { [string]$_['rentalId'] -eq $rentalId } | Select-Object -First 1
+    $rental = Get-BikeRentalRentalById -State $state -RentalId $rentalId
     if ($null -eq $rental) {
         Write-BikeRentalError -StatusCode 404 -Message 'Rental not found.' -Details @{ rentalId = $rentalId }
         return
     }
 
-    $bike = @($state['bikes']) | Where-Object { [string]$_['bikeId'] -eq [string]$rental['bikeId'] } | Select-Object -First 1
+    $bike = Get-BikeRentalBikeById -State $state -BikeId ([string]$rental['bikeId'])
     Write-KrJsonResponse -InputObject (New-RentalStatusObject -Rental $rental -Bike $bike) -StatusCode 200
 }
 
 <#
 .SYNOPSIS
-    Report shop API health.
+    Report concurrent bike rental API health.
 .DESCRIPTION
     Returns a lightweight operational snapshot including shop name, active rentals, and available bike count.
 #>
@@ -247,8 +250,11 @@ function getBikeRentalHealth {
     param()
 
     $state = Get-BikeRentalState
-    $availableBikes = @($state['bikes'] | Where-Object { [string]$_['status'] -eq 'available' }).Count
-    $activeRentals = @($state['rentals'] | Where-Object { [string]$_['status'] -eq 'active' }).Count
+    $bikes = Get-BikeRentalBikes -State $state
+    $rentals = Get-BikeRentalRentals -State $state
+
+    $availableBikes = @($bikes | Where-Object { [string]$_['status'] -eq 'available' }).Count
+    $activeRentals = @($rentals | Where-Object { [string]$_['status'] -eq 'active' }).Count
 
     Write-KrJsonResponse -InputObject ([BikeRentalHealthResponse]@{
             status = 'healthy'
@@ -261,7 +267,7 @@ function getBikeRentalHealth {
 
 <#
 .SYNOPSIS
-    Get the authenticated staff dashboard.
+    Get the authenticated staff dashboard for the concurrent bike rental service.
 .DESCRIPTION
     Returns the internal operations dashboard with inventory totals, active rentals, and same-day completion counts.
 #>
@@ -272,10 +278,13 @@ function getStaffDashboard {
     param()
 
     $state = Get-BikeRentalState
-    $availableCount = @($state['bikes'] | Where-Object { [string]$_['status'] -eq 'available' }).Count
-    $rentedCount = @($state['bikes'] | Where-Object { [string]$_['status'] -eq 'rented' }).Count
-    $activeRentals = @($state['rentals'] | Where-Object { [string]$_['status'] -eq 'active' })
-    $completedToday = @($state['rentals'] | Where-Object {
+    $bikes = Get-BikeRentalBikes -State $state
+    $rentals = Get-BikeRentalRentals -State $state
+
+    $availableCount = @($bikes | Where-Object { [string]$_['status'] -eq 'available' }).Count
+    $rentedCount = @($bikes | Where-Object { [string]$_['status'] -eq 'rented' }).Count
+    $activeRentals = @($rentals | Where-Object { [string]$_['status'] -eq 'active' })
+    $completedToday = @($rentals | Where-Object {
             -not [string]::IsNullOrWhiteSpace([string]$_['returnedAtUtc']) -and
             ([DateTimeOffset]::Parse([string]$_['returnedAtUtc']).UtcDateTime.Date -eq [DateTime]::UtcNow.Date)
         }).Count
@@ -284,7 +293,7 @@ function getStaffDashboard {
             shopName = [string]$state['shopName']
             generatedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
             inventory = [StaffDashboardInventoryResponse]@{
-                total = @($state['bikes']).Count
+                total = @($bikes).Count
                 available = $availableCount
                 rented = $rentedCount
             }
@@ -298,9 +307,9 @@ function getStaffDashboard {
 
 <#
 .SYNOPSIS
-    Add a bike to staff inventory.
+    Add a bike to the concurrent staff inventory.
 .DESCRIPTION
-    Creates a new inventory entry for a bike, marks it as available, and persists the updated catalog for future rentals.
+    Creates a new inventory entry for a bike, marks it as available, and persists the updated catalog.
 .PARAMETER Body
     Bike definition containing the identifier, model, type, hourly rate, dock location, and optional last service date.
 #>
@@ -324,9 +333,9 @@ function addBike {
     }
 
     $result = Update-BikeRentalState {
-        param([hashtable]$State)
+        param([System.Collections.IDictionary]$State)
 
-        $existingBike = @($State['bikes']) | Where-Object { [string]$_['bikeId'] -eq $Body.bikeId } | Select-Object -First 1
+        $existingBike = Get-BikeRentalBikeById -State $State -BikeId $Body.bikeId
         if ($null -ne $existingBike) {
             return [ordered]@{
                 StatusCode = 409
@@ -344,18 +353,18 @@ function addBike {
             [string]$Body.lastServiceDate
         }
 
-        $bike = [ordered]@{
-            bikeId = [string]$Body.bikeId
-            model = [string]$Body.model
-            type = $Body.type.ToString()
-            hourlyRate = [double]$Body.hourlyRate
-            status = 'available'
-            dock = [string]$Body.dock
-            lastServiceDate = $lastServiceDate
-            currentRentalId = $null
-        }
+        $bike = ConvertTo-BikeRentalConcurrentRecord -Record ([ordered]@{
+                bikeId = [string]$Body.bikeId
+                model = [string]$Body.model
+                type = $Body.type.ToString()
+                hourlyRate = [double]$Body.hourlyRate
+                status = 'available'
+                dock = [string]$Body.dock
+                lastServiceDate = $lastServiceDate
+                currentRentalId = $null
+            })
 
-        $State['bikes'] = @($State['bikes']) + $bike
+        $null = Add-BikeRentalBikeRecord -State $State -Bike $bike
 
         return [ordered]@{
             StatusCode = 201
@@ -374,9 +383,9 @@ function addBike {
 
 <#
 .SYNOPSIS
-    Remove a bike from staff inventory.
+    Remove a bike from the concurrent staff inventory.
 .DESCRIPTION
-    Deletes a bike from the persisted catalog when it exists and is not currently rented.
+    Deletes a bike from the concurrent catalog when it exists and is not currently rented.
 .PARAMETER bikeId
     Bike identifier for the inventory entry to remove.
 #>
@@ -392,10 +401,9 @@ function removeBike {
     )
 
     $result = Update-BikeRentalState {
-        param([hashtable]$State)
+        param([System.Collections.IDictionary]$State)
 
-        $bikes = @($State['bikes'])
-        $bike = $bikes | Where-Object { [string]$_['bikeId'] -eq $bikeId } | Select-Object -First 1
+        $bike = Get-BikeRentalBikeById -State $State -BikeId $bikeId
         if ($null -eq $bike) {
             return [ordered]@{
                 StatusCode = 404
@@ -417,11 +425,11 @@ function removeBike {
             }
         }
 
-        $State['bikes'] = @($bikes | Where-Object { [string]$_['bikeId'] -ne $bikeId })
+        $removedBike = Remove-BikeRentalBikeRecord -State $State -BikeId $bikeId
 
         return [ordered]@{
             StatusCode = 200
-            Payload = New-BikeCatalogItemObject -Bike $bike
+            Payload = New-BikeCatalogItemObject -Bike $removedBike
         }
     }
 
@@ -436,7 +444,7 @@ function removeBike {
 
 <#
 .SYNOPSIS
-    Return a rented bike to inventory.
+    Return a rented bike to the concurrent inventory.
 .DESCRIPTION
     Closes an active rental, marks the bike as available again, and optionally stores staff condition notes.
 .PARAMETER rentalId
@@ -461,9 +469,9 @@ function returnRental {
     $conditionNotes = if ($null -ne $Body) { [string]$Body.conditionNotes } else { [string]$null }
 
     $result = Update-BikeRentalState {
-        param([hashtable]$State)
+        param([System.Collections.IDictionary]$State)
 
-        $rental = @($State['rentals']) | Where-Object { [string]$_['rentalId'] -eq $rentalId } | Select-Object -First 1
+        $rental = Get-BikeRentalRentalById -State $State -RentalId $rentalId
         if ($null -eq $rental) {
             return [ordered]@{
                 StatusCode = 404
@@ -485,7 +493,7 @@ function returnRental {
             }
         }
 
-        $bike = @($State['bikes']) | Where-Object { [string]$_['bikeId'] -eq [string]$rental['bikeId'] } | Select-Object -First 1
+        $bike = Get-BikeRentalBikeById -State $State -BikeId ([string]$rental['bikeId'])
         $returnedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
         $rental['status'] = 'returned'
         $rental['returnedAtUtc'] = $returnedAtUtc

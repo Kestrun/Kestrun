@@ -58,7 +58,7 @@ public class CertificateManagerTest
         var san = extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>().SingleOrDefault(e => e.Oid?.Value == "2.5.29.17");
         Assert.NotNull(san);
 
-        var generalNames = GeneralNames.GetInstance(Asn1Object.FromByteArray(san!.RawData)).GetNames();
+        var generalNames = GeneralNames.GetInstance(Asn1Object.FromByteArray(san.RawData)).GetNames();
         Assert.Contains(generalNames, n => n.TagNo == GeneralName.DnsName && string.Equals(n.Name.ToString(), "localhost", StringComparison.OrdinalIgnoreCase));
 
         var ipSans = generalNames
@@ -76,6 +76,36 @@ public class CertificateManagerTest
 
         Assert.NotNull(extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>().SingleOrDefault(e => e.Oid?.Value == "2.5.29.14")); // Subject Key Identifier
         Assert.NotNull(extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>().SingleOrDefault(e => e.Oid?.Value == "2.5.29.35")); // Authority Key Identifier
+    }
+
+    [Fact]
+    [Trait("Category", "Certificates")]
+    public void NewSelfSigned_NormalizesSanInputs_BeforeEmittingSubjectAndSanSet()
+    {
+        var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+            " localhost ", "localhost", " 127.0.0.1 ", "127.0.0.1", "\t::1\t", "   "
+        ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 30, Ephemeral: true, Exportable: true));
+
+        Assert.Contains("CN=localhost", cert.Subject, StringComparison.OrdinalIgnoreCase);
+
+        var san = cert.Extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>()
+            .Single(e => e.Oid?.Value == "2.5.29.17");
+        var generalNames = GeneralNames.GetInstance(Asn1Object.FromByteArray(san.RawData)).GetNames();
+
+        var dnsSans = generalNames
+            .Where(n => n.TagNo == GeneralName.DnsName)
+            .Select(n => n.Name.ToString())
+            .ToList();
+        var ipSans = generalNames
+            .Where(n => n.TagNo == GeneralName.IPAddress)
+            .Select(n => new IPAddress(Asn1OctetString.GetInstance(n.Name).GetOctets()))
+            .ToList();
+
+        var dnsSan = Assert.Single(dnsSans);
+        Assert.Equal("localhost", dnsSan);
+        Assert.Equal(2, ipSans.Count);
+        Assert.Contains(IPAddress.Loopback, ipSans);
+        Assert.Contains(IPAddress.IPv6Loopback, ipSans);
     }
 
     [Fact]

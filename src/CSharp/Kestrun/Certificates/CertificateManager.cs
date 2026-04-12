@@ -16,6 +16,7 @@ using Org.BouncyCastle.Pkcs;
 using Org.BouncyCastle.Security;
 using Org.BouncyCastle.Utilities;
 using Org.BouncyCastle.X509;
+using Org.BouncyCastle.X509.Extension;
 using System.Text;
 using Org.BouncyCastle.Asn1.X9;
 using Serilog;
@@ -57,6 +58,16 @@ public static class CertificateManager
     public static X509Certificate2 NewSelfSigned(SelfSignedOptions o)
     {
         var random = new SecureRandom(new CryptoApiRandomGenerator());
+        var normalizedDnsNames = o.DnsNames
+            .Select(name => name.Trim())
+            .Where(name => name.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (normalizedDnsNames.Length == 0)
+        {
+            throw new ArgumentException("At least one non-empty DNS name is required.", nameof(o.DnsNames));
+        }
 
         // ── 1. Key pair ───────────────────────────────────────────────────────────
         var keyPair =
@@ -73,7 +84,7 @@ public static class CertificateManager
         var serial = BigIntegers.CreateRandomInRange(
                             BigInteger.One, BigInteger.ValueOf(long.MaxValue), random);
 
-        var subjectDn = new X509Name($"CN={o.DnsNames.First()}");
+        var subjectDn = new X509Name($"CN={normalizedDnsNames[0]}");
         var gen = new X509V3CertificateGenerator();
         gen.SetSerialNumber(serial);
         gen.SetIssuerDN(subjectDn);
@@ -83,10 +94,7 @@ public static class CertificateManager
         gen.SetPublicKey(keyPair.Public);
 
         // SANs
-        var altNames = o.DnsNames
-                        .Select(name => name.Trim())
-                        .Where(name => name.Length > 0)
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
+        var altNames = normalizedDnsNames
                         .Select(sanValue =>
                             new GeneralName(
                                 IPAddress.TryParse(sanValue, out _)
@@ -101,12 +109,12 @@ public static class CertificateManager
         gen.AddExtension(X509Extensions.BasicConstraints, true, new BasicConstraints(false));
 
         var subjectPublicKeyInfo = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(keyPair.Public);
-        var subjectKeyIdentifier = SubjectKeyIdentifier.CreateSha1KeyIdentifier(subjectPublicKeyInfo);
+        var subjectKeyIdentifier = X509ExtensionUtilities.CreateSubjectKeyIdentifier(subjectPublicKeyInfo);
         gen.AddExtension(X509Extensions.SubjectKeyIdentifier, false, subjectKeyIdentifier);
         gen.AddExtension(
             X509Extensions.AuthorityKeyIdentifier,
             false,
-            new AuthorityKeyIdentifier(subjectKeyIdentifier.GetKeyIdentifier()));
+            X509ExtensionUtilities.CreateAuthorityKeyIdentifier(subjectPublicKeyInfo));
 
         // EKU
         var eku = o.Purposes ??
@@ -1580,7 +1588,7 @@ public static class CertificateManager
         {
             return X509CertificateLoader.LoadPkcs12(
                 raw,
-                password: default,
+                password: string.Empty.AsSpan(),
                 keyStorageFlags: flags | (ephemeral ? X509KeyStorageFlags.EphemeralKeySet : 0),
                 loaderLimits: Pkcs12LoaderLimits.Defaults
             );
@@ -1595,7 +1603,7 @@ public static class CertificateManager
             Log.Debug("EphemeralKeySet not supported on this platform for X509CertificateLoader; falling back without the flag.");
             return X509CertificateLoader.LoadPkcs12(
                 raw,
-                password: default,
+                password: string.Empty.AsSpan(),
                 keyStorageFlags: flags, // omit EphemeralKeySet
                 loaderLimits: Pkcs12LoaderLimits.Defaults
             );
@@ -1605,7 +1613,7 @@ public static class CertificateManager
         {
             return new X509Certificate2(
                 raw,
-                (string?)null,
+                string.Empty,
                 flags | (ephemeral ? X509KeyStorageFlags.EphemeralKeySet : 0)
             );
         }
@@ -1615,7 +1623,7 @@ public static class CertificateManager
             Log.Debug("EphemeralKeySet not supported on this platform (net8); falling back without the flag.");
             return new X509Certificate2(
                 raw,
-                (string?)null,
+                string.Empty,
                 flags // omit EphemeralKeySet
             );
         }

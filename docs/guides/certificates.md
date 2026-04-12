@@ -169,6 +169,47 @@ Kestrun emits:
 
 IP addresses are emitted as IP SAN entries, not DNS SAN entries.
 
+For the default RSA localhost leaf, Kestrun also emits:
+
+- Subject: `CN=localhost`
+- Basic Constraints: `CA:FALSE`
+- EKU: `Server Authentication`, `Client Authentication`
+- Key Usage: `DigitalSignature`, `KeyEncipherment`
+
+This certificate shape is valid for local HTTPS and works with tools such as `curl -k`.
+Firefox also commonly accepts the scenario once you choose to trust the certificate locally.
+On Windows, Chromium-family browsers can still reject a raw self-signed localhost leaf with
+`ERR_CERT_INVALID` even when the certificate contents are otherwise correct.
+
+### Windows Chromium workflow
+
+For the most reliable Edge / Chrome / Brave development workflow on Windows, use a trusted
+development certificate from the Windows trust store instead of a raw self-signed localhost leaf.
+
+Create and trust an ASP.NET Core development certificate on Windows:
+
+```powershell
+$certDir = "$env:USERPROFILE\.aspnet\https"
+New-Item -ItemType Directory -Force $certDir | Out-Null
+
+dotnet dev-certs https --trust
+dotnet dev-certs https -ep "$certDir\kestrun-devcert.pfx" -p testpass
+```
+
+Then load that certificate into Kestrun:
+
+```powershell
+$cert = Import-KrCertificate `
+    -FilePath 'C:\Users\<YourUser>\.aspnet\https\kestrun-devcert.pfx' `
+    -Password (ConvertTo-SecureString 'testpass' -AsPlainText -Force)
+
+$server = New-KrServer -Name 'example'
+Add-KrEndpoint -Port 5001 -X509Certificate $cert -Protocols Http1
+```
+
+If your Kestrun process runs inside WSL but your browser runs on Windows, trust must exist in the
+Windows certificate store because Chromium uses the Windows trust chain for validation.
+
 ### EKU and KU defaults
 
 Kestrun self-signed development certificates default to:
@@ -192,6 +233,9 @@ Use `-KeyUsage` when you need to override KU explicitly for a specific integrati
 - Use `Get-KrCertificatePurpose` to check EKU for intended usage (e.g., server auth, client auth).
 - For Chromium-family browsers on Windows, a raw self-signed leaf may still be rejected even if Firefox accepts it.
 - For the most reliable Windows browser workflow, prefer a local dev CA trusted in the Windows root store, then issue localhost leaf certs from that CA.
+- If `curl -k` succeeds and Firefox loads the site, but Edge / Chrome / Brave show
+    `ERR_CERT_INVALID`, treat that as a browser trust/store issue first, not proof
+    that the served certificate is malformed.
 - If you use a self-signed localhost leaf, prefer HTTP/1.1 + HTTP/2 during development and verify trust behavior separately before enabling HTTP/3.
 
 ---

@@ -84,17 +84,15 @@ public static class CertificateManager
 
         // SANs
         var altNames = o.DnsNames
-                        .Where(name => !string.IsNullOrWhiteSpace(name))
+                        .Select(name => name.Trim())
+                        .Where(name => name.Length > 0)
                         .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .Select(name =>
-                        {
-                            var sanValue = name.Trim();
-                            return new GeneralName(
+                        .Select(sanValue =>
+                            new GeneralName(
                                 IPAddress.TryParse(sanValue, out _)
                                     ? GeneralName.IPAddress
                                     : GeneralName.DnsName,
-                                sanValue);
-                        })
+                                sanValue))
                         .ToArray();
         gen.AddExtension(X509Extensions.SubjectAlternativeName, false,
                          new DerSequence(altNames));

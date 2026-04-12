@@ -1575,7 +1575,6 @@ public static class CertificateManager
         var store = new Pkcs12StoreBuilder().Build();
         var entry = new X509CertificateEntry(cert);
         const string alias = "cert";
-        store.SetCertificateEntry(alias, entry);
         store.SetKeyEntry(alias, new AsymmetricKeyEntry(privKey),
                           [entry]);
 

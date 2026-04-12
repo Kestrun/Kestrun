@@ -28,7 +28,7 @@ These tools support cross-platform scenarios (Windows, Linux, macOS) and are ess
 
 ```powershell
 $cert = New-KrSelfSignedCertificate `
-    -DnsNames localhost,127.0.0.1,::1 `
+    -DnsNames 'localhost','127.0.0.1','::1' `
     -KeyUsage DigitalSignature,KeyEncipherment `
     -Exportable
 Export-KrCertificate -Certificate $cert -FilePath './devcert' -Format Pfx -Password (ConvertTo-SecureString 'p@ss' -AsPlainText -Force) -IncludePrivateKey

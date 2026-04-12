@@ -49,7 +49,14 @@ function New-KrSelfSignedCertificate {
         [switch]$Exportable
     )
 
-    $keyUsageFlags = if ($PSBoundParameters.ContainsKey('KeyUsage')) { $KeyUsage } else { $null }
+    $keyUsageFlags = if (
+        $PSBoundParameters.ContainsKey('KeyUsage') -and
+        $KeyUsage -ne [System.Security.Cryptography.X509Certificates.X509KeyUsageFlags]::None
+    ) {
+        $KeyUsage
+    } else {
+        $null
+    }
 
     $opts = [Kestrun.Certificates.SelfSignedOptions]::new(
         $DnsNames,

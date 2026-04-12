@@ -8,6 +8,7 @@ using Org.BouncyCastle.Asn1.X509;
 using Xunit;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Net;
 
 namespace Kestrun.Tests.Certificates;
 
@@ -59,7 +60,15 @@ public class CertificateManagerTest
 
         var generalNames = GeneralNames.GetInstance(Asn1Object.FromByteArray(san!.RawData)).GetNames();
         Assert.Contains(generalNames, n => n.TagNo == GeneralName.DnsName && string.Equals(n.Name.ToString(), "localhost", StringComparison.OrdinalIgnoreCase));
-        Assert.Equal(2, generalNames.Count(n => n.TagNo == GeneralName.IPAddress));
+
+        var ipSans = generalNames
+            .Where(n => n.TagNo == GeneralName.IPAddress)
+            .Select(n => new IPAddress(Asn1OctetString.GetInstance(n.Name).GetOctets()))
+            .ToList();
+
+        Assert.Equal(2, ipSans.Count);
+        Assert.Contains(IPAddress.Loopback, ipSans); // 127.0.0.1
+        Assert.Contains(IPAddress.IPv6Loopback, ipSans); // ::1
 
         var basicConstraints = Assert.IsType<X509BasicConstraintsExtension>(extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>().Single(e => e.Oid?.Value == "2.5.29.19"));
         Assert.True(basicConstraints.Critical);

@@ -27,7 +27,10 @@ These tools support cross-platform scenarios (Windows, Linux, macOS) and are ess
 ### 1. Self-signed certificate (PowerShell)
 
 ```powershell
-$cert = New-KrSelfSignedCertificate -DnsNames localhost,127.0.0.1 -Exportable
+$cert = New-KrSelfSignedCertificate `
+    -DnsNames localhost,127.0.0.1,::1 `
+    -KeyUsage DigitalSignature,KeyEncipherment `
+    -Exportable
 Export-KrCertificate -Certificate $cert -FilePath './devcert' -Format Pfx -Password (ConvertTo-SecureString 'p@ss' -AsPlainText -Force) -IncludePrivateKey
 Test-KrCertificate -Certificate $cert -DenySelfSigned:$false
 ```
@@ -66,8 +69,31 @@ $csrResult.PrivateKey | Set-Content './private.key'
 
 ```csharp
 var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions(
-    DnsNames: new[] { "localhost", "127.0.0.1" }, KeyType: KeyType.Rsa,
-    KeyLength: 2048, ValidDays: 30, Exportable: true));
+    DnsNames: new[] { "localhost", "127.0.0.1", "::1" },
+    KeyType: KeyType.Rsa,
+    KeyLength: 2048,
+    KeyUsageFlags: X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment,
+    ValidDays: 30,
+    Exportable: true));
+```
+
+### 6. Self-signed certificate with explicit KU
+
+```powershell
+$cert = New-KrSelfSignedCertificate `
+    -DnsNames 'localhost','127.0.0.1','::1' `
+    -KeyUsage DigitalSignature,KeyEncipherment `
+    -Exportable
+```
+
+For ECDSA, prefer `DigitalSignature` only:
+
+```powershell
+$cert = New-KrSelfSignedCertificate `
+    -DnsNames 'localhost','::1' `
+    -KeyType Ecdsa `
+    -KeyLength 256 `
+    -KeyUsage DigitalSignature
 ```
 
 ---
@@ -124,6 +150,35 @@ $csrResult.Csr | Set-Content './csr.pem'
 $csrResult.PrivateKey | Set-Content './private.key'
 ```
 
+### Localhost HTTPS for browsers
+
+For localhost development, prefer including all loopback names you expect to hit:
+
+```powershell
+$cert = New-KrSelfSignedCertificate `
+    -DnsNames 'localhost','127.0.0.1','::1' `
+    -KeyUsage DigitalSignature,KeyEncipherment `
+    -Exportable
+```
+
+Kestrun emits:
+
+- `DNS:localhost`
+- `IP:127.0.0.1`
+- `IP:::1`
+
+IP addresses are emitted as IP SAN entries, not DNS SAN entries.
+
+### EKU and KU defaults
+
+Kestrun self-signed development certificates default to:
+
+- EKU: `Server Authentication`, `Client Authentication`
+- RSA KU: `DigitalSignature`, `KeyEncipherment`
+- ECDSA KU: `DigitalSignature`
+
+Use `-KeyUsage` when you need to override KU explicitly for a specific integration.
+
 ---
 
 ## Troubleshooting & Best Practices
@@ -135,6 +190,9 @@ $csrResult.PrivateKey | Set-Content './private.key'
 - When exporting to PEM, use `-IncludePrivateKey` only for secure, local use.
 - For JWKS endpoints, export only public JWKs.
 - Use `Get-KrCertificatePurpose` to check EKU for intended usage (e.g., server auth, client auth).
+- For Chromium-family browsers on Windows, a raw self-signed leaf may still be rejected even if Firefox accepts it.
+- For the most reliable Windows browser workflow, prefer a local dev CA trusted in the Windows root store, then issue localhost leaf certs from that CA.
+- If you use a self-signed localhost leaf, prefer HTTP/1.1 + HTTP/2 during development and verify trust behavior separately before enabling HTTP/3.
 
 ---
 

@@ -153,7 +153,8 @@ Describe 'Bike rental shop synchronized example' {
             conditionNotes = 'Returned clean and ready for the next rider.'
         } | ConvertTo-Json
 
-        $returned = Invoke-RestMethod -Uri "$($script:instance.Url)/api/staff/rentals/$($script:rentalId)/return" -Method Post -ContentType 'application/json' -Body $payload -Headers $script:staffHeaders -SkipCertificateCheck
+        $returned = Invoke-RestMethod -Uri "$($script:instance.Url)/api/staff/rentals/$($script:rentalId)/return" `
+            -Method Post -ContentType 'application/json' -Body $payload -Headers $script:staffHeaders -SkipCertificateCheck
 
         $returned.rentalId | Should -Be $script:rentalId
         $returned.status | Should -Be 'returned'

@@ -1,8 +1,13 @@
 ﻿[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
 param(
     [int]$Port = $env:PORT ?? 5443,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
+    [IPAddress]$IPAddress = [IPAddress]::Loopback,
+    [string[]]$AllowedCorsOrigins = @()
 )
+
+if ((-not $PSBoundParameters.ContainsKey('AllowedCorsOrigins')) -and -not [string]::IsNullOrWhiteSpace($env:BIKE_RENTAL_ALLOWED_CORS_ORIGINS)) {
+    $AllowedCorsOrigins = @($env:BIKE_RENTAL_ALLOWED_CORS_ORIGINS -split ';' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+}
 
 <#
 .SYNOPSIS
@@ -29,6 +34,10 @@ param(
     Invoke-RestMethod -Uri 'https://127.0.0.1:5443/api/rentals' -Method Post -ContentType 'application/json' -Body $rentalRequest -SkipCertificateCheck
 
     Invoke-RestMethod -Uri 'https://127.0.0.1:5443/api/staff/dashboard' -SkipCertificateCheck -Headers @{ 'X-Api-Key' = 'bike-shop-demo-key' }
+.EXAMPLE
+    pwsh .\examples\PowerShell\BikeRentalShop\Concurrent\Service.ps1 -Port 5444 -AllowedCorsOrigins @('https://127.0.0.1:5445', 'https://localhost:5445')
+
+    Starts the concurrent backend with explicit browser origins enabled for a separate web client service.
 #>
 
 try {
@@ -134,7 +143,16 @@ Add-KrFaviconMiddleware
 
 Add-KrApiKeyAuthentication -AuthenticationScheme $StaffScheme -ApiKeyName 'X-Api-Key' -StaticApiKey $StaffApiKey
 
-Add-KrOpenApiInfo -Title 'Riverside Bike Rental Concurrent API' -Version '1.0.0' -Description 'Bike rental service example with a concurrent in-memory database, HTTPS, OpenAPI, staff authentication, and persistent data.'
+if ($AllowedCorsOrigins.Count -gt 0) {
+    New-KrCorsPolicyBuilder |
+        Set-KrCorsOrigin -Origins $AllowedCorsOrigins |
+        Set-KrCorsMethod -Methods GET, POST, DELETE |
+        Set-KrCorsHeader -Any |
+        Set-KrCorsPreflightMaxAge -Seconds 3600 |
+        Add-KrCorsPolicy -Default
+}
+
+Add-KrOpenApiInfo -Title 'Riverside Bike Rental Concurrent API' -Version '1.0.0' -Description 'Bike rental service example with a concurrent in-memory database, HTTPS, OpenAPI, staff authentication, persistent data, and optional CORS for an external web client.'
 
 # The route definitions are split into a separate file for clarity, but they could also be defined here.
 . $routesPath

@@ -84,12 +84,31 @@ public static class CertificateManager
 
         // SANs
         var altNames = o.DnsNames
-                        .Select(n => new GeneralName(
-                            IPAddress.TryParse(n, out _) ?
-                                GeneralName.IPAddress : GeneralName.DnsName, n))
+                        .Where(name => !string.IsNullOrWhiteSpace(name))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .Select(name =>
+                        {
+                            var sanValue = name.Trim();
+                            return new GeneralName(
+                                IPAddress.TryParse(sanValue, out _)
+                                    ? GeneralName.IPAddress
+                                    : GeneralName.DnsName,
+                                sanValue);
+                        })
                         .ToArray();
         gen.AddExtension(X509Extensions.SubjectAlternativeName, false,
                          new DerSequence(altNames));
+
+        // Identify this as a self-signed leaf certificate, not a CA certificate.
+        gen.AddExtension(X509Extensions.BasicConstraints, true, new BasicConstraints(false));
+
+        var subjectPublicKeyInfo = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(keyPair.Public);
+        var subjectKeyIdentifier = SubjectKeyIdentifier.CreateSha1KeyIdentifier(subjectPublicKeyInfo);
+        gen.AddExtension(X509Extensions.SubjectKeyIdentifier, false, subjectKeyIdentifier);
+        gen.AddExtension(
+            X509Extensions.AuthorityKeyIdentifier,
+            false,
+            new AuthorityKeyIdentifier(subjectKeyIdentifier.GetKeyIdentifier()));
 
         // EKU
         var eku = o.Purposes ??
@@ -100,9 +119,15 @@ public static class CertificateManager
         gen.AddExtension(X509Extensions.ExtendedKeyUsage, false,
                          new ExtendedKeyUsage([.. eku]));
 
-        // KeyUsage – allow digitalSignature & keyEncipherment
+        // KeyUsage – tailor for the selected key algorithm.
+        var keyUsage =
+            o.KeyUsageFlags is { } explicitKeyUsage
+                ? (int)explicitKeyUsage
+                : o.KeyType == KeyType.Rsa
+                    ? KeyUsage.DigitalSignature | KeyUsage.KeyEncipherment
+                    : KeyUsage.DigitalSignature;
         gen.AddExtension(X509Extensions.KeyUsage, true,
-                         new KeyUsage(KeyUsage.DigitalSignature | KeyUsage.KeyEncipherment));
+                         new KeyUsage(keyUsage));
 
         // ── 3. Sign & output ──────────────────────────────────────────────────────
         var sigAlg = o.KeyType == KeyType.Rsa ? "SHA256WITHRSA" : "SHA384WITHECDSA";

@@ -12,6 +12,8 @@
         The length of the key in bits (only applicable for RSA).
     .PARAMETER ValidDays
         The number of days the certificate will be valid.
+    .PARAMETER KeyUsage
+        Optional X.509 Key Usage flags to apply to the certificate.
     .PARAMETER Ephemeral
         Indicates whether the certificate is ephemeral (temporary).
     .PARAMETER Exportable
@@ -41,15 +43,20 @@ function New-KrSelfSignedCertificate {
         [ValidateRange(1, 3650)]
         [int]$ValidDays = 365,
 
+        [System.Security.Cryptography.X509Certificates.X509KeyUsageFlags]$KeyUsage,
+
         [switch]$Ephemeral,
         [switch]$Exportable
     )
+
+    $keyUsageFlags = if ($PSBoundParameters.ContainsKey('KeyUsage')) { $KeyUsage } else { $null }
 
     $opts = [Kestrun.Certificates.SelfSignedOptions]::new(
         $DnsNames,
         [Kestrun.Certificates.KeyType]::$KeyType,
         $KeyLength,
         $null,      # purposes
+        $keyUsageFlags,
         $ValidDays,
         $Ephemeral.IsPresent,
         $Exportable.IsPresent

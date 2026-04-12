@@ -2,6 +2,7 @@ using System.Security;
 using Kestrun.Certificates;
 using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Pkcs;
+using Org.BouncyCastle.Asn1;
 using Org.BouncyCastle.Asn1.Pkcs;
 using Org.BouncyCastle.Asn1.X509;
 using Xunit;
@@ -13,7 +14,7 @@ namespace Kestrun.Tests.Certificates;
 public class CertificateManagerTest
 {
     private static SelfSignedOptions DefaultSelfSignedOptions()
-        => new(["localhost", "127.0.0.1"],
+        => new(["localhost", "127.0.0.1", "::1"],
                KeyType: KeyType.Rsa,
                KeyLength: 2048,
                ValidDays: 30,
@@ -44,6 +45,59 @@ public class CertificateManagerTest
             .ToHashSet();
         Assert.Contains("1.3.6.1.5.5.7.3.1", eku); // serverAuth
         Assert.Contains("1.3.6.1.5.5.7.3.2", eku); // clientAuth
+    }
+
+    [Fact]
+    [Trait("Category", "Certificates")]
+    public void NewSelfSigned_EmitsLoopbackIpSans_AndLeafExtensions()
+    {
+        var cert = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+
+        var extensions = cert.Extensions;
+        var san = extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>().SingleOrDefault(e => e.Oid?.Value == "2.5.29.17");
+        Assert.NotNull(san);
+
+        var generalNames = GeneralNames.GetInstance(Asn1Object.FromByteArray(san!.RawData)).GetNames();
+        Assert.Contains(generalNames, n => n.TagNo == GeneralName.DnsName && string.Equals(n.Name.ToString(), "localhost", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(2, generalNames.Count(n => n.TagNo == GeneralName.IPAddress));
+
+        var basicConstraints = Assert.IsType<X509BasicConstraintsExtension>(extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>().Single(e => e.Oid?.Value == "2.5.29.19"));
+        Assert.True(basicConstraints.Critical);
+        Assert.False(basicConstraints.CertificateAuthority);
+
+        Assert.NotNull(extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>().SingleOrDefault(e => e.Oid?.Value == "2.5.29.14")); // Subject Key Identifier
+        Assert.NotNull(extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>().SingleOrDefault(e => e.Oid?.Value == "2.5.29.35")); // Authority Key Identifier
+    }
+
+    [Fact]
+    [Trait("Category", "Certificates")]
+    public void NewSelfSigned_Ecdsa_UsesDigitalSignatureOnlyKeyUsage()
+    {
+        var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+            "localhost", "::1"
+        ], KeyType: KeyType.Ecdsa, KeyLength: 256, ValidDays: 30, Ephemeral: true, Exportable: true));
+
+        var keyUsage = Assert.IsType<X509KeyUsageExtension>(cert.Extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>().Single(e => e.Oid?.Value == "2.5.29.15"));
+        Assert.True(keyUsage.Critical);
+        Assert.Equal(X509KeyUsageFlags.DigitalSignature, keyUsage.KeyUsages);
+    }
+
+    [Fact]
+    [Trait("Category", "Certificates")]
+    public void NewSelfSigned_UsesExplicitKeyUsageFlags_WhenProvided()
+    {
+        var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+            "localhost", "127.0.0.1"
+        ],
+        KeyType: KeyType.Rsa,
+        KeyLength: 2048,
+        KeyUsageFlags: X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.DataEncipherment,
+        ValidDays: 30,
+        Ephemeral: true,
+        Exportable: true));
+
+        var keyUsage = Assert.IsType<X509KeyUsageExtension>(cert.Extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>().Single(e => e.Oid?.Value == "2.5.29.15"));
+        Assert.Equal(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.DataEncipherment, keyUsage.KeyUsages);
     }
 
     [Fact]

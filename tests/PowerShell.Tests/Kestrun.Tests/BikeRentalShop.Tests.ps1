@@ -7,8 +7,9 @@ Describe 'Bike rental shop example' {
     BeforeAll {
         $script:exampleRoot = Join-Path -Path 'examples' -ChildPath 'PowerShell' -AdditionalChildPath 'BikeRentalShop'
         $script:scriptPath = Join-Path $script:exampleRoot 'Service.ps1'
-        $script:statePath = Join-Path $script:exampleRoot 'data\bike-rental-state.json'
-        $script:backupPath = Join-Path ([System.IO.Path]::GetTempPath()) ('bike-rental-state-' + [Guid]::NewGuid().ToString('N') + '.json')
+        $script:statePath = Join-Path $script:exampleRoot 'data\bike-rental-state.clixml'
+        $script:backupPath = Join-Path ([System.IO.Path]::GetTempPath()) ('bike-rental-state-' + [Guid]::NewGuid().ToString('N') + '.clixml')
+        $script:legacyStatePath = Join-Path $script:exampleRoot 'data\bike-rental-state.json'
         $script:staffHeaders = @{ 'X-Api-Key' = 'bike-shop-demo-key' }
         $script:stateExisted = Test-Path -LiteralPath $script:statePath -PathType Leaf
 
@@ -65,7 +66,12 @@ Describe 'Bike rental shop example' {
             lastUpdatedUtc = '2026-04-06T00:00:00.0000000Z'
         }
 
-        $state | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $script:statePath -Encoding utf8NoBOM
+        Export-KrSharedState -InputObject $state -Path $script:statePath | Out-Null
+
+        if (Test-Path -LiteralPath $script:legacyStatePath -PathType Leaf) {
+            Remove-Item -LiteralPath $script:legacyStatePath -Force
+        }
+
         $script:instance = Start-ExampleScript -Name $script:scriptPath -FromRootDirectory -RunInPlace
         $null = Wait-ExampleRoute -Instance $script:instance -Route '/' -ExpectedStatus 200 -TimeoutSeconds 30
     }

@@ -192,8 +192,6 @@ function createRental {
         $bike['currentRentalId'] = $rentalId
         $State['rentals'] = @($State['rentals']) + $rental
 
-        Write-KrLog -Level Information -Message 'Created rental {rentalId} for bike {bikeId}.' -Values $rentalId, $bike['bikeId']
-
         return [ordered]@{
             StatusCode = 201
             Payload = New-RentalStatusObject -Rental $rental -Bike $bike
@@ -205,6 +203,7 @@ function createRental {
         return
     }
 
+    Write-KrLog -Level Information -Message 'Created rental {rentalId} for bike {bikeId}.' -Values $result['Payload'].rentalId, $result['Payload'].bikeId
     Write-KrJsonResponse -InputObject $result['Payload'] -StatusCode 201
 }
 
@@ -358,8 +357,6 @@ function addBike {
 
         $State['bikes'] = @($State['bikes']) + $bike
 
-        Write-KrLog -Level Information -Message 'Added bike {bikeId} to inventory.' -Values $bike['bikeId']
-
         return [ordered]@{
             StatusCode = 201
             Payload = New-BikeCatalogItemObject -Bike $bike
@@ -371,6 +368,7 @@ function addBike {
         return
     }
 
+    Write-KrLog -Level Information -Message 'Added bike {bikeId} to inventory.' -Values $result['Payload'].bikeId
     Write-KrJsonResponse -InputObject $result['Payload'] -StatusCode 201
 }
 
@@ -421,8 +419,6 @@ function removeBike {
 
         $State['bikes'] = @($bikes | Where-Object { [string]$_['bikeId'] -ne $bikeId })
 
-        Write-KrLog -Level Information -Message 'Removed bike {bikeId} from inventory.' -Values $bikeId
-
         return [ordered]@{
             StatusCode = 200
             Payload = New-BikeCatalogItemObject -Bike $bike
@@ -434,6 +430,7 @@ function removeBike {
         return
     }
 
+    Write-KrLog -Level Information -Message 'Removed bike {bikeId} from inventory.' -Values $result['Payload'].bikeId
     Write-KrJsonResponse -InputObject $result['Payload'] -StatusCode 200
 }
 
@@ -499,8 +496,6 @@ function returnRental {
             $bike['currentRentalId'] = $null
         }
 
-        Write-KrLog -Level Information -Message 'Closed rental {rentalId} for bike {bikeId}.' -Values $rentalId, $rental['bikeId']
-
         return [ordered]@{
             StatusCode = 200
             Payload = New-RentalStatusObject -Rental $rental -Bike $bike
@@ -512,5 +507,6 @@ function returnRental {
         return
     }
 
+    Write-KrLog -Level Information -Message 'Closed rental {rentalId} for bike {bikeId}.' -Values $result['Payload'].rentalId, $result['Payload'].bikeId
     Write-KrJsonResponse -InputObject $result['Payload'] -StatusCode 200
 }

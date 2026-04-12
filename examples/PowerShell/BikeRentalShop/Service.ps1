@@ -52,12 +52,22 @@ Initialize-KrRoot -Path $PSScriptRoot
 $DataRoot = Join-Path $PSScriptRoot 'data'
 $LogsRoot = Join-Path $PSScriptRoot 'logs'
 $CertificateRoot = Join-Path $DataRoot 'certs'
-$StatePath = Join-Path $DataRoot 'bike-rental-state.json'
-$CertificatePath = Join-Path $CertificateRoot 'bike-rental-shop-devcert.pfx'
+
+# If the certificate Path doesn't exist, create the directory. The certificate will be created on demand by Get-BikeRentalCertificate and saved to this path for reuse across restarts, so it needs to be writable.
+if (-not (Test-Path -Path $CertificateRoot -PathType Container)) {
+    New-Item -Path $CertificateRoot -ItemType Directory -Force | Out-Null
+}
 $CertificatePassword = 'bike-rental-demo'
+$CertificatePath = Join-Path $CertificateRoot 'bike-rental-shop-devcert.pfx'
+
+
+$StatePath = Join-Path $DataRoot 'bike-rental-state.clixml'
+$LegacyStatePath = Join-Path $DataRoot 'bike-rental-state.json'
+$BikeRentalStateStore = $null
+$BikeRentalStateLockKey = 'BikeRentalShop.State'
+
 $StaffScheme = 'BikeRentalStaffApiKey'
 $StaffApiKey = 'bike-shop-demo-key'
-$StateMutex = [System.Threading.Mutex]::new($false, 'Kestrun.BikeRentalShop.State')
 
 $stateScriptPath = Join-Path $PSScriptRoot 'Private/State.ps1'
 if (-not (Test-Path -LiteralPath $stateScriptPath -PathType Leaf)) {
@@ -71,28 +81,45 @@ if (-not (Test-Path -LiteralPath $openApiScriptPath -PathType Leaf)) {
     exit 1
 }
 
+$routesPath = Join-Path $PSScriptRoot 'Private/Routes.ps1'
+if (-not (Test-Path -LiteralPath $routesPath -PathType Leaf)) {
+    Write-Error 'Required service file not found: Private/Routes.ps1'
+    exit 1
+}
+
 # Keep split OpenAPI declarations dot-sourced via literal paths so the annotation scanner can discover components.
 . "$PSScriptRoot/Private/State.ps1"
 . "$PSScriptRoot/Private/OpenApi.ps1"
 
-Initialize-BikeRentalStorage
 
-New-KrLogger |
-    Set-KrLoggerLevel -Value Debug |
-    Add-KrSinkFile -Path (Join-Path $LogsRoot 'bike-rental-shop.log') -RollingInterval Day |
-    Add-KrSinkConsole |
-    Register-KrLogger -Name 'DefaultLogger' -SetAsDefault
 
+# Get or create the certificate before starting the server so it's available for HTTPS configuration and we can fail early if there's an issue with the certificate setup.
 $certificate = Get-BikeRentalCertificate -CertificatePath $CertificatePath -CertificatePassword (ConvertTo-SecureString -String $CertificatePassword -AsPlainText -Force)
 if (-not (Test-KrCertificate -Certificate $certificate)) {
     Write-Error 'Bike rental shop certificate validation failed.'
     exit 1
 }
 
+$BikeRentalStateStore = Initialize-BikeRentalStorage
+
+$routesPath = Join-Path $PSScriptRoot 'Private/Routes.ps1'
+if (-not (Test-Path -LiteralPath $routesPath -PathType Leaf)) {
+    Write-Error 'Required service file not found: Private/Routes.ps1'
+    exit 1
+}
+# The service descriptor is defined in the .psd1 file with the same base name as this script, so it can be automatically discovered by Kestrun when packaging.
+
+# Configure logging, server, middleware, and OpenAPI documentation before defining routes so they're available globally.
+New-KrLogger |
+    Set-KrLoggerLevel -Value Debug |
+    Add-KrSinkFile -Path (Join-Path $LogsRoot 'bike-rental-shop.log') -RollingInterval Day |
+    Add-KrSinkConsole |
+    Register-KrLogger -Name 'DefaultLogger' -SetAsDefault
+
 New-KrServer -Name 'Riverside Bike Rental'
 Set-KrServerOptions -DenyServerHeader
 Set-KrServerLimit -MaxRequestBodySize 1048576 -MaxConcurrentConnections 200 -MaxRequestHeaderCount 100 -KeepAliveTimeoutSeconds 120
-Add-KrEndpoint -Port $Port -IPAddress $IPAddress -X509Certificate $certificate -Protocols Http1AndHttp2
+Add-KrEndpoint -Port $Port -IPAddress $IPAddress -X509Certificate $certificate -Protocols Http1
 Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @('application/json', 'text/plain')
 Add-KrFaviconMiddleware
 
@@ -101,39 +128,16 @@ Add-KrApiKeyAuthentication -AuthenticationScheme $StaffScheme -ApiKeyName 'X-Api
 Add-KrOpenApiInfo -Title 'Riverside Bike Rental API' -Version '1.0.0' -Description 'Bike rental service bundle example with HTTPS, OpenAPI, staff authentication, and persistent data.'
 #Add-KrOpenApiServer -Url ("https://{0}:{1}" -f $IPAddress.IPAddressToString, $Port) -Description 'Local HTTPS endpoint'
 
-$routesPath = Join-Path $PSScriptRoot 'Private/Routes.ps1'
-if (-not (Test-Path -LiteralPath $routesPath -PathType Leaf)) {
-    Write-Error 'Required service file not found: Private/Routes.ps1'
-    exit 1
-}
-
+# The route definitions are split into a separate file for clarity, but they could also be defined here. Keep the dot-sourcing via literal path so the annotation scanner can discover API components.
 . $routesPath
-
-$helperFunctions = @(
-    'Invoke-BikeRentalStateLock'
-    'Get-BikeRentalDefaultState'
-    'Save-BikeRentalStateUnsafe'
-    'Read-BikeRentalStateUnsafe'
-    'Initialize-BikeRentalStorage'
-    'Get-BikeRentalState'
-    'Update-BikeRentalState'
-    'Write-BikeRentalError'
-    'Get-BikeRentalCertificate'
-    'New-BikeCatalogItemObject'
-    'New-RentalStatusObject'
-)
-
-foreach ($helperFunction in $helperFunctions) {
-    $functionInfo = Get-Command -Name $helperFunction -CommandType Function -ErrorAction SilentlyContinue
-    if ($null -ne $functionInfo) {
-        Set-Item -Path ("Function:\global:{0}" -f $helperFunction) -Value $functionInfo.ScriptBlock -Force
-    }
-}
 
 Enable-KrConfiguration
 
-Add-KrApiDocumentationRoute -DocumentType Swagger -OpenApiEndpoint '/openapi/v3.1/openapi.json'
-Add-KrApiDocumentationRoute -DocumentType Redoc -OpenApiEndpoint '/openapi/v3.1/openapi.json'
+Add-KrApiDocumentationRoute -DocumentType Swagger
+Add-KrApiDocumentationRoute -DocumentType Redoc
+Add-KrApiDocumentationRoute -DocumentType Rapidoc
+Add-KrApiDocumentationRoute -DocumentType Scalar
+Add-KrApiDocumentationRoute -DocumentType Elements
 
 Add-KrOpenApiRoute
 

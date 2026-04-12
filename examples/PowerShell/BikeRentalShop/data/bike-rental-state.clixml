@@ -1,0 +1,250 @@
+﻿<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04">
+  <Obj RefId="0">
+    <TN RefId="0">
+      <T>System.Collections.Hashtable+SyncHashtable</T>
+      <T>System.Collections.Hashtable</T>
+      <T>System.Object</T>
+    </TN>
+    <DCT>
+      <En>
+        <S N="Key">lastUpdatedUtc</S>
+        <S N="Value">2026-04-12T16:44:46.7356589Z</S>
+      </En>
+      <En>
+        <S N="Key">shopName</S>
+        <S N="Value">Riverside Bike Rental</S>
+      </En>
+      <En>
+        <S N="Key">bikes</S>
+        <Obj N="Value" RefId="1">
+          <TN RefId="1">
+            <T>System.Object[]</T>
+            <T>System.Array</T>
+            <T>System.Object</T>
+          </TN>
+          <LST>
+            <Obj RefId="2">
+              <TN RefId="2">
+                <T>System.Collections.Hashtable</T>
+                <T>System.Object</T>
+              </TN>
+              <DCT>
+                <En>
+                  <S N="Key">lastServiceDate</S>
+                  <S N="Value">2026-03-10</S>
+                </En>
+                <En>
+                  <S N="Key">currentRentalId</S>
+                  <Nil N="Value" />
+                </En>
+                <En>
+                  <S N="Key">dock</S>
+                  <S N="Value">front-window</S>
+                </En>
+                <En>
+                  <S N="Key">model</S>
+                  <S N="Value">City Loop 3</S>
+                </En>
+                <En>
+                  <S N="Key">type</S>
+                  <S N="Value">city</S>
+                </En>
+                <En>
+                  <S N="Key">status</S>
+                  <S N="Value">available</S>
+                </En>
+                <En>
+                  <S N="Key">bikeId</S>
+                  <S N="Value">bk-100</S>
+                </En>
+                <En>
+                  <S N="Key">hourlyRate</S>
+                  <Db N="Value">12</Db>
+                </En>
+              </DCT>
+            </Obj>
+            <Obj RefId="3">
+              <TNRef RefId="2" />
+              <DCT>
+                <En>
+                  <S N="Key">lastServiceDate</S>
+                  <S N="Value">2026-03-19</S>
+                </En>
+                <En>
+                  <S N="Key">currentRentalId</S>
+                  <Nil N="Value" />
+                </En>
+                <En>
+                  <S N="Key">dock</S>
+                  <S N="Value">service-bay</S>
+                </En>
+                <En>
+                  <S N="Key">model</S>
+                  <S N="Value">Trail Runner X</S>
+                </En>
+                <En>
+                  <S N="Key">type</S>
+                  <S N="Value">mountain</S>
+                </En>
+                <En>
+                  <S N="Key">status</S>
+                  <S N="Value">available</S>
+                </En>
+                <En>
+                  <S N="Key">bikeId</S>
+                  <S N="Value">bk-205</S>
+                </En>
+                <En>
+                  <S N="Key">hourlyRate</S>
+                  <Db N="Value">18.5</Db>
+                </En>
+              </DCT>
+            </Obj>
+            <Obj RefId="4">
+              <TNRef RefId="2" />
+              <DCT>
+                <En>
+                  <S N="Key">lastServiceDate</S>
+                  <S N="Value">2026-03-28</S>
+                </En>
+                <En>
+                  <S N="Key">currentRentalId</S>
+                  <Nil N="Value" />
+                </En>
+                <En>
+                  <S N="Key">dock</S>
+                  <S N="Value">north-rack</S>
+                </En>
+                <En>
+                  <S N="Key">model</S>
+                  <S N="Value">Metro Glide Hybrid</S>
+                </En>
+                <En>
+                  <S N="Key">type</S>
+                  <S N="Value">hybrid</S>
+                </En>
+                <En>
+                  <S N="Key">status</S>
+                  <S N="Value">available</S>
+                </En>
+                <En>
+                  <S N="Key">bikeId</S>
+                  <S N="Value">bk-310</S>
+                </En>
+                <En>
+                  <S N="Key">hourlyRate</S>
+                  <Db N="Value">15.25</Db>
+                </En>
+              </DCT>
+            </Obj>
+            <Obj RefId="5">
+              <TNRef RefId="2" />
+              <DCT>
+                <En>
+                  <S N="Key">lastServiceDate</S>
+                  <S N="Value">2026-04-01</S>
+                </En>
+                <En>
+                  <S N="Key">currentRentalId</S>
+                  <Nil N="Value" />
+                </En>
+                <En>
+                  <S N="Key">dock</S>
+                  <S N="Value">charging-wall</S>
+                </En>
+                <En>
+                  <S N="Key">model</S>
+                  <S N="Value">Coastline E-Bike</S>
+                </En>
+                <En>
+                  <S N="Key">type</S>
+                  <S N="Value">electric</S>
+                </En>
+                <En>
+                  <S N="Key">status</S>
+                  <S N="Value">available</S>
+                </En>
+                <En>
+                  <S N="Key">bikeId</S>
+                  <S N="Value">bk-402</S>
+                </En>
+                <En>
+                  <S N="Key">hourlyRate</S>
+                  <Db N="Value">24</Db>
+                </En>
+              </DCT>
+            </Obj>
+          </LST>
+        </Obj>
+      </En>
+      <En>
+        <S N="Key">rentals</S>
+        <Obj N="Value" RefId="6">
+          <TNRef RefId="1" />
+          <LST>
+            <Obj RefId="7">
+              <TN RefId="3">
+                <T>System.Collections.Specialized.OrderedDictionary</T>
+                <T>System.Object</T>
+              </TN>
+              <DCT>
+                <En>
+                  <S N="Key">rentalId</S>
+                  <S N="Value">rent-03a2c943a6f1</S>
+                </En>
+                <En>
+                  <S N="Key">bikeId</S>
+                  <S N="Value">bk-100</S>
+                </En>
+                <En>
+                  <S N="Key">customerName</S>
+                  <S N="Value">Ava Flores</S>
+                </En>
+                <En>
+                  <S N="Key">phone</S>
+                  <S N="Value">+1-202-555-0148</S>
+                </En>
+                <En>
+                  <S N="Key">plannedHours</S>
+                  <I32 N="Value">3</I32>
+                </En>
+                <En>
+                  <S N="Key">startedAtUtc</S>
+                  <S N="Value">2026-04-12T16:44:38.4003889Z</S>
+                </En>
+                <En>
+                  <S N="Key">dueAtUtc</S>
+                  <S N="Value">2026-04-12T19:44:38.4003889Z</S>
+                </En>
+                <En>
+                  <S N="Key">returnedAtUtc</S>
+                  <S N="Value">2026-04-12T16:44:46.7333483Z</S>
+                </En>
+                <En>
+                  <S N="Key">pickupCode</S>
+                  <S N="Value">741780</S>
+                </En>
+                <En>
+                  <S N="Key">status</S>
+                  <S N="Value">returned</S>
+                </En>
+                <En>
+                  <S N="Key">totalEstimate</S>
+                  <Db N="Value">36</Db>
+                </En>
+                <En>
+                  <S N="Key">conditionNotes</S>
+                  <S N="Value">Returned clean and ready for the next rider.</S>
+                </En>
+              </DCT>
+            </Obj>
+          </LST>
+        </Obj>
+      </En>
+      <En>
+        <S N="Key">currency</S>
+        <S N="Value">USD</S>
+      </En>
+    </DCT>
+  </Obj>
+</Objs>

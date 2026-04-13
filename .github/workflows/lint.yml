@@ -131,7 +131,7 @@ jobs:
             - name: 💬 Comment on PR with instructions (best-effort)
               if: ${{ failure() && inputs.is_pr }}
               continue-on-error: true
-              uses: actions/github-script@v8
+              uses: actions/github-script@v9
               with:
                   script: |
                       const parts = [];

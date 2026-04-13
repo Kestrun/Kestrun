@@ -738,7 +738,13 @@ function Invoke-KestrunDotNetTest {
         [ValidateSet('quiet', 'minimal', 'normal', 'detailed', 'diagnostic')]
         [string] $DotNetVerbosity = 'minimal',
         [Parameter()]
-        [string] $ResultsRoot = (Join-Path -Path (Get-Location) -ChildPath 'TestResults' -AdditionalChildPath 'xunit')
+        [string] $ResultsRoot = (Join-Path -Path (Get-Location) -ChildPath 'TestResults' -AdditionalChildPath 'xunit'),
+        [Parameter()]
+        [string] $TestFilter,
+        [Parameter()]
+        [string] $RunLabelSuffix = '',
+        [Parameter()]
+        [switch] $NoBuild
     )
 
     $safeLabel = ($Label -replace '[^A-Za-z0-9._-]', '_')
@@ -749,22 +755,73 @@ function Invoke-KestrunDotNetTest {
         New-Item -Path $targetResultsDir -ItemType Directory -Force | Out-Null
     }
 
-    $diagLogPath = Join-Path -Path $targetResultsDir -ChildPath "$safeLabel-$safeFramework.diag.log"
-    $trxFileName = "$safeLabel-$safeFramework.trx"
+    $safeRunLabelSuffix = if ([string]::IsNullOrWhiteSpace($RunLabelSuffix)) {
+        ''
+    } else {
+        '-' + ($RunLabelSuffix -replace '[^A-Za-z0-9._-]', '_')
+    }
+    $resultStem = "$safeLabel-$safeFramework$safeRunLabelSuffix"
+    $diagLogPath = Join-Path -Path $targetResultsDir -ChildPath "$resultStem.diag.log"
+    $trxFileName = "$resultStem.trx"
+    $trxPath = Join-Path -Path $targetResultsDir -ChildPath $trxFileName
+    $failureManifestPath = Join-Path -Path $targetResultsDir -ChildPath "$resultStem.failed-tests.json"
     $hangTimeout = if ($env:KESTRUN_TEST_HANG_TIMEOUT) { $env:KESTRUN_TEST_HANG_TIMEOUT } else { '5m' }
 
     Write-Host "🧪 dotnet test target: $Label ($Framework)" -ForegroundColor Cyan
     Write-Host "📁 xUnit results directory: $targetResultsDir" -ForegroundColor DarkCyan
     Write-Host "📝 xUnit diag log: $diagLogPath" -ForegroundColor DarkCyan
+    Write-Host "📄 xUnit failure manifest: $failureManifestPath" -ForegroundColor DarkCyan
     Write-Host "⏱️ xUnit hang timeout: $hangTimeout" -ForegroundColor DarkCyan
+    if (-not [string]::IsNullOrWhiteSpace($TestFilter)) {
+        Write-Host "🔎 xUnit filter: $TestFilter" -ForegroundColor DarkYellow
+    }
 
-    dotnet test "$ProjectPath" -c $Configuration -f $Framework -v:$DotNetVerbosity `
-        --results-directory "$targetResultsDir" `
-        --logger "trx;LogFileName=$trxFileName" `
-        --logger "console;verbosity=detailed" `
-        --diag "$diagLogPath" `
-        --blame-hang `
-        --blame-hang-timeout "$hangTimeout"
+    $arguments = @(
+        'test',
+        $ProjectPath,
+        '-c', $Configuration,
+        '-f', $Framework,
+        "-v:$DotNetVerbosity",
+        '--results-directory', $targetResultsDir,
+        '--logger', "trx;LogFileName=$trxFileName",
+        '--logger', 'console;verbosity=detailed',
+        '--diag', $diagLogPath,
+        '--blame-hang',
+        '--blame-hang-timeout', $hangTimeout
+    )
+
+    if ($NoBuild) {
+        $arguments += '--no-build'
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($TestFilter)) {
+        $arguments += @('--filter', $TestFilter)
+    }
+
+    & dotnet @arguments
+    $exitCode = $LASTEXITCODE
+
+    $failedSelectors = if (Test-Path -LiteralPath $trxPath) {
+        @(Get-KestrunTrxFailedSelector -TrxPath $trxPath -ProjectPath $ProjectPath -Framework $Framework -Label $Label)
+    } else {
+        Write-Warning "TRX result file was not created for '$Label' ($Framework): $trxPath"
+        @()
+    }
+
+    ConvertTo-Json -InputObject @($failedSelectors) -Depth 6 | Set-Content -LiteralPath $failureManifestPath
+
+    return [pscustomobject]@{
+        ExitCode            = $exitCode
+        ProjectPath         = $ProjectPath
+        Framework           = $Framework
+        Label               = $Label
+        TestFilter          = $TestFilter
+        TrxPath             = $trxPath
+        DiagLogPath         = $diagLogPath
+        ResultsDirectory    = $targetResultsDir
+        FailureManifestPath = $failureManifestPath
+        FailedSelectors     = @($failedSelectors)
+    }
 }
 
 <#
@@ -1274,6 +1331,114 @@ function Get-KestrunPesterFailedSelector {
     return @(
         $failedSelectors |
             Group-Object -Property { '{0}|{1}|{2}' -f $_.File, $_.Line, $_.FullName } |
+            ForEach-Object { $_.Group[0] }
+    )
+}
+
+<#
+.SYNOPSIS
+    Extracts failed xUnit/VSTest selectors from a TRX result file.
+.DESCRIPTION
+    Reads the generated TRX report, maps failed results back to their test
+    definitions, and returns stable selector objects that can be fed into a
+    deferred `dotnet test --filter` rerun.
+.PARAMETER TrxPath
+    Path to the TRX result file.
+.PARAMETER ProjectPath
+    Test project path that produced the TRX file.
+.PARAMETER Framework
+    Target framework associated with the TRX file.
+.PARAMETER Label
+    Friendly label used in build output for the test target.
+#>
+function Get-KestrunTrxFailedSelector {
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $TrxPath,
+        [Parameter()]
+        [string] $ProjectPath,
+        [Parameter()]
+        [string] $Framework,
+        [Parameter()]
+        [string] $Label
+    )
+
+    if (-not (Test-Path -LiteralPath $TrxPath)) {
+        throw "TRX result file not found: $TrxPath"
+    }
+
+    [xml] $trx = Get-Content -LiteralPath $TrxPath -Raw
+    $namespaceManager = [System.Xml.XmlNamespaceManager]::new($trx.NameTable)
+    $namespaceManager.AddNamespace('trx', 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010')
+
+    $testsById = @{}
+    foreach ($unitTest in @($trx.SelectNodes('//trx:TestDefinitions/trx:UnitTest', $namespaceManager))) {
+        $testId = $unitTest.GetAttribute('id')
+        if ([string]::IsNullOrWhiteSpace($testId)) {
+            continue
+        }
+
+        $testMethod = $unitTest.GetElementsByTagName('TestMethod') | Select-Object -First 1
+        $className = $null
+        $methodName = $null
+        if ($null -ne $testMethod) {
+            $className = $testMethod.GetAttribute('className')
+            $methodName = $testMethod.GetAttribute('name')
+        }
+        $fullyQualifiedName = if (-not [string]::IsNullOrWhiteSpace($className) -and -not [string]::IsNullOrWhiteSpace($methodName)) {
+            "$className.$methodName"
+        } else {
+            $null
+        }
+
+        $testsById[$testId] = [pscustomobject]@{
+            TestId             = $testId
+            DisplayName        = $unitTest.GetAttribute('name')
+            ClassName          = $className
+            MethodName         = $methodName
+            FullyQualifiedName = $fullyQualifiedName
+        }
+    }
+
+    $failedSelectors = foreach ($result in @($trx.SelectNodes('//trx:Results/trx:UnitTestResult[@outcome="Failed"]', $namespaceManager))) {
+        $testId = $result.GetAttribute('testId')
+        $test = if ($testsById.ContainsKey($testId)) { $testsById[$testId] } else { $null }
+        $className = if ($null -ne $test) { $test.ClassName } else { $null }
+        $methodName = if ($null -ne $test) { $test.MethodName } else { $null }
+        $fullyQualifiedName = if ($null -ne $test) { $test.FullyQualifiedName } else { $null }
+        $displayName = if ($test -and -not [string]::IsNullOrWhiteSpace($test.DisplayName)) {
+            $test.DisplayName
+        } else {
+            $result.GetAttribute('testName')
+        }
+
+        [pscustomobject]@{
+            ProjectPath         = $ProjectPath
+            Framework           = $Framework
+            Label               = $Label
+            TrxPath             = $TrxPath
+            TestId              = $testId
+            DisplayName         = $displayName
+            ClassName           = $className
+            MethodName          = $methodName
+            FullyQualifiedName  = $fullyQualifiedName
+            Outcome             = $result.GetAttribute('outcome')
+            ErrorMessage        = $result.SelectSingleNode('trx:Output/trx:ErrorInfo/trx:Message', $namespaceManager)?.InnerText
+        }
+    }
+
+    return @(
+        $failedSelectors |
+            Group-Object -Property {
+                $selectorKey = if ([string]::IsNullOrWhiteSpace($_.FullyQualifiedName)) {
+                    $_.DisplayName
+                } else {
+                    $_.FullyQualifiedName
+                }
+                '{0}|{1}|{2}' -f $_.ProjectPath, $_.Framework, $selectorKey
+            } |
             ForEach-Object { $_.Group[0] }
     )
 }

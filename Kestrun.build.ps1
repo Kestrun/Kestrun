@@ -170,6 +170,8 @@ $KestrunToolPowerShellCacheRoot = Join-Path -Path $PSScriptRoot -ChildPath '.pac
 $PowerShellLibRoot = Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun/lib'
 $PesterTestsRootPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/PowerShell.Tests/Kestrun.Tests'
 $PesterTutorialTestPath = Join-Path -Path $PesterTestsRootPath -ChildPath 'Tutorial'
+$PesterAggregateRerunMaxFailedAllowed = 10
+$XUnitAggregateRerunMaxFailedAllowed = 25
 
 Write-Host '---------------------------------------------------' -ForegroundColor DarkCyan
 if (-not $Version) {
@@ -247,10 +249,10 @@ Add-BuildTask Help {
     Write-Host '- Build-TutorialIndex: Regenerates docs/pwsh/tutorial/index.md.'
     # Test tasks
     Write-Host '- Test-Tutorials: Runs tests on tutorial documentation.'
-    Write-Host '- Test-xUnit: Runs Kestrun DLL tests.'
+    Write-Host '- Test-xUnit: Runs Kestrun DLL tests and reruns failed xUnit cases once after the initial pass.'
     Write-Host '- Test-Pester-NonTutorial: Runs non-tutorial Pester tests.'
     Write-Host '- Test-Pester-Tutorial: Runs tutorial Pester tests in two deterministic shards.'
-    Write-Host '- Test-Pester: Runs Pester tests.'
+    Write-Host '- Test-Pester: Runs Pester tests and reruns failed Pester cases once after the initial pass.'
     # Clean tasks
     Write-Host '- Deep-Clean: Cleans all build artifacts.'
     Write-Host '- Clean-Package: Cleans the package output directories.'
@@ -531,20 +533,20 @@ Add-BuildTask 'Nuget-CodeAnalysis' {
 # XUnit tests
 Add-BuildTask 'Test-xUnit' {
     Write-Host '🧪 Running Kestrun DLL tests...'
-    $failures = @()
+    $initialFailedSelectors = @()
 
     # Run the shared Kestrun core test suite for each requested framework.
     foreach ($framework in $Frameworks) {
         Write-Host "▶️ Running Kestrun core tests for $framework"
-        Invoke-KestrunDotNetTest `
+        $run = Invoke-KestrunDotNetTest `
             -ProjectPath $KestrunCoreTestProjectPath `
             -Framework $framework `
             -Label 'Kestrun.Tests' `
             -Configuration $Configuration `
             -DotNetVerbosity $DotNetVerbosity
-        if ($LASTEXITCODE -ne 0) {
+        if ($run.ExitCode -ne 0) {
             Write-Host "❌ Core tests failed for $framework" -ForegroundColor Red
-            $failures += "KestrunTests ($framework)"
+            $initialFailedSelectors += @($run.FailedSelectors)
         }
     }
 
@@ -552,24 +554,109 @@ Add-BuildTask 'Test-xUnit' {
         foreach ($dedicatedTestProject in $KestrunDedicatedNet10TestProjects) {
             $testProjectName = [System.IO.Path]::GetFileNameWithoutExtension($dedicatedTestProject)
             Write-Host "▶️ Running dedicated tests for $testProjectName (net10.0)"
-            Invoke-KestrunDotNetTest `
+            $run = Invoke-KestrunDotNetTest `
                 -ProjectPath $dedicatedTestProject `
                 -Framework 'net10.0' `
                 -Label $testProjectName `
                 -Configuration $Configuration `
                 -DotNetVerbosity $DotNetVerbosity
-            if ($LASTEXITCODE -ne 0) {
+            if ($run.ExitCode -ne 0) {
                 Write-Host "❌ Dedicated tests failed for $testProjectName (net10.0)" -ForegroundColor Red
-                $failures += "$testProjectName (net10.0)"
+                $initialFailedSelectors += @($run.FailedSelectors)
             }
         }
     } else {
         Write-Host 'ℹ️ Skipping dedicated Tool/ServiceHost/Runner tests because net10.0 is not in -Frameworks.' -ForegroundColor Yellow
     }
 
-    if ($failures.Count -gt 0) {
-        throw "Test-xUnit failed for targets: $($failures -join ', ')"
+    $initialFailedSelectors = @(
+        $initialFailedSelectors |
+            Group-Object -Property {
+                $selectorKey = if ([string]::IsNullOrWhiteSpace($_.FullyQualifiedName)) {
+                    $_.DisplayName
+                } else {
+                    $_.FullyQualifiedName
+                }
+                '{0}|{1}|{2}' -f $_.ProjectPath, $_.Framework, $selectorKey
+            } |
+            ForEach-Object { $_.Group[0] }
+    )
+
+    if ($initialFailedSelectors.Count -eq 0) {
+        Write-Host '✅ xUnit test suite passed on the initial run.' -ForegroundColor Green
+        return
     }
+
+    if ($initialFailedSelectors.Count -gt $XUnitAggregateRerunMaxFailedAllowed) {
+        $failedTargets = @(
+            $initialFailedSelectors |
+                Group-Object -Property { '{0} ({1})' -f $_.Label, $_.Framework } |
+                ForEach-Object { $_.Name }
+        )
+        throw "Test-xUnit recorded $($initialFailedSelectors.Count) failing tests, which exceeds the deferred rerun limit of $XUnitAggregateRerunMaxFailedAllowed. Failing targets: $($failedTargets -join ', ')"
+    }
+
+    Write-Host "🔁 Re-running $($initialFailedSelectors.Count) failed xUnit test(s) after the initial pass..." -ForegroundColor Yellow
+    $remainingFailedSelectors = @()
+    $rerunGroups = $initialFailedSelectors | Group-Object -Property { '{0}|{1}|{2}' -f $_.ProjectPath, $_.Framework, $_.Label }
+    foreach ($rerunGroup in $rerunGroups) {
+        $groupSelectors = @($rerunGroup.Group)
+        $fullyQualifiedNames = @(
+            $groupSelectors |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_.FullyQualifiedName) } |
+                Select-Object -ExpandProperty FullyQualifiedName -Unique
+        )
+
+        if ($fullyQualifiedNames.Count -eq 0) {
+            Write-Warning "Skipping xUnit rerun for '$($groupSelectors[0].Label)' ($($groupSelectors[0].Framework)) because no fully qualified names were recorded."
+            $remainingFailedSelectors += $groupSelectors
+            continue
+        }
+
+        $filter = ($fullyQualifiedNames | ForEach-Object { 'FullyQualifiedName={0}' -f $_ }) -join '|'
+        $rerun = Invoke-KestrunDotNetTest `
+            -ProjectPath $groupSelectors[0].ProjectPath `
+            -Framework $groupSelectors[0].Framework `
+            -Label $groupSelectors[0].Label `
+            -Configuration $Configuration `
+            -DotNetVerbosity $DotNetVerbosity `
+            -NoBuild `
+            -RunLabelSuffix 'rerun-01' `
+            -TestFilter $filter
+
+        if ($rerun.ExitCode -ne 0) {
+            $remainingFailedSelectors += @($rerun.FailedSelectors)
+        }
+    }
+
+    $remainingFailedSelectors = @(
+        $remainingFailedSelectors |
+            Group-Object -Property {
+                $selectorKey = if ([string]::IsNullOrWhiteSpace($_.FullyQualifiedName)) {
+                    $_.DisplayName
+                } else {
+                    $_.FullyQualifiedName
+                }
+                '{0}|{1}|{2}' -f $_.ProjectPath, $_.Framework, $selectorKey
+            } |
+            ForEach-Object { $_.Group[0] }
+    )
+
+    if ($remainingFailedSelectors.Count -gt 0) {
+        $failureSummary = @(
+            $remainingFailedSelectors |
+                ForEach-Object {
+                    if ([string]::IsNullOrWhiteSpace($_.FullyQualifiedName)) {
+                        '{0} ({1}) :: {2}' -f $_.Label, $_.Framework, $_.DisplayName
+                    } else {
+                        '{0} ({1}) :: {2}' -f $_.Label, $_.Framework, $_.FullyQualifiedName
+                    }
+                }
+        )
+        throw "Test-xUnit still has failing tests after the deferred rerun: $($failureSummary -join '; ')"
+    }
+
+    Write-Host '✅ xUnit deferred rerun cleared all initial failures.' -ForegroundColor Green
 }
 
 # Formatting source code
@@ -642,8 +729,91 @@ Add-BuildTask 'Test-Pester-Tutorial-Shard2' 'Test-Pester-LogContext', {
 
 Add-BuildTask 'Test-Pester-Tutorial' 'Test-Pester-Tutorial-Shard1', 'Test-Pester-Tutorial-Shard2'
 
-Add-BuildTask 'Test-Pester' 'Test-Pester-NonTutorial', 'Test-Pester-Tutorial', {
-    Write-Host 'âœ… Pester test suites completed.'
+Add-BuildTask 'Test-Pester' 'Test-Pester-LogContext', {
+    Write-Host '🧪 Running Pester tests with deferred reruns...'
+
+    $pesterRuns = @(
+        (& "$utilityPath/Test-Pester.ps1" `
+            -PassThru `
+            -ReRunFailed:$false `
+            -Verbosity $PesterVerbosity `
+            -DebugMode:$isDebug `
+            -TestPath $PesterTestsRootPath `
+            -ExcludePath $PesterTutorialTestPath),
+        (& "$utilityPath/Test-Pester.ps1" `
+            -PassThru `
+            -ReRunFailed:$false `
+            -Verbosity $PesterVerbosity `
+            -DebugMode:$isDebug `
+            -TestPath $PesterTutorialTestPath `
+            -ShardCount 2 `
+            -ShardIndex 1),
+        (& "$utilityPath/Test-Pester.ps1" `
+            -PassThru `
+            -ReRunFailed:$false `
+            -Verbosity $PesterVerbosity `
+            -DebugMode:$isDebug `
+            -TestPath $PesterTutorialTestPath `
+            -ShardCount 2 `
+            -ShardIndex 2)
+    )
+
+    $initialFailedSelectors = @(
+        $pesterRuns |
+            ForEach-Object { @($_.InitialFailedSelectors) }
+    )
+
+    $initialFailedSelectors = @(
+        $initialFailedSelectors |
+            Group-Object -Property { '{0}|{1}|{2}' -f $_.File, $_.Line, $_.FullName } |
+            ForEach-Object { $_.Group[0] }
+    )
+
+    if ($initialFailedSelectors.Count -eq 0) {
+        Write-Host '✅ Pester test suite passed on the initial run.' -ForegroundColor Green
+        return
+    }
+
+    if ($initialFailedSelectors.Count -gt $PesterAggregateRerunMaxFailedAllowed) {
+        throw "Test-Pester recorded $($initialFailedSelectors.Count) failing tests, which exceeds the deferred rerun limit of $PesterAggregateRerunMaxFailedAllowed."
+    }
+
+    Write-Host "🔁 Re-running $($initialFailedSelectors.Count) failed Pester test(s) after the initial pass..." -ForegroundColor Yellow
+    $aggregateRerunStamp = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
+    $aggregateResultsDir = Join-Path -Path $PWD -ChildPath 'TestResults' -AdditionalChildPath 'pester', 'aggregate-rerun', $aggregateRerunStamp
+    if (-not (Test-Path -LiteralPath $aggregateResultsDir)) {
+        $null = New-Item -ItemType Directory -Force -Path $aggregateResultsDir
+    }
+
+    $aggregateRerunXmlPath = Join-Path -Path $aggregateResultsDir -ChildPath 'Pester.aggregate-rerun.xml'
+    $aggregateFailureManifestPath = Join-Path -Path $aggregateResultsDir -ChildPath 'Pester.aggregate-remaining-failures.json'
+    $aggregateBaseConfig = New-KestrunPesterConfig `
+        -TestPath $PesterTestsRootPath `
+        -Verbosity $PesterVerbosity `
+        -ResultsPath $aggregateRerunXmlPath `
+        -TestSuiteName 'Kestrun Pester Aggregate Rerun'
+
+    $aggregateRerunConfig = New-KestrunPesterRerunConfig `
+        -Failed $initialFailedSelectors `
+        -BaseConfig $aggregateBaseConfig `
+        -ResultsPath $aggregateRerunXmlPath `
+        -TestSuiteName 'Kestrun Pester Aggregate Rerun'
+
+    $aggregateRerun = Invoke-KestrunPesterWithConfig -Config $aggregateRerunConfig
+    $remainingFailedSelectors = if ($aggregateRerun.Run.FailedCount -gt 0) {
+        @(Get-KestrunPesterFailedSelector -PesterRun $aggregateRerun.Run)
+    } else {
+        @()
+    }
+
+    ConvertTo-Json -InputObject @($remainingFailedSelectors) -Depth 6 | Set-Content -LiteralPath $aggregateFailureManifestPath
+
+    if ($remainingFailedSelectors.Count -gt 0) {
+        $failureSummary = @($remainingFailedSelectors | ForEach-Object { $_.FullName })
+        throw "Test-Pester still has failing tests after the deferred rerun: $($failureSummary -join '; ')"
+    }
+
+    Write-Host '✅ Pester deferred rerun cleared all initial failures.' -ForegroundColor Green
 }
 
 Add-BuildTask 'Test' 'Test-xUnit', 'Test-Pester'

@@ -85,7 +85,7 @@ jobs:
               run: Invoke-Build Package -DotNetVerbosity quiet
 
             - name: Create GitHub Release (auto notes) + upload artifacts
-              uses: softprops/action-gh-release@v2
+              uses: softprops/action-gh-release@v3
               with:
                   tag_name: ${{ steps.semver.outputs.tag }}
                   name: Kestrun ${{ steps.semver.outputs.tag }}

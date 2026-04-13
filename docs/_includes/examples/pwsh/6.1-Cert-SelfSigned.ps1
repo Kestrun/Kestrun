@@ -32,7 +32,7 @@ Write-Host "Development root: $($root.Subject)" -ForegroundColor Cyan
 Write-Host "Leaf certificate: $($cert.Subject)" -ForegroundColor Cyan
 
 if ($bundle.RootTrusted) {
-    Write-Host 'Trusted the development root in CurrentUser\\Root.' -ForegroundColor Green
+    Write-Host 'Development root is present in CurrentUser\\Root.' -ForegroundColor Green
 } elseif ($TrustRoot.IsPresent) {
     Write-Host 'TrustRoot was requested but no Windows trust action was performed.' -ForegroundColor Yellow
 } else {

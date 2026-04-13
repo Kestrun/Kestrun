@@ -63,7 +63,6 @@ public static class CertificateManager
         var normalizedDnsNames = o.DnsNames
             .Select(name => name?.Trim())
             .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Select(name => name)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -148,7 +147,7 @@ public static class CertificateManager
     /// Creates a development certificate bundle consisting of a CA root certificate and a localhost leaf certificate.
     /// </summary>
     /// <param name="options">Options controlling development certificate creation and optional root trust.</param>
-    /// <returns>A development certificate bundle containing the effective root certificate, issued leaf certificate, and trust status.</returns>
+    /// <returns>A development certificate bundle containing the effective root certificate, issued leaf certificate, and whether the root certificate is present in the Windows CurrentUser Root store after the operation.</returns>
     public static DevelopmentCertificateResult NewDevelopmentCertificate(DevelopmentCertificateOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -1596,12 +1595,12 @@ public static class CertificateManager
         {
             if (certificate.GetRSAPrivateKey() is RSA rsa)
             {
-                return PrivateKeyFactory.CreateKey(rsa.ExportPkcs8PrivateKey());
+                return GetPrivateKeyParameter(rsa);
             }
 
             if (certificate.GetECDsaPrivateKey() is ECDsa ecdsa)
             {
-                return PrivateKeyFactory.CreateKey(ecdsa.ExportPkcs8PrivateKey());
+                return GetPrivateKeyParameter(ecdsa);
             }
         }
         catch (CryptographicException ex)
@@ -1612,6 +1611,40 @@ public static class CertificateManager
         }
 
         throw new InvalidOperationException("Only RSA and ECDSA issuer certificates are supported.");
+    }
+
+    /// <summary>
+    /// Converts an RSA private key into a Bouncy Castle private key parameter.
+    /// </summary>
+    /// <param name="rsa">The RSA private key.</param>
+    /// <returns>The Bouncy Castle private key parameter.</returns>
+    private static AsymmetricKeyParameter GetPrivateKeyParameter(RSA rsa)
+    {
+        try
+        {
+            return PrivateKeyFactory.CreateKey(rsa.ExportPkcs8PrivateKey());
+        }
+        catch (CryptographicException)
+        {
+            return DotNetUtilities.GetRsaKeyPair(rsa).Private;
+        }
+    }
+
+    /// <summary>
+    /// Converts an ECDSA private key into a Bouncy Castle private key parameter.
+    /// </summary>
+    /// <param name="ecdsa">The ECDSA private key.</param>
+    /// <returns>The Bouncy Castle private key parameter.</returns>
+    private static AsymmetricKeyParameter GetPrivateKeyParameter(ECDsa ecdsa)
+    {
+        try
+        {
+            return PrivateKeyFactory.CreateKey(ecdsa.ExportPkcs8PrivateKey());
+        }
+        catch (CryptographicException)
+        {
+            return DotNetUtilities.GetECDsaKeyPair(ecdsa).Private;
+        }
     }
 
     /// <summary>
@@ -1631,7 +1664,7 @@ public static class CertificateManager
     /// </summary>
     /// <param name="options">The development certificate creation options.</param>
     /// <param name="certificate">The effective development root certificate.</param>
-    /// <returns><c>true</c> when the certificate was trusted in the Windows root store; otherwise, <c>false</c>.</returns>
+    /// <returns><c>true</c> when the certificate is present in the Windows CurrentUser Root store after the operation; otherwise, <c>false</c>.</returns>
     /// <exception cref="InvalidOperationException">Thrown when root trust is requested on a non-Windows platform.</exception>
     private static bool TrustDevelopmentRootIfRequested(DevelopmentCertificateOptions options, X509Certificate2 certificate)
     {
@@ -1651,7 +1684,13 @@ public static class CertificateManager
         var existing = store.Certificates.Find(X509FindType.FindByThumbprint, certificate.Thumbprint, false);
         if (existing.Count == 0)
         {
-            store.Add(certificate);
+            // Import the certificate without private key to avoid accidentally exposing the private key in the Root store. The public key is sufficient for trust purposes.
+#if NET9_0_OR_GREATER
+            using var publicOnlyCertificate = X509CertificateLoader.LoadCertificate(certificate.RawData);
+#else
+            using var publicOnlyCertificate = new X509Certificate2(certificate.RawData);
+#endif
+            store.Add(publicOnlyCertificate);
         }
 
         return true;
@@ -1815,12 +1854,22 @@ public static class CertificateManager
 #if NET9_0_OR_GREATER
         try
         {
-            return X509CertificateLoader.LoadPkcs12(
+            var certificate = X509CertificateLoader.LoadPkcs12(
                 raw,
                 password: string.Empty.AsSpan(),
                 keyStorageFlags: flags | (ephemeral ? X509KeyStorageFlags.EphemeralKeySet : 0),
                 loaderLimits: Pkcs12LoaderLimits.Defaults
             );
+
+            return EnsureExportablePrivateKeySupport(
+                certificate,
+                exportable: flags.HasFlag(X509KeyStorageFlags.Exportable),
+                ephemeral: ephemeral,
+                reloadWithoutEphemeral: () => X509CertificateLoader.LoadPkcs12(
+                    raw,
+                    password: string.Empty.AsSpan(),
+                    keyStorageFlags: flags,
+                    loaderLimits: Pkcs12LoaderLimits.Defaults));
         }
         catch (PlatformNotSupportedException) when (ephemeral)
         {
@@ -1840,11 +1889,20 @@ public static class CertificateManager
 #else
         try
         {
-            return new X509Certificate2(
+            var certificate = new X509Certificate2(
                 raw,
                 string.Empty,
                 flags | (ephemeral ? X509KeyStorageFlags.EphemeralKeySet : 0)
             );
+
+            return EnsureExportablePrivateKeySupport(
+                certificate,
+                exportable: flags.HasFlag(X509KeyStorageFlags.Exportable),
+                ephemeral: ephemeral,
+                reloadWithoutEphemeral: () => new X509Certificate2(
+                    raw,
+                    string.Empty,
+                    flags));
         }
         catch (PlatformNotSupportedException) when (ephemeral)
         {
@@ -1858,6 +1916,59 @@ public static class CertificateManager
         }
 
 #endif
+    }
+
+    /// <summary>
+    /// Reloads a certificate without <see cref="X509KeyStorageFlags.EphemeralKeySet"/> when an exportable private key cannot be re-exported.
+    /// </summary>
+    /// <param name="certificate">The loaded certificate to validate.</param>
+    /// <param name="exportable">Whether the caller requested an exportable private key.</param>
+    /// <param name="ephemeral">Whether the certificate was loaded with <see cref="X509KeyStorageFlags.EphemeralKeySet"/>.</param>
+    /// <param name="reloadWithoutEphemeral">A callback that reloads the certificate without <see cref="X509KeyStorageFlags.EphemeralKeySet"/>.</param>
+    /// <returns>The original certificate when no fallback is required; otherwise, a reloaded certificate.</returns>
+    private static X509Certificate2 EnsureExportablePrivateKeySupport(
+        X509Certificate2 certificate,
+        bool exportable,
+        bool ephemeral,
+        Func<X509Certificate2> reloadWithoutEphemeral)
+    {
+        if (!ephemeral || !exportable || SupportsPkcs8PrivateKeyExport(certificate))
+        {
+            return certificate;
+        }
+
+        Log.Debug("EphemeralKeySet produced a non-exportable private key; reloading certificate without the flag.");
+        certificate.Dispose();
+        return reloadWithoutEphemeral();
+    }
+
+    /// <summary>
+    /// Determines whether the certificate's private key supports PKCS#8 export.
+    /// </summary>
+    /// <param name="certificate">The certificate to inspect.</param>
+    /// <returns><c>true</c> when the private key supports PKCS#8 export; otherwise, <c>false</c>.</returns>
+    private static bool SupportsPkcs8PrivateKeyExport(X509Certificate2 certificate)
+    {
+        try
+        {
+            if (certificate.GetRSAPrivateKey() is RSA rsa)
+            {
+                _ = rsa.ExportPkcs8PrivateKey();
+                return true;
+            }
+
+            if (certificate.GetECDsaPrivateKey() is ECDsa ecdsa)
+            {
+                _ = ecdsa.ExportPkcs8PrivateKey();
+                return true;
+            }
+        }
+        catch (CryptographicException)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>

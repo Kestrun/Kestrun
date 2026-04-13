@@ -32,11 +32,11 @@
     [Kestrun.Certificates.CsrResult]
 
 .EXAMPLE
-    $csr, $priv = New-KestrunCertificateRequest -DnsNames 'example.com' -Country US
+    $csr, $priv = New-KrCertificateRequest -DnsNames 'example.com' -Country US
     $csr | Set-Content -Path 'C:\path\to\csr.pem'
     $priv | Set-Content -Path 'C:\path\to\private.key'
 .EXAMPLE
-    $csr, $priv = New-KestrunCertificateRequest -DnsNames 'example.com' -Country US -Org 'Example Corp' -OrgUnit 'IT' -CommonName 'example.com'
+    $csr, $priv = New-KrCertificateRequest -DnsNames 'example.com' -Country US -Org 'Example Corp' -OrgUnit 'IT' -CommonName 'example.com'
     $csr | Set-Content -Path 'C:\path\to\csr.pem'
     $priv | Set-Content -Path 'C:\path\to\private.key'
 .EXAMPLE

@@ -192,11 +192,11 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_IssuerCertificate_SignsLeafCertificateWithIssuerMetadata()
     {
-        var root = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        using var root = CertificateManager.NewSelfSigned(new SelfSignedOptions([
             "Kestrun Development Root CA"
-        ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 365, Ephemeral: false, Exportable: true, IsCertificateAuthority: true));
+        ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 365, Ephemeral: true, Exportable: true, IsCertificateAuthority: true));
 
-        var leaf = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        using var leaf = CertificateManager.NewSelfSigned(new SelfSignedOptions([
             "localhost", "127.0.0.1", "::1"
         ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 30, Ephemeral: true, Exportable: true, IssuerCertificate: root));
 

@@ -20,6 +20,12 @@
         If specified on Windows, adds the development root certificate to the CurrentUser Root store.
     .PARAMETER Exportable
         If specified, the generated certificates will use exportable private keys.
+    .PARAMETER WhatIf
+        When -TrustRoot is specified, shows the pending trust-store change and skips adding the
+        development root to the Windows CurrentUser Root certificate store.
+    .PARAMETER Confirm
+        When -TrustRoot is specified, prompts for confirmation before adding the development root
+        certificate to the Windows CurrentUser Root certificate store.
     .EXAMPLE
         $bundle = New-KrDevelopmentCertificate -TrustRoot
 
@@ -43,8 +49,7 @@
 #>
 function New-KrDevelopmentCertificate {
     [KestrunRuntimeApi('Everywhere')]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
     [OutputType([Kestrun.Certificates.DevelopmentCertificateResult])]
     param(
         [Parameter()]
@@ -71,13 +76,26 @@ function New-KrDevelopmentCertificate {
         [switch]$Exportable
     )
 
+    $trustRoot = $TrustRoot.IsPresent
+    if ($trustRoot) {
+        $trustTarget = if ($PSBoundParameters.ContainsKey('RootCertificate') -and $null -ne $RootCertificate) {
+            $RootCertificate.Subject
+        } else {
+            "development root certificate '$RootName'"
+        }
+
+        if (-not $PSCmdlet.ShouldProcess($trustTarget, 'Trust in Windows CurrentUser Root certificate store')) {
+            $trustRoot = $false
+        }
+    }
+
     $options = [Kestrun.Certificates.DevelopmentCertificateOptions]::new(
         $DnsNames,
         $RootCertificate,
         $RootName,
         $RootValidDays,
         $LeafValidDays,
-        $TrustRoot.IsPresent,
+        $trustRoot,
         $Exportable.IsPresent)
 
     return [Kestrun.Certificates.CertificateManager]::NewDevelopmentCertificate($options)

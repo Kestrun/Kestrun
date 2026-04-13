@@ -24,7 +24,7 @@ These tools support cross-platform scenarios (Windows, Linux, macOS) and are ess
 
 ## Common Scenarios
 
-### 1. Self-signed certificate (PowerShell)
+### 1. Development CA and issuer-signed leaf certificate (PowerShell)
 
 ```powershell
 $bundle = New-KrDevelopmentCertificate -TrustRoot

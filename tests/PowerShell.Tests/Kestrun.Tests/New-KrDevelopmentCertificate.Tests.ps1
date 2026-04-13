@@ -30,6 +30,13 @@ Describe 'New-KrDevelopmentCertificate' {
         $script:reusedRoot = $null
     }
 
+    It 'supports should-process semantics for root trust changes' {
+        $command = Get-Command New-KrDevelopmentCertificate
+
+        $command.Parameters.ContainsKey('WhatIf') | Should -BeTrue
+        $command.Parameters.ContainsKey('Confirm') | Should -BeTrue
+    }
+
     It 'creates a default development root and localhost leaf bundle' {
         $script:bundle = New-KrDevelopmentCertificate -Exportable
 
@@ -53,13 +60,22 @@ Describe 'New-KrDevelopmentCertificate' {
 
         $script:bundle = New-KrDevelopmentCertificate `
             -RootCertificate $script:reusedRoot `
-            -DnsNames 'localhost','dev.localtest.me' `
+            -DnsNames 'localhost', 'dev.localtest.me' `
             -Exportable
 
         [object]::ReferenceEquals($script:reusedRoot, $script:bundle.RootCertificate) | Should -BeTrue
         $script:bundle.RootCertificate.Subject | Should -Be 'CN=Reusable Development Root CA'
         $script:bundle.LeafCertificate.Issuer | Should -Be $script:reusedRoot.Subject
         $script:bundle.LeafCertificate.Subject | Should -Be 'CN=localhost'
+        $script:bundle.RootTrusted | Should -BeFalse
+    }
+
+    It 'skips trusting the root certificate when WhatIf is used' {
+        $script:bundle = New-KrDevelopmentCertificate -TrustRoot -Exportable -WhatIf
+
+        $script:bundle | Should -Not -BeNullOrEmpty
+        $script:bundle.RootCertificate | Should -Not -BeNullOrEmpty
+        $script:bundle.LeafCertificate | Should -Not -BeNullOrEmpty
         $script:bundle.RootTrusted | Should -BeFalse
     }
 }

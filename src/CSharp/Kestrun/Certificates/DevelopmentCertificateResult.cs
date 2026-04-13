@@ -7,7 +7,7 @@ namespace Kestrun.Certificates;
 /// </summary>
 /// <param name="RootCertificate">The effective development root certificate.</param>
 /// <param name="LeafCertificate">The localhost leaf certificate signed by the root certificate.</param>
-/// <param name="RootTrusted">True when the root certificate was added to the Windows CurrentUser Root store.</param>
+/// <param name="RootTrusted">True when the root certificate is present in the Windows CurrentUser Root store after the operation.</param>
 public record DevelopmentCertificateResult(
     X509Certificate2 RootCertificate,
     X509Certificate2 LeafCertificate,

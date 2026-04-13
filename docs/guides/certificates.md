@@ -24,10 +24,12 @@ These tools support cross-platform scenarios (Windows, Linux, macOS) and are ess
 
 ## Common Scenarios
 
-### 1. Self-signed certificate (PowerShell)
+### 1. Development CA and issuer-signed leaf certificate (PowerShell)
 
 ```powershell
-$cert = New-KrSelfSignedCertificate -DnsNames localhost,127.0.0.1 -Exportable
+$bundle = New-KrDevelopmentCertificate -TrustRoot
+$cert = $bundle.LeafCertificate
+
 Export-KrCertificate -Certificate $cert -FilePath './devcert' -Format Pfx -Password (ConvertTo-SecureString 'p@ss' -AsPlainText -Force) -IncludePrivateKey
 Test-KrCertificate -Certificate $cert -DenySelfSigned:$false
 ```
@@ -66,8 +68,54 @@ $csrResult.PrivateKey | Set-Content './private.key'
 
 ```csharp
 var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions(
-    DnsNames: new[] { "localhost", "127.0.0.1" }, KeyType: KeyType.Rsa,
-    KeyLength: 2048, ValidDays: 30, Exportable: true));
+    DnsNames: new[] { "localhost", "127.0.0.1", "::1" },
+    KeyType: KeyType.Rsa,
+    KeyLength: 2048,
+    KeyUsageFlags: X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment,
+    ValidDays: 30,
+    Exportable: true));
+```
+
+### 6. Self-signed certificate with explicit KU
+
+```powershell
+$cert = New-KrSelfSignedCertificate `
+    -DnsNames 'localhost','127.0.0.1','::1' `
+    -KeyUsage DigitalSignature,KeyEncipherment `
+    -Exportable
+```
+
+For ECDSA, prefer `DigitalSignature` only:
+
+```powershell
+$cert = New-KrSelfSignedCertificate `
+    -DnsNames 'localhost','::1' `
+    -KeyType Ecdsa `
+    -KeyLength 256 `
+    -KeyUsage DigitalSignature
+```
+
+### 7. Development root CA + localhost leaf
+
+```powershell
+$root = New-KrSelfSignedCertificate `
+    -DnsNames 'Kestrun Development Root CA' `
+    -CertificateAuthority `
+    -Exportable `
+    -ValidDays 3650
+
+$leaf = New-KrSelfSignedCertificate `
+    -DnsNames 'localhost','127.0.0.1','::1' `
+    -IssuerCertificate $root `
+    -Exportable `
+    -ValidDays 30
+```
+
+Or use the convenience helper:
+
+```powershell
+$bundle = New-KrDevelopmentCertificate -TrustRoot
+$leaf = $bundle.LeafCertificate
 ```
 
 ---
@@ -124,6 +172,129 @@ $csrResult.Csr | Set-Content './csr.pem'
 $csrResult.PrivateKey | Set-Content './private.key'
 ```
 
+### Localhost HTTPS for browsers
+
+For localhost development, prefer including all loopback names you expect to hit:
+
+```powershell
+$cert = New-KrSelfSignedCertificate `
+    -DnsNames 'localhost','127.0.0.1','::1' `
+    -KeyUsage DigitalSignature,KeyEncipherment `
+    -Exportable
+```
+
+Kestrun emits:
+
+- `DNS:localhost`
+- `IP:127.0.0.1`
+- `IP:::1`
+
+IP addresses are emitted as IP SAN entries, not DNS SAN entries.
+
+For the default RSA localhost leaf, Kestrun also emits:
+
+- Subject: `CN=localhost`
+- Basic Constraints: `CA:FALSE`
+- EKU: `Server Authentication`, `Client Authentication`
+- Key Usage: `DigitalSignature`, `KeyEncipherment`
+
+This certificate shape is valid for local HTTPS and works with tools such as `curl -k`.
+Firefox also commonly accepts the scenario once you choose to trust the certificate locally.
+On Windows, Chromium-family browsers can still reject a raw self-signed localhost leaf with
+`ERR_CERT_INVALID` even when the certificate contents are otherwise correct.
+
+### CA root versus issuer-signed leaf
+
+Use the certificate creation flags this way:
+
+- `-CertificateAuthority`: create a CA root or intermediate certificate that can sign child certificates.
+- `-IssuerCertificate`: create a leaf certificate signed by an existing CA/root certificate.
+
+Typical localhost browser workflow:
+
+1. Create or import a development CA root.
+2. Optionally trust that root in the Windows CurrentUser Root store.
+3. Issue a localhost leaf certificate from that root.
+4. Bind the leaf certificate to the Kestrun HTTPS listener.
+
+If you want that in one call, use `New-KrDevelopmentCertificate`.
+
+### Reuse the root and leaf across sessions
+
+If you want a stable local development setup, export both certificates to PFX once, then import the root in later sessions and issue new leaves from it as needed.
+
+```powershell
+$password = ConvertTo-SecureString 'p@ssw0rd!' -AsPlainText -Force
+$bundle = New-KrDevelopmentCertificate -Exportable
+
+New-Item -ItemType Directory -Force './certs' | Out-Null
+
+Export-KrCertificate -Certificate $bundle.RootCertificate -FilePath './certs/dev-root' -Format Pfx -Password $password -IncludePrivateKey
+Export-KrCertificate -Certificate $bundle.LeafCertificate -FilePath './certs/localhost' -Format Pfx -Password $password -IncludePrivateKey
+```
+
+Later, reuse the exported root certificate to issue a fresh localhost leaf:
+
+```powershell
+$password = ConvertTo-SecureString 'p@ssw0rd!' -AsPlainText -Force
+$root = Import-KrCertificate -FilePath './certs/dev-root.pfx' -Password $password
+
+$bundle = New-KrDevelopmentCertificate `
+    -RootCertificate $root `
+    -DnsNames 'localhost','127.0.0.1','::1' `
+    -Exportable
+
+$leaf = $bundle.LeafCertificate
+```
+
+You can also import the previously exported localhost leaf directly if you want to keep the same certificate material across restarts:
+
+```powershell
+$password = ConvertTo-SecureString 'p@ssw0rd!' -AsPlainText -Force
+$leaf = Import-KrCertificate -FilePath './certs/localhost.pfx' -Password $password
+```
+
+Treat the exported root PFX as a sensitive signing key. Store it securely, use a strong password, and avoid distributing it beyond your local development environment.
+
+### Windows Chromium workflow
+
+For the most reliable Edge / Chrome / Brave development workflow on Windows, use a trusted
+development certificate from the Windows trust store instead of a raw self-signed localhost leaf.
+
+Create and trust an ASP.NET Core development certificate on Windows:
+
+```powershell
+$certDir = "$env:USERPROFILE\.aspnet\https"
+New-Item -ItemType Directory -Force $certDir | Out-Null
+
+dotnet dev-certs https --trust
+dotnet dev-certs https -ep "$certDir\kestrun-devcert.pfx" -p testpass
+```
+
+Then load that certificate into Kestrun:
+
+```powershell
+$cert = Import-KrCertificate `
+    -FilePath 'C:\Users\<YourUser>\.aspnet\https\kestrun-devcert.pfx' `
+    -Password (ConvertTo-SecureString 'testpass' -AsPlainText -Force)
+
+$server = New-KrServer -Name 'example'
+Add-KrEndpoint -Port 5001 -X509Certificate $cert -Protocols Http1
+```
+
+If your Kestrun process runs inside WSL but your browser runs on Windows, trust must exist in the
+Windows certificate store because Chromium uses the Windows trust chain for validation.
+
+### EKU and KU defaults
+
+Kestrun self-signed development certificates default to:
+
+- EKU: `Server Authentication`, `Client Authentication`
+- RSA KU: `DigitalSignature`, `KeyEncipherment`
+- ECDSA KU: `DigitalSignature`
+
+Use `-KeyUsage` when you need to override KU explicitly for a specific integration.
+
 ---
 
 ## Troubleshooting & Best Practices
@@ -135,6 +306,13 @@ $csrResult.PrivateKey | Set-Content './private.key'
 - When exporting to PEM, use `-IncludePrivateKey` only for secure, local use.
 - For JWKS endpoints, export only public JWKs.
 - Use `Get-KrCertificatePurpose` to check EKU for intended usage (e.g., server auth, client auth).
+- For Chromium-family browsers on Windows, a raw self-signed leaf may still be rejected even if Firefox accepts it.
+- For the most reliable Windows browser workflow, prefer a local dev CA trusted in the Windows root store, then issue localhost leaf certs from that CA.
+- If you use `-IssuerCertificate`, the issuer must be a CA certificate and its private key must support PKCS#8 export.
+- If `curl -k` succeeds and Firefox loads the site, but Edge / Chrome / Brave show
+    `ERR_CERT_INVALID`, treat that as a browser trust/store issue first, not proof
+    that the served certificate is malformed.
+- If you use a self-signed localhost leaf, prefer HTTP/1.1 + HTTP/2 during development and verify trust behavior separately before enabling HTTP/3.
 
 ---
 
@@ -142,6 +320,7 @@ $csrResult.PrivateKey | Set-Content './private.key'
 
 - Cmdlets:
   - [New-KrSelfSignedCertificate](/pwsh/cmdlets/New-KrSelfSignedCertificate)
+    - [New-KrDevelopmentCertificate](/pwsh/cmdlets/New-KrDevelopmentCertificate)
   - [New-KrCertificateRequest](/pwsh/cmdlets/New-KrCertificateRequest)
   - [Import-KrCertificate](/pwsh/cmdlets/Import-KrCertificate)
   - [Export-KrCertificate](/pwsh/cmdlets/Export-KrCertificate)

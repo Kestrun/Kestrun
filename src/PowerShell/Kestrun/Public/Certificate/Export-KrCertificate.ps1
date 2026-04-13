@@ -26,20 +26,27 @@ function Export-KrCertificate {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [System.Security.Cryptography.X509Certificates.X509Certificate2] $Certificate,
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
+
         [Parameter(Mandatory = $true)]
         [string]$FilePath,
+
+        [Parameter()]
         [ValidateSet('Pfx', 'Pem')]
-        [string] $Format = 'Pfx',
-        [securestring] $Password,
-        [switch] $IncludePrivateKey
+        [string]$Format = 'Pfx',
+
+        [Parameter()]
+        [securestring]$Password,
+
+        [Parameter()]
+        [switch]$IncludePrivateKey
     )
     process {
         if ($null -eq $Certificate) {
-            throw "Certificate parameter is required."
+            throw 'Certificate parameter is required.'
         }
         if ([string]::IsNullOrWhiteSpace($FilePath)) {
-            throw "FilePath parameter is required."
+            throw 'FilePath parameter is required.'
         }
         $resolvedPath = Resolve-KrPath -Path $FilePath -KestrunRoot
         Write-KrLog -Level Verbose -Message "Resolved file path: $resolvedPath"

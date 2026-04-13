@@ -67,16 +67,8 @@ function New-KrSelfSignedCertificate {
         [switch]$Exportable
     )
 
-    $keyUsageFlags = $null
-    if ($PSBoundParameters.ContainsKey('KeyUsage') -and $KeyUsage.Count -gt 0) {
-        $combinedKeyUsage = [System.Security.Cryptography.X509Certificates.X509KeyUsageFlags]::None
-        foreach ($keyUsageFlag in $KeyUsage) {
-            $combinedKeyUsage = $combinedKeyUsage -bor $keyUsageFlag
-        }
-
-        if ($combinedKeyUsage -ne [System.Security.Cryptography.X509Certificates.X509KeyUsageFlags]::None) {
-            $keyUsageFlags = $combinedKeyUsage
-        }
+    $keyUsageFlags = if ($PSBoundParameters.ContainsKey('KeyUsage') -and $KeyUsage.Count -gt 0) {
+        Join-KeyUsageFlags -KeyUsage $KeyUsage
     }
 
     $opts = [Kestrun.Certificates.SelfSignedOptions]::new(

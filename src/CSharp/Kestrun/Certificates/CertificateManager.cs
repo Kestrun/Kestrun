@@ -68,7 +68,7 @@ public static class CertificateManager
 
         if (normalizedDnsNames.Length == 0)
         {
-            throw new ArgumentException("At least one non-empty SAN value (hostname or IP address) is required.", nameof(o.DnsNames));
+            throw new ArgumentException("At least one non-empty DNS name, IP address, or subject name value is required.", nameof(o.DnsNames));
         }
 
         // ── 1. Key pair ───────────────────────────────────────────────────────────
@@ -1727,7 +1727,7 @@ public static class CertificateManager
             return [.. options.Purposes];
         }
         // For CAs, it's common to omit EKU or use id-kp-certificateAuthority (
-        //which is not universally recognized), so we'll emit no EKU for CA certs to maximize compatibility.
+        // which is not universally recognized), so we'll emit no EKU for CA certs to maximize compatibility.
         if (options.IsCertificateAuthority)
         {
             return [];

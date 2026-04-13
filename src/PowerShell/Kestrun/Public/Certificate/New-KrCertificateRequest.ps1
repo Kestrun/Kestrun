@@ -32,15 +32,20 @@
     [Kestrun.Certificates.CsrResult]
 
 .EXAMPLE
-    $csr, $priv = New-KrCertificateRequest -DnsNames 'example.com' -Country US
-    $csr | Set-Content -Path 'C:\path\to\csr.pem'
-    $priv | Set-Content -Path 'C:\path\to\private.key'
+    $csrResult = New-KrCertificateRequest -DnsNames 'example.com' -Country US
+    $csrResult.CsrPem | Set-Content -Path 'C:\path\to\csr.pem'
+    $csrResult.PrivateKeyPem | Set-Content -Path 'C:\path\to\private.key'
+
+    Creates a CSR with minimal subject information and saves the CSR and private key to files.
 .EXAMPLE
-    $csr, $priv = New-KrCertificateRequest -DnsNames 'example.com' -Country US -Org 'Example Corp' -OrgUnit 'IT' -CommonName 'example.com'
-    $csr | Set-Content -Path 'C:\path\to\csr.pem'
-    $priv | Set-Content -Path 'C:\path\to\private.key'
+    $csrResult = New-KrCertificateRequest -DnsNames 'example.com' -Country US -Org 'Example Corp' -OrgUnit 'IT' -CommonName 'example.com'
+    $csrResult.CsrPem | Set-Content -Path 'C:\path\to\csr.pem'
+    $csrResult.PrivateKeyPem | Set-Content -Path 'C:\path\to\private.key'
+
+    Creates a CSR with detailed subject information and saves the CSR and private key to files.
 .EXAMPLE
-    $csr = New-KrCertificateRequest -DnsNames 'example.com' -CommonName 'example.com' -KeyUsage DigitalSignature,KeyEncipherment
+    $csrResult = New-KrCertificateRequest -DnsNames 'example.com' -CommonName 'example.com' -KeyUsage DigitalSignature,KeyEncipherment
+    $csrResult.CsrPem
 
     Creates a CSR that includes an explicit key-usage extension request.
 #>

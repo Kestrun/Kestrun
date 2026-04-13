@@ -18,6 +18,7 @@
         The number of days the localhost leaf certificate is valid.
     .PARAMETER TrustRoot
         If specified on Windows, adds the development root certificate to the CurrentUser Root store.
+        On non-Windows platforms, this cmdlet throws a terminating error before invoking the C# layer.
     .PARAMETER Exportable
         If specified, the generated certificates will use exportable private keys.
     .PARAMETER WhatIf
@@ -75,6 +76,18 @@ function New-KrDevelopmentCertificate {
         [Parameter()]
         [switch]$Exportable
     )
+
+    if ($TrustRoot.IsPresent -and -not $IsWindows) {
+        $message = 'The -TrustRoot parameter is only supported on Windows. Create the development certificate without -TrustRoot and trust the root certificate manually using your platform certificate store tools.'
+        $exception = [System.PlatformNotSupportedException]::new($message)
+        $errorRecord = [System.Management.Automation.ErrorRecord]::new(
+            $exception,
+            'TrustRootRequiresWindows',
+            [System.Management.Automation.ErrorCategory]::NotImplemented,
+            'TrustRoot')
+
+        $PSCmdlet.ThrowTerminatingError($errorRecord)
+    }
 
     $trustRoot = $TrustRoot.IsPresent
     if ($trustRoot) {

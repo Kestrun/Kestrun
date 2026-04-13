@@ -52,7 +52,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_EmitsLoopbackIpSans_AndLeafExtensions()
     {
-        var cert = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+        using var cert = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
 
         var extensions = cert.Extensions;
         var san = extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>().SingleOrDefault(e => e.Oid?.Value == "2.5.29.17");
@@ -82,9 +82,9 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_NormalizesSanInputs_BeforeEmittingSubjectAndSanSet()
     {
-        var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
-            " localhost ", "localhost", " 127.0.0.1 ", "127.0.0.1", "\t::1\t", "   "
-        ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 30, Ephemeral: true, Exportable: true));
+        using var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+                " localhost ", "localhost", " 127.0.0.1 ", "127.0.0.1", "\t::1\t", "   "
+            ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 30, Ephemeral: true, Exportable: true));
 
         Assert.Contains("CN=localhost", cert.Subject, StringComparison.OrdinalIgnoreCase);
 
@@ -112,7 +112,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_Ecdsa_UsesDigitalSignatureOnlyKeyUsage()
     {
-        var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        using var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
             "localhost", "::1"
         ], KeyType: KeyType.Ecdsa, KeyLength: 256, ValidDays: 30, Ephemeral: true, Exportable: true));
 
@@ -125,7 +125,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_UsesExplicitKeyUsageFlags_WhenProvided()
     {
-        var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        using var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
             "localhost", "127.0.0.1"
         ],
         KeyType: KeyType.Rsa,
@@ -143,7 +143,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_TreatsExplicitNoneKeyUsageAsUnspecified()
     {
-        var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        using var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
             "localhost", "127.0.0.1"
         ],
         KeyType: KeyType.Rsa,
@@ -165,7 +165,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_CertificateAuthority_EmitsCaExtensionsWithoutLeafEkuOrSan()
     {
-        var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        using var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
             "Kestrun Development Root CA"
         ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 365, Ephemeral: true, Exportable: true, IsCertificateAuthority: true));
 
@@ -224,7 +224,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_IssuerCertificate_RejectsNonCaIssuer()
     {
-        var issuer = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+        using var issuer = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
 
         var exception = Assert.Throws<InvalidOperationException>(() => CertificateManager.NewSelfSigned(new SelfSignedOptions([
             "localhost"
@@ -251,7 +251,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewDevelopmentCertificate_ReusesSuppliedRootCertificate()
     {
-        var root = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        using var root = CertificateManager.NewSelfSigned(new SelfSignedOptions([
             "Reusable Development Root CA"
         ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 365, Ephemeral: false, Exportable: true, IsCertificateAuthority: true));
 

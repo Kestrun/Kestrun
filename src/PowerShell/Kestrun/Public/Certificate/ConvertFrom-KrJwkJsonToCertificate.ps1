@@ -50,12 +50,10 @@ function ConvertFrom-KrJwkJsonToCertificate {
     [OutputType([System.Security.Cryptography.X509Certificates.X509Certificate2])]
     param(
         [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [object]
-        $Jwk,
+        [object]$Jwk,
 
         [Parameter()]
-        [string]
-        $SubjectName = 'CN=client-jwt'
+        [string]$SubjectName = 'CN=client-jwt'
     )
     process {
         if ($null -eq $Jwk) {

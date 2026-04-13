@@ -19,7 +19,7 @@ function Get-KrCertificatePurpose {
     [OutputType([System.Collections.Generic.IEnumerable`1[[System.String, System.Private.CoreLib]]])]
     param(
         [Parameter(Mandatory)]
-        [System.Security.Cryptography.X509Certificates.X509Certificate2] $Certificate
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
     )
     return [Kestrun.Certificates.CertificateManager]::GetPurposes($Certificate)
 }

@@ -5,7 +5,7 @@ using Kestrun.Certificates;
 
 internal class Program
 {
-    internal static readonly string[] DnsNames = ["localhost", "127.0.0.1"];
+    internal static readonly string[] DnsNames = ["localhost", "127.0.0.1", "::1"];
 
     private static void Main()
     {

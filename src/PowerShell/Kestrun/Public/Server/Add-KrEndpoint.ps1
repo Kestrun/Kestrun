@@ -153,7 +153,7 @@ function Add-KrEndpoint {
         }
         $X509Certificate = Import-KrCertificate -FilePath $CertPath -Password $CertPassword
     } elseif ($SelfSignedCert.IsPresent) {
-        $X509Certificate = New-KrSelfSignedCertificate -DnsNames localhost, 127.0.0.1 -ValidDays 30
+        $X509Certificate = New-KrSelfSignedCertificate -DnsNames localhost, 127.0.0.1, '::1' -ValidDays 30
     }
 
     $defaultIPAddress = [System.Net.IPAddress]::Loopback

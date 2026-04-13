@@ -163,6 +163,110 @@ public class CertificateManagerTest
 
     [Fact]
     [Trait("Category", "Certificates")]
+    public void NewSelfSigned_CertificateAuthority_EmitsCaExtensionsWithoutLeafEkuOrSan()
+    {
+        var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+            "Kestrun Development Root CA"
+        ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 365, Ephemeral: true, Exportable: true, IsCertificateAuthority: true));
+
+        Assert.Contains("CN=Kestrun Development Root CA", cert.Subject, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(cert.Subject, cert.Issuer);
+
+        var basicConstraints = Assert.IsType<X509BasicConstraintsExtension>(
+            cert.Extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>()
+                .Single(e => e.Oid?.Value == "2.5.29.19"));
+        Assert.True(basicConstraints.CertificateAuthority);
+
+        var keyUsage = Assert.IsType<X509KeyUsageExtension>(
+            cert.Extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>()
+                .Single(e => e.Oid?.Value == "2.5.29.15"));
+        Assert.Equal(X509KeyUsageFlags.KeyCertSign | X509KeyUsageFlags.CrlSign, keyUsage.KeyUsages);
+
+        Assert.Null(cert.Extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>()
+            .SingleOrDefault(e => e.Oid?.Value == "2.5.29.17"));
+        Assert.Null(cert.Extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>()
+            .SingleOrDefault(e => e.Oid?.Value == "2.5.29.37"));
+    }
+
+    [Fact]
+    [Trait("Category", "Certificates")]
+    public void NewSelfSigned_IssuerCertificate_SignsLeafCertificateWithIssuerMetadata()
+    {
+        var root = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+            "Kestrun Development Root CA"
+        ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 365, Ephemeral: false, Exportable: true, IsCertificateAuthority: true));
+
+        var leaf = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+            "localhost", "127.0.0.1", "::1"
+        ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 30, Ephemeral: true, Exportable: true, IssuerCertificate: root));
+
+        Assert.Contains("CN=localhost", leaf.Subject, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(root.Subject, leaf.Issuer);
+        Assert.NotEqual(leaf.Subject, leaf.Issuer);
+
+        var leafBasicConstraints = Assert.IsType<X509BasicConstraintsExtension>(
+            leaf.Extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>()
+                .Single(e => e.Oid?.Value == "2.5.29.19"));
+        Assert.False(leafBasicConstraints.CertificateAuthority);
+
+        var authorityKeyIdentifier = leaf.Extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>()
+            .Single(e => e.Oid?.Value == "2.5.29.35");
+        var subjectKeyIdentifier = root.Extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>()
+            .Single(e => e.Oid?.Value == "2.5.29.14");
+
+        var authorityKeyIdentifierHex = authorityKeyIdentifier.Format(false).Replace("KeyID=", string.Empty, StringComparison.OrdinalIgnoreCase).Replace(" ", string.Empty).Trim().ToLowerInvariant();
+        var subjectKeyIdentifierHex = subjectKeyIdentifier.Format(false).Replace(" ", string.Empty).Trim().ToLowerInvariant();
+        Assert.Equal(subjectKeyIdentifierHex, authorityKeyIdentifierHex);
+    }
+
+    [Fact]
+    [Trait("Category", "Certificates")]
+    public void NewSelfSigned_IssuerCertificate_RejectsNonCaIssuer()
+    {
+        var issuer = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+
+        var exception = Assert.Throws<InvalidOperationException>(() => CertificateManager.NewSelfSigned(new SelfSignedOptions([
+            "localhost"
+        ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 30, Ephemeral: true, Exportable: true, IssuerCertificate: issuer)));
+
+        Assert.Contains("CA certificate", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Category", "Certificates")]
+    public void NewDevelopmentCertificate_CreatesDefaultBundle()
+    {
+        var bundle = CertificateManager.NewDevelopmentCertificate(new DevelopmentCertificateOptions(Exportable: true));
+
+        Assert.Equal("CN=Kestrun Development Root CA", bundle.RootCertificate.Subject);
+        Assert.Equal("CN=localhost", bundle.LeafCertificate.Subject);
+        Assert.Equal(bundle.RootCertificate.Subject, bundle.LeafCertificate.Issuer);
+        Assert.True(bundle.RootCertificate.HasPrivateKey);
+        Assert.True(bundle.LeafCertificate.HasPrivateKey);
+        Assert.False(bundle.RootTrusted);
+    }
+
+    [Fact]
+    [Trait("Category", "Certificates")]
+    public void NewDevelopmentCertificate_ReusesSuppliedRootCertificate()
+    {
+        var root = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+            "Reusable Development Root CA"
+        ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 365, Ephemeral: false, Exportable: true, IsCertificateAuthority: true));
+
+        var bundle = CertificateManager.NewDevelopmentCertificate(new DevelopmentCertificateOptions(
+            RootCertificate: root,
+            DnsNames: ["localhost", "dev.localtest.me"],
+            Exportable: true));
+
+        Assert.Same(root, bundle.RootCertificate);
+        Assert.Equal(root.Subject, bundle.LeafCertificate.Issuer);
+        Assert.Equal("CN=localhost", bundle.LeafCertificate.Subject);
+        Assert.False(bundle.RootTrusted);
+    }
+
+    [Fact]
+    [Trait("Category", "Certificates")]
     public void NewCertificateRequest_ReturnsPemAndPrivateKey_WithSAN()
     {
         var csr = CertificateManager.NewCertificateRequest(
@@ -199,6 +303,43 @@ public class CertificateManagerTest
         var generalNames = GeneralNames.GetInstance(sanExt!.GetParsedValue()).GetNames();
         Assert.Contains(generalNames, n => n.TagNo == GeneralName.DnsName && string.Equals(n.Name.ToString(), "localhost", StringComparison.OrdinalIgnoreCase));
         Assert.Contains(generalNames, n => n.TagNo == GeneralName.IPAddress);
+    }
+
+    [Fact]
+    [Trait("Category", "Certificates")]
+    public void NewCertificateRequest_WithKeyUsage_EmitsKeyUsageExtensionRequest()
+    {
+        var csr = CertificateManager.NewCertificateRequest(
+            new CsrOptions([
+                "localhost"
+            ], KeyType: KeyType.Rsa, KeyLength: 2048, CommonName: "localhost", KeyUsageFlags: X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.KeyEncipherment));
+
+        using var sr = new StringReader(csr.CsrPem);
+        var obj = new PemReader(sr).ReadObject();
+        var req = Assert.IsType<Pkcs10CertificationRequest>(obj);
+        var attributes = req.GetCertificationRequestInfo().Attributes;
+
+        AttributePkcs? extAttr = null;
+        for (var i = 0; i < (attributes?.Count ?? 0); i++)
+        {
+            var attr = AttributePkcs.GetInstance(attributes![i]);
+            if (attr.AttrType.Equals(PkcsObjectIdentifiers.Pkcs9AtExtensionRequest))
+            {
+                extAttr = attr;
+                break;
+            }
+        }
+
+        Assert.NotNull(extAttr);
+
+        var extensions = X509Extensions.GetInstance(extAttr!.AttrValues[0]);
+        var keyUsageExt = extensions.GetExtension(X509Extensions.KeyUsage);
+
+        Assert.NotNull(keyUsageExt);
+
+        var keyUsage = KeyUsage.GetInstance(keyUsageExt!.GetParsedValue());
+        var expectedUsage = KeyUsage.DigitalSignature | KeyUsage.KeyEncipherment;
+        Assert.Equal(expectedUsage, keyUsage.IntValue);
     }
 
     [Fact]

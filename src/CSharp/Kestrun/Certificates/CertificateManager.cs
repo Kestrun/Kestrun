@@ -34,6 +34,8 @@ namespace Kestrun.Certificates;
 /// </summary>
 public static class CertificateManager
 {
+    private static readonly string[] DefaultDevelopmentDnsNames = ["localhost", "127.0.0.1", "::1"];
+
     /// <summary>
     /// Controls whether the private key is appended to the certificate PEM file in addition to
     /// writing a separate .key file. Appending was initially added to work around platform
@@ -59,8 +61,9 @@ public static class CertificateManager
     {
         var random = new SecureRandom(new CryptoApiRandomGenerator());
         var normalizedDnsNames = o.DnsNames
-            .Select(name => name.Trim())
-            .Where(name => name.Length > 0)
+            .Select(name => name?.Trim())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -85,28 +88,31 @@ public static class CertificateManager
                             BigInteger.One, BigInteger.ValueOf(long.MaxValue), random);
 
         var subjectDn = new X509Name($"CN={normalizedDnsNames[0]}");
+        var issuerMaterial = ResolveIssuerMaterial(o.IssuerCertificate);
         var gen = new X509V3CertificateGenerator();
         gen.SetSerialNumber(serial);
-        gen.SetIssuerDN(subjectDn);
+        gen.SetIssuerDN(issuerMaterial?.Subject ?? subjectDn);
         gen.SetSubjectDN(subjectDn);
         gen.SetNotBefore(notBefore);
         gen.SetNotAfter(notAfter);
         gen.SetPublicKey(keyPair.Public);
 
-        // SANs
-        var altNames = normalizedDnsNames
-                        .Select(sanValue =>
-                            new GeneralName(
-                                IPAddress.TryParse(sanValue, out _)
-                                    ? GeneralName.IPAddress
-                                    : GeneralName.DnsName,
-                                sanValue))
-                        .ToArray();
-        gen.AddExtension(X509Extensions.SubjectAlternativeName, false,
-                         new DerSequence(altNames));
+        if (!o.IsCertificateAuthority)
+        {
+            // SANs are relevant for leaf server/client certificates, not CA certificates.
+            var altNames = normalizedDnsNames
+                            .Select(sanValue =>
+                                new GeneralName(
+                                    IPAddress.TryParse(sanValue, out _)
+                                        ? GeneralName.IPAddress
+                                        : GeneralName.DnsName,
+                                    sanValue))
+                            .ToArray();
+            gen.AddExtension(X509Extensions.SubjectAlternativeName, false,
+                             new DerSequence(altNames));
+        }
 
-        // Identify this as a self-signed leaf certificate, not a CA certificate.
-        gen.AddExtension(X509Extensions.BasicConstraints, true, new BasicConstraints(false));
+        gen.AddExtension(X509Extensions.BasicConstraints, true, new BasicConstraints(o.IsCertificateAuthority));
 
         var subjectPublicKeyInfo = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(keyPair.Public);
         var subjectKeyIdentifier = X509ExtensionUtilities.CreateSubjectKeyIdentifier(subjectPublicKeyInfo);
@@ -114,35 +120,51 @@ public static class CertificateManager
         gen.AddExtension(
             X509Extensions.AuthorityKeyIdentifier,
             false,
-            X509ExtensionUtilities.CreateAuthorityKeyIdentifier(subjectPublicKeyInfo));
+            X509ExtensionUtilities.CreateAuthorityKeyIdentifier(issuerMaterial?.PublicKeyInfo ?? subjectPublicKeyInfo));
 
-        // EKU
-        var eku = o.Purposes ??
-         [
-             KeyPurposeID.id_kp_serverAuth,
-            KeyPurposeID.id_kp_clientAuth
-         ];
-        gen.AddExtension(X509Extensions.ExtendedKeyUsage, false,
-                         new ExtendedKeyUsage([.. eku]));
+        var eku = ResolveEnhancedKeyUsages(o);
+        if (eku.Length > 0)
+        {
+            gen.AddExtension(X509Extensions.ExtendedKeyUsage, false,
+                             new ExtendedKeyUsage(eku));
+        }
 
-        // KeyUsage – tailor for the selected key algorithm.
-        var keyUsage =
-            o.KeyUsageFlags is { } explicitKeyUsage && explicitKeyUsage != X509KeyUsageFlags.None
-                ? (int)explicitKeyUsage
-                : o.KeyType == KeyType.Rsa
-                    ? KeyUsage.DigitalSignature | KeyUsage.KeyEncipherment
-                    : KeyUsage.DigitalSignature;
+        var keyUsage = ResolveKeyUsage(o);
         gen.AddExtension(X509Extensions.KeyUsage, true,
                          new KeyUsage(keyUsage));
 
         // ── 3. Sign & output ──────────────────────────────────────────────────────
-        var sigAlg = o.KeyType == KeyType.Rsa ? "SHA256WITHRSA" : "SHA384WITHECDSA";
-        var signer = new Asn1SignatureFactory(sigAlg, keyPair.Private, random);
+        var signingKey = issuerMaterial?.PrivateKey ?? keyPair.Private;
+        var sigAlg = GetSignatureAlgorithm(signingKey);
+        var signer = new Asn1SignatureFactory(sigAlg, signingKey, random);
         var cert = gen.Generate(signer);
 
         return ToX509Cert2(cert, keyPair.Private,
             o.Exportable ? X509KeyStorageFlags.Exportable : X509KeyStorageFlags.DefaultKeySet,
             o.Ephemeral);
+    }
+
+    /// <summary>
+    /// Creates a development certificate bundle consisting of a CA root certificate and a localhost leaf certificate.
+    /// </summary>
+    /// <param name="options">Options controlling development certificate creation and optional root trust.</param>
+    /// <returns>A development certificate bundle containing the effective root certificate, issued leaf certificate, and trust status.</returns>
+    public static DevelopmentCertificateResult NewDevelopmentCertificate(DevelopmentCertificateOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        ValidateDevelopmentCertificateOptions(options);
+
+        var effectiveRoot = options.RootCertificate ?? CreateDevelopmentRoot(options);
+        var rootTrusted = TrustDevelopmentRootIfRequested(options, effectiveRoot);
+        var dnsNames = options.DnsNames ?? DefaultDevelopmentDnsNames;
+        var leaf = NewSelfSigned(new SelfSignedOptions(
+            dnsNames,
+            ValidDays: options.LeafValidDays,
+            Exportable: options.Exportable,
+            IssuerCertificate: effectiveRoot));
+
+        return new DevelopmentCertificateResult(effectiveRoot, leaf, rootTrusted);
     }
     #endregion
 
@@ -190,6 +212,12 @@ public static class CertificateManager
 
         var extGen = new X509ExtensionsGenerator();
         extGen.AddExtension(X509Extensions.SubjectAlternativeName, false, sanSeq);
+
+        if (options.KeyUsageFlags is { } keyUsageFlags && keyUsageFlags != X509KeyUsageFlags.None)
+        {
+            extGen.AddExtension(X509Extensions.KeyUsage, true, new KeyUsage((int)keyUsageFlags));
+        }
+
         var extensions = extGen.Generate();
 
         var extensionRequestAttr = new AttributePkcs(
@@ -1510,6 +1538,206 @@ public static class CertificateManager
     }
 
     /// <summary>
+    /// Resolves issuer material for certificates signed by an existing CA.
+    /// </summary>
+    /// <param name="issuerCertificate">The issuer certificate containing the signing private key.</param>
+    /// <returns>The issuer subject name, private key, and public key info, or null for self-signed certificates.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the issuer certificate cannot sign child certificates.</exception>
+    private static IssuerMaterial? ResolveIssuerMaterial(X509Certificate2? issuerCertificate)
+    {
+        if (issuerCertificate is null)
+        {
+            return null;
+        }
+
+        ValidateIssuerCertificate(issuerCertificate);
+
+        var bcCertificate = DotNetUtilities.FromX509Certificate(issuerCertificate);
+        return new IssuerMaterial(
+            bcCertificate.SubjectDN,
+            GetPrivateKeyParameter(issuerCertificate),
+            SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(bcCertificate.GetPublicKey()));
+    }
+
+    /// <summary>
+    /// Validates that the supplied issuer certificate can sign child certificates.
+    /// </summary>
+    /// <param name="issuerCertificate">The issuer certificate to validate.</param>
+    /// <exception cref="InvalidOperationException">Thrown when the issuer certificate is not a CA or lacks signing material.</exception>
+    private static void ValidateIssuerCertificate(X509Certificate2 issuerCertificate)
+    {
+        if (!issuerCertificate.HasPrivateKey)
+        {
+            throw new InvalidOperationException("Issuer certificate must contain a private key.");
+        }
+
+        var basicConstraints = issuerCertificate.Extensions.OfType<X509BasicConstraintsExtension>().SingleOrDefault();
+        if (basicConstraints is null || !basicConstraints.CertificateAuthority)
+        {
+            throw new InvalidOperationException("Issuer certificate must be a CA certificate.");
+        }
+
+        var keyUsage = issuerCertificate.Extensions.OfType<X509KeyUsageExtension>().SingleOrDefault();
+        if (keyUsage is not null && !keyUsage.KeyUsages.HasFlag(X509KeyUsageFlags.KeyCertSign))
+        {
+            throw new InvalidOperationException("Issuer certificate must allow certificate signing (KeyCertSign).");
+        }
+    }
+
+    /// <summary>
+    /// Converts a .NET certificate private key into a Bouncy Castle private key parameter.
+    /// </summary>
+    /// <param name="certificate">The certificate containing the private key.</param>
+    /// <returns>The Bouncy Castle private key parameter.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the certificate does not contain a supported private key.</exception>
+    private static AsymmetricKeyParameter GetPrivateKeyParameter(X509Certificate2 certificate)
+    {
+        try
+        {
+            if (certificate.GetRSAPrivateKey() is RSA rsa)
+            {
+                return PrivateKeyFactory.CreateKey(rsa.ExportPkcs8PrivateKey());
+            }
+
+            if (certificate.GetECDsaPrivateKey() is ECDsa ecdsa)
+            {
+                return PrivateKeyFactory.CreateKey(ecdsa.ExportPkcs8PrivateKey());
+            }
+        }
+        catch (CryptographicException ex)
+        {
+            throw new InvalidOperationException(
+                "Issuer certificate private key must support PKCS#8 export. Create or import the issuer certificate with an exportable private key.",
+                ex);
+        }
+
+        throw new InvalidOperationException("Only RSA and ECDSA issuer certificates are supported.");
+    }
+
+    /// <summary>
+    /// Creates the development root certificate when the caller does not provide one.
+    /// </summary>
+    /// <param name="options">The development certificate creation options.</param>
+    /// <returns>A newly created CA root certificate.</returns>
+    private static X509Certificate2 CreateDevelopmentRoot(DevelopmentCertificateOptions options) =>
+        NewSelfSigned(new SelfSignedOptions(
+            [options.RootName],
+            ValidDays: options.RootValidDays,
+            Exportable: options.Exportable,
+            IsCertificateAuthority: true));
+
+    /// <summary>
+    /// Adds the development root certificate to the Windows CurrentUser Root store when requested.
+    /// </summary>
+    /// <param name="options">The development certificate creation options.</param>
+    /// <param name="certificate">The effective development root certificate.</param>
+    /// <returns><c>true</c> when the certificate was trusted in the Windows root store; otherwise, <c>false</c>.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when root trust is requested on a non-Windows platform.</exception>
+    private static bool TrustDevelopmentRootIfRequested(DevelopmentCertificateOptions options, X509Certificate2 certificate)
+    {
+        if (!options.TrustRoot)
+        {
+            return false;
+        }
+
+        if (!OperatingSystem.IsWindows())
+        {
+            throw new InvalidOperationException("TrustRoot is currently supported only on Windows because it uses the Windows certificate store.");
+        }
+
+        using var store = new X509Store(StoreName.Root, StoreLocation.CurrentUser);
+        store.Open(OpenFlags.ReadWrite);
+
+        var existing = store.Certificates.Find(X509FindType.FindByThumbprint, certificate.Thumbprint, false);
+        if (existing.Count == 0)
+        {
+            store.Add(certificate);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Validates development certificate creation options before certificate generation begins.
+    /// </summary>
+    /// <param name="options">The development certificate creation options.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when an option falls outside the supported range.</exception>
+    private static void ValidateDevelopmentCertificateOptions(DevelopmentCertificateOptions options)
+    {
+        if (options.RootValidDays is < 1 or > 36500)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options.RootValidDays), options.RootValidDays, "RootValidDays must be between 1 and 36500.");
+        }
+
+        if (options.LeafValidDays is < 1 or > 3650)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options.LeafValidDays), options.LeafValidDays, "LeafValidDays must be between 1 and 3650.");
+        }
+    }
+
+    /// <summary>
+    /// Resolves the enhanced key usages to emit for the generated certificate.
+    /// </summary>
+    /// <param name="options">The certificate generation options.</param>
+    /// <returns>An array of enhanced key usage OIDs to emit.</returns>
+    private static KeyPurposeID[] ResolveEnhancedKeyUsages(SelfSignedOptions options)
+    {
+        // If the caller explicitly specified EKU purposes, use those directly.
+        if (options.Purposes is not null)
+        {
+            return [.. options.Purposes];
+        }
+        // For CAs, it's common to omit EKU or use id-kp-certificateAuthority (
+        //which is not universally recognized), so we'll emit no EKU for CA certs to maximize compatibility.
+        if (options.IsCertificateAuthority)
+        {
+            return [];
+        }
+        // For end-entity certs, default to both server and client auth EKUs to maximize compatibility with various use cases (TLS, JWT signing, etc.).
+        return
+        [
+            KeyPurposeID.id_kp_serverAuth,
+            KeyPurposeID.id_kp_clientAuth
+        ];
+    }
+
+    /// <summary>
+    /// Resolves the key usage flags to emit for the generated certificate.
+    /// </summary>
+    /// <param name="options">The certificate generation options.</param>
+    /// <returns>The Bouncy Castle key usage bitmask.</returns>
+    private static int ResolveKeyUsage(SelfSignedOptions options)
+    {
+        if (options.KeyUsageFlags is { } explicitKeyUsage && explicitKeyUsage != X509KeyUsageFlags.None)
+        {
+            return (int)explicitKeyUsage;
+        }
+
+        if (options.IsCertificateAuthority)
+        {
+            return KeyUsage.KeyCertSign | KeyUsage.CrlSign;
+        }
+
+        return options.KeyType == KeyType.Rsa
+            ? KeyUsage.DigitalSignature | KeyUsage.KeyEncipherment
+            : KeyUsage.DigitalSignature;
+    }
+
+    /// <summary>
+    /// Gets the certificate signature algorithm appropriate for the signing private key.
+    /// </summary>
+    /// <param name="signingKey">The private key used to sign the certificate.</param>
+    /// <returns>The Bouncy Castle signature algorithm name.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when the signing key algorithm is unsupported.</exception>
+    private static string GetSignatureAlgorithm(AsymmetricKeyParameter signingKey) =>
+        signingKey switch
+        {
+            RsaKeyParameters => "SHA256WITHRSA",
+            ECPrivateKeyParameters => "SHA384WITHECDSA",
+            _ => throw new ArgumentOutOfRangeException(nameof(signingKey), "Only RSA and ECDSA signing keys are supported.")
+        };
+
+    /// <summary>
     /// Gets the enhanced key usage purposes (EKU) from the specified X509 certificate.
     /// </summary>
     /// <param name="cert">The X509Certificate2 to extract purposes from.</param>
@@ -1628,6 +1856,17 @@ public static class CertificateManager
 
 #endif
     }
+
+    /// <summary>
+    /// Encapsulates issuer details needed to sign a generated certificate.
+    /// </summary>
+    /// <param name="Subject">The issuer distinguished name.</param>
+    /// <param name="PrivateKey">The issuer private key.</param>
+    /// <param name="PublicKeyInfo">The issuer public key information.</param>
+    private sealed record IssuerMaterial(
+        X509Name Subject,
+        AsymmetricKeyParameter PrivateKey,
+        SubjectPublicKeyInfo PublicKeyInfo);
 
     #endregion
 }

@@ -14,6 +14,8 @@ namespace Kestrun.Certificates;
 /// <param name="ValidDays">The number of days the certificate will be valid.</param>
 /// <param name="Ephemeral">If true, the certificate will not be stored in the Windows certificate store.</param>
 /// <param name="Exportable">If true, the private key can be exported from the certificate.</param>
+/// <param name="IsCertificateAuthority">If true, emits a CA certificate suitable for issuing child certificates.</param>
+/// <param name="IssuerCertificate">Optional issuer certificate used to sign the generated certificate. The issuer must contain a private key and be a CA certificate.</param>
 /// <remarks>
 /// This record is used to specify options for creating a self-signed certificate.
 /// </remarks>
@@ -25,5 +27,7 @@ public record SelfSignedOptions(
     X509KeyUsageFlags? KeyUsageFlags = null,
     int ValidDays = 365,
     bool Ephemeral = false,
-    bool Exportable = false
+    bool Exportable = false,
+    bool IsCertificateAuthority = false,
+    X509Certificate2? IssuerCertificate = null
     );

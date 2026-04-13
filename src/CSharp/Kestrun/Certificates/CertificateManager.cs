@@ -1708,16 +1708,19 @@ public static class CertificateManager
     /// <returns>The Bouncy Castle key usage bitmask.</returns>
     private static int ResolveKeyUsage(SelfSignedOptions options)
     {
+        // If the caller explicitly specified key usage flags, use those directly.
         if (options.KeyUsageFlags is { } explicitKeyUsage && explicitKeyUsage != X509KeyUsageFlags.None)
         {
             return (int)explicitKeyUsage;
         }
 
+        // For CAs, the key usage must include KeyCertSign. For end-entity certs, DigitalSignature is usually appropriate, with KeyEncipherment added for RSA keys to support a wider range of use cases.
         if (options.IsCertificateAuthority)
         {
             return KeyUsage.KeyCertSign | KeyUsage.CrlSign;
         }
 
+        // For end-entity certs, default to DigitalSignature, with KeyEncipherment added for RSA keys to support a wider range of use cases (e.g. TLS server auth).
         return options.KeyType == KeyType.Rsa
             ? KeyUsage.DigitalSignature | KeyUsage.KeyEncipherment
             : KeyUsage.DigitalSignature;

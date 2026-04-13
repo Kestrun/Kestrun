@@ -66,7 +66,7 @@ function ConvertTo-KrJwkJson {
 
         [Parameter(Mandatory = $true, ParameterSetName = 'ByRsaPrivateKeyPem')]
         [string]$RsaPrivateKeyPem,
- 
+
         [Parameter(Mandatory = $true, ParameterSetName = 'ByRsaPrivateKeyPath')]
         [string]$RsaPrivateKeyPath,
 

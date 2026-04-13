@@ -59,7 +59,7 @@ function New-KrDevelopmentCertificate {
         [Parameter()]
         [ValidateRange(1, 36500)]
         [int]$RootValidDays = 3650,
-        
+
         [Parameter()]
         [ValidateRange(1, 3650)]
         [int]$LeafValidDays = 30,

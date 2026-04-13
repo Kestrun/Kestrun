@@ -71,7 +71,7 @@ function New-KrCertificateRequest {
 
         [Parameter()]
         [string]$CommonName,
-        
+
         [Parameter()]
         [System.Security.Cryptography.X509Certificates.X509KeyUsageFlags[]]$KeyUsage = @()
     )

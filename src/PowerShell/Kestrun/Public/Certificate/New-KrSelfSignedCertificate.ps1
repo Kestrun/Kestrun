@@ -62,7 +62,7 @@ function New-KrSelfSignedCertificate {
 
         [Parameter()]
         [switch]$Ephemeral,
-        
+
         [Parameter()]
         [switch]$Exportable
     )

@@ -211,11 +211,12 @@ public class CertificateManagerTest
 
         var authorityKeyIdentifier = leaf.Extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>()
             .Single(e => e.Oid?.Value == "2.5.29.35");
-        var subjectKeyIdentifier = root.Extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>()
-            .Single(e => e.Oid?.Value == "2.5.29.14");
+        var subjectKeyIdentifier = Assert.IsType<X509SubjectKeyIdentifierExtension>(
+            root.Extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>()
+                .Single(e => e.Oid?.Value == "2.5.29.14"));
 
-        var authorityKeyIdentifierHex = authorityKeyIdentifier.Format(false).Replace("KeyID=", string.Empty, StringComparison.OrdinalIgnoreCase).Replace(" ", string.Empty).Trim().ToLowerInvariant();
-        var subjectKeyIdentifierHex = subjectKeyIdentifier.Format(false).Replace(" ", string.Empty).Trim().ToLowerInvariant();
+        var authorityKeyIdentifierHex = GetAuthorityKeyIdentifierHex(authorityKeyIdentifier);
+        var subjectKeyIdentifierHex = subjectKeyIdentifier.SubjectKeyIdentifier!.Replace(" ", string.Empty, StringComparison.Ordinal).Trim().ToLowerInvariant();
         Assert.Equal(subjectKeyIdentifierHex, authorityKeyIdentifierHex);
     }
 
@@ -675,5 +676,12 @@ public class CertificateManagerTest
         // Private key should be EC
         var ecKey = Assert.IsType<Org.BouncyCastle.Crypto.Parameters.ECPrivateKeyParameters>(csr.PrivateKey);
         Assert.NotNull(ecKey.Parameters);
+    }
+
+    private static string GetAuthorityKeyIdentifierHex(System.Security.Cryptography.X509Certificates.X509Extension authorityKeyIdentifier)
+    {
+        var authorityKeyIdentifierAsn = AuthorityKeyIdentifier.GetInstance(Asn1Object.FromByteArray(authorityKeyIdentifier.RawData));
+        var keyIdentifier = Assert.IsType<byte[]>(authorityKeyIdentifierAsn.GetKeyIdentifier());
+        return Convert.ToHexString(keyIdentifier).ToLowerInvariant();
     }
 }

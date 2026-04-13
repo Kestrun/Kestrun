@@ -117,16 +117,15 @@ foreach ($f in $files) {
     $raw = ($lines -join "`n")
     $contentBody = [regex]::Replace(
         $raw,
-        '\A---\r?\n.*?\r?\n---\r?\n?',
+        '^\uFEFF?(?:[ \t]*\r?\n)*[ \t]*---\r?\n.*?\r?\n---\r?\n?',
         '',
         [System.Text.RegularExpressions.RegexOptions]::Singleline)
 
     if ([string]::IsNullOrWhiteSpace($contentBody)) {
-        $contentBody = $raw
+        $contentBody = ''
+    } else {
+        $contentBody = $contentBody.TrimStart("`r", "`n")
     }
-
-    $contentBody = $contentBody.TrimStart("`r", "`n")
-
     @"
 ---
 layout: default

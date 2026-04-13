@@ -76,7 +76,7 @@ Describe 'New-KrDevelopmentCertificate' {
         $script:bundle.RootTrusted | Should -BeFalse
     }
 
-    It 'skips trusting the root certificate when WhatIf is used' {
+    It 'skips trusting the root certificate when WhatIf is used' -Skip:(!$IsWindows) {
         $script:bundle = New-KrDevelopmentCertificate -TrustRoot -Exportable -WhatIf
 
         $script:bundle | Should -Not -BeNullOrEmpty

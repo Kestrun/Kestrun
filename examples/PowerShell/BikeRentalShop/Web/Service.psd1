@@ -1,4 +1,4 @@
-﻿@{
+@{
     FormatVersion = '1.0'
     Name = 'bike-rental-shop-web'
     Description = 'Standalone Razor Pages web client for the bike rental shop backends.'

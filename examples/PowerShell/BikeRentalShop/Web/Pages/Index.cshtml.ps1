@@ -1,4 +1,4 @@
-﻿$clientConfig = [ordered]@{
+$clientConfig = [ordered]@{
     apiBaseUrl = $BikeRentalApiBaseUrl
     publicCatalogPath = '/api/bikes?status=all'
     createRentalPath = '/api/rentals'

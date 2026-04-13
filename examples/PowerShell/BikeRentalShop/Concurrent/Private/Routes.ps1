@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Defines the API routes for the concurrent bike rental shop service.
 .DESCRIPTION

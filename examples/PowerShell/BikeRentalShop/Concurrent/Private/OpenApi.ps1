@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Declares the OpenAPI schema and response components for the concurrent bike rental shop service.
 .DESCRIPTION

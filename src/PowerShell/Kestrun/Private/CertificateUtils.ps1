@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Combines multiple X509KeyUsageFlags into a single value.
 .DESCRIPTION

@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Provides functions for managing a concurrent bike rental shop database in memory and persisting it to disk.
 .DESCRIPTION

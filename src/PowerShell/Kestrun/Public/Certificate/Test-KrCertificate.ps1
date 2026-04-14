@@ -37,12 +37,20 @@ function Test-KrCertificate {
         [Parameter(Mandatory)]
         [System.Security.Cryptography.X509Certificates.X509Certificate2] $Certificate,
 
-        [switch] $CheckRevocation,
-        [switch] $AllowWeakAlgorithms,
-        [switch] $DenySelfSigned,
+        [Parameter()]
+        [switch]$CheckRevocation,
 
-        [string[]] $ExpectedPurpose,
-        [switch] $StrictPurpose
+        [Parameter()]
+        [switch]$AllowWeakAlgorithms,
+
+        [Parameter()]
+        [switch]$DenySelfSigned,
+
+        [Parameter()]
+        [string[]]$ExpectedPurpose,
+
+        [Parameter()]
+        [switch]$StrictPurpose
     )
 
     $oidColl = if ($ExpectedPurpose) {

@@ -21,9 +21,14 @@ function Import-KrCertificate {
     [CmdletBinding()]
     [OutputType([System.Security.Cryptography.X509Certificates.X509Certificate2])]
     param(
-        [Parameter(Mandatory)][string] $FilePath,
-        [securestring] $Password,
-        [string] $PrivateKeyPath
+        [Parameter(Mandatory)]
+        [string]$FilePath,
+
+        [Parameter()]
+        [securestring]$Password,
+
+        [Parameter()]
+        [string]$PrivateKeyPath
     )
     $resolvedPath = Resolve-KrPath -Path $FilePath -KestrunRoot -Test
     Write-KrLog -Level Verbose -Message "Resolved file path: $resolvedPath"

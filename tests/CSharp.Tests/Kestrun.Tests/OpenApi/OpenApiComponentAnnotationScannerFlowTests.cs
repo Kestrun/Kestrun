@@ -144,7 +144,9 @@ public sealed class OpenApiComponentAnnotationScannerFlowTests
     [Fact]
     public void ScanFromPath_BikeRentalExample_FindsSplitResponseComponents()
     {
-        var path = LocateRepoFile("examples", "PowerShell", "BikeRentalShop", "Service.ps1");
+        var path = LocateFirstExistingRepoFile(
+            ["examples", "PowerShell", "BikeRentalShop", "Synchronized", "Service.ps1"],
+            ["examples", "PowerShell", "BikeRentalShop", "Concurrent", "Service.ps1"]);
 
         Assert.True(File.Exists(path), $"Expected example script at '{path}'.");
 
@@ -214,6 +216,20 @@ public sealed class OpenApiComponentAnnotationScannerFlowTests
         }
 
         return Path.Combine([GetSafeStartDirectory(), .. relativeSegments]);
+    }
+
+    private static string LocateFirstExistingRepoFile(params string[][] relativePathCandidates)
+    {
+        foreach (var relativePath in relativePathCandidates)
+        {
+            var candidate = LocateRepoFile(relativePath);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return LocateRepoFile(relativePathCandidates[0]);
     }
 
     private static IEnumerable<string> EnumerateSearchRoots()

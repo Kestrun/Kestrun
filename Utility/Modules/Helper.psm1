@@ -808,7 +808,7 @@ function Invoke-KestrunDotNetTest {
         @()
     }
 
-    ConvertTo-Json -InputObject @($failedSelectors) -Depth 6 | Set-Content -LiteralPath $failureManifestPath
+    ConvertTo-Json -InputObject @($failedSelectors) -Depth 6 | Set-Content -LiteralPath $failureManifestPath -Encoding utf8NoBOM
 
     return [pscustomobject]@{
         ExitCode            = $exitCode

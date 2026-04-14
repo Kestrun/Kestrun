@@ -38,7 +38,7 @@ Describe 'Get-KestrunTrxFailedSelector' {
     <UnitTestResult executionId="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb" testId="22222222-2222-2222-2222-222222222222" testName="SampleTests.PassingTest" outcome="Passed" />
   </Results>
 </TestRun>
-'@ | Set-Content -LiteralPath $trxPath
+'@ | Set-Content -LiteralPath $trxPath -Encoding utf8NoBOM
 
         $selectors = @(Get-KestrunTrxFailedSelector -TrxPath $trxPath -ProjectPath '.\tests\CSharp.Tests\Kestrun.Tests\Kestrun.Tests.csproj' -Framework 'net10.0' -Label 'Kestrun.Tests')
 

@@ -612,8 +612,16 @@ Add-BuildTask 'Test-xUnit' {
             $remainingFailedSelectors += $groupSelectors
             continue
         }
+        # The VSTest filter syntax does not allow for multiple FullyQualifiedName clauses to be combined with OR,
+        # so we need to construct a single filter expression that matches any of the failed test cases.
+        $filter = ($fullyQualifiedNames | ForEach-Object {
+                # Escape special characters in fully qualified names per VSTest filter rules
+                $escapedName = $_ -replace '([\\"])', '\$1'
+                'FullyQualifiedName="{0}"' -f $escapedName
+            }) -join '|'
 
-        $filter = ($fullyQualifiedNames | ForEach-Object { 'FullyQualifiedName={0}' -f $_ }) -join '|'
+        # The filter syntax for dotnet test requires the entire expression to be wrapped in double quotes,
+        # and inner quotes to be escaped with backslashes.
         $rerun = Invoke-KestrunDotNetTest `
             -ProjectPath $groupSelectors[0].ProjectPath `
             -Framework $groupSelectors[0].Framework `
@@ -806,7 +814,7 @@ Add-BuildTask 'Test-Pester' 'Test-Pester-LogContext', {
         @()
     }
 
-    ConvertTo-Json -InputObject @($remainingFailedSelectors) -Depth 6 | Set-Content -LiteralPath $aggregateFailureManifestPath
+    ConvertTo-Json -InputObject @($remainingFailedSelectors) -Depth 6 | Set-Content -LiteralPath $aggregateFailureManifestPath -Encoding utf8NoBOM
 
     if ($remainingFailedSelectors.Count -gt 0) {
         $failureSummary = @($remainingFailedSelectors | ForEach-Object { $_.FullName })

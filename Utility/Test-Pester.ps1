@@ -97,10 +97,10 @@ process {
 
     Write-KestrunTimestampedLog -Path $progressLogPath -Message "Running Pester tests in '$TestPath'" -ForegroundColor Cyan | Out-Null
     if ($ExcludePath.Count -gt 0) {
-        Write-KestrunTimestampedLog -Path $progressLogPath -Message ("Excluding Pester paths: {0}" -f ($ExcludePath -join ', ')) -ForegroundColor DarkCyan | Out-Null
+        Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Excluding Pester paths: {0}' -f ($ExcludePath -join ', ')) -ForegroundColor DarkCyan | Out-Null
     }
     if ($ShardCount -gt 1) {
-        Write-KestrunTimestampedLog -Path $progressLogPath -Message ("Running Pester shard {0}/{1}." -f $ShardIndex, $ShardCount) -ForegroundColor DarkCyan | Out-Null
+        Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Running Pester shard {0}/{1}.' -f $ShardIndex, $ShardCount) -ForegroundColor DarkCyan | Out-Null
     }
     Write-KestrunTimestampedLog -Path $progressLogPath -Message "Discovered $($testFiles.Count) Pester test files." -ForegroundColor DarkCyan | Out-Null
     if ($EmitNUnit) {
@@ -159,9 +159,11 @@ process {
             if ($runResult.Run.FailedCount -gt 0) {
                 $initialExitCode = 1
                 $allFailedSelectors += @(Get-KestrunPesterFailedSelector -PesterRun $runResult.Run)
-                Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Completed Pester file [{0}] with failures in {1:c}. FailedCount={2}' -f $displayIndex, $stopwatch.Elapsed, $runResult.Run.FailedCount) -ForegroundColor Yellow | Out-Null
+                Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Completed Pester file [{0}] with failures in {1:c}. FailedCount={2}' `
+                        -f $displayIndex, $stopwatch.Elapsed, $runResult.Run.FailedCount) -ForegroundColor Yellow | Out-Null
             } else {
-                Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Completed Pester file [{0}] successfully in {1:c}. TotalCount={2}' -f $displayIndex, $stopwatch.Elapsed, $runResult.Run.TotalCount) -ForegroundColor Green | Out-Null
+                Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Completed Pester file [{0}] successfully in {1:c}. TotalCount={2}' `
+                        -f $displayIndex, $stopwatch.Elapsed, $runResult.Run.TotalCount) -ForegroundColor Green | Out-Null
             }
         }
 
@@ -170,7 +172,8 @@ process {
                 Group-Object -Property { '{0}|{1}|{2}' -f $_.File, $_.Line, $_.FullName } |
                 ForEach-Object { $_.Group[0] }
         )
-        ConvertTo-Json -InputObject @($initialFailedSelectors) -Depth 6 | Set-Content -LiteralPath $initialFailuresPath
+        ConvertTo-Json -InputObject @($initialFailedSelectors) -Depth 6 |
+            Set-Content -LiteralPath $initialFailuresPath -Encoding utf8NoBOM
 
         $finalExit = $initialExitCode
         $attempt = 0
@@ -178,52 +181,54 @@ process {
 
         if ($remainingFailedSelectors.Count -gt 0 -and $ReRunFailed) {
             if ($remainingFailedSelectors.Count -le $MaxFailedAllowed) {
-                Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Initial pass had {0} failing test(s); preparing to re-run up to {1} time(s).' -f $remainingFailedSelectors.Count, $MaxReruns) -ForegroundColor Yellow | Out-Null
-            } else {
-                Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Initial pass had {0} failing test(s), which exceeds MaxFailedAllowed ({1}); skipping re-runs.' -f $remainingFailedSelectors.Count, $MaxFailedAllowed) -ForegroundColor Red | Out-Null
-                $finalExit = 1
-            }
+                Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Initial pass had {0} failing test(s); preparing to re-run up to {1} time(s).' `
+                        -f $remainingFailedSelectors.Count, $MaxReruns) -ForegroundColor Yellow | Out-Null
+                while ($attempt -lt $MaxReruns -and $remainingFailedSelectors.Count -gt 0) {
+                    $attempt++
+                    $rerunXmlPath = Join-Path -Path $pesterResultsDir -ChildPath ('Pester-rerun-{0:00}-{1}.xml' -f $attempt, (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
+                    $rerunCfg = New-KestrunPesterRerunConfig `
+                        -Failed $remainingFailedSelectors `
+                        -BaseConfig $baseCfg `
+                        -ResultsPath $rerunXmlPath `
+                        -TestSuiteName ('Kestrun Pester Rerun {0}' -f $attempt)
 
-            while ($attempt -lt $MaxReruns -and $remainingFailedSelectors.Count -gt 0) {
-                $attempt++
-                $rerunXmlPath = Join-Path -Path $pesterResultsDir -ChildPath ('Pester-rerun-{0:00}-{1}.xml' -f $attempt, (Get-Date -Format 'yyyyMMdd-HHmmss-fff'))
-                $rerunCfg = New-KestrunPesterRerunConfig `
-                    -Failed $remainingFailedSelectors `
-                    -BaseConfig $baseCfg `
-                    -ResultsPath $rerunXmlPath `
-                    -TestSuiteName ('Kestrun Pester Rerun {0}' -f $attempt)
+                    Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Starting rerun attempt {0} for {1} failing test(s).' -f $attempt, $remainingFailedSelectors.Count) -ForegroundColor Yellow | Out-Null
+                    Write-KestrunTimestampedLog -Path $progressLogPath -Message "Writing rerun NUnit XML to: $rerunXmlPath" -ForegroundColor DarkCyan | Out-Null
 
-                Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Starting rerun attempt {0} for {1} failing test(s).' -f $attempt, $remainingFailedSelectors.Count) -ForegroundColor Yellow | Out-Null
-                Write-KestrunTimestampedLog -Path $progressLogPath -Message "Writing rerun NUnit XML to: $rerunXmlPath" -ForegroundColor DarkCyan | Out-Null
-
-                $rerun = Invoke-KestrunPesterWithConfig -Config $rerunCfg
-                if ($rerun.Run.FailedCount -gt 0) {
-                    $remainingFailedSelectors = @(Get-KestrunPesterFailedSelector -PesterRun $rerun.Run)
-                    $finalExit = 1
-                    Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Rerun attempt {0} still has {1} failing test(s).' -f $attempt, $remainingFailedSelectors.Count) -ForegroundColor Red | Out-Null
-                } else {
-                    $remainingFailedSelectors = @()
-                    $finalExit = 0
-                    Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Rerun attempt {0} cleared all remaining failures.' -f $attempt) -ForegroundColor Green | Out-Null
+                    $rerun = Invoke-KestrunPesterWithConfig -Config $rerunCfg
+                    if ($rerun.Run.FailedCount -gt 0) {
+                        $remainingFailedSelectors = @(Get-KestrunPesterFailedSelector -PesterRun $rerun.Run)
+                        $finalExit = 1
+                        Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Rerun attempt {0} still has {1} failing test(s).' -f $attempt, $remainingFailedSelectors.Count) -ForegroundColor Red | Out-Null
+                    } else {
+                        $remainingFailedSelectors = @()
+                        $finalExit = 0
+                        Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Rerun attempt {0} cleared all remaining failures.' -f $attempt) -ForegroundColor Green | Out-Null
+                    }
                 }
+            } else {
+                Write-KestrunTimestampedLog -Path $progressLogPath -Message ('Initial pass had {0} failing test(s), which exceeds MaxFailedAllowed ({1}); skipping re-runs.' `
+                        -f $remainingFailedSelectors.Count, $MaxFailedAllowed) -ForegroundColor Red | Out-Null
+                $finalExit = 1
             }
         }
 
-        ConvertTo-Json -InputObject @($remainingFailedSelectors) -Depth 6 | Set-Content -LiteralPath $remainingFailuresPath
+        ConvertTo-Json -InputObject @($remainingFailedSelectors) -Depth 6 |
+            Set-Content -LiteralPath $remainingFailuresPath -Encoding utf8NoBOM
 
         if ($finalExit -ne 0) {
             Write-KestrunTimestampedLog -Path $progressLogPath -Message 'Some Pester tests failed.' -ForegroundColor Red | Out-Null
             if ($PassThru) {
                 return [pscustomobject]@{
-                    ExitCode                = $finalExit
-                    InitialExitCode         = $initialExitCode
-                    ResultsDirectory        = $pesterResultsDir
-                    ProgressLogPath         = $progressLogPath
-                    ConsoleLogPath          = $consoleLogPath
-                    DiscoveredFilesPath     = $discoveredFilesPath
-                    InitialFailuresPath     = $initialFailuresPath
-                    RemainingFailuresPath   = $remainingFailuresPath
-                    InitialFailedSelectors  = @($initialFailedSelectors)
+                    ExitCode = $finalExit
+                    InitialExitCode = $initialExitCode
+                    ResultsDirectory = $pesterResultsDir
+                    ProgressLogPath = $progressLogPath
+                    ConsoleLogPath = $consoleLogPath
+                    DiscoveredFilesPath = $discoveredFilesPath
+                    InitialFailuresPath = $initialFailuresPath
+                    RemainingFailuresPath = $remainingFailuresPath
+                    InitialFailedSelectors = @($initialFailedSelectors)
                     RemainingFailedSelectors = @($remainingFailedSelectors)
                 }
             }
@@ -234,15 +239,15 @@ process {
         Write-KestrunTimestampedLog -Path $progressLogPath -Message 'All Pester tests passed.' -ForegroundColor Green | Out-Null
         if ($PassThru) {
             return [pscustomobject]@{
-                ExitCode                = 0
-                InitialExitCode         = $initialExitCode
-                ResultsDirectory        = $pesterResultsDir
-                ProgressLogPath         = $progressLogPath
-                ConsoleLogPath          = $consoleLogPath
-                DiscoveredFilesPath     = $discoveredFilesPath
-                InitialFailuresPath     = $initialFailuresPath
-                RemainingFailuresPath   = $remainingFailuresPath
-                InitialFailedSelectors  = @($initialFailedSelectors)
+                ExitCode = 0
+                InitialExitCode = $initialExitCode
+                ResultsDirectory = $pesterResultsDir
+                ProgressLogPath = $progressLogPath
+                ConsoleLogPath = $consoleLogPath
+                DiscoveredFilesPath = $discoveredFilesPath
+                InitialFailuresPath = $initialFailuresPath
+                RemainingFailuresPath = $remainingFailuresPath
+                InitialFailedSelectors = @($initialFailedSelectors)
                 RemainingFailedSelectors = @($remainingFailedSelectors)
             }
         }

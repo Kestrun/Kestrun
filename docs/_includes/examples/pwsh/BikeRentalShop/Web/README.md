@@ -6,21 +6,21 @@ This sample is a standalone Razor Pages client for the bike rental API. It stays
 ## Start Against The Synchronized Backend
 
 ```powershell
-pwsh .\examples\PowerShell\BikeRentalShop\Synchronized\Service.ps1 -Port 5443 -AllowedCorsOrigins @('https://127.0.0.1:5445', 'https://localhost:5445')
-pwsh .\examples\PowerShell\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Synchronized
+pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Synchronized\Service.ps1 -Port 5443 -AllowedCorsOrigins @('https://127.0.0.1:5445', 'https://localhost:5445')
+pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Synchronized
 ```
 
 ## Start Against The Concurrent Backend
 
 ```powershell
-pwsh .\examples\PowerShell\BikeRentalShop\Concurrent\Service.ps1 -Port 5444 -AllowedCorsOrigins @('https://127.0.0.1:5445', 'https://localhost:5445')
-pwsh .\examples\PowerShell\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Concurrent
+pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Concurrent\Service.ps1 -Port 5444 -AllowedCorsOrigins @('https://127.0.0.1:5445', 'https://localhost:5445')
+pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Concurrent
 ```
 
 ## Custom Backend URL
 
 ```powershell
-pwsh .\examples\PowerShell\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Custom -ApiBaseUrl 'https://api.example.test:9443'
+pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Custom -ApiBaseUrl 'https://api.example.test:9443'
 ```
 
 ## Notes

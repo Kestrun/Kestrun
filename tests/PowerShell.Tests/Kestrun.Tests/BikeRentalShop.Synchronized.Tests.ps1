@@ -5,7 +5,7 @@ BeforeAll {
 
 Describe 'Bike rental shop synchronized example' {
     BeforeAll {
-        $script:exampleRoot = Join-Path -Path 'examples' -ChildPath 'PowerShell' -AdditionalChildPath 'BikeRentalShop', 'Synchronized'
+        $script:exampleRoot = Join-Path -Path 'docs' -ChildPath '_includes' -AdditionalChildPath 'examples', 'pwsh', 'BikeRentalShop', 'Synchronized'
         $script:scriptPath = Join-Path $script:exampleRoot 'Service.ps1'
         $script:statePath = Join-Path $script:exampleRoot 'data\bike-rental-state.clixml'
         $script:backupPath = Join-Path ([System.IO.Path]::GetTempPath()) ('bike-rental-state-' + [Guid]::NewGuid().ToString('N') + '.clixml')

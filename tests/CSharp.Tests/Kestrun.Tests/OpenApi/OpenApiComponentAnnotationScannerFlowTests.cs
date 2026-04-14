@@ -145,8 +145,8 @@ public sealed class OpenApiComponentAnnotationScannerFlowTests
     public void ScanFromPath_BikeRentalExample_FindsSplitResponseComponents()
     {
         var path = LocateFirstExistingRepoFile(
-            ["examples", "PowerShell", "BikeRentalShop", "Synchronized", "Service.ps1"],
-            ["examples", "PowerShell", "BikeRentalShop", "Concurrent", "Service.ps1"]);
+            ["docs", "_includes", "examples", "pwsh", "BikeRentalShop", "Synchronized", "Service.ps1"],
+            ["docs", "_includes", "examples", "pwsh", "BikeRentalShop", "Concurrent", "Service.ps1"]);
 
         Assert.True(File.Exists(path), $"Expected example script at '{path}'.");
 

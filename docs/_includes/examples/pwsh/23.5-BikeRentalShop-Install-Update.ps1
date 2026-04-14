@@ -1,6 +1,6 @@
 Import-Module .\src\PowerShell\Kestrun\Kestrun.psm1 -Force
 
-New-KrServicePackage -SourceFolder .\examples\PowerShell\BikeRentalShop\Synchronized `
+New-KrServicePackage -SourceFolder .\docs\_includes\examples\pwsh\BikeRentalShop\Synchronized `
     -OutputPath .\artifacts\tutorial\bike-rental-shop.krpack `
     -Force
 

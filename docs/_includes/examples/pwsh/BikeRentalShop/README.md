@@ -17,17 +17,17 @@ This folder groups the bike-rental backends and the standalone Razor web client 
 ## Package Commands
 
 ```powershell
-New-KrServicePackage -SourceFolder .\examples\PowerShell\BikeRentalShop\Synchronized -OutputPath .\bike-rental-shop-1.0.0.krpack
-New-KrServicePackage -SourceFolder .\examples\PowerShell\BikeRentalShop\Concurrent -OutputPath .\bike-rental-shop-concurrent-1.0.0.krpack
-New-KrServicePackage -SourceFolder .\examples\PowerShell\BikeRentalShop\Web -OutputPath .\bike-rental-shop-web-1.0.0.krpack
+New-KrServicePackage -SourceFolder .\docs\_includes\examples\pwsh\BikeRentalShop\Synchronized -OutputPath .\bike-rental-shop-1.0.0.krpack
+New-KrServicePackage -SourceFolder .\docs\_includes\examples\pwsh\BikeRentalShop\Concurrent -OutputPath .\bike-rental-shop-concurrent-1.0.0.krpack
+New-KrServicePackage -SourceFolder .\docs\_includes\examples\pwsh\BikeRentalShop\Web -OutputPath .\bike-rental-shop-web-1.0.0.krpack
 ```
 
 ## Run Commands
 
 ```powershell
-pwsh .\examples\PowerShell\BikeRentalShop\Synchronized\Service.ps1 -Port 5443
-pwsh .\examples\PowerShell\BikeRentalShop\Concurrent\Service.ps1 -Port 5444
-pwsh .\examples\PowerShell\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Synchronized
+pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Synchronized\Service.ps1 -Port 5443
+pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Concurrent\Service.ps1 -Port 5444
+pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Synchronized
 ```
 
 ## Notes

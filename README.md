@@ -270,7 +270,7 @@ See [docs/](docs/) for structure.
   - `Files/` — test files and resources
 
 The two bike rental PowerShell samples intentionally show different state models under
-`PowerShell/BikeRentalShop/`. Use `Synchronized` when you want a simpler shared-state
+`docs/_includes/examples/pwsh/BikeRentalShop/`. Use `Synchronized` when you want a simpler shared-state
 pattern around a familiar PowerShell object graph, and `Concurrent` when you want the
 in-memory database itself to be keyed with concurrent dictionaries end to end.
 

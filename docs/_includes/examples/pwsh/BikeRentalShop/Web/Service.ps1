@@ -32,17 +32,17 @@ if ((-not $PSBoundParameters.ContainsKey('StaffApiKey')) -and -not [string]::IsN
     API over HTTP. The web client stays separate from the backend samples so browser concerns such
     as static assets, page composition, and cross-origin calls do not leak into either API variant.
 .EXAMPLE
-    pwsh .\examples\PowerShell\BikeRentalShop\Synchronized\Service.ps1 -Port 5443 -AllowedCorsOrigins @('https://127.0.0.1:5445', 'https://localhost:5445')
-    pwsh .\examples\PowerShell\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Synchronized
+    pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Synchronized\Service.ps1 -Port 5443 -AllowedCorsOrigins @('https://127.0.0.1:5445', 'https://localhost:5445')
+    pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Synchronized
 
     Starts the standalone web client against the synchronized backend sample.
 .EXAMPLE
-    pwsh .\examples\PowerShell\BikeRentalShop\Concurrent\Service.ps1 -Port 5444 -AllowedCorsOrigins @('https://127.0.0.1:5445', 'https://localhost:5445')
-    pwsh .\examples\PowerShell\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Concurrent
+    pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Concurrent\Service.ps1 -Port 5444 -AllowedCorsOrigins @('https://127.0.0.1:5445', 'https://localhost:5445')
+    pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Concurrent
 
     Starts the standalone web client against the concurrent backend sample.
 .EXAMPLE
-    pwsh .\examples\PowerShell\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Custom -ApiBaseUrl 'https://api.example.test:9443'
+    pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Custom -ApiBaseUrl 'https://api.example.test:9443'
 
     Points the web client at a custom bike rental backend URL.
 #>

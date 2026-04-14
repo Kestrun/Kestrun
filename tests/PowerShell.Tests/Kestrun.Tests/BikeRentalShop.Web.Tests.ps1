@@ -25,7 +25,7 @@ Describe 'Bike rental shop web example' {
 
         $env:BIKE_RENTAL_ALLOWED_CORS_ORIGINS = $allowedOrigins -join ';'
         $script:backendInstance = Start-ExampleScript `
-            -Name 'examples/PowerShell/BikeRentalShop/Synchronized/Service.ps1' `
+            -Name 'docs/_includes/examples/pwsh/BikeRentalShop/Synchronized/Service.ps1' `
             -FromRootDirectory `
             -RunInPlace `
             -Port $script:backendPort `
@@ -39,7 +39,7 @@ Describe 'Bike rental shop web example' {
         $env:BIKE_RENTAL_WEB_BACKEND = 'Custom'
         $env:BIKE_RENTAL_API_BASE_URL = $script:backendInstance.Url
         $script:webInstance = Start-ExampleScript `
-            -Name 'examples/PowerShell/BikeRentalShop/Web/Service.ps1' `
+            -Name 'docs/_includes/examples/pwsh/BikeRentalShop/Web/Service.ps1' `
             -FromRootDirectory `
             -RunInPlace `
             -Port $script:webPort `
@@ -115,7 +115,7 @@ Describe 'Bike rental shop web example' {
             'BIKE_RENTAL_WEB_BACKEND'
         )
         $instance = Start-ExampleScript `
-            -Name 'examples/PowerShell/BikeRentalShop/Web/Service.ps1' `
+            -Name 'docs/_includes/examples/pwsh/BikeRentalShop/Web/Service.ps1' `
             -FromRootDirectory `
             -RunInPlace `
             -Port $port `

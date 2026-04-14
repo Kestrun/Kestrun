@@ -20,7 +20,7 @@ Describe 'Tutorial 23.4/23.5 - BikeRentalShop packaging lifecycle' -Tag 'Tutoria
             $null = New-Item -ItemType Directory -Path $tempRoot -Force
 
             foreach ($target in $targets) {
-                $sourceFolder = Join-Path $script:root "examples/PowerShell/BikeRentalShop/$($target.Folder)"
+                $sourceFolder = Join-Path $script:root "docs/_includes/examples/pwsh/BikeRentalShop/$($target.Folder)"
                 $packagePath = Join-Path $tempRoot $target.Package
 
                 $result = New-KrServicePackage -SourceFolder $sourceFolder -OutputPath $packagePath -Force

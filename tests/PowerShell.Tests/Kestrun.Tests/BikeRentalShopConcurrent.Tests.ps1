@@ -5,7 +5,7 @@ BeforeAll {
 
 Describe 'Bike rental shop concurrent example' {
     BeforeAll {
-        $script:exampleRoot = Join-Path -Path 'examples' -ChildPath 'PowerShell' -AdditionalChildPath 'BikeRentalShop', 'Concurrent'
+        $script:exampleRoot = Join-Path -Path 'docs' -ChildPath '_includes' -AdditionalChildPath 'examples', 'pwsh', 'BikeRentalShop', 'Concurrent'
         $script:scriptPath = Join-Path $script:exampleRoot 'Service.ps1'
         $script:statePath = Join-Path $script:exampleRoot 'data\bike-rental-state.clixml'
         $script:backupPath = Join-Path ([System.IO.Path]::GetTempPath()) ('bike-rental-state-concurrent-' + [Guid]::NewGuid().ToString('N') + '.clixml')

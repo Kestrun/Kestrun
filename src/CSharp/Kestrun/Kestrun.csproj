@@ -148,7 +148,7 @@
 
         <!-- Caching -->
         <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="8.0.25" />
-        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.25" />
+        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.15" />
         <!-- Scripting Engines -->
         <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.14" />
 
@@ -178,7 +178,7 @@
 
         <!-- Caching -->
         <PackageReference Include="Microsoft.Extensions.Caching.SqlServer" Version="9.0.14" />
-        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.14" />
+        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="9.0.15" />
         <!-- Scripting Engines -->
         <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.5" />
 

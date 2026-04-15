@@ -6,10 +6,10 @@ BeforeAll {
 Describe 'Bike rental shop synchronized example' {
     BeforeAll {
         $script:exampleRoot = Join-Path -Path 'docs' -ChildPath '_includes' -AdditionalChildPath 'examples', 'pwsh', 'BikeRentalShop', 'Synchronized'
-        $script:scriptPath = Join-Path $script:exampleRoot 'Service.ps1'
-        $script:statePath = Join-Path $script:exampleRoot 'data\bike-rental-state.clixml'
-        $script:backupPath = Join-Path ([System.IO.Path]::GetTempPath()) ('bike-rental-state-' + [Guid]::NewGuid().ToString('N') + '.clixml')
-        $script:legacyStatePath = Join-Path $script:exampleRoot 'data\bike-rental-state.json'
+        $script:scriptPath = Join-Path -Path $script:exampleRoot -ChildPath 'Service.ps1'
+        $script:statePath = Join-Path -Path $script:exampleRoot -ChildPath 'data' -AdditionalChildPath 'bike-rental-state.clixml'
+        $script:backupPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('bike-rental-state-' + [Guid]::NewGuid().ToString('N') + '.clixml')
+        $script:legacyStatePath = Join-Path -Path $script:exampleRoot -ChildPath 'data' -AdditionalChildPath 'bike-rental-state.json'
         $script:staffHeaders = @{ 'X-Api-Key' = 'bike-shop-demo-key' }
         $script:stateExisted = Test-Path -LiteralPath $script:statePath -PathType Leaf
 

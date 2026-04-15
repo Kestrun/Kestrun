@@ -492,5 +492,3 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-23-1-bike-rental-shop]: /pwsh/tutorial/examples/BikeRentalShop/Synchronized/Service.ps1
 [sc-23-2-bike-rental-shop-web]: /pwsh/tutorial/examples/BikeRentalShop/Web/Service.ps1
 [sc-23-3-bike-rental-shop-variants]: /pwsh/tutorial/examples/BikeRentalShop/Concurrent/Service.ps1
-[sc-23-4-bike-rental-shop-packaging]: /pwsh/tutorial/examples/BikeRentalShop/Synchronized/Service.psd1
-[sc-23-5-bike-rental-shop-install-update]: /pwsh/tutorial/examples/BikeRentalShop/Synchronized/Service.psd1

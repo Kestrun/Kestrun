@@ -1,5 +1,6 @@
 ---
 description: "Use when creating, updating, or triaging GitHub issues and pull requests in Kestrun. Covers issue quality, branch readiness, PR creation flow, and reviewer-ready descriptions."
+applyTo: ".github/**"
 ---
 
 # GitHub Issue And PR Workflow

@@ -12,22 +12,22 @@ Parse multipart and form submissions with streaming storage and limits.
 
 ## Chapters
 
-1. [Basic multipart/form-data upload](./1-Basic-Multipart)
-2. [Multiple files (same field name)](./2-Multiple-Files)
-3. [application/x-www-form-urlencoded forms](./3-UrlEncoded)
-4. [multipart/mixed ordered parts](./4-Multipart-Mixed)
-5. [Nested multipart/mixed](./5-Nested-Multipart)
-6. [Request-level compression](./6-Request-Compressed)
-7. [Part-level compression](./7-Part-Compressed)
-8. [OpenAPI: basic multipart upload](./8-Basic-Multipart-OpenAPI)
-9. [OpenAPI: multiple files](./9-Multiple-Files-OpenAPI)
-10. [OpenAPI: urlencoded forms](./10-Url-Encoded-OpenAPI)
-11. [OpenAPI: multipart/mixed](./11-Multipart-Mixed-OpenAPI)
-12. [OpenAPI: nested multipart](./12-Nested-Multipart-OpenAPI)
-13. [OpenAPI: request-level compression](./13-Request-Compressed-OpenAPI)
-14. [OpenAPI: part-level compression](./14-Part-Compressed-OpenAPI)
-15. [OpenAPI: file hash upload](./15-File-Hash-OpenAPI)
-16. [Form rules: file hash upload](./16-File-Hash-Rule)
+1. [Basic multipart/form-data upload](./1.Basic-Multipart)
+2. [Multiple files (same field name)](./2.Multiple-Files)
+3. [application/x-www-form-urlencoded forms](./3.UrlEncoded)
+4. [multipart/mixed ordered parts](./4.Multipart-Mixed)
+5. [Nested multipart/mixed](./5.Nested-Multipart)
+6. [Request-level compression](./6.Request-Compressed)
+7. [Part-level compression](./7.Part-Compressed)
+8. [OpenAPI: basic multipart upload](./8.Basic-Multipart-OpenAPI)
+9. [OpenAPI: multiple files](./9.Multiple-Files-OpenAPI)
+10. [OpenAPI: urlencoded forms](./10.Url-Encoded-OpenAPI)
+11. [OpenAPI: multipart/mixed](./11.Multipart-Mixed-OpenAPI)
+12. [OpenAPI: nested multipart](./12.Nested-Multipart-OpenAPI)
+13. [OpenAPI: request-level compression](./13.Request-Compressed-OpenAPI)
+14. [OpenAPI: part-level compression](./14.Part-Compressed-OpenAPI)
+15. [OpenAPI: file hash upload](./15.File-Hash-OpenAPI)
+16. [Form rules: file hash upload](./16.File-Hash-Rule)
 
 ## Gotchas
 
@@ -56,3 +56,4 @@ Common rule knobs used in this chapter:
 
 - PowerShell 7.4+
 - .NET runtime per repo `global.json`
+

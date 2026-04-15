@@ -1,5 +1,32 @@
 # Kestrun AI Coding Agent Instructions
 
+## Quick Start For Agents
+
+Use this command flow unless the task is explicitly narrower:
+
+```powershell
+# Canonical local workflow
+Invoke-Build Restore ; Invoke-Build Build
+Invoke-Build Test
+```
+
+Important build rule:
+- Prefer `Invoke-Build Build` over `dotnet build` for core library changes so `SyncPowerShellDll` runs and updates `src/PowerShell/Kestrun/lib/`.
+
+Task-specific shortcuts:
+- Use `Invoke-Build Build-KestrunTool` when changes are scoped to `src/CSharp/Kestrun.Tool/`.
+- Use `dotnet test` for focused C#-only validation when PowerShell assets are not involved.
+- Use `Invoke-Pester -Path ...` for focused Pester runs.
+
+## Authoritative References
+
+Prefer linking to these sources instead of duplicating their content:
+- Contribution workflow, PR conventions, and quality gates: `CONTRIBUTING.md`
+- Build task inventory: `Kestrun.build.ps1`
+- Docs authoring conventions: `docs/contributing/tutorial-template.md`
+- Feature guides: `docs/guides/`
+- PowerShell tutorial examples: `docs/pwsh/tutorial/`
+
 ## Project Overview
 
 Kestrun is a hybrid web framework combining ASP.NET Core (Kestrel) with PowerShell scripting capabilities. It supports multi-language route execution (PowerShell, C#, VB.NET) with isolated runspace pools, comprehensive authentication, and task scheduling.
@@ -564,254 +591,15 @@ When debugging:
 
 
 
-## 🌿 Branch & Commit Naming Rules
-
-### Branch Naming Convention
-
-```text
-<type>-<issue-number>-<short-kebab-case-description>
-```
-
-- **type**:
-
-  - `feat` → new feature
-  - `fix` → bug fix
-  - `refactor` → restructuring/cleanup
-  - `docs` → documentation changes
-  - `test` → test-only changes
-  - `chore` → build, CI, tooling, infra
-  - `techdebt` → explicit technical debt
-
-- **issue-number**: GitHub issue or PR number (if applicable).
-
-- **short-description**: brief, lowercase, hyphenated summary.
-
-**Examples:**
-
-- `feat-42-add-jwt-auth`
-- `fix-103-csrf-validation`
-- `refactor-57-reduce-complexity`
-- `docs-88-update-readme-badges`
-
----
-
-### Commit Message Convention (Conventional Commits)
-
-Use the format:
-
-```text
-<type>(scope?): <short summary>
-```
-
-- **type**: same as branch types (`feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `techdebt`)
-- **scope** (optional): module, cmdlet, or subsystem (e.g., `auth`, `host`, `ci`).
-- **summary**: imperative, ≤ 72 chars, no period at end.
-
-**Examples:**
-
-- `feat(auth): add cookie authentication support`
-- `fix(host): correct IPv6 URI parsing`
-- `refactor(core): split large ConfigureListener function`
-- `docs(ci): update workflow badges in README`
-
----
-
-### PR Titles
-
-- Mirror commit style for consistency.
-- Reference the issue number with `Fixes #NN` or `Refs #NN`.
-
-**Examples:**
-
-- `refactor(core): reduce function complexity (Fixes #57)`
-- `feat(auth): add support for JWT bearer tokens (Refs #42)`
-
-## ✅ Pull Request Checklist
-
-Before submitting your PR, please confirm you’ve covered the essentials:
-
-- [ ] **Branch name** follows convention:
-  `<type>/<issue-number>-<short-description>`
-  *(e.g., `refactor/57-reduce-complexity`)*
-
-- [ ] **Commit messages** follow [Conventional Commits](https://www.conventionalcommits.org/) (`type(scope): summary`).
-
-- [ ] **Build passes locally**:
-
-  ```powershell
-  Invoke-Build Restore ; Invoke-Build Build
-  ```
-
-- [ ] **Tests pass locally**:
-
-  ```powershell
-  Invoke-Build Test
-  ```
-
-- [ ] **New/changed behavior covered by tests** (xUnit for C#, Pester for PowerShell).
-
-- [ ] **Public APIs documented**:
-
-  - C#: XML doc comments
-  - PowerShell: Comment-based help
-
-- [ ] **Docs updated** (if user-facing):
-
-  - Just-the-Docs compatible (front matter, nav order, sections correct).
-
-- [ ] **Changelog entry added** (if user-facing change).
-
-- [ ] **Linked to issue** with `Fixes #NN` or `Refs #NN`.
-
-**CRITICAL**
-Follow the Contributing guidelines in the CONTRIBUTING.md file for detailed instructions on PR structure, testing, and documentation.
-
-## 📝 Style & Quality
-
-### C\#
-
-- Follow Microsoft C# conventions.
-- Prefer explicit types for public APIs; keep internals tidy.
-- Use nullable reference types and `ConfigureAwait(false)` in library code where relevant.
-
-### PowerShell
-
-- Approved verbs (`Get-`, `New-`, `Add-`, `Set-`, `Remove-`, `Test-`, etc.).
-- Include comment-based help for all public functions.
-- Avoid global state; design for pipeline-friendliness.
-- Keep cmdlets fast and predictable—pure where possible.
-
-### Testing
-
-- Prefer **Pester v5** tests colocated under `tests/`.
-- One behavioral concern per test; name tests descriptively.
-- When fixing a bug, add a failing test first.
-
----
-
-## 📚 Documentation (Just-the-Docs compatible)
-
-All docs must render cleanly with **[Just-the-Docs](https://github.com/just-the-docs/just-the-docs)** (as used by the Kestrun site).
-Key rules:
-
-- Every page requires a **front matter** block.
-- Use **`parent`**, **`nav_order`**, and **`has_children`** to control navigation.
-- Keep cmdlets under the **“PowerShell Cmdlets”** section; tutorials under **“Tutorials.”**
-
-### Front Matter Templates
-
-**Cmdlet page (example):**
-
-```markdown
----
-layout: default
-parent: PowerShell Cmdlets
-title: Get-KrScheduleReport
-nav_order: 60
-render_with_liquid: false
----
-
-# Get-KrScheduleReport
-
-> Short, imperative synopsis here.
-
-## SYNOPSIS
-Returns the full schedule report.
-
-## SYNTAX
-
-```powershell
-
-Get-KrScheduleReport \[\[-Server] <KestrunHost>] \[\[-TimeZoneId] <String>] \[-AsHashtable]
-
-````
-
-## DESCRIPTION
-
-Concise, user-focused description…
-
-## EXAMPLES
-
-```powershell
-Get-KrScheduleReport -AsHashtable
-````
-
-## PARAMETERS
-
-- **Server** — …
-- **TimeZoneId** — …
-
-````text
-
-**Tutorial page (example):**
-```markdown
----
-layout: default
-parent: Tutorials
-title: Static Routes
-nav_order: 3
----
-
-# Introduction to Static Routes
-
-A crisp overview…
-
-## Quick start
-```powershell
-Invoke-Build Restore ; Invoke-Build Build
-````
-
-````text
-
-### Navigation Tips (Just-the-Docs)
-- Root landing page should be a friendly overview of features with deep links.
-- Use `nav_order` to sort; lower numbers appear first.
-- Use `has_children: true` on a section index page if it owns subpages.
-
-**Section index example:**
-```markdown
----
-layout: default
-title: PowerShell Cmdlets
-nav_order: 30
-has_children: true
----
-
-# PowerShell Cmdlets
-
-Browse the Kestrun command surface…
-````
-
-### Content Conventions
-
-- **Headings**: Use `#`, `##`, `###` sensibly; keep titles short.
-- **Callouts**: Use Markdown blockquotes:
-
-  > **Note:** This behavior requires PowerShell 7.4+
-  > **Warning:** Rotating secrets? Update appsettings too.
-- **Code fences**: Use language hints (` ```powershell`, ` ```csharp`).
-- **Links**: Relative links within the docs; absolute links for external sites.
-
----
-
-## ✅ Pull Request Checklist Form
-
-- [ ] Built successfully: `Invoke-Build Restore ; Invoke-Build Build`
-- [ ] Tests pass: `Invoke-Build Test`
-- [ ] New/changed behavior covered by Pester tests
-- [ ] Public APIs documented (XML docs for C#, comment-based help for PowerShell)
-- [ ] Docs are **Just-the-Docs** compliant and correctly placed (Cmdlets/Tutorials)
-- [ ] Changelog entry if user-facing
-
----
-
-## 🐛 Filing Issues
-
-Please include:
-
-- Repro steps and expected vs. actual behavior
-- Versions: OS, PowerShell (must be 7.4+), .NET SDK
-- Logs, stack traces, and minimal code samples
+## Contribution, Style, And Docs Gate
+
+Use `CONTRIBUTING.md` as the canonical source for:
+- Branch and commit naming conventions.
+- Pull request checklist and required validation.
+- C# / PowerShell style expectations.
+- Documentation requirements for Just-the-Docs pages.
+
+Keep this file focused on agent-critical technical behavior and feature implementation details.
 
 
 ## OpenAPI (Kestrun implementation)

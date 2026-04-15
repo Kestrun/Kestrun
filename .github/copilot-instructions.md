@@ -21,11 +21,11 @@ Task-specific shortcuts:
 ## Authoritative References
 
 Prefer linking to these sources instead of duplicating their content:
-- Contribution workflow, PR conventions, and quality gates: `CONTRIBUTING.md`
-- Build task inventory: `Kestrun.build.ps1`
-- Docs authoring conventions: `docs/contributing/tutorial-template.md`
-- Feature guides: `docs/guides/`
-- PowerShell tutorial examples: `docs/pwsh/tutorial/`
+- Contribution workflow, PR conventions, and quality gates: [CONTRIBUTING.md](../../CONTRIBUTING.md)
+- Build task inventory: [Kestrun.build.ps1](../../Kestrun.build.ps1)
+- Docs authoring conventions: [docs/contributing/tutorial-template.md](../../docs/contributing/tutorial-template.md)
+- Feature guides: [docs/guides/](../../docs/guides/)
+- PowerShell tutorial examples: [docs/pwsh/tutorial/](../../docs/pwsh/tutorial/)
 
 ## Project Overview
 

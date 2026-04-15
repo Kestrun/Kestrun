@@ -7,7 +7,7 @@ agent: "agent"
 
 Implement the requested PowerShell cmdlet change in src/PowerShell/Kestrun and validate with Kestrun module conventions.
 
-Requirements:
+## Requirements
 
 1. Read workspace instructions relevant to PowerShell module and tests before editing.
 2. Keep cmdlet behavior pipeline-friendly and preserve compatibility unless the request requires a contract change.
@@ -21,7 +21,7 @@ Requirements:
 8. If runtime behavior changes are required, implement in C# core first and keep wrapper semantics aligned.
 9. Do not revert unrelated local changes.
 
-Output format:
+## Output Format
 
 - Summary: what changed and why.
 - Cmdlet Contract: parameters, behavior, and help updates.

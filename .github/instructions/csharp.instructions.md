@@ -38,7 +38,7 @@ Use this file for C# changes in the runtime, tooling, and shared library project
 - Runtime behavior belongs in C# core; PowerShell wrappers should stay thin.
 - Avoid leaking tutorial-only logic or sample shortcuts into production runtime code.
 - Reuse existing extension points, middleware patterns, and route-registration conventions.
-- Keep framework-target behavior consistent across net8.0, net9.0, and net10.0 where applicable.
+- Keep behavior consistent across all framework targets currently targeted by the repository.
 
 ## Testing Expectations
 

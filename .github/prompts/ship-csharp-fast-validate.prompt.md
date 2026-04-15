@@ -7,7 +7,7 @@ agent: "agent"
 
 Implement the requested C# change and validate it with the fastest reliable workflow for Kestrun.
 
-Requirements:
+## Requirements
 
 1. Confirm scope is C# only. If the change impacts PowerShell module behavior or shared assets, switch to the full workflow.
 2. Read relevant workspace instructions and existing C# patterns before editing.
@@ -20,7 +20,7 @@ Requirements:
 6. Add or update xUnit tests for behavior changes.
 7. Do not revert unrelated local changes.
 
-Output format:
+## Output Format
 
 - Summary: what changed and why.
 - Scope Check: why C# fast path was appropriate.

@@ -109,6 +109,14 @@ if (-not (Test-Path -LiteralPath $routesPath -PathType Leaf)) {
     exit 1
 }
 
+# Configure logging, server, middleware, and OpenAPI documentation before defining routes so they are
+# available globally.
+New-KrLogger |
+    Set-KrLoggerLevel -Value Debug |
+    Add-KrSinkFile -Path (Join-Path $LogsRoot 'bike-rental-shop-concurrent.log') -RollingInterval Day |
+    Add-KrSinkConsole |
+    Register-KrLogger -Name 'DefaultLogger' -SetAsDefault
+
 # Keep the split state and OpenAPI declarations dot-sourced via literal paths so shared helpers and
 # the annotation scanner can discover the concurrent database helpers and API components.
 . "$PSScriptRoot/Private/State.ps1"
@@ -126,17 +134,11 @@ if (-not (Test-KrCertificate -Certificate $certificate)) {
 # Enable-KrConfiguration so it is available to every route runspace.
 $BikeRentalStateStore = Initialize-BikeRentalStorage
 
-# Configure logging, server, middleware, and OpenAPI documentation before defining routes so they are
-# available globally.
-New-KrLogger |
-    Set-KrLoggerLevel -Value Debug |
-    Add-KrSinkFile -Path (Join-Path $LogsRoot 'bike-rental-shop-concurrent.log') -RollingInterval Day |
-    Add-KrSinkConsole |
-    Register-KrLogger -Name 'DefaultLogger' -SetAsDefault
-
 New-KrServer -Name 'Riverside Bike Rental Concurrent'
 Set-KrServerOptions -DenyServerHeader
 Set-KrServerLimit -MaxRequestBodySize 1048576 -MaxConcurrentConnections 200 -MaxRequestHeaderCount 100 -KeepAliveTimeoutSeconds 120
+
+
 Add-KrEndpoint -Port $Port -IPAddress $IPAddress -X509Certificate $certificate -Protocols Http1AndHttp2AndHttp3
 Add-KrCompressionMiddleware -EnableForHttps -MimeTypes @('application/json', 'text/plain')
 Add-KrFaviconMiddleware
@@ -150,9 +152,17 @@ if ($AllowedCorsOrigins.Count -gt 0) {
         Set-KrCorsHeader -Any |
         Set-KrCorsPreflightMaxAge -Seconds 3600 |
         Add-KrCorsPolicy -Default
+} else {
+    New-KrCorsPolicyBuilder |
+        Set-KrCorsOrigin -Any |
+        Set-KrCorsMethod -Methods GET, POST, DELETE |
+        Set-KrCorsHeader -Any |
+        Set-KrCorsPreflightMaxAge -Seconds 3600 |
+        Add-KrCorsPolicy -Default
 }
 
-Add-KrOpenApiInfo -Title 'Riverside Bike Rental Concurrent API' -Version '1.0.0' -Description 'Bike rental service example with a concurrent in-memory database, HTTPS, OpenAPI, staff authentication, persistent data, and optional CORS for an external web client.'
+Add-KrOpenApiInfo -Title 'Riverside Bike Rental Concurrent API' -Version '1.0.0' `
+    -Description 'Bike rental service example with a concurrent in-memory database, HTTPS, OpenAPI, staff authentication, persistent data, and optional CORS for an external web client.'
 
 # The route definitions are split into a separate file for clarity, but they could also be defined here.
 . $routesPath

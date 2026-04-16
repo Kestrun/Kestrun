@@ -107,6 +107,13 @@ if (-not (Test-Path -LiteralPath $routesPath -PathType Leaf)) {
     exit 1
 }
 
+# Configure logging, server, middleware, and OpenAPI documentation before defining routes so they're available globally.
+New-KrLogger |
+    Set-KrLoggerLevel -Value Debug |
+    Add-KrSinkFile -Path (Join-Path $LogsRoot 'bike-rental-shop.log') -RollingInterval Day |
+    Add-KrSinkConsole |
+    Register-KrLogger -Name 'DefaultLogger' -SetAsDefault
+
 # Keep split OpenAPI declarations dot-sourced via literal paths so the annotation scanner can discover components.
 . "$PSScriptRoot/Private/State.ps1"
 . "$PSScriptRoot/Private/OpenApi.ps1"
@@ -129,12 +136,7 @@ if (-not (Test-Path -LiteralPath $routesPath -PathType Leaf)) {
 }
 # The service descriptor is defined in the .psd1 file with the same base name as this script, so it can be automatically discovered by Kestrun when packaging.
 
-# Configure logging, server, middleware, and OpenAPI documentation before defining routes so they're available globally.
-New-KrLogger |
-    Set-KrLoggerLevel -Value Debug |
-    Add-KrSinkFile -Path (Join-Path $LogsRoot 'bike-rental-shop.log') -RollingInterval Day |
-    Add-KrSinkConsole |
-    Register-KrLogger -Name 'DefaultLogger' -SetAsDefault
+
 
 New-KrServer -Name 'Riverside Bike Rental'
 Set-KrServerOptions -DenyServerHeader

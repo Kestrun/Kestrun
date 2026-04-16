@@ -555,8 +555,21 @@ function Get-BikeRentalCertificate {
         return Import-KrCertificate -FilePath $CertificatePath -Password $CertificatePassword
     }
 
-    $certificate = New-KrSelfSignedCertificate -DnsNames @('localhost', '127.0.0.1') -Exportable
+    #$certificate = New-KrSelfSignedCertificate -DnsNames @('localhost', '127.0.0.1') -Exportable
+
+    $bundle = New-KrDevelopmentCertificate `
+        -DnsNames 'localhost', '127.0.0.1', '::1' `
+        -Exportable `
+        -LeafValidDays 30 `
+        -RootValidDays 3650 `
+        -TrustRoot:$TrustRoot.IsPresent
+
+    # $root = $bundle.RootCertificate
+    # Export-KrCertificate -Certificate $certificate -FilePath ([System.IO.Path]::ChangeExtension($CertificatePath, $null))
+    # -Format pfx
+    $certificate = $bundle.LeafCertificate
     Export-KrCertificate -Certificate $certificate -FilePath ([System.IO.Path]::ChangeExtension($CertificatePath, $null)) `
         -Format pfx -IncludePrivateKey -Password $CertificatePassword
+
     return $certificate
 }

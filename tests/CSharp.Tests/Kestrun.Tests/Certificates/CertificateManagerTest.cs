@@ -539,6 +539,46 @@ public class CertificateManagerTest
 
     [Fact]
     [Trait("Category", "Certificates")]
+    public void Validate_IssuedLeaf_WithSuppliedRootChain_Passes()
+    {
+        var bundle = CertificateManager.NewDevelopmentCertificate(new DevelopmentCertificateOptions(
+            DnsNames: ["localhost", "127.0.0.1", "::1"],
+            Exportable: true));
+
+        try
+        {
+            Assert.False(CertificateManager.Validate(
+                bundle.LeafCertificate,
+                checkRevocation: false,
+                allowWeakAlgorithms: false,
+                denySelfSigned: false,
+                expectedPurpose: null,
+                strictPurpose: false,
+                certificateChain: null,
+                out var defaultFailureReason));
+            Assert.Contains("PartialChain", defaultFailureReason, StringComparison.OrdinalIgnoreCase);
+
+            var certificateChain = new X509Certificate2Collection { bundle.RootCertificate };
+            Assert.True(CertificateManager.Validate(
+                bundle.LeafCertificate,
+                checkRevocation: false,
+                allowWeakAlgorithms: false,
+                denySelfSigned: false,
+                expectedPurpose: null,
+                strictPurpose: false,
+                certificateChain,
+                out var suppliedChainFailureReason));
+            Assert.Equal(string.Empty, suppliedChainFailureReason);
+        }
+        finally
+        {
+            bundle.LeafCertificate.Dispose();
+            bundle.RootCertificate.Dispose();
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Certificates")]
     public void GetPurposes_ReturnsAtLeastServerClientAuth()
     {
         var cert = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());

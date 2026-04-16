@@ -114,20 +114,32 @@ function Get-BikeRentalCertificate {
     param(
         [Parameter(Mandatory = $true)]
         [string]$CertificatePath,
-
         [Parameter(Mandatory = $true)]
         [SecureString]$CertificatePassword
     )
-
     if (Test-Path -LiteralPath $CertificatePath -PathType Leaf) {
         return Import-KrCertificate -FilePath $CertificatePath -Password $CertificatePassword
     }
 
-    $certificate = New-KrSelfSignedCertificate -DnsNames @('localhost', '127.0.0.1') -Exportable
+    #$certificate = New-KrSelfSignedCertificate -DnsNames @('localhost', '127.0.0.1') -Exportable
+
+    $bundle = New-KrDevelopmentCertificate `
+        -DnsNames 'localhost', '127.0.0.1', '::1' `
+        -Exportable `
+        -LeafValidDays 30 `
+        -RootValidDays 3650 `
+        -TrustRoot:$TrustRoot.IsPresent
+
+    # $root = $bundle.RootCertificate
+    # Export-KrCertificate -Certificate $certificate -FilePath ([System.IO.Path]::ChangeExtension($CertificatePath, $null))
+    # -Format pfx
+    $certificate = $bundle.LeafCertificate
     Export-KrCertificate -Certificate $certificate -FilePath ([System.IO.Path]::ChangeExtension($CertificatePath, $null)) `
         -Format pfx -IncludePrivateKey -Password $CertificatePassword
+
     return $certificate
 }
+
 
 # Import Kestrun from the repository when developing locally and fall back to the installed
 # module when the sample is executed from a package or a machine without the source tree.
@@ -190,18 +202,20 @@ $null = [pscustomobject]@{
     BackendOpenApiUrl = $BikeRentalBackendOpenApiUrl
 }
 
-$certificate = Get-BikeRentalCertificate -CertificatePath $CertificatePath -CertificatePassword (ConvertTo-SecureString -String $CertificatePassword -AsPlainText -Force)
-if (-not (Test-KrCertificate -Certificate $certificate)) {
-    Write-Error 'Bike rental web client certificate validation failed.'
-    exit 1
-}
-
+# Configure logging, server, middleware, and OpenAPI documentation before defining routes so they're available globally.
 New-KrLogger |
     Set-KrLoggerLevel -Value Debug |
     Add-KrSinkFile -Path (Join-Path $LogsRoot 'bike-rental-shop-web.log') -RollingInterval Day |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'DefaultLogger' -SetAsDefault
 
+$certificate = Get-BikeRentalCertificate -CertificatePath $CertificatePath -CertificatePassword (ConvertTo-SecureString -String $CertificatePassword -AsPlainText -Force)
+if (-not (Test-KrCertificate -Certificate $certificate)) {
+    Write-Error 'Bike rental web client certificate validation failed.'
+    exit 1
+}
+
+# Create the server and configure global middleware before defining routes so they're available globally.
 New-KrServer -Name 'Riverside Bike Rental Web'
 Set-KrServerOptions -DenyServerHeader
 Set-KrServerLimit -MaxRequestBodySize 1048576 -MaxConcurrentConnections 200 -MaxRequestHeaderCount 100 -KeepAliveTimeoutSeconds 120
@@ -211,6 +225,7 @@ Add-KrFaviconMiddleware
 Add-KrPowerShellRazorPagesRuntime
 Add-KrStaticFilesMiddleware -RequestPath '/static'
 
+# Enable-KrConfiguration so it is available to every route runspace.
 Enable-KrConfiguration
 
 # Serve the two frontend assets explicitly so the sample remains predictable even when hosted

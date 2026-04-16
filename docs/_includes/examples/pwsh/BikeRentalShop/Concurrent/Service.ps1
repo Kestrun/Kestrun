@@ -73,6 +73,8 @@ Initialize-KrRoot -Path $PSScriptRoot
 $DataRoot = Join-Path $PSScriptRoot 'data'
 $LogsRoot = Join-Path $PSScriptRoot 'logs'
 $CertificateRoot = Join-Path $DataRoot 'certs'
+$BikeRentalShopRoot = Split-Path -Parent $PSScriptRoot
+$SharedCertificateRoot = Join-Path $BikeRentalShopRoot 'certs'
 
 # If the certificate path doesn't exist, create the directory. The certificate will be created on demand
 # by Get-BikeRentalCertificate and saved to this path for reuse across restarts, so it needs to be writable.
@@ -80,8 +82,15 @@ if (-not (Test-Path -Path $CertificateRoot -PathType Container)) {
     New-Item -Path $CertificateRoot -ItemType Directory -Force | Out-Null
 }
 
+if (-not (Test-Path -Path $SharedCertificateRoot -PathType Container)) {
+    New-Item -Path $SharedCertificateRoot -ItemType Directory -Force | Out-Null
+}
+
 $CertificatePassword = 'bike-rental-demo'
 $CertificatePath = Join-Path $CertificateRoot 'bike-rental-shop-concurrent-devcert.pfx'
+$RootCertificatePassword = 'bike-rental-shared-root'
+$RootCertificatePath = Join-Path $CertificateRoot 'bike-rental-shared-root.pfx'
+$ParentRootCertificatePath = Join-Path $SharedCertificateRoot 'bike-rental-shared-root.pfx'
 
 $StatePath = Join-Path $DataRoot 'bike-rental-state.clixml'
 $LegacyStatePath = Join-Path $DataRoot 'bike-rental-state.json'
@@ -122,11 +131,19 @@ New-KrLogger |
 . "$PSScriptRoot/Private/State.ps1"
 . "$PSScriptRoot/Private/OpenApi.ps1"
 
-# Get or create the certificate before starting the server so HTTPS setup fails early if there is a
+# Get or create the certificate set before starting the server so HTTPS setup fails early if there is a
 # certificate problem.
-$certificate = Get-BikeRentalCertificate -CertificatePath $CertificatePath -CertificatePassword (ConvertTo-SecureString -String $CertificatePassword -AsPlainText -Force)
-if (-not (Test-KrCertificate -Certificate $certificate)) {
-    Write-Error 'Bike rental shop certificate validation failed.'
+$certificateMaterial = Get-BikeRentalCertificate `
+    -CertificatePath $CertificatePath `
+    -CertificatePassword (ConvertTo-SecureString -String $CertificatePassword -AsPlainText -Force) `
+    -RootCertificatePath $RootCertificatePath `
+    -ParentRootCertificatePath $ParentRootCertificatePath `
+    -RootCertificatePassword (ConvertTo-SecureString -String $RootCertificatePassword -AsPlainText -Force)
+$certificate = $certificateMaterial.LeafCertificate
+$rootCertificate = $certificateMaterial.RootCertificate
+$certificateValidationFailure = ''
+if (-not (Test-KrCertificate -Certificate $certificate -CertificateChain $rootCertificate -FailureReasonVariable 'certificateValidationFailure')) {
+    Write-Error "Bike rental shop certificate validation failed: $certificateValidationFailure"
     exit 1
 }
 

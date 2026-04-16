@@ -27,5 +27,6 @@ $Model = [pscustomobject]@{
     BackendUrl = $BikeRentalApiBaseUrl
     BackendDocsUrl = $BikeRentalBackendDocsUrl
     BackendOpenApiUrl = $BikeRentalBackendOpenApiUrl
+    RootCertificateUrl = $BikeRentalRootCertificateRoute
     ClientConfigJson = $clientConfig | ConvertTo-Json -Depth 8 -Compress
 }

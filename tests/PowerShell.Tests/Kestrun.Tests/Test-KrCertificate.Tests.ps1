@@ -33,6 +33,10 @@ Describe 'Test-KrCertificate' {
                 $script:bundle.LeafCertificate.Dispose()
             }
 
+            if ($script:bundle.PublicRootCertificate) {
+                $script:bundle.PublicRootCertificate.Dispose()
+            }
+
             if ($script:bundle.RootCertificate) {
                 $script:bundle.RootCertificate.Dispose()
             }

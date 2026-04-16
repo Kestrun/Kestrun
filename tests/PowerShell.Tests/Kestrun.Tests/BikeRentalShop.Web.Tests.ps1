@@ -92,6 +92,16 @@ Describe 'Bike rental shop web example' {
         $response.Headers['Content-Type'] | Should -Match 'text/css'
     }
 
+    It 'serves the public development root certificate without the private key' {
+        $response = Invoke-WebRequest -Uri "$($script:webInstance.Url)/certificates/root.pem" -SkipCertificateCheck
+
+        $response.StatusCode | Should -Be 200
+        $response.Headers['Content-Type'] | Should -Match 'application/x-pem-file'
+        $response.Content | Should -Match 'BEGIN CERTIFICATE'
+        $response.Content | Should -Match 'END CERTIFICATE'
+        $response.Content | Should -Not -Match 'BEGIN PRIVATE KEY'
+    }
+
     It 'allows browser preflight requests from the standalone web origin' {
         $headers = @{
             Origin = $script:webOrigin

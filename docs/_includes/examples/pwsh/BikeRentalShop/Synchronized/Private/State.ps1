@@ -270,33 +270,97 @@ function Write-BikeRentalError {
 
 <#
 .SYNOPSIS
-    Retrieves the bike rental shop's TLS certificate, generating and saving a new self-signed certificate if one does not already exist at the specified path.
+    Retrieves the bike rental shop TLS certificates, generating and saving a shared root and leaf certificate set when needed.
 .PARAMETER CertificatePath
     The file path where the TLS certificate is stored or should be created if it does not exist.
 .PARAMETER CertificatePassword
     The password used to protect the TLS certificate file when exporting or importing.
+.PARAMETER RootCertificatePath
+.PARAMETER ParentRootCertificatePath
+    The fallback file path where the shared development root certificate is stored under the BikeRentalShop folder.
+.PARAMETER RootCertificatePassword
+    The password used to protect the development root certificate file.
 .DESCRIPTION
-    This function checks for the existence of a TLS certificate file at the specified path.
-    If the file exists, it imports and returns the certificate. If the file does not exist,
-    it generates a new self-signed certificate with the specified DNS names, exports it to the specified path with the provided password,
-    and returns the newly created certificate. The certificate is used to enable HTTPS for the bike rental shop's API, ensuring secure communication between clients and the server.
+    This function prefers the local development root certificate, falls back to the shared copy
+    under the BikeRentalShop folder when the local root is missing, and only creates a new root
+    when neither copy exists. New roots are exported to both the local and shared locations, while
+    the leaf certificate is always issued from and validated against the local root copy.
 .EXAMPLE
-    $cert = Get-BikeRentalCertificate -CertificatePath 'C:\certs\bike-rental.pfx' -CertificatePassword '    MySecurePassword'
-    This example retrieves the bike rental certificate from 'C:\certs\bike-rental.pfx', generating a new self-signed certificate if the file does not exist, and stores it in the variable $cert.
+    $material = Get-BikeRentalCertificate -CertificatePath 'C:\certs\bike-rental.pfx' -CertificatePassword $leafPassword -RootCertificatePath 'C:\service\data\certs\bike-rental-root.pfx' -ParentRootCertificatePath 'C:\BikeRentalShop\certs\bike-rental-root.pfx' -RootCertificatePassword $rootPassword
+    This example retrieves the bike rental certificate material from disk, generating the shared root and leaf certificates if needed.
 #>
 function Get-BikeRentalCertificate {
     param(
         [Parameter(Mandatory = $true)]
         [string]$CertificatePath,
         [Parameter(Mandatory = $true)]
-        [SecureString]$CertificatePassword
+        [SecureString]$CertificatePassword,
+        [Parameter(Mandatory = $true)]
+        [string]$RootCertificatePath,
+        [string]$ParentRootCertificatePath,
+        [Parameter(Mandatory = $true)]
+        [SecureString]$RootCertificatePassword
     )
-    if (Test-Path -LiteralPath $CertificatePath -PathType Leaf) {
-        return Import-KrCertificate -FilePath $CertificatePath -Password $CertificatePassword
+
+    $rootCertificate = $null
+    $publicRootCertificate = $null
+    if (Test-Path -LiteralPath $RootCertificatePath -PathType Leaf) {
+        $rootCertificate = Import-KrCertificate -FilePath $RootCertificatePath -Password $RootCertificatePassword
+        $publicRootCertificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($rootCertificate.RawData)
+    } elseif (-not [string]::IsNullOrWhiteSpace($ParentRootCertificatePath) -and (Test-Path -LiteralPath $ParentRootCertificatePath -PathType Leaf)) {
+        $parentRootCertificate = Import-KrCertificate -FilePath $ParentRootCertificatePath -Password $RootCertificatePassword
+        Export-KrCertificate -Certificate $parentRootCertificate -FilePath ([System.IO.Path]::ChangeExtension($RootCertificatePath, $null)) `
+            -Format pfx -IncludePrivateKey -Password $RootCertificatePassword
+        $parentRootCertificate.Dispose()
+        $rootCertificate = Import-KrCertificate -FilePath $RootCertificatePath -Password $RootCertificatePassword
+        $publicRootCertificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($rootCertificate.RawData)
     }
 
-    $certificate = New-KrSelfSignedCertificate -DnsNames @('localhost', '127.0.0.1') -Exportable
+    if ($rootCertificate -and (Test-Path -LiteralPath $CertificatePath -PathType Leaf)) {
+        $leafCertificate = Import-KrCertificate -FilePath $CertificatePath -Password $CertificatePassword
+        if ($leafCertificate.Issuer -eq $rootCertificate.Subject) {
+            return [pscustomobject]@{
+                LeafCertificate = $leafCertificate
+                RootCertificate = $rootCertificate
+                PublicRootCertificate = $publicRootCertificate
+            }
+        }
+
+        $leafCertificate.Dispose()
+    }
+
+    $bundleParameters = @{
+        DnsNames = 'localhost', '127.0.0.1', '::1'
+        Exportable = $true
+        LeafValidDays = 30
+        RootValidDays = 3650
+    }
+
+    if ($rootCertificate) {
+        $bundleParameters.RootCertificate = $rootCertificate
+    }
+
+    $bundle = New-KrDevelopmentCertificate @bundleParameters
+
+    if (-not $rootCertificate) {
+        $rootCertificate = $bundle.RootCertificate
+        $publicRootCertificate = $bundle.PublicRootCertificate
+        Export-KrCertificate -Certificate $rootCertificate -FilePath ([System.IO.Path]::ChangeExtension($RootCertificatePath, $null)) `
+            -Format pfx -IncludePrivateKey -Password $RootCertificatePassword
+
+        if (-not [string]::IsNullOrWhiteSpace($ParentRootCertificatePath)) {
+            Export-KrCertificate -Certificate $rootCertificate -FilePath ([System.IO.Path]::ChangeExtension($ParentRootCertificatePath, $null)) `
+                -Format pfx -IncludePrivateKey -Password $RootCertificatePassword
+        }
+    }
+
+    $certificate = $bundle.LeafCertificate
     Export-KrCertificate -Certificate $certificate -FilePath ([System.IO.Path]::ChangeExtension($CertificatePath, $null)) `
         -Format pfx -IncludePrivateKey -Password $CertificatePassword
-    return $certificate
+
+    return [pscustomobject]@{
+        LeafCertificate = $certificate
+        RootCertificate = $rootCertificate
+        PublicRootCertificate = $publicRootCertificate
+    }
 }

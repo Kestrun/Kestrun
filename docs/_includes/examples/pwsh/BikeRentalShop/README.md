@@ -30,9 +30,17 @@ pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Concurrent\Service.ps1 -Port 
 pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Synchronized
 ```
 
+## Cleanup
+
+```powershell
+pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Cleanup.ps1
+pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Cleanup.ps1 -IncludeLogs
+```
+
 ## Notes
 
 - Both variants expose the same HTTP API shape so their behavior is easy to compare.
 - Both backend variants persist state under each sample's `data/` folder using `Export-KrSharedState` and `Import-KrSharedState`.
 - The web client is intentionally separate, so browser assets and Razor Pages do not leak into either backend sample.
 - When you run `Web/` against a backend on another origin, start that backend with `-AllowedCorsOrigins` for the web service origin.
+- `Cleanup.ps1` removes the generated shared root cache plus each sample's local `data/` artifacts, and it can also remove `logs/` with `-IncludeLogs`.

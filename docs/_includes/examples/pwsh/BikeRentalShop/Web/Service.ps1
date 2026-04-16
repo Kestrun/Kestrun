@@ -103,41 +103,96 @@ function Resolve-BikeRentalBackendUrl {
     The PFX file path used to persist the generated development certificate.
 .PARAMETER CertificatePassword
     The password used to import or export the PFX file.
+.PARAMETER RootCertificatePath
+.PARAMETER ParentRootCertificatePath
+    The PFX file path used as the shared fallback copy under the BikeRentalShop folder.
+.PARAMETER RootCertificatePassword
+    The password used to import or export the development root certificate.
 .OUTPUTS
-    System.Security.Cryptography.X509Certificates.X509Certificate2
+    PSCustomObject containing LeafCertificate, RootCertificate, and PublicRootCertificate.
 .EXAMPLE
-    Get-BikeRentalCertificate -CertificatePath '.\data\certs\bike-rental-shop-web-devcert.pfx' -CertificatePassword $password
+    Get-BikeRentalCertificate -CertificatePath '.\data\certs\bike-rental-shop-web-devcert.pfx' `
+        -CertificatePassword $password `
+        -RootCertificatePath '.\data\certs\bike-rental-shared-root.pfx' `
+        -ParentRootCertificatePath '..\certs\bike-rental-shared-root.pfx' `
+        -RootCertificatePassword $rootPassword
 
-    Returns the existing certificate or creates a new one if needed.
+    Returns the existing certificate set or creates a new local root, plus a shared parent copy, if needed.
 #>
 function Get-BikeRentalCertificate {
     param(
         [Parameter(Mandatory = $true)]
         [string]$CertificatePath,
         [Parameter(Mandatory = $true)]
-        [SecureString]$CertificatePassword
+        [SecureString]$CertificatePassword,
+        [Parameter(Mandatory = $true)]
+        [string]$RootCertificatePath,
+        [string]$ParentRootCertificatePath,
+        [Parameter(Mandatory = $true)]
+        [SecureString]$RootCertificatePassword
     )
-    if (Test-Path -LiteralPath $CertificatePath -PathType Leaf) {
-        return Import-KrCertificate -FilePath $CertificatePath -Password $CertificatePassword
+
+    $rootCertificate = $null
+    $publicRootCertificate = $null
+    if (Test-Path -LiteralPath $RootCertificatePath -PathType Leaf) {
+        $rootCertificate = Import-KrCertificate -FilePath $RootCertificatePath -Password $RootCertificatePassword
+        $publicRootCertificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($rootCertificate.RawData)
+    } elseif (-not [string]::IsNullOrWhiteSpace($ParentRootCertificatePath) -and (Test-Path -LiteralPath $ParentRootCertificatePath -PathType Leaf)) {
+        $parentRootCertificate = Import-KrCertificate -FilePath $ParentRootCertificatePath -Password $RootCertificatePassword
+        Export-KrCertificate -Certificate $parentRootCertificate -FilePath ([System.IO.Path]::ChangeExtension($RootCertificatePath, $null)) `
+            -Format pfx -IncludePrivateKey -Password $RootCertificatePassword
+        $parentRootCertificate.Dispose()
+        $rootCertificate = Import-KrCertificate -FilePath $RootCertificatePath -Password $RootCertificatePassword
+        $publicRootCertificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($rootCertificate.RawData)
     }
 
-    #$certificate = New-KrSelfSignedCertificate -DnsNames @('localhost', '127.0.0.1') -Exportable
+    if ($rootCertificate -and (Test-Path -LiteralPath $CertificatePath -PathType Leaf)) {
+        $leafCertificate = Import-KrCertificate -FilePath $CertificatePath -Password $CertificatePassword
+        if ($leafCertificate.Issuer -eq $rootCertificate.Subject) {
+            return [pscustomobject]@{
+                LeafCertificate = $leafCertificate
+                RootCertificate = $rootCertificate
+                PublicRootCertificate = $publicRootCertificate
+            }
+        }
 
-    $bundle = New-KrDevelopmentCertificate `
-        -DnsNames 'localhost', '127.0.0.1', '::1' `
-        -Exportable `
-        -LeafValidDays 30 `
-        -RootValidDays 3650 `
-        -TrustRoot:$TrustRoot.IsPresent
+        $leafCertificate.Dispose()
+    }
 
-    # $root = $bundle.RootCertificate
-    # Export-KrCertificate -Certificate $certificate -FilePath ([System.IO.Path]::ChangeExtension($CertificatePath, $null))
-    # -Format pfx
+    $bundleParameters = @{
+        DnsNames = 'localhost', '127.0.0.1', '::1'
+        Exportable = $true
+        LeafValidDays = 30
+        RootValidDays = 3650
+    }
+
+    if ($rootCertificate) {
+        $bundleParameters.RootCertificate = $rootCertificate
+    }
+
+    $bundle = New-KrDevelopmentCertificate @bundleParameters
+
+    if (-not $rootCertificate) {
+        $rootCertificate = $bundle.RootCertificate
+        $publicRootCertificate = $bundle.PublicRootCertificate
+        Export-KrCertificate -Certificate $rootCertificate -FilePath ([System.IO.Path]::ChangeExtension($RootCertificatePath, $null)) `
+            -Format pfx -IncludePrivateKey -Password $RootCertificatePassword
+
+        if (-not [string]::IsNullOrWhiteSpace($ParentRootCertificatePath)) {
+            Export-KrCertificate -Certificate $rootCertificate -FilePath ([System.IO.Path]::ChangeExtension($ParentRootCertificatePath, $null)) `
+                -Format pfx -IncludePrivateKey -Password $RootCertificatePassword
+        }
+    }
+
     $certificate = $bundle.LeafCertificate
     Export-KrCertificate -Certificate $certificate -FilePath ([System.IO.Path]::ChangeExtension($CertificatePath, $null)) `
         -Format pfx -IncludePrivateKey -Password $CertificatePassword
 
-    return $certificate
+    return [pscustomobject]@{
+        LeafCertificate = $certificate
+        RootCertificate = $rootCertificate
+        PublicRootCertificate = $publicRootCertificate
+    }
 }
 
 
@@ -178,13 +233,22 @@ Initialize-KrRoot -Path $PSScriptRoot
 $DataRoot = Join-Path $PSScriptRoot 'data'
 $LogsRoot = Join-Path $PSScriptRoot 'logs'
 $CertificateRoot = Join-Path $DataRoot 'certs'
+$BikeRentalShopRoot = Split-Path -Parent $PSScriptRoot
+$SharedCertificateRoot = Join-Path $BikeRentalShopRoot 'certs'
 
 if (-not (Test-Path -Path $CertificateRoot -PathType Container)) {
     New-Item -Path $CertificateRoot -ItemType Directory -Force | Out-Null
 }
 
+if (-not (Test-Path -Path $SharedCertificateRoot -PathType Container)) {
+    New-Item -Path $SharedCertificateRoot -ItemType Directory -Force | Out-Null
+}
+
 $CertificatePassword = 'bike-rental-web-demo'
 $CertificatePath = Join-Path $CertificateRoot 'bike-rental-shop-web-devcert.pfx'
+$RootCertificatePassword = 'bike-rental-shared-root'
+$RootCertificatePath = Join-Path $CertificateRoot 'bike-rental-shared-root.pfx'
+$ParentRootCertificatePath = Join-Path $SharedCertificateRoot 'bike-rental-shared-root.pfx'
 
 # These variables are intentionally kept in script scope because the sibling Razor page model
 # scripts consume them directly when building per-request page data.
@@ -192,6 +256,8 @@ $BikeRentalApiBaseUrl = Resolve-BikeRentalBackendUrl -Backend $Backend -ApiBaseU
 $BikeRentalBackendLabel = if ($Backend -eq 'Custom') { 'Custom backend' } else { $Backend }
 $BikeRentalBackendDocsUrl = "$BikeRentalApiBaseUrl/docs/swagger"
 $BikeRentalBackendOpenApiUrl = "$BikeRentalApiBaseUrl/openapi/v3.1/openapi.json"
+$BikeRentalRootCertificateRoute = '/certificates/root.pem'
+$RootCertificatePublicPath = Join-Path $CertificateRoot 'bike-rental-shared-root-public.pem'
 
 # Materialize the Razor-shared values once here so editor analysis can see the local reads while
 # the sibling page model scripts continue consuming the original script-scoped variables.
@@ -200,6 +266,7 @@ $null = [pscustomobject]@{
     BackendLabel = $BikeRentalBackendLabel
     BackendDocsUrl = $BikeRentalBackendDocsUrl
     BackendOpenApiUrl = $BikeRentalBackendOpenApiUrl
+    RootCertificateUrl = $BikeRentalRootCertificateRoute
 }
 
 # Configure logging, server, middleware, and OpenAPI documentation before defining routes so they're available globally.
@@ -209,11 +276,22 @@ New-KrLogger |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'DefaultLogger' -SetAsDefault
 
-$certificate = Get-BikeRentalCertificate -CertificatePath $CertificatePath -CertificatePassword (ConvertTo-SecureString -String $CertificatePassword -AsPlainText -Force)
-if (-not (Test-KrCertificate -Certificate $certificate)) {
-    Write-Error 'Bike rental web client certificate validation failed.'
+$certificateMaterial = Get-BikeRentalCertificate `
+    -CertificatePath $CertificatePath `
+    -CertificatePassword (ConvertTo-SecureString -String $CertificatePassword -AsPlainText -Force) `
+    -RootCertificatePath $RootCertificatePath `
+    -ParentRootCertificatePath $ParentRootCertificatePath `
+    -RootCertificatePassword (ConvertTo-SecureString -String $RootCertificatePassword -AsPlainText -Force)
+$certificate = $certificateMaterial.LeafCertificate
+$rootCertificate = $certificateMaterial.RootCertificate
+$publicRootCertificate = $certificateMaterial.PublicRootCertificate
+$certificateValidationFailure = ''
+if (-not (Test-KrCertificate -Certificate $certificate -CertificateChain $rootCertificate -FailureReasonVariable 'certificateValidationFailure')) {
+    Write-Error "Bike rental web client certificate validation failed: $certificateValidationFailure"
     exit 1
 }
+
+Export-KrCertificate -Certificate $publicRootCertificate -FilePath ([System.IO.Path]::ChangeExtension($RootCertificatePublicPath, $null)) -Format Pem
 
 # Create the server and configure global middleware before defining routes so they're available globally.
 New-KrServer -Name 'Riverside Bike Rental Web'
@@ -236,6 +314,10 @@ Add-KrMapRoute -Verbs Get -Pattern '/static/site.css' -ScriptBlock {
 
 Add-KrMapRoute -Verbs Get -Pattern '/static/app.js' -ScriptBlock {
     Write-KrFileResponse -FilePath './wwwroot/app.js' -ContentType 'application/javascript'
+}
+
+Add-KrMapRoute -Verbs Get -Pattern $BikeRentalRootCertificateRoute -ScriptBlock {
+    Write-KrFileResponse -FilePath './data/certs/bike-rental-shared-root-public.pem' -ContentType 'application/x-pem-file'
 }
 
 Write-KrLog -Level Information -Message 'Bike rental web client ready on https://{address}:{port} targeting {backendUrl}' -Values $IPAddress.IPAddressToString, $Port, $BikeRentalApiBaseUrl

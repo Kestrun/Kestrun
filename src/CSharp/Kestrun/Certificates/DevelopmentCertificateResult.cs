@@ -11,4 +11,10 @@ namespace Kestrun.Certificates;
 public record DevelopmentCertificateResult(
     X509Certificate2 RootCertificate,
     X509Certificate2 LeafCertificate,
-    bool RootTrusted);
+    bool RootTrusted)
+{
+    /// <summary>
+    /// Gets a public-only copy of the effective development root certificate without the private key.
+    /// </summary>
+    public X509Certificate2? PublicRootCertificate { get; init; }
+}

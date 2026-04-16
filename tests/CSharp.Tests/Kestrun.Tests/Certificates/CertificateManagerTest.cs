@@ -244,7 +244,12 @@ public class CertificateManagerTest
         Assert.Equal(bundle.RootCertificate.Subject, bundle.LeafCertificate.Issuer);
         Assert.True(bundle.RootCertificate.HasPrivateKey);
         Assert.True(bundle.LeafCertificate.HasPrivateKey);
+        Assert.NotNull(bundle.PublicRootCertificate);
+        Assert.False(bundle.PublicRootCertificate!.HasPrivateKey);
+        Assert.Equal(bundle.RootCertificate.Thumbprint, bundle.PublicRootCertificate.Thumbprint);
         Assert.False(bundle.RootTrusted);
+
+        bundle.PublicRootCertificate.Dispose();
     }
 
     [Fact]
@@ -263,7 +268,12 @@ public class CertificateManagerTest
         Assert.Same(root, bundle.RootCertificate);
         Assert.Equal(root.Subject, bundle.LeafCertificate.Issuer);
         Assert.Equal("CN=localhost", bundle.LeafCertificate.Subject);
+        Assert.NotNull(bundle.PublicRootCertificate);
+        Assert.False(bundle.PublicRootCertificate!.HasPrivateKey);
+        Assert.Equal(root.Thumbprint, bundle.PublicRootCertificate.Thumbprint);
         Assert.False(bundle.RootTrusted);
+
+        bundle.PublicRootCertificate.Dispose();
     }
 
     [Fact]

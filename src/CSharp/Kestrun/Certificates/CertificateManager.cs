@@ -163,7 +163,10 @@ public static class CertificateManager
             Exportable: options.Exportable,
             IssuerCertificate: effectiveRoot));
 
-        return new DevelopmentCertificateResult(effectiveRoot, leaf, rootTrusted);
+        return new DevelopmentCertificateResult(effectiveRoot, leaf, rootTrusted)
+        {
+            PublicRootCertificate = CreatePublicOnlyCertificate(effectiveRoot)
+        };
     }
     #endregion
 
@@ -2070,15 +2073,27 @@ public static class CertificateManager
         if (existing.Count == 0)
         {
             // Import the certificate without private key to avoid accidentally exposing the private key in the Root store. The public key is sufficient for trust purposes.
-#if NET9_0_OR_GREATER
-            using var publicOnlyCertificate = X509CertificateLoader.LoadCertificate(certificate.RawData);
-#else
-            using var publicOnlyCertificate = new X509Certificate2(certificate.RawData);
-#endif
+            using var publicOnlyCertificate = CreatePublicOnlyCertificate(certificate);
             store.Add(publicOnlyCertificate);
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Creates a public-only copy of a certificate without carrying over the private key.
+    /// </summary>
+    /// <param name="certificate">The source certificate.</param>
+    /// <returns>A certificate instance containing only the public certificate data.</returns>
+    private static X509Certificate2 CreatePublicOnlyCertificate(X509Certificate2 certificate)
+    {
+        ArgumentNullException.ThrowIfNull(certificate);
+
+#if NET9_0_OR_GREATER
+        return X509CertificateLoader.LoadCertificate(certificate.RawData);
+#else
+        return new X509Certificate2(certificate.RawData);
+#endif
     }
 
     /// <summary>

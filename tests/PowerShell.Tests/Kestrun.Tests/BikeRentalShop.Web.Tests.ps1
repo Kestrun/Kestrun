@@ -5,6 +5,35 @@ BeforeAll {
 
 Describe 'Bike rental shop web example' {
     BeforeAll {
+        $script:repoRoot = Get-ProjectRootDirectory
+        $script:bikeRentalRoot = Join-Path -Path $script:repoRoot -ChildPath 'docs' -AdditionalChildPath '_includes', 'examples', 'pwsh', 'BikeRentalShop'
+        $script:backendExampleRoot = Join-Path $script:bikeRentalRoot 'Synchronized'
+        $script:backendDataRoot = Join-Path $script:backendExampleRoot 'data'
+        $script:backendStatePath = Join-Path $script:backendDataRoot 'bike-rental-state.clixml'
+        $script:backendCertificateRoot = Join-Path $script:backendDataRoot 'certs'
+        $script:backendCertificatePath = Join-Path $script:backendCertificateRoot 'bike-rental-shop-devcert.pfx'
+        $script:backendRootCertificatePath = Join-Path $script:backendCertificateRoot 'bike-rental-shared-root.pfx'
+        $script:webExampleRoot = Join-Path $script:bikeRentalRoot 'Web'
+        $script:webDataRoot = Join-Path $script:webExampleRoot 'data'
+        $script:webCertificateRoot = Join-Path $script:webDataRoot 'certs'
+        $script:webCertificatePath = Join-Path $script:webCertificateRoot 'bike-rental-shop-web-devcert.pfx'
+        $script:webRootCertificatePath = Join-Path $script:webCertificateRoot 'bike-rental-shared-root.pfx'
+        $script:webPublicRootCertificatePath = Join-Path $script:webCertificateRoot 'bike-rental-shared-root-public.pem'
+        $script:sharedCertificateRoot = Join-Path $script:bikeRentalRoot 'certs'
+        $script:sharedRootCertificatePath = Join-Path $script:sharedCertificateRoot 'bike-rental-shared-root.pfx'
+        $script:backendLeafCertificatePassword = ConvertTo-SecureString -String 'bike-rental-demo' -AsPlainText -Force
+        $script:webLeafCertificatePassword = ConvertTo-SecureString -String 'bike-rental-web-demo' -AsPlainText -Force
+        $script:rootCertificatePassword = ConvertTo-SecureString -String 'bike-rental-shared-root' -AsPlainText -Force
+        $script:backendDataBackup = Backup-ExamplePath -LiteralPath $script:backendDataRoot
+        $script:webDataBackup = Backup-ExamplePath -LiteralPath $script:webDataRoot
+        $script:sharedCertificateBackup = Backup-ExamplePath -LiteralPath $script:sharedCertificateRoot
+
+        foreach ($path in @($script:backendDataRoot, $script:webDataRoot, $script:sharedCertificateRoot)) {
+            if (Test-Path -LiteralPath $path) {
+                Remove-Item -LiteralPath $path -Recurse -Force
+            }
+        }
+
         $portBlock = Get-FreeTcpPortBlock -Count 2
         $script:backendPort = $portBlock
         $script:webPort = $portBlock + 1
@@ -65,6 +94,58 @@ Describe 'Bike rental shop web example' {
             Stop-ExampleScript -Instance $script:backendInstance
             Write-KrExampleInstanceOnFailure -Instance $script:backendInstance
         }
+
+        Restore-ExamplePath -Backup $script:backendDataBackup
+        Restore-ExamplePath -Backup $script:webDataBackup
+        Restore-ExamplePath -Backup $script:sharedCertificateBackup
+    }
+
+    It 'recreates the expected backend and web certificate artifacts after cleanup' {
+        Test-Path -LiteralPath $script:backendDataRoot -PathType Container | Should -BeTrue
+        Test-Path -LiteralPath $script:backendStatePath -PathType Leaf | Should -BeTrue
+        Test-Path -LiteralPath $script:backendCertificateRoot -PathType Container | Should -BeTrue
+        Test-Path -LiteralPath $script:backendCertificatePath -PathType Leaf | Should -BeTrue
+        Test-Path -LiteralPath $script:backendRootCertificatePath -PathType Leaf | Should -BeTrue
+        Test-Path -LiteralPath $script:webDataRoot -PathType Container | Should -BeTrue
+        Test-Path -LiteralPath $script:webCertificateRoot -PathType Container | Should -BeTrue
+        Test-Path -LiteralPath $script:webCertificatePath -PathType Leaf | Should -BeTrue
+        Test-Path -LiteralPath $script:webRootCertificatePath -PathType Leaf | Should -BeTrue
+        Test-Path -LiteralPath $script:webPublicRootCertificatePath -PathType Leaf | Should -BeTrue
+        Test-Path -LiteralPath $script:sharedCertificateRoot -PathType Container | Should -BeTrue
+        Test-Path -LiteralPath $script:sharedRootCertificatePath -PathType Leaf | Should -BeTrue
+
+        $persistedState = Import-KrSharedState -Path $script:backendStatePath
+        $persistedState.shopName | Should -Be 'Riverside Bike Rental'
+        @($persistedState.bikes).Count | Should -Be 4
+
+        $backendLeafCertificate = $null
+        $backendRootCertificate = $null
+        $webLeafCertificate = $null
+        $webRootCertificate = $null
+        $sharedRootCertificate = $null
+        try {
+            $backendLeafCertificate = Import-KrCertificate -FilePath $script:backendCertificatePath -Password $script:backendLeafCertificatePassword
+            $backendRootCertificate = Import-KrCertificate -FilePath $script:backendRootCertificatePath -Password $script:rootCertificatePassword
+            $webLeafCertificate = Import-KrCertificate -FilePath $script:webCertificatePath -Password $script:webLeafCertificatePassword
+            $webRootCertificate = Import-KrCertificate -FilePath $script:webRootCertificatePath -Password $script:rootCertificatePassword
+            $sharedRootCertificate = Import-KrCertificate -FilePath $script:sharedRootCertificatePath -Password $script:rootCertificatePassword
+
+            $backendLeafCertificate.Issuer | Should -Be $backendRootCertificate.Subject
+            $webLeafCertificate.Issuer | Should -Be $webRootCertificate.Subject
+            $backendRootCertificate.Thumbprint | Should -Be $sharedRootCertificate.Thumbprint
+            $webRootCertificate.Thumbprint | Should -Be $sharedRootCertificate.Thumbprint
+        } finally {
+            foreach ($certificate in @($backendLeafCertificate, $backendRootCertificate, $webLeafCertificate, $webRootCertificate, $sharedRootCertificate)) {
+                if ($null -ne $certificate) {
+                    $certificate.Dispose()
+                }
+            }
+        }
+
+        $publicRootPem = Get-Content -LiteralPath $script:webPublicRootCertificatePath -Raw
+        $publicRootPem | Should -Match 'BEGIN CERTIFICATE'
+        $publicRootPem | Should -Match 'END CERTIFICATE'
+        $publicRootPem | Should -Not -Match 'BEGIN PRIVATE KEY'
     }
 
     It 'serves the standalone home page with the configured backend URL' {
@@ -94,12 +175,17 @@ Describe 'Bike rental shop web example' {
 
     It 'serves the public development root certificate without the private key' {
         $response = Invoke-WebRequest -Uri "$($script:webInstance.Url)/certificates/root.pem" -SkipCertificateCheck
+        $pemContent = if ($response.Content -is [string]) {
+            $response.Content
+        } else {
+            [System.Text.Encoding]::UTF8.GetString([byte[]]@($response.Content))
+        }
 
         $response.StatusCode | Should -Be 200
         $response.Headers['Content-Type'] | Should -Match 'application/x-pem-file'
-        $response.Content | Should -Match 'BEGIN CERTIFICATE'
-        $response.Content | Should -Match 'END CERTIFICATE'
-        $response.Content | Should -Not -Match 'BEGIN PRIVATE KEY'
+        $pemContent | Should -Match 'BEGIN CERTIFICATE'
+        $pemContent | Should -Match 'END CERTIFICATE'
+        $pemContent | Should -Not -Match 'BEGIN PRIVATE KEY'
     }
 
     It 'allows browser preflight requests from the standalone web origin' {

@@ -355,6 +355,76 @@ function Get-PwshExecutable {
     return $pwshExecutable
 }
 
+<#
+.SYNOPSIS
+    Backs up a test artifact path to a temporary location.
+.DESCRIPTION
+    Copies an existing file or directory to a unique temporary folder so tests can
+    clean the original path and later restore the prior contents.
+.PARAMETER LiteralPath
+    The file or directory path to back up.
+.OUTPUTS
+    PSCustomObject with LiteralPath, BackupRoot, BackupPath, and Existed properties.
+#>
+function Backup-ExamplePath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$LiteralPath
+    )
+
+    $backupRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-artifact-backup-' + [Guid]::NewGuid().ToString('N'))
+    $backupPath = $null
+    $existed = Test-Path -LiteralPath $LiteralPath
+
+    if ($existed) {
+        New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+        Copy-Item -LiteralPath $LiteralPath -Destination $backupRoot -Recurse -Force
+        $backupPath = Join-Path $backupRoot (Split-Path -Leaf -Path $LiteralPath)
+    }
+
+    return [pscustomobject]@{
+        LiteralPath = $LiteralPath
+        BackupRoot = $backupRoot
+        BackupPath = $backupPath
+        Existed = $existed
+    }
+}
+
+<#
+.SYNOPSIS
+    Restores a previously backed up test artifact path.
+.DESCRIPTION
+    Removes the current file or directory at the target path, restores the backed up
+    copy when one existed, and deletes the temporary backup folder.
+.PARAMETER Backup
+    The object returned by Backup-ExamplePath.
+#>
+function Restore-ExamplePath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [pscustomobject]$Backup
+    )
+
+    if (Test-Path -LiteralPath $Backup.LiteralPath) {
+        Remove-Item -LiteralPath $Backup.LiteralPath -Recurse -Force
+    }
+
+    if ($Backup.Existed -and -not [string]::IsNullOrWhiteSpace($Backup.BackupPath) -and (Test-Path -LiteralPath $Backup.BackupPath)) {
+        $destinationParent = Split-Path -Parent -Path $Backup.LiteralPath
+        if (-not [string]::IsNullOrWhiteSpace($destinationParent) -and -not (Test-Path -LiteralPath $destinationParent)) {
+            New-Item -ItemType Directory -Path $destinationParent -Force | Out-Null
+        }
+
+        Copy-Item -LiteralPath $Backup.BackupPath -Destination $destinationParent -Recurse -Force
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Backup.BackupRoot) -and (Test-Path -LiteralPath $Backup.BackupRoot)) {
+        Remove-Item -LiteralPath $Backup.BackupRoot -Recurse -Force
+    }
+}
+
 
 <#
 .SYNOPSIS
@@ -478,10 +548,7 @@ Start-KrServer
     # Heuristic: detect HTTPS usage if listener line includes cert/self-signed flags.
     # This is also used to avoid noisy HTTPS readiness probes for HTTP-only examples.
     $usesHttps = $false
-    if (($content -match 'Add-KrEndpoint[^\n]*-SelfSignedCert') -or
-        ($content -match 'Add-KrEndpoint[^\n]*-CertPath') -or
-        ($content -match 'Add-KrEndpoint[^\n]*-X509Certificate')
-    ) {
+    if ($content -match '(?s)Add-KrEndpoint\b.*?-(SelfSignedCert|CertPath|X509Certificate)\b') {
         $usesHttps = $true
     }
 
@@ -602,63 +669,85 @@ Start-KrServer
         $errorMessage = $null
         if (-not $SkipPortProbe.IsPresent) {
             Start-Sleep -Seconds 1 # Initial delay before probing
-            while ([DateTime]::UtcNow -lt $deadline -and -not $ready) {
-                if ($proc.HasExited) { break }
-                $attempt++
-                # Optional lightweight HTTP/HTTPS probe of '/' and '/online' endpoints to detect readiness.
-                # Probe HTTP first because many examples are HTTP-only or become reachable over HTTP before HTTPS.
-                $probeUrls = @(
-                    "http://$serverIp`:$Port/online",
-                    "http://$serverIp`:$Port/"
-                )
-                if ($usesHttps) {
-                    $probeUrls += @(
-                        "https://$serverIp`:$Port/online",
-                        "https://$serverIp`:$Port/"
-                    )
+
+            if ($RunInPlace.IsPresent) {
+                $expectedScheme = if ($usesHttps) { 'https' } else { 'http' }
+                $readyPattern = [regex]::Escape("Now listening on: ${expectedScheme}://") + ".+:$Port"
+                $logProbeInstance = [pscustomobject]@{
+                    StdOut = $stdOut
+                    StdErr = $stdErr
+                    Process = $proc
                 }
-                foreach ($url in $probeUrls) {
-                    try {
-                        $probe = Get-HttpHeadersRaw -Uri $url -Insecure -AsHashtable -TimeoutSeconds 2
-                        if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) {
-                            $ready = $true
-                            break
-                        }
-                    } catch {
-                        $errorMessage = $_.Exception.Message
+
+                try {
+                    Wait-ExampleLogMatch -Instance $logProbeInstance -Pattern $readyPattern -TimeoutSeconds $StartupTimeoutSeconds -RetryDelayMs $HttpProbeDelayMs | Out-Null
+                    $ready = $true
+                    $errorMessage = $null
+                } catch {
+                    $errorMessage = $_.Exception.Message
+                }
+            } else {
+                while ([DateTime]::UtcNow -lt $deadline -and -not $ready) {
+                    if ($proc.HasExited) { break }
+                    $attempt++
+                    # Probe the scheme the example is expected to serve.
+                    # Sending plain HTTP probes to an HTTPS-only listener can leave a trail of
+                    # timed-out TLS handshakes that delays real requests enough to cause startup
+                    # false negatives on slower examples.
+                    $probeUrls = if ($usesHttps) {
+                        @(
+                            "https://$serverIp`:$Port/online",
+                            "https://$serverIp`:$Port/"
+                        )
+                    } else {
+                        @(
+                            "http://$serverIp`:$Port/online",
+                            "http://$serverIp`:$Port/"
+                        )
                     }
-                }
-                Start-Sleep -Milliseconds $HttpProbeDelayMs
-            }
-
-            # Some HTTPS examples on Windows become reachable to Invoke-WebRequest
-            # slightly before or after the raw socket probe can confirm readiness.
-            # Before warning, do one final short, high-level probe using the same
-            # client stack the tests use so we reduce false negatives without
-            # reintroducing unbounded waits.
-            if (-not $ready -and -not $proc.HasExited) {
-                $finalProbeUrls = @()
-                if ($usesHttps) {
-                    $finalProbeUrls += @(
-                        "https://$serverIp`:$Port/online",
-                        "https://$serverIp`:$Port/"
-                    )
-                }
-                $finalProbeUrls += @(
-                    "http://$serverIp`:$Port/online",
-                    "http://$serverIp`:$Port/"
-                )
-
-                foreach ($url in ($finalProbeUrls | Select-Object -Unique)) {
-                    try {
-                        $finalProbe = Invoke-WebRequest -Uri $url -Method Get -SkipCertificateCheck -SkipHttpErrorCheck -TimeoutSec 5
-                        if ($null -ne $finalProbe -and $finalProbe.StatusCode -ge 200 -and $finalProbe.StatusCode -lt 600) {
-                            $ready = $true
-                            $errorMessage = $null
-                            break
+                    foreach ($url in $probeUrls) {
+                        try {
+                            $probe = Get-HttpHeadersRaw -Uri $url -Insecure -AsHashtable -TimeoutSeconds 2
+                            if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) {
+                                $ready = $true
+                                break
+                            }
+                        } catch {
+                            $errorMessage = $_.Exception.Message
                         }
-                    } catch {
-                        $errorMessage = $_.Exception.Message
+                    }
+                    Start-Sleep -Milliseconds $HttpProbeDelayMs
+                }
+
+                # Some HTTPS examples on Windows become reachable to Invoke-WebRequest
+                # slightly before or after the raw socket probe can confirm readiness.
+                # Before warning, do one final short, high-level probe using the same
+                # client stack the tests use so we reduce false negatives without
+                # reintroducing unbounded waits.
+                if (-not $ready -and -not $proc.HasExited) {
+                    $finalProbeUrls = if ($usesHttps) {
+                        @(
+                            "https://$serverIp`:$Port/online",
+                            "https://$serverIp`:$Port/"
+                        )
+                    } else {
+                        @(
+                            "http://$serverIp`:$Port/online",
+                            "http://$serverIp`:$Port/"
+                        )
+                    }
+
+                    foreach ($url in ($finalProbeUrls | Select-Object -Unique)) {
+                        try {
+                            $finalProbe = Invoke-WebRequest -Uri $url -Method Get -SkipCertificateCheck -SkipHttpErrorCheck -TimeoutSec 5
+                            if ($null -ne $finalProbe -and $finalProbe.StatusCode -ge 200 -and $finalProbe.StatusCode -lt 600) {
+                                $ready = $true
+                                $errorMessage = $null
+                                break
+                            }
+                        } catch {
+                            $errorMessage = $_.Exception.Message
+                        }
                     }
                 }
             }

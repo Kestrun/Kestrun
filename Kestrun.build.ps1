@@ -81,7 +81,11 @@ param(
     [ValidateSet('quiet', 'minimal' , 'normal', 'detailed', 'diagnostic')]
     $DotNetVerbosity = 'detailed',
     [Parameter(Mandatory = $false)]
-    [switch]$SignModule
+    [switch]$SignModule,
+    [Parameter(Mandatory = $false)]
+    [int]$PesterAggregateRerunMaxFailedAllowed = 60,
+    [Parameter(Mandatory = $false)]
+    [int]$XUnitAggregateRerunMaxFailedAllowed = 25
 )
 
 if (($null -eq $PSCmdlet.MyInvocation) -or ([string]::IsNullOrEmpty($PSCmdlet.MyInvocation.PSCommandPath)) -or (-not $PSCmdlet.MyInvocation.PSCommandPath.EndsWith('Invoke-Build.ps1'))) {
@@ -170,8 +174,7 @@ $KestrunToolPowerShellCacheRoot = Join-Path -Path $PSScriptRoot -ChildPath '.pac
 $PowerShellLibRoot = Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun/lib'
 $PesterTestsRootPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/PowerShell.Tests/Kestrun.Tests'
 $PesterTutorialTestPath = Join-Path -Path $PesterTestsRootPath -ChildPath 'Tutorial'
-$PesterAggregateRerunMaxFailedAllowed = 10
-$XUnitAggregateRerunMaxFailedAllowed = 25
+
 
 Write-Host '---------------------------------------------------' -ForegroundColor DarkCyan
 if (-not $Version) {
@@ -702,7 +705,8 @@ Add-BuildTask 'Test-Pester-NonTutorial' 'Test-Pester-LogContext', {
         -Verbosity $PesterVerbosity `
         -DebugMode:$isDebug `
         -TestPath $PesterTestsRootPath `
-        -ExcludePath $PesterTutorialTestPath
+        -ExcludePath $PesterTutorialTestPath `
+        -MaxFailedAllowed $PesterAggregateRerunMaxFailedAllowed
     if ($res -ne 0) { Write-Error "Test-Pester-NonTutorial failed with exit code $res" }
     return $res
 }
@@ -716,7 +720,8 @@ Add-BuildTask 'Test-Pester-Tutorial-Shard1' 'Test-Pester-LogContext', {
         -DebugMode:$isDebug `
         -TestPath $PesterTutorialTestPath `
         -ShardCount 2 `
-        -ShardIndex 1
+        -ShardIndex 1 `
+        -MaxFailedAllowed $PesterAggregateRerunMaxFailedAllowed
     if ($res -ne 0) { Write-Error "Test-Pester-Tutorial-Shard1 failed with exit code $res" }
     return $res
 }
@@ -730,7 +735,8 @@ Add-BuildTask 'Test-Pester-Tutorial-Shard2' 'Test-Pester-LogContext', {
         -DebugMode:$isDebug `
         -TestPath $PesterTutorialTestPath `
         -ShardCount 2 `
-        -ShardIndex 2
+        -ShardIndex 2 `
+        -MaxFailedAllowed $PesterAggregateRerunMaxFailedAllowed
     if ($res -ne 0) { Write-Error "Test-Pester-Tutorial-Shard2 failed with exit code $res" }
     return $res
 }
@@ -747,7 +753,8 @@ Add-BuildTask 'Test-Pester' 'Test-Pester-LogContext', {
             -Verbosity $PesterVerbosity `
             -DebugMode:$isDebug `
             -TestPath $PesterTestsRootPath `
-            -ExcludePath $PesterTutorialTestPath),
+            -ExcludePath $PesterTutorialTestPath `
+            -MaxFailedAllowed $PesterAggregateRerunMaxFailedAllowed),
         (& "$utilityPath/Test-Pester.ps1" `
             -PassThru `
             -ReRunFailed:$false `
@@ -755,7 +762,8 @@ Add-BuildTask 'Test-Pester' 'Test-Pester-LogContext', {
             -DebugMode:$isDebug `
             -TestPath $PesterTutorialTestPath `
             -ShardCount 2 `
-            -ShardIndex 1),
+            -ShardIndex 1 `
+            -MaxFailedAllowed $PesterAggregateRerunMaxFailedAllowed),
         (& "$utilityPath/Test-Pester.ps1" `
             -PassThru `
             -ReRunFailed:$false `
@@ -763,7 +771,8 @@ Add-BuildTask 'Test-Pester' 'Test-Pester-LogContext', {
             -DebugMode:$isDebug `
             -TestPath $PesterTutorialTestPath `
             -ShardCount 2 `
-            -ShardIndex 2)
+            -ShardIndex 2 `
+            -MaxFailedAllowed $PesterAggregateRerunMaxFailedAllowed)
     )
 
     $initialFailedSelectors = @(

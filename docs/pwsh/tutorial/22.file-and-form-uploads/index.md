@@ -56,4 +56,3 @@ Common rule knobs used in this chapter:
 
 - PowerShell 7.4+
 - .NET runtime per repo `global.json`
-

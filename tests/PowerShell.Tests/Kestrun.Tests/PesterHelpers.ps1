@@ -548,7 +548,7 @@ Start-KrServer
     # Heuristic: detect HTTPS usage if listener line includes cert/self-signed flags.
     # This is also used to avoid noisy HTTPS readiness probes for HTTP-only examples.
     $usesHttps = $false
-    if ($content -match '(?s)Add-KrEndpoint\b.*?-(SelfSignedCert|CertPath|X509Certificate)\b') {
+    if ($content -match '(?s)Add-KrEndpoint\b.*?-(SelfSignedCert(?:ificate)?|CertPath|X509Certificate)\b') {
         $usesHttps = $true
     }
 

@@ -1023,24 +1023,5 @@ Add-BuildTask Update-Module {
 }
 
 Add-BuildTask 'Normalize-LineEndings' {
-    Write-Host '🔄 Normalizing line endings to LF in .ps1, .psm1, .cs, .md, and .psd1 files...'
-
-    Get-ChildItem -Recurse -Include *.ps1, *.psm1, *.cs, *.md, *.psd1 |
-        Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } |
-        ForEach-Object {
-            $text = Get-Content -Raw -Path $_.FullName
-            # Replace CRLF with LF
-            $newContent = $text -replace "`r`n", "`n"
-            $newContent = $newContent -replace "`r", "`n"
-            $newContent = [regex]::Replace($newContent, '[ \t]+(?=\n)', '')
-            if (-not $newContent.EndsWith("`n")) {
-                $newContent += "`n"
-            }
-            if ($newContent -ne $text) {
-                # Write back with UTF-8 (no BOM, cross-platform friendly)
-                [System.IO.File]::WriteAllText($_.FullName, $newContent, ([System.Text.UTF8Encoding]::new($false)))
-                Write-Host "Normalized line endings in $($_.FullName)"
-            }
-        }
+    & "$utilityPath/Normalize-Files.ps1" -Root $PSScriptRoot
 }
-

@@ -28,6 +28,6 @@ pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Web\Service.ps1 -Port 5445 -B
 - The browser talks directly to the backend API, so the backend must allow the web service origin with `-AllowedCorsOrigins`.
 - The UI expects the same API shape from either backend sample.
 - The standalone web sample exposes the public development root certificate at `/certificates/root.pem` so browsers and test clients can fetch
-the trust anchor without exposing the private key.
+  the trust anchor without exposing the private key.
 - When using local self-signed certificates in a browser,
-trust the certificate or accept it in the browser before testing the cross-origin calls.
+  trust the certificate or accept it in the browser before testing the cross-origin calls.

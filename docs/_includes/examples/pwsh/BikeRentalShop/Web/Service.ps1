@@ -139,7 +139,7 @@ function Get-BikeRentalCertificate {
         $publicRootCertificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($rootCertificate.RawData)
     } elseif (-not [string]::IsNullOrWhiteSpace($ParentRootCertificatePath) -and (Test-Path -LiteralPath $ParentRootCertificatePath -PathType Leaf)) {
         $parentRootCertificate = Import-KrCertificate -FilePath $ParentRootCertificatePath -Password $RootCertificatePassword
-        Export-KrCertificate -Certificate $parentRootCertificate -FilePath ([System.IO.Path]::ChangeExtension($RootCertificatePath, $null)) `
+        Export-KrCertificate -Certificate $parentRootCertificate -FilePath $RootCertificatePath `
             -Format pfx -IncludePrivateKey -Password $RootCertificatePassword
         $parentRootCertificate.Dispose()
         $rootCertificate = Import-KrCertificate -FilePath $RootCertificatePath -Password $RootCertificatePassword
@@ -175,17 +175,17 @@ function Get-BikeRentalCertificate {
     if (-not $rootCertificate) {
         $rootCertificate = $bundle.RootCertificate
         $publicRootCertificate = $bundle.PublicRootCertificate
-        Export-KrCertificate -Certificate $rootCertificate -FilePath ([System.IO.Path]::ChangeExtension($RootCertificatePath, $null)) `
+        Export-KrCertificate -Certificate $rootCertificate -FilePath $RootCertificatePath `
             -Format pfx -IncludePrivateKey -Password $RootCertificatePassword
 
         if (-not [string]::IsNullOrWhiteSpace($ParentRootCertificatePath)) {
-            Export-KrCertificate -Certificate $rootCertificate -FilePath ([System.IO.Path]::ChangeExtension($ParentRootCertificatePath, $null)) `
+            Export-KrCertificate -Certificate $rootCertificate -FilePath $ParentRootCertificatePath `
                 -Format pfx -IncludePrivateKey -Password $RootCertificatePassword
         }
     }
 
     $certificate = $bundle.LeafCertificate
-    Export-KrCertificate -Certificate $certificate -FilePath ([System.IO.Path]::ChangeExtension($CertificatePath, $null)) `
+    Export-KrCertificate -Certificate $certificate -FilePath $CertificatePath `
         -Format pfx -IncludePrivateKey -Password $CertificatePassword
 
     return [pscustomobject]@{
@@ -291,7 +291,7 @@ if (-not (Test-KrCertificate -Certificate $certificate -CertificateChain $rootCe
     exit 1
 }
 
-Export-KrCertificate -Certificate $publicRootCertificate -FilePath ([System.IO.Path]::ChangeExtension($RootCertificatePublicPath, $null)) -Format Pem
+Export-KrCertificate -Certificate $publicRootCertificate -FilePath $RootCertificatePublicPath -Format Pem
 
 # Create the server and configure global middleware before defining routes so they're available globally.
 New-KrServer -Name 'Riverside Bike Rental Web'

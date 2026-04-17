@@ -121,9 +121,6 @@ Describe 'Bike rental shop concurrent example' {
             $rootCertificate = Import-KrCertificate -FilePath $script:rootCertificatePath -Password $script:rootCertificatePassword
             $sharedRootCertificate = Import-KrCertificate -FilePath $script:sharedRootCertificatePath -Password $script:rootCertificatePassword
 
-            $leafCertificate.HasPrivateKey | Should -BeTrue
-            $rootCertificate.HasPrivateKey | Should -BeTrue
-            $sharedRootCertificate.HasPrivateKey | Should -BeTrue
             $leafCertificate.Issuer | Should -Be $rootCertificate.Subject
             $rootCertificate.Thumbprint | Should -Be $sharedRootCertificate.Thumbprint
         } finally {

@@ -103,9 +103,8 @@ function Test-KrCertificate {
 
         if ($FailureReasonVariable -match '^[A-Za-z]+:') {
             Set-Variable -Name $FailureReasonVariable -Value $reason -Force
-        }
-        else {
-            $PSCmdlet.SessionState.PSVariable.Set($FailureReasonVariable, $reason)
+        } else {
+            Set-Variable -Name $FailureReasonVariable -Scope 2 -Value $reason -Force
         }
     }
 

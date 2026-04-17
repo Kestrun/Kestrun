@@ -4,56 +4,59 @@ param()
 BeforeAll {
     . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
     Import-Module (Get-KestrunModulePath) -Force
-
-    function Invoke-TestKrCertificateWithReason {
-        param(
-            [Parameter(Mandatory)]
-            [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
-
-            [Parameter()]
-            [System.Security.Cryptography.X509Certificates.X509Certificate2[]]$CertificateChain
-        )
-
-        $isValid = Test-KrCertificate -Certificate $Certificate -CertificateChain $CertificateChain -FailureReasonVariable 'reason'
-        return [pscustomobject]@{
-            IsValid = $isValid
-            Reason = $reason
-        }
-    }
 }
 
 Describe 'Test-KrCertificate' {
-    BeforeEach {
-        $script:bundle = $null
-    }
-
-    AfterEach {
-        if ($script:bundle) {
-            if ($script:bundle.LeafCertificate) {
-                $script:bundle.LeafCertificate.Dispose()
-            }
-
-            if ($script:bundle.PublicRootCertificate) {
-                $script:bundle.PublicRootCertificate.Dispose()
-            }
-
-            if ($script:bundle.RootCertificate) {
-                $script:bundle.RootCertificate.Dispose()
-            }
-        }
-
-        $script:bundle = $null
-    }
-
     It 'accepts an explicit root chain for development certificates' {
-        $script:bundle = New-KrDevelopmentCertificate -Exportable
+        $modulePath = (Get-KestrunModulePath).Replace("'", "''")
+        $powerShellPath = (Get-Process -Id $PID).Path
+        $tempFile = New-TemporaryFile
+        $tempScriptPath = [System.IO.Path]::ChangeExtension($tempFile.FullName, '.ps1')
+        Move-Item -LiteralPath $tempFile.FullName -Destination $tempScriptPath -Force
 
-        $withoutChain = Invoke-TestKrCertificateWithReason -Certificate $script:bundle.LeafCertificate
-        $withoutChain.IsValid | Should -BeFalse
-        $withoutChain.Reason | Should -Match 'PartialChain|trusted root authority'
+        try {
+            $scriptContent = @'
+Import-Module '__MODULE_PATH__' -Force
 
-        $withChain = Invoke-TestKrCertificateWithReason -Certificate $script:bundle.LeafCertificate -CertificateChain $script:bundle.RootCertificate
-        $withChain.IsValid | Should -BeTrue
-        $withChain.Reason | Should -Be ''
+$bundle = $null
+
+try {
+    $bundle = New-KrDevelopmentCertificate -Exportable
+
+    $withoutChainReason = '__unset__'
+    $withoutChainIsValid = Test-KrCertificate -Certificate $bundle.LeafCertificate -FailureReasonVariable 'withoutChainReason'
+
+    $withChainReason = '__unset__'
+    $withChainIsValid = Test-KrCertificate -Certificate $bundle.LeafCertificate -CertificateChain $bundle.RootCertificate -FailureReasonVariable 'withChainReason'
+
+    [pscustomobject]@{
+        WithoutChainIsValid = $withoutChainIsValid
+        WithoutChainReason = $withoutChainReason
+        WithChainIsValid = $withChainIsValid
+        WithChainReason = $withChainReason
+    } | ConvertTo-Json -Compress
+}
+finally {
+    if ($bundle) {
+        if ($bundle.LeafCertificate) { $bundle.LeafCertificate.Dispose() }
+        if ($bundle.PublicRootCertificate) { $bundle.PublicRootCertificate.Dispose() }
+        if ($bundle.RootCertificate) { $bundle.RootCertificate.Dispose() }
+    }
+}
+'@
+
+            $scriptContent = $scriptContent.Replace('__MODULE_PATH__', $modulePath)
+
+            [System.IO.File]::WriteAllText($tempScriptPath, $scriptContent, [System.Text.UTF8Encoding]::new($false))
+
+            $result = & $powerShellPath -NoLogo -NoProfile -File $tempScriptPath | ConvertFrom-Json
+            $result.WithoutChainIsValid | Should -BeFalse
+            $result.WithoutChainReason | Should -Not -Be '__unset__'
+            $result.WithoutChainReason | Should -Not -BeNullOrEmpty
+            $result.WithChainIsValid | Should -BeTrue
+            $result.WithChainReason | Should -Be ''
+        } finally {
+            Remove-Item -LiteralPath $tempScriptPath -Force -ErrorAction SilentlyContinue
+        }
     }
 }

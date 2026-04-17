@@ -1,7 +1,9 @@
 ---
+layout: default
 title: Applications
 parent: Tutorials
 nav_order: 23
+has_children: true
 ---
 
 # Application Tutorials

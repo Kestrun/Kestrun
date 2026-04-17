@@ -1,4 +1,4 @@
-﻿param(
+param(
     [string]$Root = (Get-Location).Path,
     [string[]]$Extensions = @('*.ps1', '*.psm1', '*.cs', '*.md', '*.psd1')
 )

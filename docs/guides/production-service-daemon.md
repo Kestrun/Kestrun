@@ -119,8 +119,17 @@ Required:
 Optional:
 
 - `-OutputPath <string>`: output package path. If omitted, defaults to `<SourceFolderName>.krpack` in the current directory.
+- `-ExcludeApplicationDataFolders`: omit files under descriptor `ApplicationDataFolders` from the package archive.
+- `-ExcludePaths <string[]>`: omit additional relative files or folders from the package archive.
 - `-Force`: overwrite an existing output file.
 - `-WhatIf` and `-Confirm`: standard PowerShell safety switches.
+
+Notes:
+
+- Exclusions apply only to `-SourceFolder` packaging.
+- Excluded paths must stay under `-SourceFolder`.
+- `Service.psd1` and the descriptor `EntryPoint` cannot be excluded.
+- `-ExcludeApplicationDataFolders` does not rewrite `Service.psd1`; it only removes those files from the archive payload.
 
 Examples:
 
@@ -133,6 +142,13 @@ New-KrServicePackage -SourceFolder .\MyServiceApp -OutputPath .\my-service.krpac
 
 # Overwrite existing package
 New-KrServicePackage -SourceFolder .\MyServiceApp -OutputPath .\my-service.krpack -Force
+
+# Skip package-time app data plus extra local-only content
+New-KrServicePackage `
+  -SourceFolder .\MyServiceApp `
+  -ExcludeApplicationDataFolders `
+  -ExcludePaths @('secrets/dev.json', 'scratch/') `
+  -OutputPath .\my-service.krpack
 ```
 
 ### Parameter set 2: package from a script and generate `Service.psd1`

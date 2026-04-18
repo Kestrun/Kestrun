@@ -40,34 +40,6 @@ if ((-not $PSBoundParameters.ContainsKey('AllowedCorsOrigins')) -and -not [strin
     Starts the concurrent backend with explicit browser origins enabled for a separate web client service.
 #>
 
-try {
-    $scriptPath = Split-Path -Parent -Path $MyInvocation.MyCommand.Path
-    $kestrunPath = Get-Item -LiteralPath $scriptPath
-    while ($kestrunPath -and -not (Test-Path -LiteralPath (Join-Path $kestrunPath.FullName 'Kestrun.sln') -PathType Leaf)) {
-        $parentPath = Split-Path -Parent -Path $kestrunPath.FullName
-        if ([string]::IsNullOrWhiteSpace($parentPath) -or ($parentPath -eq $kestrunPath.FullName)) {
-            break
-        }
-
-        $kestrunPath = Get-Item -LiteralPath $parentPath
-    }
-
-    if (-not $kestrunPath) {
-        throw 'Unable to locate the repository root.'
-    }
-
-    $kestrunModulePath = Join-Path $kestrunPath 'src/PowerShell/Kestrun/Kestrun.psm1'
-
-    if (Test-Path -LiteralPath $kestrunModulePath -PathType Leaf) {
-        Import-Module $kestrunModulePath -Force -ErrorAction Stop
-    } else {
-        Import-Module -Name 'Kestrun' -MaximumVersion 2.99 -ErrorAction Stop
-    }
-} catch {
-    Write-Error "Failed to import Kestrun module: $_"
-    exit 1
-}
-
 Initialize-KrRoot -Path $PSScriptRoot
 
 $DataRoot = Join-Path $PSScriptRoot 'data'

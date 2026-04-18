@@ -1,3 +1,25 @@
+<#
+.SYNOPSIS
+    Package-ready bike rental web client.
+.DESCRIPTION
+    Demonstrates a standalone Kestrun PowerShell Razor Pages service that talks to the bike rental
+    API over HTTP. The web client stays separate from the backend samples so browser concerns such
+    as static assets, page composition, and cross-origin calls do not leak into either API variant.
+.EXAMPLE
+    pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Synchronized\Service.ps1 -Port 5443 -AllowedCorsOrigins @('https://127.0.0.1:5445', 'https://localhost:5445')
+    pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Synchronized
+
+    Starts the standalone web client against the synchronized backend sample.
+.EXAMPLE
+    pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Concurrent\Service.ps1 -Port 5444 -AllowedCorsOrigins @('https://127.0.0.1:5445', 'https://localhost:5445')
+    pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Concurrent
+
+    Starts the standalone web client against the concurrent backend sample.
+.EXAMPLE
+    pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Custom -ApiBaseUrl 'https://api.example.test:9443'
+
+    Points the web client at a custom bike rental backend URL.
+#>
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '')]
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseDeclaredVarsMoreThanAssignments', '')]
@@ -23,29 +45,6 @@ if ((-not $PSBoundParameters.ContainsKey('ApiBaseUrl')) -and -not [string]::IsNu
 if ((-not $PSBoundParameters.ContainsKey('StaffApiKey')) -and -not [string]::IsNullOrWhiteSpace($env:BIKE_RENTAL_STAFF_API_KEY)) {
     $StaffApiKey = $env:BIKE_RENTAL_STAFF_API_KEY
 }
-
-<#
-.SYNOPSIS
-    Package-ready bike rental web client.
-.DESCRIPTION
-    Demonstrates a standalone Kestrun PowerShell Razor Pages service that talks to the bike rental
-    API over HTTP. The web client stays separate from the backend samples so browser concerns such
-    as static assets, page composition, and cross-origin calls do not leak into either API variant.
-.EXAMPLE
-    pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Synchronized\Service.ps1 -Port 5443 -AllowedCorsOrigins @('https://127.0.0.1:5445', 'https://localhost:5445')
-    pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Synchronized
-
-    Starts the standalone web client against the synchronized backend sample.
-.EXAMPLE
-    pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Concurrent\Service.ps1 -Port 5444 -AllowedCorsOrigins @('https://127.0.0.1:5445', 'https://localhost:5445')
-    pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Concurrent
-
-    Starts the standalone web client against the concurrent backend sample.
-.EXAMPLE
-    pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Web\Service.ps1 -Port 5445 -Backend Custom -ApiBaseUrl 'https://api.example.test:9443'
-
-    Points the web client at a custom bike rental backend URL.
-#>
 
 <#
 .SYNOPSIS
@@ -193,37 +192,6 @@ function Get-BikeRentalCertificate {
         RootCertificate = $rootCertificate
         PublicRootCertificate = $publicRootCertificate
     }
-}
-
-
-# Import Kestrun from the repository when developing locally and fall back to the installed
-# module when the sample is executed from a package or a machine without the source tree.
-try {
-    $scriptPath = Split-Path -Parent -Path $MyInvocation.MyCommand.Path
-    $kestrunPath = Get-Item -LiteralPath $scriptPath
-    while ($kestrunPath -and -not (Test-Path -LiteralPath (Join-Path $kestrunPath.FullName 'Kestrun.sln') -PathType Leaf)) {
-        $parentPath = Split-Path -Parent -Path $kestrunPath.FullName
-        if ([string]::IsNullOrWhiteSpace($parentPath) -or ($parentPath -eq $kestrunPath.FullName)) {
-            break
-        }
-
-        $kestrunPath = Get-Item -LiteralPath $parentPath
-    }
-
-    if (-not $kestrunPath) {
-        throw 'Unable to locate the repository root.'
-    }
-
-    $kestrunModulePath = Join-Path $kestrunPath 'src/PowerShell/Kestrun/Kestrun.psm1'
-
-    if (Test-Path -LiteralPath $kestrunModulePath -PathType Leaf) {
-        Import-Module $kestrunModulePath -Force -ErrorAction Stop
-    } else {
-        Import-Module -Name 'Kestrun' -MaximumVersion 2.99 -ErrorAction Stop
-    }
-} catch {
-    Write-Error "Failed to import Kestrun module: $_"
-    exit 1
 }
 
 Initialize-KrRoot -Path $PSScriptRoot

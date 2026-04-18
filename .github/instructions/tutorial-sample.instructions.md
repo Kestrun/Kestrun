@@ -48,6 +48,8 @@ These rules apply when creating or editing PowerShell tutorial sample files unde
 - Samples should remain runnable under the shared Pester tutorial harness in `tests/PowerShell.Tests/Kestrun.Tests/PesterHelpers.ps1`.
 - Do not hard-code ports in a way that prevents `Start-ExampleScript` from rewriting or supplying the listener port.
 - Prefer relative paths and startup behavior that work when the harness launches the sample from its script directory.
+- For package-ready service samples, assume the script may run from staged `Application/` content with Kestrun already preloaded by the host; do not require repo-root discovery or repo-relative module imports to start.
+- If a package-ready sample keeps local-development import convenience, that logic must stay optional and must not fail startup when the repository tree is absent.
 - If a sample requires external services, credentials, certificates, or platform-specific features, keep the core example explicit and document the limitation clearly in the matching tutorial/test.
 - Keep examples deterministic enough for smoke or behavior testing when practical.
 

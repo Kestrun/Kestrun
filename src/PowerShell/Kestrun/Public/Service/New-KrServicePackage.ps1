@@ -273,12 +273,12 @@ function New-KrServicePackage {
     .OUTPUTS
         An array of exclusion entry objects.
     #>
-    function Get-KrPackageExclusionEntries {
+    function Get-KrPackageExclusion {
         param(
             [string]$PackageRoot,
             [pscustomobject]$DescriptorInfo,
             [string]$DescriptorPath,
-            [bool]$ExcludeApplicationDataFolders,
+            [switch]$ExcludeApplicationDataFolders,
             [string[]]$ExcludePaths
         )
 
@@ -294,7 +294,7 @@ function New-KrServicePackage {
             }
         }
 
-        if ($ExcludeApplicationDataFolders -and $null -ne $DescriptorInfo.ApplicationDataFolders) {
+        if ($ExcludeApplicationDataFolders -and ($null -ne $DescriptorInfo.ApplicationDataFolders)) {
             foreach ($applicationDataFolder in @($DescriptorInfo.ApplicationDataFolders)) {
                 if ([string]::IsNullOrWhiteSpace($applicationDataFolder)) {
                     continue
@@ -398,7 +398,8 @@ function New-KrServicePackage {
 
             $descriptorData = Import-PowerShellDataFile -LiteralPath $descriptorPath
             $descriptorInfo = Test-KrServiceDescriptorData -Descriptor $descriptorData -DescriptorPath $descriptorPath -PackageRoot $packageRoot
-            $packageExclusions = Get-KrPackageExclusionEntries -PackageRoot $packageRoot -DescriptorInfo $descriptorInfo -DescriptorPath $descriptorPath -ExcludeApplicationDataFolders $ExcludeApplicationDataFolders.IsPresent -ExcludePaths $ExcludePaths
+            $packageExclusions = Get-KrPackageExclusion -PackageRoot $packageRoot -DescriptorInfo $descriptorInfo `
+                -DescriptorPath $descriptorPath -ExcludeApplicationDataFolders:$ExcludeApplicationDataFolders -ExcludePaths $ExcludePaths
 
             $defaultBaseName = [System.IO.Path]::GetFileName($packageRoot)
             $resolvedOutputPath = Get-KrResolvedOutputPath -ProvidedOutputPath $OutputPath -DefaultBaseName $defaultBaseName

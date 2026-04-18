@@ -6,7 +6,7 @@ nav_order: 23
 has_children: true
 ---
 
-# Application Tutorials
+# Applications
 
 Walk through larger Kestrun samples that combine routing, shared state, authentication,
 OpenAPI, packaging, and browser-facing clients into one application shape.

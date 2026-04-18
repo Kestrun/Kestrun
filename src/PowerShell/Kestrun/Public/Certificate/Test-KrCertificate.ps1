@@ -25,11 +25,11 @@
         Optional variable name that will receive the validation failure reason in the caller scope.
         When validation succeeds, the target variable is set to an empty string.
     .EXAMPLE
-        Test-KestrunCertificate -Certificate $cert -DenySelfSigned -CheckRevocation
+        Test-KrCertificate -Certificate $cert -DenySelfSigned -CheckRevocation
     .EXAMPLE
-        Test-KestrunCertificate -Certificate $cert -AllowWeakAlgorithms -ExpectedPurpose '1.3.6.1.5.5.7.3.1'
+        Test-KrCertificate -Certificate $cert -AllowWeakAlgorithms -ExpectedPurpose '1.3.6.1.5.5.7.3.1'
     .EXAMPLE
-        Test-KestrunCertificate -Certificate $cert -StrictPurpose
+        Test-KrCertificate -Certificate $cert -StrictPurpose
         If specified, the certificate will be validated against these purposes.
     .EXAMPLE
         $bundle = New-KrDevelopmentCertificate -Exportable

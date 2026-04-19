@@ -2,7 +2,7 @@
 .SYNOPSIS
     Reads a Service.psd1 descriptor file.
 .DESCRIPTION
-    Reads Service.psd1 and returns a normalized object with FormatVersion, Name, Description, Version, EntryPoint, ServiceLogPath, and PreservePaths.
+    Reads Service.psd1 and returns a normalized object with FormatVersion, Name, Description, Version, EntryPoint, ServiceLogPath, PreservePaths, and ApplicationDataFolders.
 .PARAMETER Path
     Descriptor path. Accepts either a descriptor file path or a directory path.
     When a directory path is provided, Service.psd1 is appended automatically.
@@ -41,6 +41,11 @@ function Get-KrServiceDescriptor {
         $preservePaths = @($normalizedDescriptor.PreservePaths)
     }
 
+    $applicationDataFolders = @()
+    if ($normalizedDescriptor.PSObject.Properties.Match('ApplicationDataFolders').Count -gt 0 -and $null -ne $normalizedDescriptor.ApplicationDataFolders) {
+        $applicationDataFolders = @($normalizedDescriptor.ApplicationDataFolders)
+    }
+
     $props = $normalizedDescriptor.PSObject.Properties
 
     [pscustomobject]([ordered]@{
@@ -56,5 +61,6 @@ function Get-KrServiceDescriptor {
             EntryPoint = if ($props['EntryPoint']) { [string]$normalizedDescriptor.EntryPoint } else { $null }
             ServiceLogPath = if ($props['ServiceLogPath']) { [string]$normalizedDescriptor.ServiceLogPath } else { $null }
             PreservePaths = $preservePaths
+            ApplicationDataFolders = $applicationDataFolders
         })
 }

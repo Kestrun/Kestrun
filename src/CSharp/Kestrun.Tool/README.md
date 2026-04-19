@@ -159,7 +159,8 @@ New-KrServiceDescriptor `
     -Version 1.2.0 `
     -EntryPoint '.\Service.ps1' `
     -ServiceLogPath '.\logs\service.log' `
-    -PreservePaths @('config/production.json', 'data/', 'logs/')
+    -PreservePaths @('config/production.json') `
+    -ApplicationDataFolders @('data/', 'logs/')
 ```
 
 Create a package from a single script (auto-generates Service.psd1):
@@ -188,8 +189,8 @@ dotnet kestrun service update --name my-kestrun --failback
 - `service update` requires the service to be stopped.
 - `service update --package` only updates the application when package `Version` is greater than installed `Version`.
 - `service update` creates backup folders for updated application/module/service-host content.
-- `service update --package` respects descriptor `PreservePaths` (relative file/folder paths) and restores those paths from the current
-install after package content is applied.
+- `service update --package` respects descriptor `PreservePaths` (relative file/folder paths) and `ApplicationDataFolders`
+  (relative application-data directories), restoring those paths from the current install after package content is applied.
 - `service install --package` resolves `Kestrun.Service.<rid>` for the current platform by default.
     Use `--runtime-package` for offline installs or `--runtime-source` to target a
     local/private feed.
@@ -216,6 +217,8 @@ install after package content is applied.
  EntryPoint = './Service.ps1'
  PreservePaths = @(
   'config/production.json'
+ )
+ ApplicationDataFolders = @(
   'data/'
   'logs/'
  )

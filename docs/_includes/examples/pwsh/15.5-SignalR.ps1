@@ -162,7 +162,7 @@ Add-KrMapRoute -Verbs Post -Pattern '/api/operation/start' {
     Set-KrTaskName -Id $id -Name "LongOperation-$id" -Description $message
 
     Write-KrLog -Level Information -Message 'Long operation started: {id}' -Values $id
-    
+
     Write-KrJsonResponse -InputObject @{
         Success = $true
         TaskId = $id

@@ -1,0 +1,119 @@
+@page
+@using Kestrun.Razor
+@model PwshKestrunModel
+@{
+    var data = Model.Data;
+    var clientConfigJson = System.Convert.ToString(data.ClientConfigJson) ?? "{}";
+}
+
+<main class="page-shell" data-bike-rental-app data-page="home">
+    <section class="hero-panel">
+        <div class="hero-copy">
+            <p class="badge">@data.Badge</p>
+            <h1>@data.Headline</h1>
+            <p class="lead">@data.Lead</p>
+            <div class="chip-row">
+                @foreach (var highlight in data.Highlights)
+                {
+                    <span class="info-chip">@highlight</span>
+                }
+            </div>
+        </div>
+        <aside class="hero-aside">
+            <h2>Connected backend</h2>
+            <p><strong>@data.BackendLabel</strong></p>
+            <p>@data.BackendUrl</p>
+            <a class="button secondary" href="@data.OperationsUrl">Open staff operations</a>
+            <a class="button ghost" href="@data.RootCertificateUrl">Download root certificate</a>
+        </aside>
+    </section>
+
+    <section class="metric-grid">
+        <article class="metric-card">
+            <p class="metric-label">Available bikes</p>
+            <p class="metric-value" id="available-count">--</p>
+            <p class="metric-note">Updated from the live catalog.</p>
+        </article>
+        <article class="metric-card">
+            <p class="metric-label">Active rentals</p>
+            <p class="metric-value" id="active-count">--</p>
+            <p class="metric-note">Pulled from the shop-health endpoint.</p>
+        </article>
+        <article class="metric-card accent">
+            <p class="metric-label">API status</p>
+            <p class="metric-value" id="health-status">Checking</p>
+            <p class="metric-note">The browser fetches the configured backend on page load.</p>
+        </article>
+    </section>
+
+    <section class="workspace-grid">
+        <article class="panel-card form-card">
+            <div class="panel-heading">
+                <p class="eyebrow">Reserve</p>
+                <h2>Start a rental</h2>
+            </div>
+            <form id="booking-form" class="stack-form">
+                <label>
+                    <span>Bike ID</span>
+                    <input name="bikeId" value="@data.DefaultBikeId" required />
+                </label>
+                <label>
+                    <span>Your name</span>
+                    <input name="customerName" value="Ava Flores" required />
+                </label>
+                <label>
+                    <span>Phone</span>
+                    <input name="phone" value="@data.DefaultPhone" required />
+                </label>
+                <label>
+                    <span>Hours planned</span>
+                    <input name="plannedHours" type="number" min="1" max="12" value="@data.DefaultPlannedHours"
+                           required />
+                </label>
+                <button class="button primary" type="submit">Reserve bike</button>
+            </form>
+            <div class="result-card" id="booking-result">
+                <p class="result-placeholder">The booking response will appear here with rental ID, pickup code, and due
+                    time.</p>
+                </div>
+            </article>
+
+            <article class="panel-card form-card">
+                <div class="panel-heading">
+                    <p class="eyebrow">Lookup</p>
+                    <h2>Track a rental</h2>
+                </div>
+                <form id="lookup-form" class="stack-form">
+                    <label>
+                        <span>Rental ID</span>
+                        <input id="rental-lookup-id" name="rentalId" placeholder="rent-..." required />
+                    </label>
+                    <button class="button secondary" type="submit">Check status</button>
+                </form>
+                <div class="result-card" id="lookup-result">
+                    <p class="result-placeholder">Use the rental ID from the booking response to check the live status.</p>
+                </div>
+            </article>
+        </section>
+
+        <section class="catalog-panel panel-card">
+            <div class="panel-heading split">
+                <div>
+                    <p class="eyebrow">Inventory</p>
+                    <h2>Bike lineup</h2>
+                </div>
+                <button class="button ghost" type="button" id="refresh-home">Refresh catalog</button>
+            </div>
+            <div class="catalog-grid" id="bike-catalog">
+                <p class="result-placeholder">Loading the bike catalog from the backend API.</p>
+            </div>
+        </section>
+
+        <section class="status-strip panel-card" data-status-surface>
+            <p class="status-title">Browser + backend sync ready</p>
+            <p class="status-detail">This web service is separate from the backend, so the bike-rental API only needs CORS
+                enabled for this origin.</p>
+            </section>
+
+            <script type="application/json" id="bike-rental-config">@Html.Raw(clientConfigJson)</script>
+        </main>

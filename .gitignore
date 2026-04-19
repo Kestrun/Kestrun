@@ -86,7 +86,7 @@ examples/CSharpTest/test.bin
 testResults.xml
 /publish
 */logs/*
-examples/CSharp/MultiRoutes/logs/audit-20250721.json
+examples/CSharp/MultiRoutes/logs
 /Microsoft.CodeAnalysis
 /docs/cmdlets
 /docs/pwsh/cmdlets
@@ -106,3 +106,6 @@ src/PowerShell/Kestrun/kestrun.sh
 /Package-Sample
 /TestResults*
 /.codex_tmp
+/docs/_includes/examples/pwsh/BikeRentalShop/Concurrent/data
+/docs/_includes/examples/pwsh/BikeRentalShop/Synchronized/data
+/docs/_includes/examples/pwsh/BikeRentalShop/Web/data

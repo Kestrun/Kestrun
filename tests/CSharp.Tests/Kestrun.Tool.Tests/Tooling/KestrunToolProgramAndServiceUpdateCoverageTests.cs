@@ -330,6 +330,57 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
 
     [Fact]
     [Trait("Category", "Tooling")]
+    public void TryNormalizePreservePath_UsesKeyAgnosticValidationMessages()
+    {
+        var args = new object?[]
+        {
+            Path.Combine(Path.GetTempPath(), $"absolute-{Guid.NewGuid():N}"),
+            string.Empty,
+            string.Empty,
+        };
+
+        Assert.False(InvokeBool("TryNormalizePreservePath", args));
+        Assert.Equal(string.Empty, Assert.IsType<string>(args[1]));
+        Assert.Contains("preserved path entry", Assert.IsType<string>(args[2]), StringComparison.Ordinal);
+        Assert.DoesNotContain("PreservePaths entry", Assert.IsType<string>(args[2]), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryStagePreservedPaths_UsesKeyAgnosticEscapeMessages()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-stage-preserve-{Guid.NewGuid():N}");
+        _ = Directory.CreateDirectory(tempRoot);
+
+        string? stagingRoot = null;
+        try
+        {
+            var args = new object?[]
+            {
+                tempRoot,
+                new[] { "../state" },
+                string.Empty,
+                string.Empty,
+            };
+
+            Assert.False(InvokeBool("TryStagePreservedPaths", args));
+            stagingRoot = Assert.IsType<string>(args[2]);
+            var normalizedPreservedPath = $"..{Path.DirectorySeparatorChar}state";
+            Assert.Contains($"Preserved path entry '{normalizedPreservedPath}' escapes the service application root.", Assert.IsType<string>(args[3]), StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (!string.IsNullOrWhiteSpace(stagingRoot) && Directory.Exists(stagingRoot))
+            {
+                TryDeleteDirectory(stagingRoot);
+            }
+
+            TryDeleteDirectory(tempRoot);
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
     public void RepositoryManifestAndModuleUpdateEvaluation_WorkForMissingAndNewerBundledVersions()
     {
         var repoRoot = FindRepositoryRoot();
@@ -376,7 +427,8 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
             description: "Demo",
             version: "1.2.3",
             serviceLogPath: "./logs/service.log",
-            preservePaths: ["keep/secret.txt"]);
+            preservePaths: ["keep/secret.txt"],
+            applicationDataFolders: ["data/", "state/cache"]);
 
         var backup = CreateServiceBackupSnapshot(
             version: "20260321121212",
@@ -406,6 +458,7 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
 
         var output = writer.ToString();
         Assert.Contains("Name: demo", output, StringComparison.Ordinal);
+        Assert.Contains("ApplicationDataFolders: data/, state/cache", output, StringComparison.Ordinal);
         Assert.Contains("Backups: 1", output, StringComparison.Ordinal);
         Assert.Contains("\"ServiceName\": \"demo\"", output, StringComparison.Ordinal);
         Assert.Contains("\"ServiceHostUpdated\": true", output, StringComparison.OrdinalIgnoreCase);
@@ -514,7 +567,7 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
         File.WriteAllText(Path.Combine(incomingContentRoot, "Service.ps1"), "new-script", Encoding.UTF8);
         File.WriteAllText(
             Path.Combine(incomingContentRoot, "Service.psd1"),
-            "@{`nFormatVersion='1.0'`nName='demo-service'`nEntryPoint='Service.ps1'`nDescription='Demo update'`nVersion='2.0.0'`nPreservePaths=@('keep/secret.txt')`n}",
+            "@{`nFormatVersion='1.0'`nName='demo-service'`nEntryPoint='Service.ps1'`nDescription='Demo update'`nVersion='2.0.0'`nApplicationDataFolders=@('keep')`n}",
             Encoding.UTF8);
         File.WriteAllText(Path.Combine(incomingModuleRoot, "Kestrun.psd1"), "@{`nModuleVersion='2.0.0'`n}", Encoding.UTF8);
 
@@ -540,7 +593,8 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
                     "Demo update",
                     "2.0.0",
                     null,
-                    new[] { "keep/secret.txt" }
+                    Array.Empty<string>(),
+                    new[] { "keep" }
                 ],
                 culture: null);
             Assert.NotNull(scriptSource);
@@ -807,6 +861,8 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
             }
 
             Assert.Contains("\"ServiceName\": \"alpha-service\"", namedWriter.ToString(), StringComparison.Ordinal);
+            Assert.Contains("\"PreservePaths\": []", namedWriter.ToString(), StringComparison.Ordinal);
+            Assert.Contains("\"ApplicationDataFolders\": []", namedWriter.ToString(), StringComparison.Ordinal);
 
             using var listWriter = new StringWriter();
             originalOut = Console.Out;
@@ -825,6 +881,8 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
             var output = listWriter.ToString();
             Assert.Contains("\"ServiceName\": \"alpha-service\"", output, StringComparison.Ordinal);
             Assert.Contains("\"ServiceName\": \"beta-service\"", output, StringComparison.Ordinal);
+            Assert.Contains("\"PreservePaths\": []", output, StringComparison.Ordinal);
+            Assert.Contains("\"ApplicationDataFolders\": []", output, StringComparison.Ordinal);
         }
         finally
         {
@@ -1198,13 +1256,14 @@ public class KestrunToolProgramAndServiceUpdateCoverageTests
         string description,
         string? version,
         string? serviceLogPath,
-        IReadOnlyList<string> preservePaths)
+        IReadOnlyList<string> preservePaths,
+        IReadOnlyList<string> applicationDataFolders)
     {
         var descriptor = Activator.CreateInstance(
             ServiceInstallDescriptorType,
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
             binder: null,
-            args: [formatVersion, name, entryPoint, description, version, serviceLogPath, preservePaths],
+            args: [formatVersion, name, entryPoint, description, version, serviceLogPath, preservePaths, applicationDataFolders],
             culture: null);
         Assert.NotNull(descriptor);
         return descriptor;

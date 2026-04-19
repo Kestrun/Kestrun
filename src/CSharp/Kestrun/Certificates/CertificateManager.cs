@@ -163,7 +163,10 @@ public static class CertificateManager
             Exportable: options.Exportable,
             IssuerCertificate: effectiveRoot));
 
-        return new DevelopmentCertificateResult(effectiveRoot, leaf, rootTrusted);
+        return new DevelopmentCertificateResult(effectiveRoot, leaf, rootTrusted)
+        {
+            PublicRootCertificate = CreatePublicOnlyCertificate(effectiveRoot)
+        };
     }
     #endregion
 
@@ -1340,9 +1343,124 @@ public static class CertificateManager
      OidCollection? expectedPurpose = null,
      bool strictPurpose = false)
     {
+        return Validate(
+            cert,
+            checkRevocation,
+            allowWeakAlgorithms,
+            denySelfSigned,
+            expectedPurpose,
+            strictPurpose,
+            certificateChain: null,
+            out _);
+    }
+
+    /// <summary>
+    /// Validates the specified X509 certificate according to the provided options.
+    /// </summary>
+    /// <param name="cert">The X509Certificate2 to validate.</param>
+    /// <param name="checkRevocation">Whether to check certificate revocation status.</param>
+    /// <param name="allowWeakAlgorithms">Whether to allow weak algorithms such as SHA-1 or small key sizes.</param>
+    /// <param name="denySelfSigned">Whether to deny self-signed certificates.</param>
+    /// <param name="expectedPurpose">A collection of expected key purposes (EKU) for the certificate.</param>
+    /// <param name="strictPurpose">If true, the certificate must match the expected purposes exactly.</param>
+    /// <param name="certificateChain">Optional chain certificates used to help build trust, such as a private development root or intermediates.</param>
+    /// <returns>True if the certificate is valid according to the specified options; otherwise, false.</returns>
+    public static bool Validate(
+     X509Certificate2 cert,
+     bool checkRevocation,
+     bool allowWeakAlgorithms,
+     bool denySelfSigned,
+     OidCollection? expectedPurpose,
+     bool strictPurpose,
+     X509Certificate2Collection? certificateChain)
+    {
+        return Validate(
+            cert,
+            checkRevocation,
+            allowWeakAlgorithms,
+            denySelfSigned,
+            expectedPurpose,
+            strictPurpose,
+            certificateChain,
+            out _);
+    }
+
+    /// <summary>
+    /// Validates the specified X509 certificate according to the provided options.
+    /// </summary>
+    /// <param name="cert">The X509Certificate2 to validate.</param>
+    /// <param name="checkRevocation">Whether to check certificate revocation status.</param>
+    /// <param name="allowWeakAlgorithms">Whether to allow weak algorithms such as SHA-1 or small key sizes.</param>
+    /// <param name="denySelfSigned">Whether to deny self-signed certificates.</param>
+    /// <param name="expectedPurpose">A collection of expected key purposes (EKU) for the certificate.</param>
+    /// <param name="strictPurpose">If true, the certificate must match the expected purposes exactly.</param>
+    /// <param name="failureReason">The reason validation failed; empty when validation succeeds.</param>
+    /// <returns>True if the certificate is valid according to the specified options; otherwise, false.</returns>
+    public static bool Validate(
+     X509Certificate2 cert,
+     bool checkRevocation,
+     bool allowWeakAlgorithms,
+     bool denySelfSigned,
+     OidCollection? expectedPurpose,
+     bool strictPurpose,
+     out string failureReason)
+    {
+        return Validate(
+            cert,
+            checkRevocation,
+            allowWeakAlgorithms,
+            denySelfSigned,
+            expectedPurpose,
+            strictPurpose,
+            certificateChain: null,
+            out failureReason);
+    }
+
+    /// <summary>
+    /// Validates the specified X509 certificate according to the provided options.
+    /// </summary>
+    /// <param name="cert">The X509Certificate2 to validate.</param>
+    /// <param name="checkRevocation">Whether to check certificate revocation status.</param>
+    /// <param name="allowWeakAlgorithms">Whether to allow weak algorithms such as SHA-1 or small key sizes.</param>
+    /// <param name="denySelfSigned">Whether to deny self-signed certificates.</param>
+    /// <param name="expectedPurpose">A collection of expected key purposes (EKU) for the certificate.</param>
+    /// <param name="strictPurpose">If true, the certificate must match the expected purposes exactly.</param>
+    /// <param name="certificateChain">Optional chain certificates used to help build trust, such as a private development root or intermediates.</param>
+    /// <param name="failureReason">The reason validation failed; empty when validation succeeds.</param>
+    /// <returns>True if the certificate is valid according to the specified options; otherwise, false.</returns>
+    public static bool Validate(
+     X509Certificate2 cert,
+     bool checkRevocation,
+     bool allowWeakAlgorithms,
+     bool denySelfSigned,
+     OidCollection? expectedPurpose,
+     bool strictPurpose,
+     X509Certificate2Collection? certificateChain,
+     out string failureReason)
+    {
+        failureReason = string.Empty;
+
+        Log.Debug(
+            "Validating certificate {Certificate}. CheckRevocation={CheckRevocation}, AllowWeakAlgorithms={AllowWeakAlgorithms}, DenySelfSigned={DenySelfSigned}, StrictPurpose={StrictPurpose}, ExpectedPurpose={ExpectedPurpose}, SuppliedChainCount={SuppliedChainCount}",
+            DescribeCertificate(cert),
+            checkRevocation,
+            allowWeakAlgorithms,
+            denySelfSigned,
+            strictPurpose,
+            DescribeExpectedPurposes(expectedPurpose),
+            certificateChain?.Count ?? 0);
+
         // 1) Validity period
         if (!IsWithinValidityPeriod(cert))
         {
+            failureReason = "Certificate is outside validity period.";
+            Log.Warning(
+                "Certificate validation failed for {Certificate}: {FailureReason} NotBeforeUtc={NotBeforeUtc:O}, NotAfterUtc={NotAfterUtc:O}, NowUtc={NowUtc:O}",
+                DescribeCertificate(cert),
+                failureReason,
+                cert.NotBefore.ToUniversalTime(),
+                cert.NotAfter.ToUniversalTime(),
+                DateTime.UtcNow);
             return false;
         }
 
@@ -1350,6 +1468,11 @@ public static class CertificateManager
         var isSelfSigned = cert.Subject == cert.Issuer;
         if (denySelfSigned && isSelfSigned)
         {
+            failureReason = "Self-signed certificates are denied by policy.";
+            Log.Warning(
+                "Certificate validation failed for {Certificate}: {FailureReason}",
+                DescribeCertificate(cert),
+                failureReason);
             return false;
         }
 
@@ -1357,23 +1480,53 @@ public static class CertificateManager
         var isWeak = UsesWeakAlgorithms(cert);
 
         // 3) Chain build (with optional revocation)
-        if (!BuildChainOk(cert, checkRevocation, isSelfSigned, allowWeakAlgorithms, isWeak))
+        if (!BuildChainOk(cert, checkRevocation, isSelfSigned, allowWeakAlgorithms, isWeak, certificateChain, out var chainFailureReason))
         {
+            failureReason = string.IsNullOrWhiteSpace(chainFailureReason)
+                ? "Certificate chain validation failed."
+                : chainFailureReason;
+            Log.Warning(
+                "Certificate validation failed for {Certificate}: {FailureReason} CheckRevocation={CheckRevocation}, IsSelfSigned={IsSelfSigned}, AllowWeakAlgorithms={AllowWeakAlgorithms}, IsWeak={IsWeak}, SuppliedChainCount={SuppliedChainCount}",
+                DescribeCertificate(cert),
+                failureReason,
+                checkRevocation,
+                isSelfSigned,
+                allowWeakAlgorithms,
+                isWeak,
+                certificateChain?.Count ?? 0);
             return false;
         }
 
         // 4) EKU / purposes
         if (!PurposesOk(cert, expectedPurpose, strictPurpose))
         {
+            failureReason = "EKU purpose mismatch.";
+            Log.Warning(
+                "Certificate validation failed for {Certificate}: {FailureReason} Expected={ExpectedPurposes}, Actual={ActualPurposes}, StrictPurpose={StrictPurpose}",
+                DescribeCertificate(cert),
+                failureReason,
+                DescribeExpectedPurposes(expectedPurpose),
+                string.Join(",", GetEkuOids(cert).OrderBy(static value => value, StringComparer.Ordinal)),
+                strictPurpose);
             return false;
         }
 
         // 5) Weak algorithms
         if (!allowWeakAlgorithms && isWeak)
         {
+            failureReason = string.Join("; ", GetWeakAlgorithmFindings(cert));
+            if (string.IsNullOrWhiteSpace(failureReason))
+            {
+                failureReason = "Weak algorithm policy violation.";
+            }
+            Log.Warning(
+                "Certificate validation failed for {Certificate}: {FailureReason}",
+                DescribeCertificate(cert),
+                failureReason);
             return false;
         }
 
+        Log.Debug("Certificate validation succeeded for {Certificate}", DescribeCertificate(cert));
         return true;   // ✅ everything passed
     }
 
@@ -1402,32 +1555,31 @@ public static class CertificateManager
     /// <param name="cert">The X509Certificate2 to check.</param>
     /// <param name="checkRevocation">Whether to check certificate revocation status.</param>
     /// <param name="isSelfSigned">Whether the certificate is self-signed.</param>
+    /// <param name="certificateChain">Optional chain certificates used to help build trust.</param>
+    /// <param name="failureReason">The detailed failure reason when validation fails.</param>
     /// <returns>True if the certificate chain is valid; otherwise, false.</returns>
-    private static bool BuildChainOk(X509Certificate2 cert, bool checkRevocation, bool isSelfSigned)
+    private static bool BuildChainOk(X509Certificate2 cert, bool checkRevocation, bool isSelfSigned, X509Certificate2Collection? certificateChain, out string failureReason)
     {
-        using var chain = new X509Chain();
-        chain.ChainPolicy.RevocationMode = checkRevocation ? X509RevocationMode.Online : X509RevocationMode.NoCheck;
-        chain.ChainPolicy.RevocationFlag = X509RevocationFlag.EndCertificateOnly;
-        chain.ChainPolicy.DisableCertificateDownloads = !checkRevocation;
-
-        if (isSelfSigned)
-        {
-            // Make self-signed validation deterministic across platforms.
-            // Using the platform trust store differs between Windows/macOS/Linux; custom root trust
-            // avoids false negatives for dev/self-signed certificates.
-            chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
-            _ = chain.ChainPolicy.CustomTrustStore.Add(cert);
-            chain.ChainPolicy.VerificationFlags = X509VerificationFlags.NoFlag;
-        }
+        failureReason = string.Empty;
+        using var chain = CreateValidationChain(checkRevocation, cert, isSelfSigned, certificateChain);
 
         var ok = chain.Build(cert);
         if (ok)
         {
+            Log.Debug("Certificate chain validation succeeded for {Certificate}", DescribeCertificate(cert));
             return true;
         }
 
+        var statusSummary = DescribeChainStatuses(chain.ChainStatus);
+
         if (!isSelfSigned)
         {
+            failureReason = BuildChainFailureReason(statusSummary);
+            Log.Warning(
+                "Certificate chain validation failed for {Certificate}. ChainStatuses={ChainStatuses}, SuppliedChainCount={SuppliedChainCount}",
+                DescribeCertificate(cert),
+                statusSummary,
+                certificateChain?.Count ?? 0);
             return false;
         }
 
@@ -1445,7 +1597,25 @@ public static class CertificateManager
             combined |= status.Status;
         }
 
-        return (combined & ~allowed) == 0;
+        var unexpected = combined & ~allowed;
+        if (unexpected == 0)
+        {
+            Log.Debug(
+                "Self-signed chain validation accepted non-fatal statuses for {Certificate}. ChainStatuses={ChainStatuses}, AllowedFlags={AllowedFlags}",
+                DescribeCertificate(cert),
+                statusSummary,
+                allowed);
+            return true;
+        }
+
+        Log.Warning(
+            "Self-signed chain validation failed for {Certificate}. ChainStatuses={ChainStatuses}, AllowedFlags={AllowedFlags}, UnexpectedFlags={UnexpectedFlags}",
+            DescribeCertificate(cert),
+            statusSummary,
+            allowed,
+            unexpected);
+        failureReason = BuildChainFailureReason(statusSummary, selfSigned: true);
+        return false;
     }
 
     /// <summary>
@@ -1456,13 +1626,158 @@ public static class CertificateManager
     /// <param name="isSelfSigned">Whether the certificate is self-signed.</param>
     /// <param name="allowWeakAlgorithms">Whether weak algorithms are allowed.</param>
     /// <param name="isWeak">Whether the certificate is considered weak by this library.</param>
+    /// <param name="certificateChain">Optional chain certificates used to help build trust.</param>
+    /// <param name="failureReason">The detailed failure reason when validation fails.</param>
     /// <returns>True if the certificate chain is valid; otherwise, false.</returns>
     private static bool BuildChainOk(
         X509Certificate2 cert,
         bool checkRevocation,
         bool isSelfSigned,
         bool allowWeakAlgorithms,
-        bool isWeak) => (isSelfSigned && allowWeakAlgorithms && isWeak) || BuildChainOk(cert, checkRevocation, isSelfSigned);
+        bool isWeak,
+        X509Certificate2Collection? certificateChain,
+        out string failureReason)
+    {
+        failureReason = string.Empty;
+
+        if (isSelfSigned && allowWeakAlgorithms && isWeak)
+        {
+            Log.Warning(
+                "Bypassing certificate chain validation for {Certificate}: self-signed weak certificate is allowed by policy.",
+                DescribeCertificate(cert));
+            return true;
+        }
+
+        return BuildChainOk(cert, checkRevocation, isSelfSigned, certificateChain, out failureReason);
+    }
+
+    /// <summary>
+    /// Creates an X509 chain configured for certificate validation.
+    /// </summary>
+    /// <param name="checkRevocation">Whether revocation should be checked online.</param>
+    /// <param name="cert">The target certificate being validated.</param>
+    /// <param name="isSelfSigned">Whether the target certificate is self-signed.</param>
+    /// <param name="certificateChain">Optional chain certificates used to help build trust.</param>
+    /// <returns>A configured chain instance.</returns>
+    private static X509Chain CreateValidationChain(bool checkRevocation, X509Certificate2 cert, bool isSelfSigned, X509Certificate2Collection? certificateChain)
+    {
+        var chain = new X509Chain();
+        chain.ChainPolicy.RevocationMode = checkRevocation ? X509RevocationMode.Online : X509RevocationMode.NoCheck;
+        chain.ChainPolicy.RevocationFlag = X509RevocationFlag.EndCertificateOnly;
+        chain.ChainPolicy.DisableCertificateDownloads = !checkRevocation;
+
+        ConfigureValidationChainPolicy(chain, cert, isSelfSigned, certificateChain);
+        return chain;
+    }
+
+    /// <summary>
+    /// Applies custom trust and extra-store certificates to the validation chain.
+    /// </summary>
+    /// <param name="chain">The chain to configure.</param>
+    /// <param name="cert">The target certificate being validated.</param>
+    /// <param name="isSelfSigned">Whether the target certificate is self-signed.</param>
+    /// <param name="certificateChain">Optional chain certificates used to help build trust.</param>
+    private static void ConfigureValidationChainPolicy(X509Chain chain, X509Certificate2 cert, bool isSelfSigned, X509Certificate2Collection? certificateChain)
+    {
+        if (isSelfSigned)
+        {
+            chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+            _ = chain.ChainPolicy.CustomTrustStore.Add(cert);
+            chain.ChainPolicy.VerificationFlags = X509VerificationFlags.NoFlag;
+            return;
+        }
+
+        if (certificateChain is not { Count: > 0 })
+        {
+            return;
+        }
+
+        var intermediates = GetIntermediateCertificates(certificateChain, cert);
+        if (intermediates.Count > 0)
+        {
+            chain.ChainPolicy.ExtraStore.AddRange(intermediates);
+        }
+
+        var roots = GetRootCertificates(certificateChain, cert);
+        if (roots.Count > 0)
+        {
+            chain.ChainPolicy.CustomTrustStore.AddRange(roots);
+            chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+        }
+    }
+
+    /// <summary>
+    /// Gets supplied self-signed root certificates that can anchor custom trust.
+    /// </summary>
+    /// <param name="certificateChain">The supplied chain certificates.</param>
+    /// <param name="cert">The target certificate being validated.</param>
+    /// <returns>A collection of self-signed root certificates.</returns>
+    private static X509Certificate2Collection GetRootCertificates(X509Certificate2Collection certificateChain, X509Certificate2 cert)
+    {
+        var roots = new X509Certificate2Collection();
+        foreach (var chainCertificate in certificateChain)
+        {
+            if (!CertificateMatches(chainCertificate, cert) && IsSelfSignedCertificate(chainCertificate))
+            {
+                _ = roots.Add(chainCertificate);
+            }
+        }
+
+        return roots;
+    }
+
+    /// <summary>
+    /// Gets supplied intermediate certificates that should be added to the chain extra store.
+    /// </summary>
+    /// <param name="certificateChain">The supplied chain certificates.</param>
+    /// <param name="cert">The target certificate being validated.</param>
+    /// <returns>A collection of non-self-signed auxiliary certificates.</returns>
+    private static X509Certificate2Collection GetIntermediateCertificates(X509Certificate2Collection certificateChain, X509Certificate2 cert)
+    {
+        var intermediates = new X509Certificate2Collection();
+        foreach (var chainCertificate in certificateChain)
+        {
+            if (!CertificateMatches(chainCertificate, cert) && !IsSelfSignedCertificate(chainCertificate))
+            {
+                _ = intermediates.Add(chainCertificate);
+            }
+        }
+
+        return intermediates;
+    }
+
+    /// <summary>
+    /// Determines whether two certificates represent the same certificate material.
+    /// </summary>
+    /// <param name="left">The first certificate.</param>
+    /// <param name="right">The second certificate.</param>
+    /// <returns><c>true</c> when the certificates have the same thumbprint; otherwise, <c>false</c>.</returns>
+    private static bool CertificateMatches(X509Certificate2 left, X509Certificate2 right) =>
+        string.Equals(left.Thumbprint, right.Thumbprint, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Determines whether the certificate is self-signed.
+    /// </summary>
+    /// <param name="cert">The certificate to inspect.</param>
+    /// <returns><c>true</c> when the subject and issuer are the same; otherwise, <c>false</c>.</returns>
+    private static bool IsSelfSignedCertificate(X509Certificate2 cert) => cert.Subject == cert.Issuer;
+
+    /// <summary>
+    /// Builds a readable failure reason for chain validation failures.
+    /// </summary>
+    /// <param name="statusSummary">The formatted chain status summary.</param>
+    /// <param name="selfSigned">Whether the failure came from self-signed validation.</param>
+    /// <returns>A user-readable failure reason.</returns>
+    private static string BuildChainFailureReason(string statusSummary, bool selfSigned = false)
+    {
+        var prefix = selfSigned
+            ? "Self-signed certificate chain validation failed"
+            : "Certificate chain validation failed";
+
+        return string.IsNullOrWhiteSpace(statusSummary)
+            ? prefix + "."
+            : $"{prefix}: {statusSummary}";
+    }
 
     /// <summary>
     /// Checks if the certificate has the expected key purposes (EKU).
@@ -1479,15 +1794,22 @@ public static class CertificateManager
         }
 
         var eku = GetEkuOids(cert);
-        var wanted = expectedPurpose
-            .Cast<Oid>()
-            .Select(static o => o.Value)
-            .Where(static v => !string.IsNullOrWhiteSpace(v))
-            .Select(static v => v!)
-            .ToHashSet(StringComparer.Ordinal);
+        var wanted = NormalizeExpectedPurposeOids(expectedPurpose);
 
         return wanted.Count == 0 || (eku.Count != 0 && (strictPurpose ? eku.SetEquals(wanted) : wanted.IsSubsetOf(eku)));
     }
+
+    /// <summary>
+    /// Normalizes expected EKU OIDs into a canonical set.
+    /// </summary>
+    /// <param name="expectedPurpose">The expected purpose collection.</param>
+    /// <returns>A normalized set of OID values.</returns>
+    private static HashSet<string> NormalizeExpectedPurposeOids(OidCollection expectedPurpose) => expectedPurpose
+        .Cast<Oid>()
+        .Select(static o => o.Value)
+        .Where(static v => !string.IsNullOrWhiteSpace(v))
+        .Select(static v => v!)
+        .ToHashSet(StringComparer.Ordinal);
 
     /// <summary>
     /// Extracts EKU OIDs from the certificate, robustly across platforms.
@@ -1524,16 +1846,82 @@ public static class CertificateManager
     /// </summary>
     /// <param name="cert">The X509Certificate2 to check.</param>
     /// <returns>True if the certificate uses weak algorithms; otherwise, false.</returns>
-    private static bool UsesWeakAlgorithms(X509Certificate2 cert)
+    private static bool UsesWeakAlgorithms(X509Certificate2 cert) => GetWeakAlgorithmFindings(cert).Count != 0;
+
+    /// <summary>
+    /// Computes weak algorithm findings for the certificate.
+    /// </summary>
+    /// <param name="cert">The certificate to inspect.</param>
+    /// <returns>A list of weak-algorithm findings; empty when the certificate is considered strong.</returns>
+    private static List<string> GetWeakAlgorithmFindings(X509Certificate2 cert)
     {
+        var findings = new List<string>();
+
         var isSha1 = cert.SignatureAlgorithm?.FriendlyName?
                            .Contains("sha1", StringComparison.OrdinalIgnoreCase) == true;
+        if (isSha1)
+        {
+            findings.Add($"Signature algorithm '{cert.SignatureAlgorithm?.FriendlyName}'");
+        }
 
-        var weakRsa = cert.GetRSAPublicKey() is { KeySize: < 2048 };
-        var weakDsa = cert.GetDSAPublicKey() is { KeySize: < 2048 };
-        var weakEcdsa = cert.GetECDsaPublicKey() is { KeySize: < 256 };  // P-256 minimum
+        var rsa = cert.GetRSAPublicKey();
+        if (rsa is { KeySize: < 2048 })
+        {
+            findings.Add($"RSA key size {rsa.KeySize} < 2048");
+        }
 
-        return isSha1 || weakRsa || weakDsa || weakEcdsa;
+        var dsa = cert.GetDSAPublicKey();
+        if (dsa is { KeySize: < 2048 })
+        {
+            findings.Add($"DSA key size {dsa.KeySize} < 2048");
+        }
+
+        var ecdsa = cert.GetECDsaPublicKey();
+        if (ecdsa is { KeySize: < 256 })
+        {
+            findings.Add($"ECDSA key size {ecdsa.KeySize} < 256");
+        }
+
+        return findings;
+    }
+
+    /// <summary>
+    /// Creates a compact string describing the certificate identity for logs.
+    /// </summary>
+    /// <param name="cert">The certificate to describe.</param>
+    /// <returns>A concise description suitable for structured log output.</returns>
+    private static string DescribeCertificate(X509Certificate2 cert) =>
+        $"Subject='{cert.Subject}', Issuer='{cert.Issuer}', Thumbprint='{cert.Thumbprint}', Serial='{cert.SerialNumber}'";
+
+    /// <summary>
+    /// Formats expected EKU purposes for log output.
+    /// </summary>
+    /// <param name="expectedPurpose">Expected EKU purposes.</param>
+    /// <returns>A comma-separated OID list or a sentinel value when none were specified.</returns>
+    private static string DescribeExpectedPurposes(OidCollection? expectedPurpose)
+    {
+        if (expectedPurpose is not { Count: > 0 })
+        {
+            return "<none>";
+        }
+
+        var values = NormalizeExpectedPurposeOids(expectedPurpose).OrderBy(static value => value, StringComparer.Ordinal);
+        return string.Join(",", values);
+    }
+
+    /// <summary>
+    /// Formats chain statuses for diagnostics.
+    /// </summary>
+    /// <param name="statuses">The chain statuses to format.</param>
+    /// <returns>A compact status summary.</returns>
+    private static string DescribeChainStatuses(X509ChainStatus[] statuses)
+    {
+        return statuses.Length == 0
+            ? "<none>"
+            : string.Join(
+            " | ",
+            statuses.Select(static status =>
+                $"{status.Status}: {status.StatusInformation?.Trim()}"));
     }
 
     /// <summary>
@@ -1685,15 +2073,27 @@ public static class CertificateManager
         if (existing.Count == 0)
         {
             // Import the certificate without private key to avoid accidentally exposing the private key in the Root store. The public key is sufficient for trust purposes.
-#if NET9_0_OR_GREATER
-            using var publicOnlyCertificate = X509CertificateLoader.LoadCertificate(certificate.RawData);
-#else
-            using var publicOnlyCertificate = new X509Certificate2(certificate.RawData);
-#endif
+            using var publicOnlyCertificate = CreatePublicOnlyCertificate(certificate);
             store.Add(publicOnlyCertificate);
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Creates a public-only copy of a certificate without carrying over the private key.
+    /// </summary>
+    /// <param name="certificate">The source certificate.</param>
+    /// <returns>A certificate instance containing only the public certificate data.</returns>
+    private static X509Certificate2 CreatePublicOnlyCertificate(X509Certificate2 certificate)
+    {
+        ArgumentNullException.ThrowIfNull(certificate);
+
+#if NET9_0_OR_GREATER
+        return X509CertificateLoader.LoadCertificate(certificate.RawData);
+#else
+        return new X509Certificate2(certificate.RawData);
+#endif
     }
 
     /// <summary>

@@ -13,6 +13,6 @@ Describe 'Example 9.10-Low-Level-Response' {
             Write-KrExampleInstanceOnFailure -Instance $script:instance
         }
     }
-    
+
     It 'Low-level response routes respond with 200' { Test-ExampleRouteSet -Instance $script:instance }
 }

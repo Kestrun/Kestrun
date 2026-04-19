@@ -52,7 +52,7 @@ Implementation details:
 Example:
 
 ```powershell
-pwsh ./Utility/Normalize-Files.ps1 -Root ./src/PowerShell/Kestrun 
+pwsh ./Utility/Normalize-Files.ps1 -Root ./src/PowerShell/Kestrun
 pwsh ./Utility/Remove-BomFromScripts.ps1 -Path ./src/PowerShell/Kestrun -Recurse -WhatIf
 ```
 

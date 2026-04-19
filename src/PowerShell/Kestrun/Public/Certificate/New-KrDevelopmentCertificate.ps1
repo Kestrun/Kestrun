@@ -31,7 +31,8 @@
         $bundle = New-KrDevelopmentCertificate -TrustRoot
 
         Creates a development root CA, issues a localhost leaf certificate from it, trusts the root
-        in the CurrentUser Root store on Windows, and returns both certificates.
+        in the CurrentUser Root store on Windows, and returns the private root, public-only root,
+        and leaf certificates.
     .EXAMPLE
         $root = Import-KrCertificate -FilePath './certs/dev-root.pfx' -Password $password
         $bundle = New-KrDevelopmentCertificate -RootCertificate $root -DnsNames 'localhost','127.0.0.1','::1'

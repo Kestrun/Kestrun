@@ -136,7 +136,6 @@
         <!-- Logging -->
         <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
 
-
         <!-- Microsoft.AspNetCore -->
         <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.26" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="8.0.26" />
@@ -200,11 +199,11 @@
         <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
 
         <!-- Microsoft.AspNetCore -->
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.6" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="10.0.6" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.6" />
-        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="10.0.6" />
-        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.6" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.5" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Certificate" Version="10.0.5" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.5" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="10.0.5" />
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.5" />
 
         <!-- Serilog -->
         <PackageReference Include="Serilog.Sinks.Http" Version="9.2.1" />
@@ -234,7 +233,7 @@
 
     <!-- Logging -->
     <ItemGroup>
-        <PackageReference Include="Azure.Identity" Version="1.21.0" />
+
         <PackageReference Include="Serilog" Version="4.3.1" />
         <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
         <PackageReference Include="Serilog.Exceptions" Version="8.4.0" />

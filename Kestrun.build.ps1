@@ -36,6 +36,9 @@
 .PARAMETER SignModule
     Indicates whether to sign the module during the build process.
 
+.PARAMETER ShowSkippedDlls
+    Indicates whether Sync-PowerShellDll should list skipped DLL names instead of only skip counts.
+
 .EXAMPLE
 .\Kestrun.build.ps1 -Configuration Release -Frameworks net9.0 -Version 1.0.0
     This example demonstrates how to build the Kestrun project for the Release configuration,
@@ -82,6 +85,8 @@ param(
     $DotNetVerbosity = 'detailed',
     [Parameter(Mandatory = $false)]
     [switch]$SignModule,
+    [Parameter(Mandatory = $false)]
+    [switch]$ShowSkippedDlls,
     [Parameter(Mandatory = $false)]
     [int]$PesterAggregateRerunMaxFailedAllowed = 60,
     [Parameter(Mandatory = $false)]
@@ -476,7 +481,7 @@ Add-BuildTask 'Build' 'BuildNoPwsh', 'SyncPowerShellDll', { Write-Host '🚀 Bui
 
 Add-BuildTask 'SyncPowerShellDll' {
     Write-Host '🔄 Syncing PowerShell DLLs to src/PowerShell/Kestrun/lib...'
-    Sync-PowerShellDll -Configuration $Configuration -Frameworks $Frameworks -dest '.\src\PowerShell\Kestrun\lib'
+    Sync-PowerShellDll -Configuration $Configuration -Frameworks $Frameworks -dest '.\src\PowerShell\Kestrun\lib' -ShowSkippedDlls:$ShowSkippedDlls
     Write-Host '🚀 PowerShell DLL synchronization completed.'
 }
 
@@ -522,7 +527,7 @@ Add-BuildTask 'Prepare-PesterAssets' {
                 -AnnotationFramework $AnnotationFramework `
                 -Configuration $Configuration)) {
         Write-Host '🔁 Synced PowerShell DLLs are missing or stale. Refreshing module lib folder...'
-        Sync-PowerShellDll -Configuration $Configuration -Frameworks $Frameworks -dest '.\src\PowerShell\Kestrun\lib'
+        Sync-PowerShellDll -Configuration $Configuration -Frameworks $Frameworks -dest '.\src\PowerShell\Kestrun\lib' -ShowSkippedDlls:$ShowSkippedDlls
     } else {
         Write-Host '✅ Synced PowerShell DLLs are current.'
     }

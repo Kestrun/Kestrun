@@ -54,7 +54,8 @@ New-KrServiceDescriptor `
   -Version 1.2.0 `
   -EntryPoint '.\Service.ps1' `
   -ServiceLogPath '.\logs\service.log' `
-  -PreservePaths @('config/production.json', 'data/', 'logs/')
+  -PreservePaths @('config/production.json') `
+  -ApplicationDataFolders @('data/', 'logs/')
 ```
 
 Quick verification:
@@ -79,7 +80,7 @@ When using package or descriptor-based content deployments, `Service.psd1` shoul
 - `Version`
 - `EntryPoint`
 
-Optional keys include `ServiceLogPath` and `PreservePaths`.
+Optional keys include `ServiceLogPath`, `PreservePaths`, and `ApplicationDataFolders`.
 
 Example:
 
@@ -92,6 +93,8 @@ Example:
   EntryPoint = './Service.ps1'
   PreservePaths = @(
     'config/production.json'
+  )
+  ApplicationDataFolders = @(
     'data/'
     'logs/'
   )
@@ -99,6 +102,7 @@ Example:
 ```
 
 `PreservePaths` values must be relative paths that resolve inside the app root (absolute paths and root-escaping paths are rejected).
+`ApplicationDataFolders` values follow the same relative-path rules.
 During `service update --package`, those paths are
 staged from the current install and restored after the package content is applied.
 
@@ -115,8 +119,17 @@ Required:
 Optional:
 
 - `-OutputPath <string>`: output package path. If omitted, defaults to `<SourceFolderName>.krpack` in the current directory.
+- `-ExcludeApplicationDataFolders`: omit files under descriptor `ApplicationDataFolders` from the package archive.
+- `-ExcludePaths <string[]>`: omit additional relative files or folders from the package archive.
 - `-Force`: overwrite an existing output file.
 - `-WhatIf` and `-Confirm`: standard PowerShell safety switches.
+
+Notes:
+
+- Exclusions apply only to `-SourceFolder` packaging.
+- Excluded paths must stay under `-SourceFolder`.
+- `Service.psd1` and the descriptor `EntryPoint` cannot be excluded.
+- `-ExcludeApplicationDataFolders` does not rewrite `Service.psd1`; it only removes those files from the archive payload.
 
 Examples:
 
@@ -129,6 +142,13 @@ New-KrServicePackage -SourceFolder .\MyServiceApp -OutputPath .\my-service.krpac
 
 # Overwrite existing package
 New-KrServicePackage -SourceFolder .\MyServiceApp -OutputPath .\my-service.krpack -Force
+
+# Skip package-time app data plus extra local-only content
+New-KrServicePackage `
+  -SourceFolder .\MyServiceApp `
+  -ExcludeApplicationDataFolders `
+  -ExcludePaths @('secrets/dev.json', 'scratch/') `
+  -OutputPath .\my-service.krpack
 ```
 
 ### Parameter set 2: package from a script and generate `Service.psd1`

@@ -13,6 +13,6 @@ Describe 'Example 9.8-Caching' {
             Write-KrExampleInstanceOnFailure -Instance $script:instance
         }
     }
-    
+
     It 'Caching routes respond with 200' { Test-ExampleRouteSet -Instance $script:instance }
 }

@@ -55,35 +55,62 @@ function Test-KrServiceDescriptorData {
         )
     }
 
-    $normalizedPreservePaths = @()
-    if ($Descriptor.ContainsKey('PreservePaths') -and $null -ne $Descriptor['PreservePaths']) {
-        $rawPreservePaths = @()
-        if ($Descriptor['PreservePaths'] -is [string]) {
-            $rawPreservePaths = @([string]$Descriptor['PreservePaths'])
-        } elseif ($Descriptor['PreservePaths'] -is [System.Collections.IEnumerable]) {
-            $rawPreservePaths = @($Descriptor['PreservePaths'])
+    function Get-KrNormalizedDescriptorRelativePathArray {
+        <#
+        .SYNOPSIS
+            Normalizes and validates relative paths from a descriptor key.
+        .PARAMETER KeyName
+            The key name in the descriptor hashtable to process.
+        .PARAMETER EntryLabel
+            A label for the entry, used in error messages.
+        .OUTPUTS
+            An array of normalized relative paths.
+        #>
+        param(
+            [string]$KeyName,
+            [string]$EntryLabel
+        )
+
+        $normalizedPaths = @()
+        if (-not $Descriptor.ContainsKey($KeyName) -or $null -eq $Descriptor[$KeyName]) {
+            return $normalizedPaths
+        }
+
+        $descriptorValue = $Descriptor[$KeyName]
+        $rawPaths = @()
+        if ($descriptorValue -is [string]) {
+            $rawPaths = @([string]$descriptorValue)
+        } elseif ($descriptorValue -is [hashtable] -or $descriptorValue -is [System.Collections.IDictionary]) {
+            throw "Descriptor '$DescriptorPath' key '$KeyName' must be a string array."
+        } elseif ($descriptorValue -is [System.Array] -or $descriptorValue -is [System.Collections.IList]) {
+            $rawPaths = @($descriptorValue)
         } else {
-            throw "Descriptor '$DescriptorPath' key 'PreservePaths' must be a string array."
+            throw "Descriptor '$DescriptorPath' key '$KeyName' must be a string array."
         }
 
-        foreach ($preservePathValue in $rawPreservePaths) {
-            $preservePath = [string]$preservePathValue
-            if ([string]::IsNullOrWhiteSpace($preservePath)) {
-                throw "Descriptor '$DescriptorPath' key 'PreservePaths' cannot contain empty values."
+        foreach ($pathValue in $rawPaths) {
+            $relativePath = [string]$pathValue
+            if ([string]::IsNullOrWhiteSpace($relativePath)) {
+                throw "Descriptor '$DescriptorPath' key '$KeyName' cannot contain empty values."
             }
 
-            if ([System.IO.Path]::IsPathRooted($preservePath)) {
-                throw "Descriptor '$DescriptorPath' PreservePaths entry '$preservePath' must be a relative path."
+            if ([System.IO.Path]::IsPathRooted($relativePath)) {
+                throw "Descriptor '$DescriptorPath' $EntryLabel entry '$relativePath' must be a relative path."
             }
 
-            $combinedPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($packageRootFullPath, $preservePath))
+            $combinedPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($packageRootFullPath, $relativePath))
             if (-not (& $isWithinPackageRoot $combinedPath)) {
-                throw "Descriptor '$DescriptorPath' PreservePaths entry '$preservePath' escapes the package root."
+                throw "Descriptor '$DescriptorPath' $EntryLabel entry '$relativePath' escapes the package root."
             }
 
-            $normalizedPreservePaths += $preservePath
+            $normalizedPaths += $relativePath
         }
+
+        return $normalizedPaths
     }
+
+    $normalizedPreservePaths = Get-KrNormalizedDescriptorRelativePathArray -KeyName 'PreservePaths' -EntryLabel 'PreservePaths'
+    $normalizedApplicationDataFolders = Get-KrNormalizedDescriptorRelativePathArray -KeyName 'ApplicationDataFolders' -EntryLabel 'ApplicationDataFolders'
 
     if (-not $Descriptor.ContainsKey('FormatVersion') -or [string]::IsNullOrWhiteSpace([string]$Descriptor['FormatVersion'])) {
         throw "Descriptor '$DescriptorPath' is missing required key 'FormatVersion'."
@@ -127,5 +154,6 @@ function Test-KrServiceDescriptorData {
         Version = $parsedVersion.ToString()
         ServiceLogPath = if ($Descriptor.ContainsKey('ServiceLogPath')) { [string]$Descriptor['ServiceLogPath'] } else { $null }
         PreservePaths = $normalizedPreservePaths
+        ApplicationDataFolders = $normalizedApplicationDataFolders
     }
 }

@@ -665,6 +665,8 @@ internal static partial class Program
                     descriptor.Description,
                     descriptor.Version,
                     descriptor.ServiceLogPath,
+                    descriptor.PreservePaths,
+                    descriptor.ApplicationDataFolders,
                 },
                 Backups = backups.Select(static backup => new
                 {
@@ -732,6 +734,8 @@ internal static partial class Program
                         service.Descriptor.Description,
                         service.Descriptor.Version,
                         service.Descriptor.ServiceLogPath,
+                        service.Descriptor.PreservePaths,
+                        service.Descriptor.ApplicationDataFolders,
                     },
                     Backups = service.Backups.Select(static backup => new
                     {
@@ -780,6 +784,8 @@ internal static partial class Program
         Console.WriteLine($"Description: {descriptor.Description}");
         Console.WriteLine($"Version: {(string.IsNullOrWhiteSpace(descriptor.Version) ? "(not set)" : descriptor.Version)}");
         Console.WriteLine($"ServiceLogPath: {(string.IsNullOrWhiteSpace(descriptor.ServiceLogPath) ? "(not set)" : descriptor.ServiceLogPath)}");
+        Console.WriteLine($"PreservePaths: {(descriptor.PreservePaths.Count == 0 ? "(none)" : string.Join(", ", descriptor.PreservePaths))}");
+        Console.WriteLine($"ApplicationDataFolders: {(descriptor.ApplicationDataFolders.Count == 0 ? "(none)" : string.Join(", ", descriptor.ApplicationDataFolders))}");
 
         if (backups.Count == 0)
         {
@@ -1243,7 +1249,11 @@ internal static partial class Program
             return false;
         }
 
-        if (!TryApplyServiceApplicationReplacement(paths, contentRoot, scriptSource.DescriptorPreservePaths, out exitCode))
+        var preserveRelativePaths = scriptSource.DescriptorPreservePaths
+            .Concat(scriptSource.DescriptorApplicationDataFolders)
+            .ToArray();
+
+        if (!TryApplyServiceApplicationReplacement(paths, contentRoot, preserveRelativePaths, out exitCode))
         {
             return false;
         }
@@ -2076,7 +2086,7 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Stages preserve-path files/directories from an existing target directory into a temporary folder.
+    /// Stages preserved files/directories from an existing target directory into a temporary folder.
     /// </summary>
     /// <param name="targetDirectory">Existing target directory whose content is being replaced.</param>
     /// <param name="preserveRelativePaths">Relative preserve paths declared in the package descriptor.</param>
@@ -2111,7 +2121,7 @@ internal static partial class Program
             var sourcePath = Path.GetFullPath(Path.Combine(targetRootFullPath, normalizedPath));
             if (!IsPathWithinDirectory(sourcePath, targetRootFullPath))
             {
-                error = $"PreservePaths entry '{normalizedPath}' escapes the service application root.";
+                error = $"Preserved path entry '{normalizedPath}' escapes the service application root.";
                 return false;
             }
 
@@ -2139,7 +2149,7 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Restores staged preserve-path files/directories into the replaced target directory.
+    /// Restores staged preserved files/directories into the replaced target directory.
     /// </summary>
     /// <param name="preserveStagingRoot">Preserve staging root path.</param>
     /// <param name="targetDirectory">Replacement target directory.</param>
@@ -2180,25 +2190,25 @@ internal static partial class Program
     }
 
     /// <summary>
-    /// Validates and normalizes one PreservePaths entry.
+    /// Validates and normalizes one preserved relative path entry.
     /// </summary>
     /// <param name="rawPath">Raw path value from the descriptor.</param>
     /// <param name="normalizedPath">Normalized relative path.</param>
     /// <param name="error">Validation error details.</param>
-    /// <returns>True when the preserve path is valid.</returns>
+    /// <returns>True when the preserved path is valid.</returns>
     private static bool TryNormalizePreservePath(string rawPath, out string normalizedPath, out string error)
     {
         normalizedPath = string.Empty;
         if (string.IsNullOrWhiteSpace(rawPath))
         {
-            error = $"Service descriptor '{ServiceDescriptorFileName}' contains an empty PreservePaths entry.";
+            error = $"Service descriptor '{ServiceDescriptorFileName}' contains an empty preserved path entry.";
             return false;
         }
 
         var candidate = rawPath.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar).Trim();
         if (Path.IsPathRooted(candidate))
         {
-            error = $"Service descriptor '{ServiceDescriptorFileName}' PreservePaths entry '{rawPath}' must be relative.";
+            error = $"Service descriptor '{ServiceDescriptorFileName}' preserved path entry '{rawPath}' must be relative.";
             return false;
         }
 
@@ -2206,7 +2216,7 @@ internal static partial class Program
         if (string.IsNullOrWhiteSpace(candidatePath)
             || string.Equals(candidatePath, ".", StringComparison.Ordinal))
         {
-            error = $"Service descriptor '{ServiceDescriptorFileName}' PreservePaths entry '{rawPath}' is invalid.";
+            error = $"Service descriptor '{ServiceDescriptorFileName}' preserved path entry '{rawPath}' is invalid.";
             return false;
         }
 

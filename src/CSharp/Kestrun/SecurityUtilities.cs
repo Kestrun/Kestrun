@@ -12,7 +12,7 @@ public static class FixedTimeEquals
     /// </summary>
     /// <param name="a">First byte array.</param>
     /// <param name="b">Second byte array.</param>
-    /// <returns>True if both arrays are equal, false otherwise.</returns>  
+    /// <returns>True if both arrays are equal, false otherwise.</returns>
     public static bool Test(ReadOnlySpan<byte> a, ReadOnlySpan<byte> b)
     {
         if (a.Length != b.Length)

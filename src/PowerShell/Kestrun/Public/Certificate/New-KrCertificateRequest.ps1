@@ -82,7 +82,7 @@ function New-KrCertificateRequest {
     )
 
     $keyUsageFlags = if ($PSBoundParameters.ContainsKey('KeyUsage') -and $KeyUsage.Count -gt 0) {
-        Join-KeyUsageFlags -KeyUsage $KeyUsage
+        Join-KeyUsageFlag -KeyUsage $KeyUsage
     }
 
     $opts = [Kestrun.Certificates.CsrOptions]::new(

@@ -239,13 +239,13 @@ function Get-FreeTcpPortBlock {
         try {
             $Listener.Stop()
         } catch {
-            Write-Verbose ("Ignoring TCP listener stop error during port-block cleanup: {0}" -f $_.Exception.Message)
+            Write-Verbose ('Ignoring TCP listener stop error during port-block cleanup: {0}' -f $_.Exception.Message)
         }
 
         try {
             $Listener.Dispose()
         } catch {
-            Write-Verbose ("Ignoring TCP listener dispose error during port-block cleanup: {0}" -f $_.Exception.Message)
+            Write-Verbose ('Ignoring TCP listener dispose error during port-block cleanup: {0}' -f $_.Exception.Message)
         }
     }
     $disposeUdpClient = {
@@ -258,7 +258,7 @@ function Get-FreeTcpPortBlock {
         try {
             $UdpClient.Dispose()
         } catch {
-            Write-Verbose ("Ignoring UDP client dispose error during port-block cleanup: {0}" -f $_.Exception.Message)
+            Write-Verbose ('Ignoring UDP client dispose error during port-block cleanup: {0}' -f $_.Exception.Message)
         }
     }
 
@@ -355,6 +355,76 @@ function Get-PwshExecutable {
     return $pwshExecutable
 }
 
+<#
+.SYNOPSIS
+    Backs up a test artifact path to a temporary location.
+.DESCRIPTION
+    Copies an existing file or directory to a unique temporary folder so tests can
+    clean the original path and later restore the prior contents.
+.PARAMETER LiteralPath
+    The file or directory path to back up.
+.OUTPUTS
+    PSCustomObject with LiteralPath, BackupRoot, BackupPath, and Existed properties.
+#>
+function Backup-ExamplePath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$LiteralPath
+    )
+
+    $backupRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-artifact-backup-' + [Guid]::NewGuid().ToString('N'))
+    $backupPath = $null
+    $existed = Test-Path -LiteralPath $LiteralPath
+
+    if ($existed) {
+        New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+        Copy-Item -LiteralPath $LiteralPath -Destination $backupRoot -Recurse -Force
+        $backupPath = Join-Path $backupRoot (Split-Path -Leaf -Path $LiteralPath)
+    }
+
+    return [pscustomobject]@{
+        LiteralPath = $LiteralPath
+        BackupRoot = $backupRoot
+        BackupPath = $backupPath
+        Existed = $existed
+    }
+}
+
+<#
+.SYNOPSIS
+    Restores a previously backed up test artifact path.
+.DESCRIPTION
+    Removes the current file or directory at the target path, restores the backed up
+    copy when one existed, and deletes the temporary backup folder.
+.PARAMETER Backup
+    The object returned by Backup-ExamplePath.
+#>
+function Restore-ExamplePath {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [pscustomobject]$Backup
+    )
+
+    if (Test-Path -LiteralPath $Backup.LiteralPath) {
+        Remove-Item -LiteralPath $Backup.LiteralPath -Recurse -Force
+    }
+
+    if ($Backup.Existed -and -not [string]::IsNullOrWhiteSpace($Backup.BackupPath) -and (Test-Path -LiteralPath $Backup.BackupPath)) {
+        $destinationParent = Split-Path -Parent -Path $Backup.LiteralPath
+        if (-not [string]::IsNullOrWhiteSpace($destinationParent) -and -not (Test-Path -LiteralPath $destinationParent)) {
+            New-Item -ItemType Directory -Path $destinationParent -Force | Out-Null
+        }
+
+        Copy-Item -LiteralPath $Backup.BackupPath -Destination $destinationParent -Recurse -Force
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Backup.BackupRoot) -and (Test-Path -LiteralPath $Backup.BackupRoot)) {
+        Remove-Item -LiteralPath $Backup.BackupRoot -Recurse -Force
+    }
+}
+
 
 <#
 .SYNOPSIS
@@ -374,12 +444,19 @@ function Get-PwshExecutable {
         Maximum time to wait for the example to start accepting connections. Default is 40 seconds.
 .PARAMETER HttpProbeDelayMs
     Delay between HTTP probes of the root URL when waiting for startup. Default is 150ms.
-    .PARAMETER SkipPortProbe
+.PARAMETER SkipPortProbe
         If specified, skips readiness probing and returns immediately after starting the child process.
 .PARAMETER FromRootDirectory
     If specified, resolves example script paths relative to the repository root instead of the module directory.
-    .PARAMETER EnvironmentVariables
+.PARAMETER EnvironmentVariables
         Environment variable names to copy from the current process into the child example process.
+.PARAMETER RunInPlace
+    If specified, runs the example script in place without writing a modified copy to a temp file.
+    This requires that the example script already listens on the desired port and includes a shutdown route, so it is only recommended for advanced use with custom scripts.
+    When using this option, the helper will not inject a shutdown route or modify the script content in any way, so the caller is responsible for ensuring the script can be cleanly started and stopped as needed.
+    This option is not compatible with starting from a script block and requires starting by name.
+.NOTES
+    This function is intended for use in tests of the tutorial example scripts, and is not a general-purpose script runner.
 .OUTPUTS
     A custom object with properties:
     - Name: The name of the example script.
@@ -417,6 +494,7 @@ function Start-ExampleScript {
         [int]$StartupTimeoutSeconds = 40,
         [int]$HttpProbeDelayMs = 150,
         [switch]$SkipPortProbe,
+        [switch]$RunInPlace,
         [switch]$FromRootDirectory,
         [string[]]$EnvironmentVariables = @('UPSTASH_REDIS_URL')
     )
@@ -444,34 +522,33 @@ function Start-ExampleScript {
     $serverIp = 'localhost' # Use loopback for safety
 
     $kestrunModulePath = Get-KestrunModulePath
-    # Inject /shutdown and /online endpoints if not already present
-    if (-not $content.Contains('-Pattern "/shutdown"')) {
-        # Inject shutdown endpoint for legacy scripts (first occurrence of Start-KrServer)
+    if (-not $RunInPlace.IsPresent) {
+        # Inject /shutdown and /online endpoints if not already present
+        if (-not $content.Contains('-Pattern "/shutdown"')) {
+            # Inject shutdown endpoint for legacy scripts (first occurrence of Start-KrServer)
 
-        $content = [System.Text.RegularExpressions.Regex]::Replace(
-            $content,
-            '\bStart-KrServer\b', @'
+            $content = [System.Text.RegularExpressions.Regex]::Replace(
+                $content,
+                '\bStart-KrServer\b', @'
 Add-KrMapRoute -Verbs Get -Pattern "/shutdown" -ScriptBlock { Stop-KrServer }
 Add-KrMapRoute -Verbs Get -Pattern "/online" -ScriptBlock { Write-KrTextResponse -InputObject 'OK' -StatusCode 200 }
 Start-KrServer
 '@
-            , 1 # only first occurrence
-        )
-    }
+                , 1 # only first occurrence
+            )
+        }
 
 
-    # Adjust Initialize-KrRoot if present to the example script directory
-    if ( $content.Contains('Initialize-KrRoot -Path $PSScriptRoot')) {
-        $content = $content.Replace('Initialize-KrRoot -Path $PSScriptRoot', "Initialize-KrRoot -Path '$scriptDir'")
+        # Adjust Initialize-KrRoot if present to the example script directory
+        if ( $content.Contains('Initialize-KrRoot -Path $PSScriptRoot')) {
+            $content = $content.Replace('Initialize-KrRoot -Path $PSScriptRoot', "Initialize-KrRoot -Path '$scriptDir'")
+        }
     }
 
     # Heuristic: detect HTTPS usage if listener line includes cert/self-signed flags.
     # This is also used to avoid noisy HTTPS readiness probes for HTTP-only examples.
     $usesHttps = $false
-    if (($content -match 'Add-KrEndpoint[^\n]*-SelfSignedCert') -or
-        ($content -match 'Add-KrEndpoint[^\n]*-CertPath') -or
-        ($content -match 'Add-KrEndpoint[^\n]*-X509Certificate')
-    ) {
+    if ($content -match '(?s)Add-KrEndpoint\b.*?-(SelfSignedCert(?:ificate)?|CertPath|X509Certificate)\b') {
         $usesHttps = $true
     }
 
@@ -479,10 +556,21 @@ Start-KrServer
     # Generate a unique file name for the temp script
     $fileNameWithoutExtension = ([string]::IsNullOrEmpty($Name)) ? 'ScriptBlockExample' : [IO.Path]::GetFileNameWithoutExtension((Split-Path -Leaf $Name))
 
-    # Write modified legacy content to temp file
-    $scriptToRun = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
+    $tempScriptPath = $null
+    $scriptToRun = $null
     $exampleIdentifier = if (-not [string]::IsNullOrWhiteSpace($Name)) { $Name } else { $fileNameWithoutExtension }
-    Set-Content -Path $scriptToRun -Value $content -Encoding UTF8
+    if ($RunInPlace.IsPresent) {
+        if ($PSCmdlet.ParameterSetName -ne 'Name') {
+            throw 'RunInPlace is only supported when starting an example by name.'
+        }
+
+        $scriptToRun = $path
+    } else {
+        # Write modified legacy content to temp file
+        $tempScriptPath = Join-Path $tempDir ('kestrun-example-' + $fileNameWithoutExtension + '-' + [System.IO.Path]::GetRandomFileName() + '.ps1')
+        $scriptToRun = $tempScriptPath
+        Set-Content -Path $scriptToRun -Value $content -Encoding UTF8
+    }
 
     $stdOut = $null
     $stdErr = $null
@@ -541,13 +629,22 @@ Start-KrServer
         $stdOut = & $newLogFilePath '.out.log'
         $stdErr = & $newLogFilePath '.err.log'
 
-        # This becomes: <current-pwsh> -NoLogo -NoProfile -Command "Import-Module Kestrun; . 'C:\...\myscript.ps1'"
-        $argList = @(
-            '-NoLogo'
-            '-NoProfile'
-            '-Command'
-            "Import-Module '$kestrunModulePath'; . '$scriptToRun' -Port $Port"
-        )
+        if ($RunInPlace.IsPresent) {
+            $argList = @(
+                '-NoLogo'
+                '-NoProfile'
+                '-Command'
+                ". '$scriptToRun' -Port $Port"
+            )
+        } else {
+            # This becomes: <current-pwsh> -NoLogo -NoProfile -Command "Import-Module Kestrun; . 'C:\...\myscript.ps1'"
+            $argList = @(
+                '-NoLogo'
+                '-NoProfile'
+                '-Command'
+                "Import-Module '$kestrunModulePath'; . '$scriptToRun' -Port $Port"
+            )
+        }
 
         # Create process start parameters
         $param = @{
@@ -572,63 +669,85 @@ Start-KrServer
         $errorMessage = $null
         if (-not $SkipPortProbe.IsPresent) {
             Start-Sleep -Seconds 1 # Initial delay before probing
-            while ([DateTime]::UtcNow -lt $deadline -and -not $ready) {
-                if ($proc.HasExited) { break }
-                $attempt++
-                # Optional lightweight HTTP/HTTPS probe of '/' and '/online' endpoints to detect readiness.
-                # Probe HTTP first because many examples are HTTP-only or become reachable over HTTP before HTTPS.
-                $probeUrls = @(
-                    "http://$serverIp`:$Port/online",
-                    "http://$serverIp`:$Port/"
-                )
-                if ($usesHttps) {
-                    $probeUrls += @(
-                        "https://$serverIp`:$Port/online",
-                        "https://$serverIp`:$Port/"
-                    )
+
+            if ($RunInPlace.IsPresent) {
+                $expectedScheme = if ($usesHttps) { 'https' } else { 'http' }
+                $readyPattern = [regex]::Escape("Now listening on: ${expectedScheme}://") + ".+:$Port"
+                $logProbeInstance = [pscustomobject]@{
+                    StdOut = $stdOut
+                    StdErr = $stdErr
+                    Process = $proc
                 }
-                foreach ($url in $probeUrls) {
-                    try {
-                        $probe = Get-HttpHeadersRaw -Uri $url -Insecure -AsHashtable -TimeoutSeconds 2
-                        if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) {
-                            $ready = $true
-                            break
-                        }
-                    } catch {
-                        $errorMessage = $_.Exception.Message
+
+                try {
+                    Wait-ExampleLogMatch -Instance $logProbeInstance -Pattern $readyPattern -TimeoutSeconds $StartupTimeoutSeconds -RetryDelayMs $HttpProbeDelayMs | Out-Null
+                    $ready = $true
+                    $errorMessage = $null
+                } catch {
+                    $errorMessage = $_.Exception.Message
+                }
+            } else {
+                while ([DateTime]::UtcNow -lt $deadline -and -not $ready) {
+                    if ($proc.HasExited) { break }
+                    $attempt++
+                    # Probe the scheme the example is expected to serve.
+                    # Sending plain HTTP probes to an HTTPS-only listener can leave a trail of
+                    # timed-out TLS handshakes that delays real requests enough to cause startup
+                    # false negatives on slower examples.
+                    $probeUrls = if ($usesHttps) {
+                        @(
+                            "https://$serverIp`:$Port/online",
+                            "https://$serverIp`:$Port/"
+                        )
+                    } else {
+                        @(
+                            "http://$serverIp`:$Port/online",
+                            "http://$serverIp`:$Port/"
+                        )
                     }
-                }
-                Start-Sleep -Milliseconds $HttpProbeDelayMs
-            }
-
-            # Some HTTPS examples on Windows become reachable to Invoke-WebRequest
-            # slightly before or after the raw socket probe can confirm readiness.
-            # Before warning, do one final short, high-level probe using the same
-            # client stack the tests use so we reduce false negatives without
-            # reintroducing unbounded waits.
-            if (-not $ready -and -not $proc.HasExited) {
-                $finalProbeUrls = @()
-                if ($usesHttps) {
-                    $finalProbeUrls += @(
-                        "https://$serverIp`:$Port/online",
-                        "https://$serverIp`:$Port/"
-                    )
-                }
-                $finalProbeUrls += @(
-                    "http://$serverIp`:$Port/online",
-                    "http://$serverIp`:$Port/"
-                )
-
-                foreach ($url in ($finalProbeUrls | Select-Object -Unique)) {
-                    try {
-                        $finalProbe = Invoke-WebRequest -Uri $url -Method Get -SkipCertificateCheck -SkipHttpErrorCheck -TimeoutSec 5
-                        if ($null -ne $finalProbe -and $finalProbe.StatusCode -ge 200 -and $finalProbe.StatusCode -lt 600) {
-                            $ready = $true
-                            $errorMessage = $null
-                            break
+                    foreach ($url in $probeUrls) {
+                        try {
+                            $probe = Get-HttpHeadersRaw -Uri $url -Insecure -AsHashtable -TimeoutSeconds 2
+                            if ($probe.StatusCode -ge 200 -and $probe.StatusCode -lt 600) {
+                                $ready = $true
+                                break
+                            }
+                        } catch {
+                            $errorMessage = $_.Exception.Message
                         }
-                    } catch {
-                        $errorMessage = $_.Exception.Message
+                    }
+                    Start-Sleep -Milliseconds $HttpProbeDelayMs
+                }
+
+                # Some HTTPS examples on Windows become reachable to Invoke-WebRequest
+                # slightly before or after the raw socket probe can confirm readiness.
+                # Before warning, do one final short, high-level probe using the same
+                # client stack the tests use so we reduce false negatives without
+                # reintroducing unbounded waits.
+                if (-not $ready -and -not $proc.HasExited) {
+                    $finalProbeUrls = if ($usesHttps) {
+                        @(
+                            "https://$serverIp`:$Port/online",
+                            "https://$serverIp`:$Port/"
+                        )
+                    } else {
+                        @(
+                            "http://$serverIp`:$Port/online",
+                            "http://$serverIp`:$Port/"
+                        )
+                    }
+
+                    foreach ($url in ($finalProbeUrls | Select-Object -Unique)) {
+                        try {
+                            $finalProbe = Invoke-WebRequest -Uri $url -Method Get -SkipCertificateCheck -SkipHttpErrorCheck -TimeoutSec 5
+                            if ($null -ne $finalProbe -and $finalProbe.StatusCode -ge 200 -and $finalProbe.StatusCode -lt 600) {
+                                $ready = $true
+                                $errorMessage = $null
+                                break
+                            }
+                        } catch {
+                            $errorMessage = $_.Exception.Message
+                        }
                     }
                 }
             }
@@ -676,7 +795,7 @@ Start-KrServer
         PortWasProvided = $portWasProvided
         PortsTried = @($portsTried)
         LastStartupProbeError = $errorMessage
-        TempPath = $scriptToRun
+        TempPath = $tempScriptPath
         Process = $proc
         Content = $content
         StdOut = $stdOut
@@ -770,7 +889,9 @@ function Stop-ExampleScript {
         }
 
         $Instance.Process = $p
-        Remove-Item -Path $Instance.TempPath -Force -ErrorAction SilentlyContinue
+        if (-not [string]::IsNullOrWhiteSpace($Instance.TempPath)) {
+            Remove-Item -Path $Instance.TempPath -Force -ErrorAction SilentlyContinue
+        }
         if ($Instance.PushedLocation) {
             try { Pop-Location -ErrorAction Stop } catch { Write-Warning "Pop-Location failed: $($_.Exception.Message)" }
         }

@@ -244,7 +244,12 @@ public class CertificateManagerTest
         Assert.Equal(bundle.RootCertificate.Subject, bundle.LeafCertificate.Issuer);
         Assert.True(bundle.RootCertificate.HasPrivateKey);
         Assert.True(bundle.LeafCertificate.HasPrivateKey);
+        Assert.NotNull(bundle.PublicRootCertificate);
+        Assert.False(bundle.PublicRootCertificate!.HasPrivateKey);
+        Assert.Equal(bundle.RootCertificate.Thumbprint, bundle.PublicRootCertificate.Thumbprint);
         Assert.False(bundle.RootTrusted);
+
+        bundle.PublicRootCertificate.Dispose();
     }
 
     [Fact]
@@ -263,7 +268,12 @@ public class CertificateManagerTest
         Assert.Same(root, bundle.RootCertificate);
         Assert.Equal(root.Subject, bundle.LeafCertificate.Issuer);
         Assert.Equal("CN=localhost", bundle.LeafCertificate.Subject);
+        Assert.NotNull(bundle.PublicRootCertificate);
+        Assert.False(bundle.PublicRootCertificate!.HasPrivateKey);
+        Assert.Equal(root.Thumbprint, bundle.PublicRootCertificate.Thumbprint);
         Assert.False(bundle.RootTrusted);
+
+        bundle.PublicRootCertificate.Dispose();
     }
 
     [Fact]
@@ -535,6 +545,46 @@ public class CertificateManagerTest
 
         Assert.False(CertificateManager.Validate(weak, allowWeakAlgorithms: false));
         Assert.True(CertificateManager.Validate(weak, allowWeakAlgorithms: true));
+    }
+
+    [Fact]
+    [Trait("Category", "Certificates")]
+    public void Validate_IssuedLeaf_WithSuppliedRootChain_Passes()
+    {
+        var bundle = CertificateManager.NewDevelopmentCertificate(new DevelopmentCertificateOptions(
+            DnsNames: ["localhost", "127.0.0.1", "::1"],
+            Exportable: true));
+
+        try
+        {
+            Assert.False(CertificateManager.Validate(
+                bundle.LeafCertificate,
+                checkRevocation: false,
+                allowWeakAlgorithms: false,
+                denySelfSigned: false,
+                expectedPurpose: null,
+                strictPurpose: false,
+                certificateChain: null,
+                out var defaultFailureReason));
+            Assert.Contains("PartialChain", defaultFailureReason, StringComparison.OrdinalIgnoreCase);
+
+            var certificateChain = new X509Certificate2Collection { bundle.RootCertificate };
+            Assert.True(CertificateManager.Validate(
+                bundle.LeafCertificate,
+                checkRevocation: false,
+                allowWeakAlgorithms: false,
+                denySelfSigned: false,
+                expectedPurpose: null,
+                strictPurpose: false,
+                certificateChain,
+                out var suppliedChainFailureReason));
+            Assert.Equal(string.Empty, suppliedChainFailureReason);
+        }
+        finally
+        {
+            bundle.LeafCertificate.Dispose();
+            bundle.RootCertificate.Dispose();
+        }
     }
 
     [Fact]

@@ -1,0 +1,129 @@
+@page "/Operations"
+@using Kestrun.Razor
+@model PwshKestrunModel
+@{
+    var data = Model.Data;
+    var clientConfigJson = System.Convert.ToString(data.ClientConfigJson) ?? "{}";
+}
+
+<main class="page-shell" data-bike-rental-app data-page="operations">
+    <section class="hero-panel compact">
+        <div class="hero-copy">
+            <p class="badge">@data.Badge</p>
+            <h1>@data.Headline</h1>
+            <p class="lead">@data.Lead</p>
+            <div class="chip-row">
+                @foreach (var checkpoint in data.Checkpoints)
+                {
+                    <span class="info-chip">@checkpoint</span>
+                }
+            </div>
+        </div>
+        <aside class="hero-aside">
+            <h2>Backend routing</h2>
+            <p><strong>@data.BackendLabel</strong></p>
+            <p>@data.BackendUrl</p>
+            <label class="inline-field">
+                <span>Staff API key</span>
+                <input id="staff-api-key" value="bike-shop-demo-key" />
+            </label>
+            <a class="button ghost" href="@data.HomeUrl">Back to booking</a>
+        </aside>
+    </section>
+
+    <section class="metric-grid operations-grid">
+        <article class="metric-card">
+            <p class="metric-label">Total bikes</p>
+            <p class="metric-value" id="ops-total">--</p>
+        </article>
+        <article class="metric-card">
+            <p class="metric-label">Available now</p>
+            <p class="metric-value" id="ops-available">--</p>
+        </article>
+        <article class="metric-card">
+            <p class="metric-label">Out on rides</p>
+            <p class="metric-value" id="ops-rented">--</p>
+        </article>
+        <article class="metric-card accent">
+            <p class="metric-label">Active rentals</p>
+            <p class="metric-value" id="ops-active-rentals">--</p>
+        </article>
+    </section>
+
+    <section class="workspace-grid operations-layout">
+        <article class="panel-card form-card">
+            <div class="panel-heading">
+                <p class="eyebrow">Inventory</p>
+                <h2>Add a bike</h2>
+            </div>
+            <form id="add-bike-form" class="stack-form">
+                <label><span>Bike ID</span><input name="bikeId" placeholder="bk-550" required /></label>
+                <label><span>Model</span><input name="model" placeholder="Harbor Cruiser 7" required /></label>
+                <label><span>Type</span>
+                    <select name="type">
+                        <option value="city">city</option>
+                        <option value="mountain">mountain</option>
+                        <option value="hybrid">hybrid</option>
+                        <option value="electric">electric</option>
+                    </select>
+                </label>
+                <label><span>Hourly rate</span><input name="hourlyRate" type="number" min="1" step="0.25" value="14.50"
+                                                          required /></label>
+                    <label><span>Dock</span><input name="dock" placeholder="south-rack" required /></label>
+                    <label><span>Last service date</span><input name="lastServiceDate" type="date" /></label>
+                    <button class="button primary" type="submit">Add to inventory</button>
+                </form>
+            </article>
+
+            <article class="panel-card form-card">
+                <div class="panel-heading">
+                    <p class="eyebrow">Returns</p>
+                    <h2>Close a rental</h2>
+                </div>
+                <form id="return-rental-form" class="stack-form">
+                    <label><span>Rental ID</span><input name="rentalId" placeholder="rent-..." required /></label>
+                    <label><span>Condition notes</span><textarea name="conditionNotes" rows="4"
+                                                                     placeholder="Returned clean, brakes checked."></textarea></label>
+                        <button class="button secondary" type="submit">Return bike</button>
+                    </form>
+                    <div class="panel-divider"></div>
+                    <form id="remove-bike-form" class="stack-form compact-form">
+                        <label><span>Remove idle bike</span><input name="bikeId" placeholder="bk-550" required /></label>
+                        <button class="button ghost" type="submit">Remove from inventory</button>
+                    </form>
+                </article>
+            </section>
+
+            <section class="workspace-grid operations-layout">
+                <article class="catalog-panel panel-card">
+                    <div class="panel-heading split">
+                        <div>
+                            <p class="eyebrow">Inventory view</p>
+                            <h2>Full catalog</h2>
+                        </div>
+                        <button class="button ghost" type="button" id="refresh-operations">Refresh operations</button>
+                    </div>
+                    <div class="catalog-grid" id="operations-catalog">
+                        <p class="result-placeholder">Loading the current inventory.</p>
+                    </div>
+                </article>
+
+                <article class="panel-card">
+                    <div class="panel-heading">
+                        <p class="eyebrow">Rental queue</p>
+                        <h2>Active rental IDs</h2>
+                    </div>
+                    <ul class="activity-list" id="active-rental-list">
+                        <li class="result-placeholder">Loading dashboard data.</li>
+                    </ul>
+                </article>
+            </section>
+
+            <section class="status-strip panel-card" data-status-surface>
+                <p class="status-title">Staff console connected</p>
+                <p class="status-detail">Protected browser calls go to the separate backend API, so the backend origin still
+                    governs auth and CORS.</p>
+                </section>
+
+                <script type="application/json" id="bike-rental-config">@Html.Raw(clientConfigJson)</script>
+            </main>

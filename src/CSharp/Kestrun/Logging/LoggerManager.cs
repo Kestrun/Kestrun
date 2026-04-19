@@ -17,13 +17,12 @@ public static class LoggerManager
     private static readonly Lock _sync = new();
 #else
     private static readonly object _sync = new();
-#endif 
+#endif
 
     /// <summary>
     /// A collection of named logging level switches for dynamic log level control.
     /// </summary>
     private static readonly ConcurrentDictionary<string, LoggingLevelSwitch> _switches = new(StringComparer.OrdinalIgnoreCase);
-
 
     internal static LoggingLevelSwitch EnsureSwitch(string name, LogEventLevel initial = LogEventLevel.Information)
         => _switches.GetOrAdd(name, _ => new LoggingLevelSwitch(initial));
@@ -75,7 +74,6 @@ public static class LoggerManager
         return cfg;
     }
 
-
     /// <summary>Set the minimum level for a named logger’s switch.</summary>
     /// <param name="name">The name of the logger.</param>
     /// <param name="level">The new minimum level to set.</param>
@@ -98,7 +96,6 @@ public static class LoggerManager
     /// <returns>A dictionary of logger names and their minimum levels.</returns>
     public static IReadOnlyDictionary<string, LogEventLevel> ListLevels()
         => _switches.ToDictionary(kv => kv.Key, kv => kv.Value.MinimumLevel, StringComparer.OrdinalIgnoreCase);
-
 
     /// <summary>CloseAndFlush a logger by name.</summary>
     /// <param name="name">The name of the logger to close and flush.</param>
@@ -229,7 +226,6 @@ public static class LoggerManager
     /// <param name="config">The logger configuration instance.</param>
     /// <returns> True if the configuration exists; otherwise, false.</returns>
     public static bool Contains(LoggerConfiguration config) => _configs.Values.Contains(config);
-
 
     /// <summary>The name of the logger currently set as the Serilog default.</summary>
     /// <exception cref="ArgumentException">When the specified logger name is not found.</exception>

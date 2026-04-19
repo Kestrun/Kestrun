@@ -29,9 +29,10 @@ These tools support cross-platform scenarios (Windows, Linux, macOS) and are ess
 ```powershell
 $bundle = New-KrDevelopmentCertificate -TrustRoot
 $cert = $bundle.LeafCertificate
+$root = $bundle.RootCertificate
 
 Export-KrCertificate -Certificate $cert -FilePath './devcert' -Format Pfx -Password (ConvertTo-SecureString 'p@ss' -AsPlainText -Force) -IncludePrivateKey
-Test-KrCertificate -Certificate $cert -DenySelfSigned:$false
+$valid = Test-KrCertificate -Certificate $cert -CertificateChain $root -FailureReasonVariable 'reason' -DenySelfSigned:$false
 ```
 
 ### 2. Use with Kestrun server
@@ -219,6 +220,29 @@ Typical localhost browser workflow:
 
 If you want that in one call, use `New-KrDevelopmentCertificate`.
 
+### Validate issuer-signed development certificates
+
+`New-KrDevelopmentCertificate` creates a localhost leaf certificate signed by a private development root.
+If that root is not trusted by the operating system, `Test-KrCertificate` can report `PartialChain` even though
+the leaf certificate itself is correct.
+
+For validation in scripts, tests, or local tooling, pass the root certificate explicitly:
+
+```powershell
+$bundle = New-KrDevelopmentCertificate -Exportable
+$leaf = $bundle.LeafCertificate
+$root = $bundle.RootCertificate
+
+$valid = Test-KrCertificate -Certificate $leaf -CertificateChain $root -FailureReasonVariable 'reason'
+
+if (-not $valid) {
+    Write-Host "Validation failed: $reason"
+}
+```
+
+When the root is already trusted, the explicit chain is usually unnecessary. When it is not trusted,
+`-CertificateChain` lets validation succeed without modifying the machine certificate store.
+
 ### Reuse the root and leaf across sessions
 
 If you want a stable local development setup, export both certificates to PFX once, then import the root in later sessions and issue new leaves from it as needed.
@@ -255,6 +279,16 @@ $leaf = Import-KrCertificate -FilePath './certs/localhost.pfx' -Password $passwo
 ```
 
 Treat the exported root PFX as a sensitive signing key. Store it securely, use a strong password, and avoid distributing it beyond your local development environment.
+
+If you import the leaf later and want to validate it outside the trusted OS store, also import the root and pass it with `-CertificateChain`:
+
+```powershell
+$password = ConvertTo-SecureString 'p@ssw0rd!' -AsPlainText -Force
+$leaf = Import-KrCertificate -FilePath './certs/localhost.pfx' -Password $password
+$root = Import-KrCertificate -FilePath './certs/dev-root.pfx' -Password $password
+
+$valid = Test-KrCertificate -Certificate $leaf -CertificateChain $root -FailureReasonVariable 'reason'
+```
 
 ### Windows Chromium workflow
 
@@ -302,6 +336,7 @@ Use `-KeyUsage` when you need to override KU explicitly for a specific integrati
 - Always protect private keys and JWKs; never publish private JWKs or PEMs.
 - Use strong key lengths (RSA 2048+ or ECDSA P-256+).
 - Validate certificates with `Test-KrCertificate` before use in production.
+- For issuer-signed development certificates, pass the issuing root with `-CertificateChain` unless that root is already trusted by the platform.
 - For OIDC/OAuth2, use JWKs for client assertion only if the provider supports `private_key_jwt`.
 - When exporting to PEM, use `-IncludePrivateKey` only for secure, local use.
 - For JWKS endpoints, export only public JWKs.
@@ -312,6 +347,9 @@ Use `-KeyUsage` when you need to override KU explicitly for a specific integrati
 - If `curl -k` succeeds and Firefox loads the site, but Edge / Chrome / Brave show
     `ERR_CERT_INVALID`, treat that as a browser trust/store issue first, not proof
     that the served certificate is malformed.
+- If `Test-KrCertificate` reports `PartialChain` for a localhost certificate issued by
+    `Kestrun Development Root CA`, the usual cause is that the root is not trusted or was not
+    supplied with `-CertificateChain`.
 - If you use a self-signed localhost leaf, prefer HTTP/1.1 + HTTP/2 during development and verify trust behavior separately before enabling HTTP/3.
 
 ---

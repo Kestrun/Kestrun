@@ -17,6 +17,10 @@ Describe 'New-KrDevelopmentCertificate' {
                 $script:bundle.LeafCertificate.Dispose()
             }
 
+            if ($script:bundle.PublicRootCertificate) {
+                $script:bundle.PublicRootCertificate.Dispose()
+            }
+
             if ($script:bundle.RootCertificate) {
                 $script:bundle.RootCertificate.Dispose()
             }
@@ -55,6 +59,9 @@ Describe 'New-KrDevelopmentCertificate' {
         $script:bundle.LeafCertificate.Subject | Should -Be 'CN=localhost'
         $script:bundle.LeafCertificate.Issuer | Should -Be $script:bundle.RootCertificate.Subject
         $script:bundle.RootCertificate.HasPrivateKey | Should -BeTrue
+        $script:bundle.PublicRootCertificate | Should -Not -BeNullOrEmpty
+        $script:bundle.PublicRootCertificate.HasPrivateKey | Should -BeFalse
+        $script:bundle.PublicRootCertificate.Thumbprint | Should -Be $script:bundle.RootCertificate.Thumbprint
         $script:bundle.LeafCertificate.HasPrivateKey | Should -BeTrue
     }
 
@@ -73,6 +80,9 @@ Describe 'New-KrDevelopmentCertificate' {
         $script:bundle.RootCertificate.Subject | Should -Be 'CN=Reusable Development Root CA'
         $script:bundle.LeafCertificate.Issuer | Should -Be $script:reusedRoot.Subject
         $script:bundle.LeafCertificate.Subject | Should -Be 'CN=localhost'
+        $script:bundle.PublicRootCertificate | Should -Not -BeNullOrEmpty
+        $script:bundle.PublicRootCertificate.HasPrivateKey | Should -BeFalse
+        $script:bundle.PublicRootCertificate.Thumbprint | Should -Be $script:reusedRoot.Thumbprint
         $script:bundle.RootTrusted | Should -BeFalse
     }
 

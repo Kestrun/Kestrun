@@ -567,6 +567,13 @@ Context.Response.WriteFileResponse(), Context.Response.WriteTextResponse()
 
 ## Common Patterns to Follow
 
+### Package-ready service scripts
+
+- PowerShell entry scripts intended for `.krpack` bundles or installed-service execution must run from the staged `Application/` folder without requiring a repository checkout.
+- Do **not** make service startup depend on walking upward for `Kestrun.sln`, resolving the repo root, or importing `src/PowerShell/Kestrun/Kestrun.psm1` as a required path.
+- The installed service host already imports the staged Kestrun manifest before dot-sourcing the entry script; package-ready scripts must tolerate Kestrun already being loaded.
+- If you keep local-development convenience import logic in a package-ready script, it must be best-effort only and fall back cleanly to the preloaded or installed module without terminating on a missing repo root.
+
 ## Complexity & Documentation Rules
 
 ### Cyclomatic complexity

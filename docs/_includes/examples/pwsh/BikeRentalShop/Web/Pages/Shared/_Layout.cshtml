@@ -1,0 +1,52 @@
+@using Kestrun.Razor
+@model PwshKestrunModel
+@{
+    var data = Model.Data;
+    var pageTitle = System.Convert.ToString(data?.Title) ?? "Riverside Bike Rental Web";
+    var description = System.Convert.ToString(data?.Description) ?? "Standalone bike rental browser client.";
+    var currentPath = Context.Request.Path.Value ?? string.Empty;
+    var backendDocsUrl = System.Convert.ToString(data?.BackendDocsUrl) ?? "#";
+    var backendOpenApiUrl = System.Convert.ToString(data?.BackendOpenApiUrl) ?? "#";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="@description" />
+    <title>@pageTitle</title>
+    <link rel="stylesheet" href="/static/site.css" />
+</head>
+
+<body>
+    <div class="site-shell">
+        <header class="site-header">
+            <div>
+                <p class="eyebrow">PowerShell Razor Client</p>
+                <a class="brand" href="/">Riverside Bike Rental</a>
+            </div>
+            <nav class="site-nav" aria-label="Primary">
+                <a class="@(currentPath.Equals("/Operations", StringComparison.OrdinalIgnoreCase) ? string.Empty : "is-active")"
+                   href="/">Book & Explore</a>
+                <a class="@(currentPath.Equals("/Operations", StringComparison.OrdinalIgnoreCase) ? "is-active" : string.Empty)"
+                   href="/Operations">Operations</a>
+                <a href="@backendDocsUrl" target="_blank" rel="noreferrer">Backend API Docs</a>
+            </nav>
+        </header>
+
+        @RenderBody()
+
+        <footer class="site-footer">
+            <p>Built as a separate browser client so the bike-rental backend stays focused on the API surface.</p>
+            <p><a href="@backendDocsUrl" target="_blank" rel="noreferrer">Swagger</a> <span aria-hidden="true">|</span>
+                <a href="@backendOpenApiUrl" target="_blank" rel="noreferrer">OpenAPI JSON</a>
+            </p>
+        </footer>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

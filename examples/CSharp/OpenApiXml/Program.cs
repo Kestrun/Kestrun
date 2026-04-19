@@ -26,7 +26,7 @@ server.AddMapRoute("/products/{id}", HttpVerb.Get, async context =>
         Price = 19.99m,
         Items = new[] { "Item1", "Item2", "Item3" }
     };
-    
+
     await context.Response.WriteXmlResponseAsync(product, 200);
 });
 

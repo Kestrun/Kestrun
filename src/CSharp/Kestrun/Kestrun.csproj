@@ -142,6 +142,7 @@
         <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="8.0.26" />
         <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="8.0.26" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="8.0.26" />
+        <PackageReference Include="System.Security.Cryptography.Xml" Version="8.0.3" />
         <!-- Serilog -->
         <PackageReference Include="Serilog.Sinks.Http" Version="9.1.0" />
 
@@ -172,6 +173,7 @@
         <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="9.0.15" />
         <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="9.0.15" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="9.0.15" />
+        <PackageReference Include="System.Security.Cryptography.Xml" Version="9.0.15" />
         <!-- Serilog -->
         <PackageReference Include="Serilog.Sinks.Http" Version="9.2.1" />
 
@@ -204,6 +206,7 @@
         <PackageReference Include="Microsoft.AspNetCore.Authentication.OpenIdConnect" Version="10.0.5" />
         <PackageReference Include="Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation" Version="10.0.5" />
         <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.5" />
+        <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.6" />
 
         <!-- Serilog -->
         <PackageReference Include="Serilog.Sinks.Http" Version="9.2.1" />

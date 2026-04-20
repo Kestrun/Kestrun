@@ -85,7 +85,6 @@ function New-KrSelfSignedCertificate {
         [switch]$CertificateAuthority,
 
         [Parameter(ParameterSetName = 'Standard')]
-        [Alias('RootCertificate')]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$IssuerCertificate,
 
         [Parameter(ParameterSetName = 'Development', Mandatory)]

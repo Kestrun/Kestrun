@@ -41,7 +41,7 @@
     .PARAMETER SelfSignedCert
         If specified, a localhost development certificate will be generated and used for HTTPS.
         The listener uses the issued leaf certificate while the generated development root remains
-        untrusted unless you trust it explicitly through New-KrDevelopmentCertificate. This parameter
+        untrusted unless you trust it explicitly through New-KrSelfSignedCertificate -Development -TrustRoot. This parameter
         is optional.
     .PARAMETER X509Certificate
         An X509Certificate2 object representing the SSL certificate. This parameter is Mandatory if using HTTPS
@@ -161,7 +161,7 @@ function Add-KrEndpoint {
         }
         $X509Certificate = Import-KrCertificate -FilePath $CertPath -Password $CertPassword
     } elseif ($SelfSignedCert.IsPresent) {
-        $developmentCertificate = New-KrDevelopmentCertificate -DnsNames localhost, 127.0.0.1, '::1' -LeafValidDays 30 -Exportable
+        $developmentCertificate = New-KrSelfSignedCertificate -Development -DnsNames localhost, 127.0.0.1, '::1' -LeafValidDays 30 -Exportable
         $X509Certificate = $developmentCertificate.LeafCertificate
     }
 

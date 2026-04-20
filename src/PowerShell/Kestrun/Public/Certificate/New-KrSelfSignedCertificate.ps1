@@ -1,23 +1,39 @@
 <#
     .SYNOPSIS
-        Creates a new self-signed certificate.
+        Creates a self-signed certificate or localhost development certificate bundle.
     .DESCRIPTION
-        The New-KrSelfSignedCertificate function generates a self-signed certificate for use in development or testing scenarios.
-        This certificate can be used for securing communications or authentication purposes.
+        New-KrSelfSignedCertificate generates a single self-signed certificate for development or testing,
+        or, when -Development is specified, creates a localhost development bundle consisting of a CA
+        root certificate and an issued leaf certificate. On Windows, you can optionally trust the
+        generated or supplied development root certificate in the CurrentUser Root store.
     .PARAMETER DnsNames
-        The DNS name(s) for the certificate.
+        The DNS name(s) for the certificate. In development mode, if omitted, localhost loopback names
+        are used by default.
     .PARAMETER KeyType
         The type of key to use for the certificate (RSA or ECDSA).
     .PARAMETER KeyLength
         The length of the key in bits (only applicable for RSA).
     .PARAMETER ValidDays
-        The number of days the certificate will be valid.
+        The number of days the certificate will be valid. In development mode, this applies to the leaf certificate.
     .PARAMETER KeyUsage
         Optional X.509 Key Usage flags to apply to the certificate.
     .PARAMETER CertificateAuthority
         Creates a CA certificate suitable for signing child certificates.
     .PARAMETER IssuerCertificate
         An optional issuer/root certificate used to sign the generated certificate. The issuer must include a private key.
+    .PARAMETER Development
+        Creates a localhost development bundle consisting of a CA root certificate and an issued leaf certificate.
+    .PARAMETER RootCertificate
+        An optional CA root certificate used to sign the generated development leaf certificate.
+    .PARAMETER RootName
+        The subject common name to use when creating a new development root certificate.
+    .PARAMETER LeafValidDays
+        The number of days the generated development leaf certificate is valid.
+    .PARAMETER RootValidDays
+        The number of days a generated development root certificate is valid.
+    .PARAMETER TrustRoot
+        If specified with -Development on Windows, adds the development root certificate to the CurrentUser Root store.
+        On non-Windows platforms, this cmdlet throws a terminating error before invoking the C# layer.
     .PARAMETER Ephemeral
         Indicates whether the certificate is ephemeral (temporary).
     .PARAMETER Exportable
@@ -26,22 +42,34 @@
         New-KrSelfSignedCertificate -DnsNames 'example.com' -KeyUsage DigitalSignature,KeyEncipherment
 
         This example creates a self-signed certificate and applies explicit key-usage flags using PowerShell-friendly enum array syntax.
+    .EXAMPLE
+        $bundle = New-KrSelfSignedCertificate -Development -TrustRoot
+
+        Creates a development root CA, issues a localhost leaf certificate from it, trusts the root in the
+        CurrentUser Root store on Windows, and returns the private root, public-only root, and leaf certificates.
+    .EXAMPLE
+        $root = Import-KrCertificate -FilePath './certs/dev-root.pfx' -Password $password
+        $bundle = New-KrSelfSignedCertificate -Development -RootCertificate $root -DnsNames 'localhost','127.0.0.1','::1'
+
+        Reuses an existing development root certificate to issue a new localhost leaf certificate.
     .NOTES
         This function is intended for use in development and testing environments only. Do not use self-signed certificates in production.
 #>
 function New-KrSelfSignedCertificate {
     [KestrunRuntimeApi('Everywhere')]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '')]
-    [CmdletBinding()]
-    [OutputType([System.Security.Cryptography.X509Certificates.X509Certificate2])]
+    [CmdletBinding(DefaultParameterSetName = 'Standard', SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
+    [OutputType([System.Security.Cryptography.X509Certificates.X509Certificate2], ParameterSetName = 'Standard')]
+    [OutputType([object], ParameterSetName = 'Development')]
     param(
-        [Parameter(Mandatory)]
+        [Parameter(Mandatory, ParameterSetName = 'Standard')]
+        [Parameter(ParameterSetName = 'Development')]
         [string[]]$DnsNames,
 
+        [Parameter(ParameterSetName = 'Standard')]
         [ValidateSet('Rsa', 'Ecdsa')]
         [string]$KeyType = 'Rsa',
 
-        [Parameter()]
+        [Parameter(ParameterSetName = 'Standard')]
         [ValidateRange(256, 8192)]
         [int]$KeyLength = 2048,
 
@@ -49,18 +77,38 @@ function New-KrSelfSignedCertificate {
         [ValidateRange(1, 3650)]
         [int]$ValidDays = 365,
 
-        [Parameter()]
+        [Parameter(ParameterSetName = 'Standard')]
         [System.Security.Cryptography.X509Certificates.X509KeyUsageFlags[]]$KeyUsage = @(),
 
-        [Parameter()]
+        [Parameter(ParameterSetName = 'Standard')]
         [Alias('IsCertificateAuthority')]
         [switch]$CertificateAuthority,
 
-        [Parameter()]
+        [Parameter(ParameterSetName = 'Standard')]
         [Alias('RootCertificate')]
         [System.Security.Cryptography.X509Certificates.X509Certificate2]$IssuerCertificate,
 
-        [Parameter()]
+        [Parameter(ParameterSetName = 'Development', Mandatory)]
+        [switch]$Development,
+
+        [Parameter(ParameterSetName = 'Development')]
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$RootCertificate,
+
+        [Parameter(ParameterSetName = 'Development')]
+        [string]$RootName = 'Kestrun Development Root CA',
+
+        [Parameter(ParameterSetName = 'Development')]
+        [ValidateRange(1, 3650)]
+        [int]$LeafValidDays = 30,
+
+        [Parameter(ParameterSetName = 'Development')]
+        [ValidateRange(1, 36500)]
+        [int]$RootValidDays = 3650,
+
+        [Parameter(ParameterSetName = 'Development')]
+        [switch]$TrustRoot,
+
+        [Parameter(ParameterSetName = 'Standard')]
         [switch]$Ephemeral,
 
         [Parameter()]
@@ -69,6 +117,31 @@ function New-KrSelfSignedCertificate {
 
     $keyUsageFlags = if ($PSBoundParameters.ContainsKey('KeyUsage') -and $KeyUsage.Count -gt 0) {
         Join-KeyUsageFlag -KeyUsage $KeyUsage
+    }
+
+    $trustRoot = $false
+    if ($Development.IsPresent -and $TrustRoot.IsPresent) {
+        if (-not $IsWindows) {
+            $message = 'The -TrustRoot parameter is only supported on Windows. Create the development certificate without -TrustRoot and trust the root certificate manually using your platform certificate store tools.'
+            $exception = [System.PlatformNotSupportedException]::new($message)
+            $errorRecord = [System.Management.Automation.ErrorRecord]::new(
+                $exception,
+                'TrustRootRequiresWindows',
+                [System.Management.Automation.ErrorCategory]::NotImplemented,
+                'TrustRoot')
+
+            $PSCmdlet.ThrowTerminatingError($errorRecord)
+        }
+
+        $trustTarget = if ($PSBoundParameters.ContainsKey('RootCertificate') -and $null -ne $RootCertificate) {
+            $RootCertificate.Subject
+        } else {
+            "development root certificate '$RootName'"
+        }
+
+        if ($PSCmdlet.ShouldProcess($trustTarget, 'Trust in Windows CurrentUser Root certificate store')) {
+            $trustRoot = $true
+        }
     }
 
     $opts = [Kestrun.Certificates.SelfSignedOptions]::new(
@@ -81,8 +154,20 @@ function New-KrSelfSignedCertificate {
         $Ephemeral.IsPresent,
         $Exportable.IsPresent,
         $CertificateAuthority.IsPresent,
-        $IssuerCertificate
+        $IssuerCertificate,
+        $Development.IsPresent,
+        $RootCertificate,
+        $RootName,
+        $LeafValidDays,
+        $RootValidDays,
+        $trustRoot
     )
 
-    return [Kestrun.Certificates.CertificateManager]::NewSelfSigned($opts)
+    $result = [Kestrun.Certificates.CertificateManager]::NewSelfSigned($opts)
+
+    if ($Development.IsPresent) {
+        return $result
+    }
+
+    return $result.Certificate
 }

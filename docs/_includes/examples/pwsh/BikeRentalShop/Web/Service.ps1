@@ -159,6 +159,7 @@ function Get-BikeRentalCertificate {
     }
 
     $bundleParameters = @{
+        Development = $true
         DnsNames = 'localhost', '127.0.0.1', '::1'
         Exportable = $true
         LeafValidDays = 30
@@ -169,7 +170,7 @@ function Get-BikeRentalCertificate {
         $bundleParameters.RootCertificate = $rootCertificate
     }
 
-    $bundle = New-KrDevelopmentCertificate @bundleParameters
+    $bundle = New-KrSelfSignedCertificate @bundleParameters
 
     if (-not $rootCertificate) {
         $rootCertificate = $bundle.RootCertificate

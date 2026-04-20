@@ -53,14 +53,28 @@ public static class CertificateManager
 
     #region  Self-signed certificate
     /// <summary>
-    /// Creates a new self-signed X509 certificate using the specified options.
+    /// Creates a new self-signed certificate or development certificate bundle using the specified options.
+    /// </summary>
+    /// <param name="o">Options for creating the certificate.</param>
+    /// <returns>A result containing the generated certificate and any development-bundle metadata.</returns>
+    public static SelfSignedCertificateResult NewSelfSigned(SelfSignedOptions o)
+    {
+        ArgumentNullException.ThrowIfNull(o);
+
+        return o.Development
+            ? CreateDevelopmentCertificate(o)
+            : new SelfSignedCertificateResult(CreateSelfSignedCertificate(o));
+    }
+
+    /// <summary>
+    /// Creates a single self-signed X509 certificate using the specified options.
     /// </summary>
     /// <param name="o">Options for creating the self-signed certificate.</param>
     /// <returns>A new self-signed X509Certificate2 instance.</returns>
-    public static X509Certificate2 NewSelfSigned(SelfSignedOptions o)
+    private static X509Certificate2 CreateSelfSignedCertificate(SelfSignedOptions o)
     {
         var random = new SecureRandom(new CryptoApiRandomGenerator());
-        var normalizedDnsNames = o.DnsNames
+        var normalizedDnsNames = (o.DnsNames ?? [])
             .Select(name => name?.Trim())
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -144,27 +158,33 @@ public static class CertificateManager
     }
 
     /// <summary>
-    /// Creates a development certificate bundle consisting of a CA root certificate and a localhost leaf certificate.
+    /// Creates a development certificate bundle consisting of a CA root certificate and an issued leaf certificate.
     /// </summary>
     /// <param name="options">Options controlling development certificate creation and optional root trust.</param>
-    /// <returns>A development certificate bundle containing the effective root certificate, issued leaf certificate, and whether the root certificate is present in the Windows CurrentUser Root store after the operation.</returns>
-    public static DevelopmentCertificateResult NewDevelopmentCertificate(DevelopmentCertificateOptions options)
+    /// <returns>A result containing the effective root certificate, issued leaf certificate, and whether the root certificate is present in the Windows CurrentUser Root store after the operation.</returns>
+    private static SelfSignedCertificateResult CreateDevelopmentCertificate(SelfSignedOptions options)
     {
-        ArgumentNullException.ThrowIfNull(options);
-
         ValidateDevelopmentCertificateOptions(options);
 
         var effectiveRoot = options.RootCertificate ?? CreateDevelopmentRoot(options);
         var rootTrusted = TrustDevelopmentRootIfRequested(options, effectiveRoot);
         var dnsNames = options.DnsNames ?? DefaultDevelopmentDnsNames;
-        var leaf = NewSelfSigned(new SelfSignedOptions(
+        var leaf = CreateSelfSignedCertificate(new SelfSignedOptions(
             dnsNames,
+            KeyType: options.KeyType,
+            KeyLength: options.KeyLength,
+            Purposes: options.Purposes,
+            KeyUsageFlags: options.KeyUsageFlags,
             ValidDays: options.LeafValidDays,
+            Ephemeral: options.Ephemeral,
             Exportable: options.Exportable,
             IssuerCertificate: effectiveRoot));
 
-        return new DevelopmentCertificateResult(effectiveRoot, leaf, rootTrusted)
+        return new SelfSignedCertificateResult(leaf)
         {
+            RootCertificate = effectiveRoot,
+            LeafCertificate = leaf,
+            RootTrusted = rootTrusted,
             PublicRootCertificate = CreatePublicOnlyCertificate(effectiveRoot)
         };
     }
@@ -2040,10 +2060,13 @@ public static class CertificateManager
     /// </summary>
     /// <param name="options">The development certificate creation options.</param>
     /// <returns>A newly created CA root certificate.</returns>
-    private static X509Certificate2 CreateDevelopmentRoot(DevelopmentCertificateOptions options) =>
-        NewSelfSigned(new SelfSignedOptions(
+    private static X509Certificate2 CreateDevelopmentRoot(SelfSignedOptions options) =>
+        CreateSelfSignedCertificate(new SelfSignedOptions(
             [options.RootName],
+            KeyType: options.KeyType,
+            KeyLength: options.KeyLength,
             ValidDays: options.RootValidDays,
+            Ephemeral: options.Ephemeral,
             Exportable: options.Exportable,
             IsCertificateAuthority: true));
 
@@ -2054,7 +2077,7 @@ public static class CertificateManager
     /// <param name="certificate">The effective development root certificate.</param>
     /// <returns><c>true</c> when the certificate is present in the Windows CurrentUser Root store after the operation; otherwise, <c>false</c>.</returns>
     /// <exception cref="InvalidOperationException">Thrown when root trust is requested on a non-Windows platform.</exception>
-    private static bool TrustDevelopmentRootIfRequested(DevelopmentCertificateOptions options, X509Certificate2 certificate)
+    private static bool TrustDevelopmentRootIfRequested(SelfSignedOptions options, X509Certificate2 certificate)
     {
         if (!options.TrustRoot)
         {
@@ -2101,7 +2124,7 @@ public static class CertificateManager
     /// </summary>
     /// <param name="options">The development certificate creation options.</param>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when an option falls outside the supported range.</exception>
-    private static void ValidateDevelopmentCertificateOptions(DevelopmentCertificateOptions options)
+    private static void ValidateDevelopmentCertificateOptions(SelfSignedOptions options)
     {
         if (options.RootValidDays is < 1 or > 36500)
         {
@@ -2110,7 +2133,7 @@ public static class CertificateManager
 
         if (options.LeafValidDays is < 1 or > 3650)
         {
-            throw new ArgumentOutOfRangeException(nameof(options.LeafValidDays), options.LeafValidDays, "LeafValidDays must be between 1 and 3650.");
+            throw new ArgumentOutOfRangeException(nameof(options.LeafValidDays), options.LeafValidDays, "LeafValidDays must be between 1 and 3650 when Development is enabled.");
         }
     }
 

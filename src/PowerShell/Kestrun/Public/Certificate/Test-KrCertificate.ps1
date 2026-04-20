@@ -32,7 +32,7 @@
         Test-KrCertificate -Certificate $cert -StrictPurpose
         If specified, the certificate will be validated against these purposes.
     .EXAMPLE
-        $bundle = New-KrDevelopmentCertificate -Exportable
+        $bundle = New-KrSelfSignedCertificate -Development -Exportable
         $isValid = Test-KrCertificate -Certificate $bundle.LeafCertificate -CertificateChain $bundle.RootCertificate -FailureReasonVariable 'reason'
         if (-not $isValid) { Write-Host "Validation failed: $reason" }
     .EXAMPLE

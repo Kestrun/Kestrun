@@ -25,7 +25,7 @@ New-KrLogger |
 New-KrServer -Name 'Compression Demo'
 
 # 3. Listener (HTTP + self-signed HTTPS)
-Add-KrEndpoint -Port $Port -SelfSignedCert | Out-Null
+Add-KrEndpoint -Port $Port -SelfSignedCert
 
 <#
 .SYNOPSIS

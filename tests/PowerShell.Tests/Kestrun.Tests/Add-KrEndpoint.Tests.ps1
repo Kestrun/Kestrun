@@ -47,4 +47,15 @@ Describe 'Add-KrEndpoint' {
         $endpointNames | Should -Contain 'localhost:5053'
         $endpointNames | Should -Contain '[::1]:5053'
     }
+
+    It 'creates an HTTPS listener with a direct self-signed certificate when SelfSignedCert is specified' {
+        { Add-KrEndpoint -Port 5054 -SelfSignedCert } | Should -Not -Throw
+
+        $listener = (Get-KrServer).Options.Listeners | Select-Object -First 1
+
+        $listener.UseHttps | Should -BeTrue
+        $listener.X509Certificate | Should -Not -BeNullOrEmpty
+        $listener.X509Certificate.Subject | Should -Match 'CN=localhost'
+        $listener.Port | Should -Be 5054
+    }
 }

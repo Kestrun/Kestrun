@@ -52,6 +52,18 @@ $targets = @(
         Path = Join-Path $PSScriptRoot 'Web/data'
         Description = 'Web sample data and local certificates'
     }
+    [pscustomobject]@{
+        Path = Join-Path $PSScriptRoot 'Concurrent/TestResults'
+        Description = 'Concurrent sample test results'
+    }
+    [pscustomobject]@{
+        Path = Join-Path $PSScriptRoot 'Synchronized/TestResults'
+        Description = 'Synchronized sample test results'
+    }
+    [pscustomobject]@{
+        Path = Join-Path $PSScriptRoot 'Web/TestResults'
+        Description = 'Web sample test results'
+    }
 )
 
 if ($IncludeLogs) {

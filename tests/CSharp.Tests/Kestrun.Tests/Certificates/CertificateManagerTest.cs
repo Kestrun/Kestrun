@@ -578,8 +578,6 @@ public class CertificateManagerTest
 
         try
         {
-
-
             Assert.False(CertificateManager.Validate(
                 bundle.LeafCertificate,
                 checkRevocation: false,

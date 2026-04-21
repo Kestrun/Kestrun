@@ -14,7 +14,8 @@
     .PARAMETER KeyLength
         The length of the key in bits (only applicable for RSA).
     .PARAMETER ValidDays
-        The number of days the certificate will be valid. In development mode, this applies to the leaf certificate.
+        The number of days the (non-development) certificate will be valid.
+        In development mode, use -LeafValidDays and -RootValidDays.
     .PARAMETER KeyUsage
         Optional X.509 Key Usage flags to apply to the certificate.
     .PARAMETER CertificateAuthority
@@ -79,7 +80,7 @@ function New-KrSelfSignedCertificate {
         [ValidateRange(256, 8192)]
         [int]$KeyLength = 2048,
 
-        [Parameter()]
+        [Parameter(ParameterSetName = 'Standard')]
         [ValidateRange(1, 3650)]
         [int]$ValidDays = 365,
 
@@ -128,8 +129,8 @@ function New-KrSelfSignedCertificate {
     if ($TrustRoot.IsPresent) {
         if (-not $IsWindows) {
             Write-KrLog -level Warning `
-                -Message 'The -TrustRoot parameter is only supported on Windows. The development certificate will be created without trusting the root certificate." +
-                "Trust the root certificate manually using your platform certificate store tools.'
+                -Message ('The -TrustRoot parameter is only supported on Windows. The development certificate will be created without trusting the root certificate." +
+                "Trust the root certificate manually using your platform certificate store tools.')
         } else {
             $trustTarget = if ($PSBoundParameters.ContainsKey('RootCertificate') -and $null -ne $RootCertificate) {
                 $RootCertificate.Subject

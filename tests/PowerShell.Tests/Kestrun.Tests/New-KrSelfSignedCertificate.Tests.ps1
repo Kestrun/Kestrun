@@ -64,6 +64,12 @@ Describe 'New-KrSelfSignedCertificate' {
         $command.Parameters.ContainsKey('Confirm') | Should -BeTrue
     }
 
+    It 'rejects ValidDays when Development mode is used' {
+        {
+            New-KrSelfSignedCertificate -Development -ValidDays 30 -Exportable | Out-Null
+        } | Should -Throw -ExceptionType ([System.Management.Automation.ParameterBindingException])
+    }
+
     It 'skips trusting the root when TrustRoot is requested on non-Windows in development mode' -Skip:$IsWindows {
         {
             $script:bundle = New-KrSelfSignedCertificate -Development -TrustRoot -Exportable

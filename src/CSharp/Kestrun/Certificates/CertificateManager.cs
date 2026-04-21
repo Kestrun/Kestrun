@@ -52,10 +52,12 @@ public static class CertificateManager
         string.Equals(Environment.GetEnvironmentVariable("KESTRUN_APPEND_KEY_TO_PEM"), "true", StringComparison.OrdinalIgnoreCase);
 
     #region  Self-signed certificate
+
     /// <summary>
-    /// Creates a new self-signed certificate or development certificate bundle using the specified options.
+    /// Creates a new self-signed certificate based on the provided options. If the Development flag is set,
+    /// a development certificate bundle (including a root and leaf certificate) will be created; otherwise, a single self-signed certificate will be generated according to the specified options.
     /// </summary>
-    /// <param name="o">Options for creating the certificate.</param>
+    /// <param name="o">Options for creating the self-signed certificate.</param>
     /// <returns>A result containing the generated certificate and any development-bundle metadata.</returns>
     public static SelfSignedCertificateResult NewSelfSigned(SelfSignedOptions o)
     {

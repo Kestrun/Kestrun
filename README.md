@@ -71,6 +71,9 @@ You can find guides, API references, and usage examples to help you get started 
 - **📘 OpenAPI + interactive docs**
   Generate OpenAPI (v3.0 / v3.1 / v3.2) and serve docs UIs (Swagger UI / ReDoc / Scalar / RapiDoc / Elements).
 
+- **🤖 MCP server**
+  Expose route discovery, OpenAPI inspection, runtime inspection, request validation, and gated safe route invocation to MCP-compatible clients with `Kestrun.Mcp`.
+
 - **🔁 Realtime**
   Server-Sent Events (SSE) and SignalR support.
 
@@ -147,6 +150,21 @@ Download PowerShell from the official
   cd Kestrun
   ```
 
+  Build the core project and sync the PowerShell module:
+
+  ```powershell
+  Invoke-Build Restore
+  Invoke-Build Build
+  ```
+
+  Build the MCP host explicitly when you want the stdio server:
+
+  ```powershell
+  Invoke-Build Build-KestrunMcp
+  ```
+
+  For MCP setup and client configuration, see [docs/guides/mcp.md](docs/guides/mcp.md).
+
 - **🛠️ CI/CD ready**
   - Build- and run-time configurable
   - Works in containerized / headless environments
@@ -165,6 +183,27 @@ Download PowerShell from the official
   - **Cron-based scheduling**: Full cron expression support via Cronos
   - **Multi-language job support**: Schedule PowerShell, C#, and VB.NET scripts as background jobs
   - **Job management**: Start, stop, and monitor scheduled tasks with detailed logging
+
+## MCP Server
+
+Kestrun includes a standalone stdio MCP host project at `src/CSharp/Kestrun.Mcp/`.
+It lets MCP-compatible clients connect to a local Kestrun script and use tools for:
+
+- route discovery
+- route metadata lookup
+- generated OpenAPI retrieval
+- runtime inspection
+- request validation
+- gated safe route invocation
+
+Use the dedicated build task:
+
+```powershell
+Invoke-Build Build-KestrunMcp
+```
+
+Then configure your MCP client to launch `Kestrun.Mcp` with a target script and optional `--allow-invoke` route globs.
+See the full guide: [docs/guides/mcp.md](docs/guides/mcp.md).
 
 ## Deployment & Extensibility
 
@@ -242,6 +281,7 @@ See [docs/](docs/) for structure.
 ## Project Structure
 
 - `src/CSharp/` — C# core libraries and web server
+  - `Kestrun.Mcp` — stdio MCP host for route, OpenAPI, runtime, and safe invocation tools
   - `Kestrun/Authentication` — authentication handlers and schemes
   - `Kestrun/Certificates` — certificate management utilities
   - `Kestrun/Hosting` — host configuration and extensions

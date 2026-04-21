@@ -194,6 +194,7 @@ public sealed class KestrunRouteInspector : IKestrunRouteInspector
         }
 
         // Convert each response status code to a KestrunRouteResponseSchema
+#pragma warning disable IDE0028 // Simplify collection initialization
         return responses.ToDictionary(
             static entry => entry.Key,
             static entry => new KestrunRouteResponseSchema
@@ -203,9 +204,10 @@ public sealed class KestrunRouteInspector : IKestrunRouteInspector
                     static item => item.Key,
                     static item => ToJsonNode(item.Value.Schema),
                     StringComparer.OrdinalIgnoreCase)
-                    ?? [with(StringComparer.OrdinalIgnoreCase)]
+                    ?? new Dictionary<string, JsonNode?>(StringComparer.OrdinalIgnoreCase)
             },
             StringComparer.OrdinalIgnoreCase);
+#pragma warning restore IDE0028 // Simplify collection initialization
     }
 
     /// <summary>
@@ -563,7 +565,7 @@ public sealed class KestrunRequestValidator(IKestrunRouteInspector routeInspecto
     /// <returns>A normalized header dictionary.</returns>
     private static Dictionary<string, string> NormalizeHeaders(IDictionary<string, string>? headers)
         => headers is null
-            ? [with(StringComparer.OrdinalIgnoreCase)]
+            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             : new Dictionary<string, string>(headers, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>

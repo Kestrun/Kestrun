@@ -125,9 +125,11 @@ function New-KrSelfSignedCertificate {
     }
 
     $trustRoot = $false
-    if ($PSBoundParameters.ContainsKey('TrustRoot')) {
+    if ($TrustRoot.IsPresent) {
         if (-not $IsWindows) {
-            Write-Warning 'The -TrustRoot parameter is only supported on Windows. The development certificate will be created without trusting the root certificate. Trust the root certificate manually using your platform certificate store tools.'
+            Write-KrLog -level Warning `
+                -Message 'The -TrustRoot parameter is only supported on Windows. The development certificate will be created without trusting the root certificate." +
+                "Trust the root certificate manually using your platform certificate store tools.'
         } else {
             $trustTarget = if ($PSBoundParameters.ContainsKey('RootCertificate') -and $null -ne $RootCertificate) {
                 $RootCertificate.Subject

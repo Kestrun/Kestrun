@@ -33,7 +33,7 @@
         The number of days a generated development root certificate is valid.
     .PARAMETER TrustRoot
         If specified with -Development on Windows, adds the development root certificate to the CurrentUser Root store.
-        On non-Windows platforms, this cmdlet throws a terminating error before invoking the C# layer.
+        On non-Windows platforms, this cmdlet writes a warning and continues without trusting the root certificate.
     .PARAMETER WhatIf
         When -TrustRoot is specified, shows the pending trust-store change and skips adding the
         development root to the Windows CurrentUser Root certificate store.
@@ -126,29 +126,18 @@ function New-KrSelfSignedCertificate {
 
     $trustRoot = $false
     if ($PSBoundParameters.ContainsKey('TrustRoot')) {
-        $isWindowsPlatform = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform(
-            [System.Runtime.InteropServices.OSPlatform]::Windows)
-
-        if (-not $isWindowsPlatform) {
-            $message = 'The -TrustRoot parameter is only supported on Windows. Create the development certificate without -TrustRoot and trust the root certificate manually using your platform certificate store tools.'
-            $exception = [System.PlatformNotSupportedException]::new($message)
-            $errorRecord = [System.Management.Automation.ErrorRecord]::new(
-                $exception,
-                'TrustRootRequiresWindows',
-                [System.Management.Automation.ErrorCategory]::NotImplemented,
-                'TrustRoot')
-
-            $PSCmdlet.ThrowTerminatingError($errorRecord)
-        }
-
-        $trustTarget = if ($PSBoundParameters.ContainsKey('RootCertificate') -and $null -ne $RootCertificate) {
-            $RootCertificate.Subject
+        if (-not $IsWindows) {
+            Write-Warning 'The -TrustRoot parameter is only supported on Windows. The development certificate will be created without trusting the root certificate. Trust the root certificate manually using your platform certificate store tools.'
         } else {
-            "development root certificate '$RootName'"
-        }
+            $trustTarget = if ($PSBoundParameters.ContainsKey('RootCertificate') -and $null -ne $RootCertificate) {
+                $RootCertificate.Subject
+            } else {
+                "development root certificate '$RootName'"
+            }
 
-        if ($PSCmdlet.ShouldProcess($trustTarget, 'Trust in Windows CurrentUser Root certificate store')) {
-            $trustRoot = $true
+            if ($PSCmdlet.ShouldProcess($trustTarget, 'Trust in Windows CurrentUser Root certificate store')) {
+                $trustRoot = $true
+            }
         }
     }
 

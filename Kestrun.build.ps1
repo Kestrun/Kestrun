@@ -166,10 +166,12 @@ $KestrunMcpProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Ke
 $KestrunToolProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
 $KestrunServiceHostProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.ServiceHost/Kestrun.ServiceHost.csproj'
 $KestrunCoreTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Tests/Kestrun.Tests.csproj'
+$KestrunMcpTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Mcp.Tests/Kestrun.Mcp.Tests.csproj'
 $KestrunToolTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Tool.Tests/Kestrun.Tool.Tests.csproj'
 $KestrunServiceHostTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.ServiceHost.Tests/Kestrun.ServiceHost.Tests.csproj'
 $KestrunRunnerTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Runner.Tests/Kestrun.Runner.Tests.csproj'
 $KestrunDedicatedNet10TestProjects = @(
+    $KestrunMcpTestProjectPath,
     $KestrunToolTestProjectPath,
     $KestrunServiceHostTestProjectPath,
     $KestrunRunnerTestProjectPath
@@ -586,7 +588,7 @@ Add-BuildTask 'Test-xUnit' {
             }
         }
     } else {
-        Write-Host 'ℹ️ Skipping dedicated Tool/ServiceHost/Runner tests because net10.0 is not in -Frameworks.' -ForegroundColor Yellow
+        Write-Host 'ℹ️ Skipping dedicated MCP/Tool/ServiceHost/Runner tests because net10.0 is not in -Frameworks.' -ForegroundColor Yellow
     }
 
     $initialFailedSelectors = @(
@@ -963,6 +965,7 @@ Add-BuildTask 'Coverage' {
     Write-Host '📊 Creating coverage report...'
     & "$utilityPath/Build-Coverage.ps1" -TestProjects @(
         $KestrunCoreTestProjectPath,
+        $KestrunMcpTestProjectPath,
         $KestrunToolTestProjectPath,
         $KestrunServiceHostTestProjectPath,
         $KestrunRunnerTestProjectPath
@@ -978,6 +981,7 @@ Add-BuildTask 'Report-Coverage' {
     Write-Host '🌐 Creating coverage report webpage...'
     & "$utilityPath/Build-Coverage.ps1" -ReportGenerator -TestProjects @(
         $KestrunCoreTestProjectPath,
+        $KestrunMcpTestProjectPath,
         $KestrunToolTestProjectPath,
         $KestrunServiceHostTestProjectPath,
         $KestrunRunnerTestProjectPath

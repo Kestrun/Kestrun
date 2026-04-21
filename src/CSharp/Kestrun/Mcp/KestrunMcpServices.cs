@@ -9,7 +9,6 @@ using Kestrun.Hosting.Options;
 using Kestrun.OpenApi;
 using Kestrun.Runtime;
 using Kestrun.Utilities;
-using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Template;
 using Microsoft.Net.Http.Headers;
 using Microsoft.OpenApi;
@@ -167,11 +166,12 @@ public sealed class KestrunRouteInspector : IKestrunRouteInspector
     {
         var metadata = route.OpenAPI.Values.FirstOrDefault();
         var requestBody = metadata?.RequestBody;
+        // If there is no request body, return an empty dictionary
         if (requestBody?.Content is null || requestBody.Content.Count == 0)
         {
             return new Dictionary<string, JsonNode?>(StringComparer.OrdinalIgnoreCase);
         }
-
+        // Convert each request body content type to a JSON node
         return requestBody.Content.ToDictionary(
             static entry => entry.Key,
             static entry => ToJsonNode(entry.Value.Schema),
@@ -187,11 +187,13 @@ public sealed class KestrunRouteInspector : IKestrunRouteInspector
     {
         var metadata = route.OpenAPI.Values.FirstOrDefault();
         var responses = metadata?.Responses;
+        // If there are no responses, return an empty dictionary
         if (responses is null || responses.Count == 0)
         {
             return new Dictionary<string, KestrunRouteResponseSchema>(StringComparer.OrdinalIgnoreCase);
         }
 
+        // Convert each response status code to a KestrunRouteResponseSchema
         return responses.ToDictionary(
             static entry => entry.Key,
             static entry => new KestrunRouteResponseSchema
@@ -201,7 +203,7 @@ public sealed class KestrunRouteInspector : IKestrunRouteInspector
                     static item => item.Key,
                     static item => ToJsonNode(item.Value.Schema),
                     StringComparer.OrdinalIgnoreCase)
-                    ?? new Dictionary<string, JsonNode?>(StringComparer.OrdinalIgnoreCase)
+                    ?? [with(StringComparer.OrdinalIgnoreCase)]
             },
             StringComparer.OrdinalIgnoreCase);
     }
@@ -318,16 +320,19 @@ public sealed class KestrunRuntimeInspector : IKestrunRuntimeInspector
     /// <returns>A runtime status label.</returns>
     private static string ResolveStatus(KestrunHost host)
     {
+        // Determine the runtime status based on the host's state
         if (host.IsRunning)
         {
             return "running";
         }
 
+        // Determine the runtime status based on the host's state
         if (host.IsConfigured)
         {
             return "configured";
         }
 
+        // If the host is neither running nor configured, it is considered defined
         return "defined";
     }
 
@@ -405,11 +410,13 @@ public sealed class KestrunRequestValidator(IKestrunRouteInspector routeInspecto
         }
 
         var acceptValidation = ValidateAccept(route, input);
+        // If the route has OpenAPI annotations, validate the Accept header.
         if (acceptValidation is not null)
         {
             return acceptValidation;
         }
 
+        // If we reach this point, the request is valid.
         return new KestrunRequestValidationResult
         {
             IsValid = true,
@@ -434,19 +441,16 @@ public sealed class KestrunRequestValidator(IKestrunRouteInspector routeInspecto
 
         var headers = NormalizeHeaders(input.Headers);
         var hasBody = HasBody(input.Body);
-        headers.TryGetValue(HeaderNames.ContentType, out var contentType);
+        _ = headers.TryGetValue(HeaderNames.ContentType, out var contentType);
 
         if (string.IsNullOrWhiteSpace(contentType))
         {
-            if (!hasBody)
-            {
-                return null;
-            }
-
-            return Failure(415, $"Content-Type is required. Supported types: {string.Join(", ", route.AllowedRequestContentTypes)}.", "missing_content_type");
+            return !hasBody
+                ? null
+                : Failure(415, $"Content-Type is required. Supported types: {string.Join(", ", route.AllowedRequestContentTypes)}.", "missing_content_type");
         }
 
-        if (!Microsoft.Net.Http.Headers.MediaTypeHeaderValue.TryParse(contentType, out var mediaType))
+        if (!MediaTypeHeaderValue.TryParse(contentType, out var mediaType))
         {
             return Failure(400, $"Content-Type header '{contentType}' is malformed.", "invalid_content_type");
         }
@@ -520,8 +524,8 @@ public sealed class KestrunRequestValidator(IKestrunRouteInspector routeInspecto
         }
 
         var template = TemplateParser.Parse(pattern);
-        var matcher = new TemplateMatcher(template, new RouteValueDictionary());
-        return matcher.TryMatch(requestPath, new RouteValueDictionary());
+        var matcher = new TemplateMatcher(template, []);
+        return matcher.TryMatch(requestPath, []);
     }
 
     /// <summary>
@@ -531,12 +535,9 @@ public sealed class KestrunRequestValidator(IKestrunRouteInspector routeInspecto
     /// <returns>The likely successful response content types.</returns>
     internal static IReadOnlyList<ContentTypeWithSchema> ResolveResponseContentTypes(MapRouteOptions route)
     {
-        if (TryGetResponseContentTypes(route.DefaultResponseContentType, StatusCodes.Status200OK, out var values) && values is not null)
-        {
-            return values as IReadOnlyList<ContentTypeWithSchema> ?? [.. values];
-        }
-
-        return [];
+        return TryGetResponseContentTypes(route.DefaultResponseContentType, StatusCodes.Status200OK, out var values) && values is not null
+            ? values as IReadOnlyList<ContentTypeWithSchema> ?? [.. values]
+            : [];
     }
 
     /// <summary>
@@ -562,7 +563,7 @@ public sealed class KestrunRequestValidator(IKestrunRouteInspector routeInspecto
     /// <returns>A normalized header dictionary.</returns>
     private static Dictionary<string, string> NormalizeHeaders(IDictionary<string, string>? headers)
         => headers is null
-            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            ? [with(StringComparer.OrdinalIgnoreCase)]
             : new Dictionary<string, string>(headers, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
@@ -676,7 +677,7 @@ public sealed class KestrunRequestValidator(IKestrunRouteInspector routeInspecto
             return supported[0];
         }
 
-        if (!Microsoft.Net.Http.Headers.MediaTypeHeaderValue.TryParseList([acceptHeader], out var accepts) || accepts.Count == 0)
+        if (!MediaTypeHeaderValue.TryParseList([acceptHeader], out var accepts) || accepts.Count == 0)
         {
             return supported[0];
         }
@@ -717,12 +718,14 @@ public sealed class KestrunRequestValidator(IKestrunRouteInspector routeInspecto
     /// <returns>The selected content type entry.</returns>
     private static ContentTypeWithSchema SelectWhenAnySupported(string normalizedAccept, string defaultType)
     {
+        // If the Accept header is a wildcard, return the default type.
         if (string.Equals(normalizedAccept, "*/*", StringComparison.OrdinalIgnoreCase) ||
             normalizedAccept.EndsWith("/*", StringComparison.OrdinalIgnoreCase))
         {
             return new ContentTypeWithSchema(defaultType, null);
         }
 
+        // If the Accept header is not a wildcard, resolve a concrete media type.
         return new ContentTypeWithSchema(ResolveWriterMediaType(normalizedAccept, defaultType), null);
     }
 
@@ -781,6 +784,7 @@ public sealed class KestrunRequestValidator(IKestrunRouteInspector routeInspecto
     private static string ResolveWriterMediaType(string normalizedAccept, string defaultType)
     {
         var canonical = MediaTypeHelper.Canonicalize(normalizedAccept);
+        // If the Accept header is a known canonical type, return it.
         if (string.Equals(canonical, "application/json", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(canonical, "application/xml", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(canonical, "application/yaml", StringComparison.OrdinalIgnoreCase))
@@ -788,12 +792,14 @@ public sealed class KestrunRequestValidator(IKestrunRouteInspector routeInspecto
             return canonical;
         }
 
+        // If the Accept header is a specific type, return it.
         if (string.Equals(normalizedAccept, "text/csv", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(normalizedAccept, "application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
         {
             return normalizedAccept;
         }
 
+        // If the Accept header is a text type, return text/plain.
         return normalizedAccept.StartsWith("text/", StringComparison.OrdinalIgnoreCase) ? "text/plain" : defaultType;
     }
 }
@@ -937,10 +943,10 @@ public sealed class KestrunRequestInvoker(
         var first = true;
         foreach (var pair in query)
         {
-            builder.Append(first ? '?' : '&');
-            builder.Append(WebUtility.UrlEncode(pair.Key));
-            builder.Append('=');
-            builder.Append(WebUtility.UrlEncode(pair.Value));
+            _ = builder.Append(first ? '?' : '&').
+            Append(WebUtility.UrlEncode(pair.Key)).
+            Append('=').
+            Append(WebUtility.UrlEncode(pair.Value));
             first = false;
         }
 
@@ -1021,11 +1027,13 @@ public sealed class KestrunRequestInvoker(
     /// <returns>True when the path is allowlisted.</returns>
     private bool IsPathAllowed(string path)
     {
+        // If no allowed path patterns are configured, deny all paths.
         if (_options.AllowedPathPatterns.Count == 0)
         {
             return false;
         }
 
+        // Check if the path matches any of the allowed patterns.
         return _options.AllowedPathPatterns.Any(pattern =>
             string.Equals(pattern, "*", StringComparison.Ordinal) ||
             GlobMatches(pattern, path));

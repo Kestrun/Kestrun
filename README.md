@@ -202,6 +202,20 @@ Use the dedicated build task:
 Invoke-Build Build-KestrunMcp
 ```
 
+Typical local workflow:
+
+1. Point `Kestrun.Mcp` at a PowerShell script that starts a Kestrun host.
+2. Call `kestrun.inspect_runtime` to confirm the listener is up.
+3. Call `kestrun.list_routes` or `kestrun.get_route` to inspect the live route table.
+4. Call `kestrun.get_openapi` to retrieve the generated OpenAPI document as JSON.
+5. Call `kestrun.validate_request` to explain likely `404`, `406`, or `415` outcomes before sending a request.
+6. Call `kestrun.invoke_route` only for routes explicitly allowlisted with `--allow-invoke`.
+
+Practical examples shipped in this branch:
+
+- `docs/_includes/examples/pwsh/24.1-Mcp-Hello.ps1` for route discovery, runtime inspection, and safe `GET /hello` invocation
+- `docs/_includes/examples/pwsh/24.2-Mcp-OpenAPI.ps1` for route schema inspection, OpenAPI retrieval, request validation, and safe `POST /items/{id}` invocation
+
 Then configure your MCP client to launch `Kestrun.Mcp` with a target script and optional `--allow-invoke` route globs.
 See the full guide: [docs/guides/mcp.md](docs/guides/mcp.md).
 

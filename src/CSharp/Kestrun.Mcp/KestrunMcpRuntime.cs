@@ -106,6 +106,8 @@ internal sealed class KestrunScriptSessionHostedService(
                 var errorMessage = string.Join(Environment.NewLine, powershell.Streams.Error.Select(static error => error.ToString()));
                 throw new InvalidOperationException($"Kestrun script completed with errors:{Environment.NewLine}{errorMessage}");
             }
+
+            EnsureHostResolved();
         }
         catch (Exception ex)
         {
@@ -133,15 +135,42 @@ internal sealed class KestrunScriptSessionHostedService(
     /// </summary>
     private void ResolveHostIfAvailable()
     {
-        var host = string.IsNullOrWhiteSpace(options.HostName)
-            ? KestrunHostManager.Default
-            : KestrunHostManager.Get(options.HostName);
+        var host = TryResolveHost();
 
         if (host is not null)
         {
             runtime.SetHost(host);
         }
     }
+
+    /// <summary>
+    /// Ensures the configured host was discovered after script execution completed.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when the expected host was never registered.</exception>
+    private void EnsureHostResolved()
+    {
+        if (TryResolveHost() is not null)
+        {
+            return;
+        }
+
+        var hostLabel = string.IsNullOrWhiteSpace(options.HostName)
+            ? "the default Kestrun host"
+            : $"Kestrun host '{options.HostName}'";
+
+        throw new InvalidOperationException(
+            $"The script '{options.ScriptPath}' completed without registering {hostLabel}. " +
+            "Ensure the script creates and starts the expected Kestrun host.");
+    }
+
+    /// <summary>
+    /// Resolves the configured host from <see cref="KestrunHostManager"/>.
+    /// </summary>
+    /// <returns>The resolved host when available; otherwise, <see langword="null"/>.</returns>
+    private KestrunHost? TryResolveHost()
+        => string.IsNullOrWhiteSpace(options.HostName)
+            ? KestrunHostManager.Default
+            : KestrunHostManager.Get(options.HostName);
 
     /// <summary>
     /// Configures PSHOME for embedded execution.

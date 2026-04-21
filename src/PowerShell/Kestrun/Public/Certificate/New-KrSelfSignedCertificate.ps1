@@ -34,6 +34,12 @@
     .PARAMETER TrustRoot
         If specified with -Development on Windows, adds the development root certificate to the CurrentUser Root store.
         On non-Windows platforms, this cmdlet throws a terminating error before invoking the C# layer.
+    .PARAMETER WhatIf
+        When -TrustRoot is specified, shows the pending trust-store change and skips adding the
+        development root to the Windows CurrentUser Root certificate store.
+    .PARAMETER Confirm
+        When -TrustRoot is specified, prompts for confirmation before adding the development root
+        certificate to the Windows CurrentUser Root certificate store.
     .PARAMETER Ephemeral
         Indicates whether the certificate is ephemeral (temporary).
     .PARAMETER Exportable

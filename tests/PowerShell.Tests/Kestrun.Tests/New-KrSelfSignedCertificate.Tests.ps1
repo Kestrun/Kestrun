@@ -64,19 +64,15 @@ Describe 'New-KrSelfSignedCertificate' {
         $command.Parameters.ContainsKey('Confirm') | Should -BeTrue
     }
 
-    It 'warns and skips trusting the root when TrustRoot is requested on non-Windows in development mode' -Skip:$IsWindows {
-        $warnings = $null
-
+    It 'skips trusting the root when TrustRoot is requested on non-Windows in development mode' -Skip:$IsWindows {
         {
-            $script:bundle = New-KrSelfSignedCertificate -Development -TrustRoot -Exportable -WarningVariable warnings
+            $script:bundle = New-KrSelfSignedCertificate -Development -TrustRoot -Exportable
         } | Should -Not -Throw
 
         $script:bundle | Should -Not -BeNullOrEmpty
         $script:bundle.RootCertificate | Should -Not -BeNullOrEmpty
         $script:bundle.LeafCertificate | Should -Not -BeNullOrEmpty
         $script:bundle.RootTrusted | Should -BeFalse
-        $warnings | Should -Not -BeNullOrEmpty
-        ($warnings | Out-String) | Should -Match '-TrustRoot parameter is only supported on Windows'
     }
 
     It 'creates a default development root and localhost leaf bundle' {

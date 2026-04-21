@@ -246,13 +246,16 @@ public class CertificateManagerTest
     {
         var bundle = CreateDevelopmentBundle();
 
+        Assert.NotNull(bundle);
+        Assert.NotNull(bundle.RootCertificate);
+        Assert.NotNull(bundle.LeafCertificate);
         Assert.Equal("CN=Kestrun Development Root CA", bundle.RootCertificate.Subject);
         Assert.Equal("CN=localhost", bundle.LeafCertificate.Subject);
         Assert.Equal(bundle.RootCertificate.Subject, bundle.LeafCertificate.Issuer);
         Assert.True(bundle.RootCertificate.HasPrivateKey);
         Assert.True(bundle.LeafCertificate.HasPrivateKey);
         Assert.NotNull(bundle.PublicRootCertificate);
-        Assert.False(bundle.PublicRootCertificate!.HasPrivateKey);
+        Assert.False(bundle.PublicRootCertificate.HasPrivateKey);
         Assert.Equal(bundle.RootCertificate.Thumbprint, bundle.PublicRootCertificate.Thumbprint);
         Assert.False(bundle.RootTrusted);
 
@@ -273,11 +276,16 @@ public class CertificateManagerTest
             Development: true,
             RootCertificate: root));
 
+        Assert.NotNull(bundle);
+        Assert.NotNull(bundle.RootCertificate);
+        Assert.NotNull(bundle.LeafCertificate);
+        Assert.NotNull(bundle.PublicRootCertificate);
+
         Assert.Same(root, bundle.RootCertificate);
         Assert.Equal(root.Subject, bundle.LeafCertificate.Issuer);
         Assert.Equal("CN=localhost", bundle.LeafCertificate.Subject);
         Assert.NotNull(bundle.PublicRootCertificate);
-        Assert.False(bundle.PublicRootCertificate!.HasPrivateKey);
+        Assert.False(bundle.PublicRootCertificate.HasPrivateKey);
         Assert.Equal(root.Thumbprint, bundle.PublicRootCertificate.Thumbprint);
         Assert.False(bundle.RootTrusted);
 
@@ -564,8 +572,14 @@ public class CertificateManagerTest
             Exportable: true,
             Development: true));
 
+        Assert.NotNull(bundle);
+        Assert.NotNull(bundle.RootCertificate);
+        Assert.NotNull(bundle.LeafCertificate);
+
         try
         {
+
+
             Assert.False(CertificateManager.Validate(
                 bundle.LeafCertificate,
                 checkRevocation: false,

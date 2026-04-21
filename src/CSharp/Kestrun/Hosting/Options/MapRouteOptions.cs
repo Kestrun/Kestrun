@@ -87,6 +87,10 @@ public class MapRouteOptions
     /// </summary>
     public LanguageOptions ScriptCode { get; init; } = new LanguageOptions();
     /// <summary>
+    /// Best-effort handler identity for the route when a named source is available.
+    /// </summary>
+    public string? HandlerName { get; set; }
+    /// <summary>
     /// If true, throws an exception on duplicate routes.
     /// </summary>
     public bool ThrowOnDuplicate { get; set; }

@@ -21,7 +21,7 @@ Import-Module '__MODULE_PATH__' -Force
 $bundle = $null
 
 try {
-    $bundle = New-KrDevelopmentCertificate -Exportable
+    $bundle = New-KrSelfSignedCertificate -Development -Exportable
 
     $withoutChainReason = '__unset__'
     $withoutChainIsValid = Test-KrCertificate -Certificate $bundle.LeafCertificate -FailureReasonVariable 'withoutChainReason'

@@ -18,7 +18,7 @@ New-KrLogger |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'myLogger' -SetAsDefault
 
-$bundle = New-KrDevelopmentCertificate `
+$bundle = New-KrSelfSignedCertificate -Development `
     -DnsNames 'localhost', '127.0.0.1', '::1' `
     -Exportable `
     -LeafValidDays 30 `

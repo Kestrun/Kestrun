@@ -581,6 +581,24 @@ function Get-AssemblyVersionOrNull {
     }
 }
 
+function Get-FileSha256OrNull {
+
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $null
+    }
+
+    try {
+        return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path -ErrorAction Stop).Hash
+    } catch {
+        return $null
+    }
+}
+
 <#
 .SYNOPSIS
     Copies a file if the version has changed.
@@ -616,8 +634,41 @@ function Copy-IfVersionChanged {
         $destinationVersion = Get-AssemblyVersionOrNull -Path $DestinationPath
 
         if ($null -ne $sourceVersion -and $null -ne $destinationVersion -and $sourceVersion -eq $destinationVersion) {
+            # Version-only comparisons are insufficient for dev builds where the version often stays constant.
+            # When versions match, fall back to a content check (SHA256 when possible, otherwise file metadata).
+            $sourceInfo = Get-Item -LiteralPath $SourcePath
+            $destinationInfo = Get-Item -LiteralPath $DestinationPath
+
+            if ($sourceInfo.Length -eq $destinationInfo.Length) {
+                $sourceHash = Get-FileSha256OrNull -Path $SourcePath
+                $destinationHash = Get-FileSha256OrNull -Path $DestinationPath
+
+                if ($null -ne $sourceHash -and $null -ne $destinationHash -and $sourceHash -eq $destinationHash) {
+                    return [pscustomobject]@{
+                        Status = 'SkippedSameVersion'
+                        FileName = $fileName
+                        SourceVersion = $sourceVersion
+                        DestinationVersion = $destinationVersion
+                    }
+                }
+
+                if ($null -eq $sourceHash -or $null -eq $destinationHash) {
+                    # Hashing can fail in policy-restricted environments; prefer freshness as a tie-breaker.
+                    if ($sourceInfo.LastWriteTimeUtc -le $destinationInfo.LastWriteTimeUtc) {
+                        return [pscustomobject]@{
+                            Status = 'SkippedSameVersion'
+                            FileName = $fileName
+                            SourceVersion = $sourceVersion
+                            DestinationVersion = $destinationVersion
+                        }
+                    }
+                }
+            }
+
+            # Same assembly version but content differs (or appears newer): copy.
+            Copy-Item -Path $SourcePath -Destination $DestinationPath -Force
             return [pscustomobject]@{
-                Status = 'SkippedSameVersion'
+                Status = 'Replaced'
                 FileName = $fileName
                 SourceVersion = $sourceVersion
                 DestinationVersion = $destinationVersion

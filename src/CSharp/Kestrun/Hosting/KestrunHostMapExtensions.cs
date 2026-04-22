@@ -109,6 +109,13 @@ public static partial class KestrunHostMapExtensions
             throw new ArgumentException("Pattern cannot be null or empty.", nameof(options.Pattern));
         }
 
+        if (options.HttpVerbs.Count == 0)
+        {
+            options.HttpVerbs = [HttpVerb.Get];
+        }
+
+        options.ScriptCode.Language = ScriptLanguage.Native;
+
         string[] methods = [.. options.HttpVerbs.Select(v => v.ToMethodString())];
         map = host.App.MapMethods(options.Pattern, methods, async context =>
          {
@@ -126,6 +133,11 @@ public static partial class KestrunHostMapExtensions
          });
 
         host.AddMapOptions(map, options);
+        var registeredPattern = NormalizeCatchAllPattern(options.Pattern);
+        foreach (var method in options.HttpVerbs)
+        {
+            host._registeredRoutes[(registeredPattern, method)] = options;
+        }
 
         host.Logger.Information("Added native route: {Pattern} with methods: {Methods}", options.Pattern, string.Join(", ", methods));
         // Add to the feature queue for later processing

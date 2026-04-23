@@ -2269,22 +2269,12 @@ public partial class KestrunHost : IDisposable
     /// <summary>
     /// Gets the currently known application URLs for this host.
     /// </summary>
-    public IReadOnlyList<string> CurrentUrls
-    {
-        get
-        {
-            if (_app is { Urls.Count: > 0 })
-            {
-                return [.. _app.Urls];
-            }
-
-            return
-            [
+    public IReadOnlyList<string> CurrentUrls => _app is { Urls.Count: > 0 }
+                ? [.. _app.Urls]
+                : [
                 .. Options.Listeners.Select(static listener =>
                     $"{(listener.UseHttps ? "https" : "http")}://{FormatListenerHost(listener.IPAddress)}:{listener.Port}")
             ];
-        }
-    }
 
     /// <summary>
     /// Formats a listener IP address into a URL-safe host literal.

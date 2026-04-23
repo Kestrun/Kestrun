@@ -564,9 +564,11 @@ public sealed class KestrunRequestValidator(IKestrunRouteInspector routeInspecto
     /// <param name="headers">The incoming headers.</param>
     /// <returns>A normalized header dictionary.</returns>
     private static Dictionary<string, string> NormalizeHeaders(IDictionary<string, string>? headers)
+#pragma warning disable IDE0028 // Simplify collection initialization
         => headers is null
             ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             : new Dictionary<string, string>(headers, StringComparer.OrdinalIgnoreCase);
+#pragma warning restore IDE0028 // Simplify collection initialization
 
     /// <summary>
     /// Determines whether a request body is present.

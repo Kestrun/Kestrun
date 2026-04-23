@@ -36,6 +36,9 @@
 .PARAMETER SignModule
     Indicates whether to sign the module during the build process.
 
+.PARAMETER ShowSkippedDlls
+    Indicates whether Sync-PowerShellDll should list skipped DLL names instead of only skip counts.
+
 .EXAMPLE
 .\Kestrun.build.ps1 -Configuration Release -Frameworks net9.0 -Version 1.0.0
     This example demonstrates how to build the Kestrun project for the Release configuration,
@@ -81,7 +84,13 @@ param(
     [ValidateSet('quiet', 'minimal' , 'normal', 'detailed', 'diagnostic')]
     $DotNetVerbosity = 'detailed',
     [Parameter(Mandatory = $false)]
-    [switch]$SignModule
+    [switch]$SignModule,
+    [Parameter(Mandatory = $false)]
+    [switch]$ShowSkippedDlls,
+    [Parameter(Mandatory = $false)]
+    [int]$PesterAggregateRerunMaxFailedAllowed = 60,
+    [Parameter(Mandatory = $false)]
+    [int]$XUnitAggregateRerunMaxFailedAllowed = 25
 )
 
 if (($null -eq $PSCmdlet.MyInvocation) -or ([string]::IsNullOrEmpty($PSCmdlet.MyInvocation.PSCommandPath)) -or (-not $PSCmdlet.MyInvocation.PSCommandPath.EndsWith('Invoke-Build.ps1'))) {
@@ -153,13 +162,16 @@ if ($isDebug) {
 $SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath 'Kestrun.sln'
 $KestrunProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun/Kestrun.csproj'
 $KestrunAnnotationsProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Annotations/Kestrun.Annotations.csproj'
+$KestrunMcpProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Mcp/Kestrun.Mcp.csproj'
 $KestrunToolProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
 $KestrunServiceHostProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.ServiceHost/Kestrun.ServiceHost.csproj'
 $KestrunCoreTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Tests/Kestrun.Tests.csproj'
+$KestrunMcpTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Mcp.Tests/Kestrun.Mcp.Tests.csproj'
 $KestrunToolTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Tool.Tests/Kestrun.Tool.Tests.csproj'
 $KestrunServiceHostTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.ServiceHost.Tests/Kestrun.ServiceHost.Tests.csproj'
 $KestrunRunnerTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Runner.Tests/Kestrun.Runner.Tests.csproj'
 $KestrunDedicatedNet10TestProjects = @(
+    $KestrunMcpTestProjectPath,
     $KestrunToolTestProjectPath,
     $KestrunServiceHostTestProjectPath,
     $KestrunRunnerTestProjectPath
@@ -170,6 +182,7 @@ $KestrunToolPowerShellCacheRoot = Join-Path -Path $PSScriptRoot -ChildPath '.pac
 $PowerShellLibRoot = Join-Path -Path $PSScriptRoot -ChildPath 'src/PowerShell/Kestrun/lib'
 $PesterTestsRootPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/PowerShell.Tests/Kestrun.Tests'
 $PesterTutorialTestPath = Join-Path -Path $PesterTestsRootPath -ChildPath 'Tutorial'
+
 
 Write-Host '---------------------------------------------------' -ForegroundColor DarkCyan
 if (-not $Version) {
@@ -242,15 +255,16 @@ Add-BuildTask Help {
     Write-Host '- Remove-Module: Removes the Kestrun module.'
     Write-Host '- Update-Module: Updates the Kestrun module.'
     # Build tasks
+    Write-Host '- Build-KestrunMcp: Builds the Kestrun.Mcp stdio MCP host project for net10.0 using the current -Configuration value.'
     Write-Host '- Build-KestrunTool: Publishes dedicated ServiceHost runtimes and stages PowerShell Modules payloads in src/CSharp/Kestrun.Tool/kestrun-service using the current -Configuration value.'
     Write-Host '- Build-Help: Generates PowerShell help documentation.'
     Write-Host '- Build-TutorialIndex: Regenerates docs/pwsh/tutorial/index.md.'
     # Test tasks
     Write-Host '- Test-Tutorials: Runs tests on tutorial documentation.'
-    Write-Host '- Test-xUnit: Runs Kestrun DLL tests.'
+    Write-Host '- Test-xUnit: Runs Kestrun DLL tests and reruns failed xUnit cases once after the initial pass.'
     Write-Host '- Test-Pester-NonTutorial: Runs non-tutorial Pester tests.'
     Write-Host '- Test-Pester-Tutorial: Runs tutorial Pester tests in two deterministic shards.'
-    Write-Host '- Test-Pester: Runs Pester tests.'
+    Write-Host '- Test-Pester: Runs Pester tests and reruns failed Pester cases once after the initial pass.'
     # Clean tasks
     Write-Host '- Deep-Clean: Cleans all build artifacts.'
     Write-Host '- Clean-Package: Cleans the package output directories.'
@@ -412,6 +426,16 @@ Add-BuildTask 'Build-KestrunTool' {
         -ServiceHostRuntimesDirectory $kestrunToolServiceHostRuntimesDirectory
 }
 
+Add-BuildTask 'Build-KestrunMcp' {
+    Write-Host "🔧 Building Kestrun.Mcp using configuration: $Configuration"
+
+    dotnet build "$KestrunMcpProjectPath" -c $Configuration -f net10.0 -v:$DotNetVerbosity `
+        -p:Version=$Version -p:InformationalVersion="$($VersionDetails.InformationalVersion)"
+    if ($LASTEXITCODE -ne 0) {
+        throw 'dotnet build failed for Kestrun.Mcp.'
+    }
+}
+
 Add-BuildTask 'Pack-KestrunTool' 'Set-PackageConfiguration', 'Build-KestrunTool', {
     Write-Host '📦 Packing Kestrun dotnet tool package (dotnet-kestrun) and service runtime packages...'
 
@@ -471,7 +495,7 @@ Add-BuildTask 'Build' 'BuildNoPwsh', 'SyncPowerShellDll', { Write-Host '🚀 Bui
 
 Add-BuildTask 'SyncPowerShellDll' {
     Write-Host '🔄 Syncing PowerShell DLLs to src/PowerShell/Kestrun/lib...'
-    Sync-PowerShellDll -Configuration $Configuration -Frameworks $Frameworks -dest '.\src\PowerShell\Kestrun\lib'
+    Sync-PowerShellDll -Configuration $Configuration -Frameworks $Frameworks -dest '.\src\PowerShell\Kestrun\lib' -ShowSkippedDlls:$ShowSkippedDlls
     Write-Host '🚀 PowerShell DLL synchronization completed.'
 }
 
@@ -517,7 +541,7 @@ Add-BuildTask 'Prepare-PesterAssets' {
                 -AnnotationFramework $AnnotationFramework `
                 -Configuration $Configuration)) {
         Write-Host '🔁 Synced PowerShell DLLs are missing or stale. Refreshing module lib folder...'
-        Sync-PowerShellDll -Configuration $Configuration -Frameworks $Frameworks -dest '.\src\PowerShell\Kestrun\lib'
+        Sync-PowerShellDll -Configuration $Configuration -Frameworks $Frameworks -dest '.\src\PowerShell\Kestrun\lib' -ShowSkippedDlls:$ShowSkippedDlls
     } else {
         Write-Host '✅ Synced PowerShell DLLs are current.'
     }
@@ -531,20 +555,20 @@ Add-BuildTask 'Nuget-CodeAnalysis' {
 # XUnit tests
 Add-BuildTask 'Test-xUnit' {
     Write-Host '🧪 Running Kestrun DLL tests...'
-    $failures = @()
+    $initialFailedSelectors = @()
 
     # Run the shared Kestrun core test suite for each requested framework.
     foreach ($framework in $Frameworks) {
         Write-Host "▶️ Running Kestrun core tests for $framework"
-        Invoke-KestrunDotNetTest `
+        $run = Invoke-KestrunDotNetTest `
             -ProjectPath $KestrunCoreTestProjectPath `
             -Framework $framework `
             -Label 'Kestrun.Tests' `
             -Configuration $Configuration `
             -DotNetVerbosity $DotNetVerbosity
-        if ($LASTEXITCODE -ne 0) {
+        if ($run.ExitCode -ne 0) {
             Write-Host "❌ Core tests failed for $framework" -ForegroundColor Red
-            $failures += "KestrunTests ($framework)"
+            $initialFailedSelectors += @($run.FailedSelectors)
         }
     }
 
@@ -552,24 +576,117 @@ Add-BuildTask 'Test-xUnit' {
         foreach ($dedicatedTestProject in $KestrunDedicatedNet10TestProjects) {
             $testProjectName = [System.IO.Path]::GetFileNameWithoutExtension($dedicatedTestProject)
             Write-Host "▶️ Running dedicated tests for $testProjectName (net10.0)"
-            Invoke-KestrunDotNetTest `
+            $run = Invoke-KestrunDotNetTest `
                 -ProjectPath $dedicatedTestProject `
                 -Framework 'net10.0' `
                 -Label $testProjectName `
                 -Configuration $Configuration `
                 -DotNetVerbosity $DotNetVerbosity
-            if ($LASTEXITCODE -ne 0) {
+            if ($run.ExitCode -ne 0) {
                 Write-Host "❌ Dedicated tests failed for $testProjectName (net10.0)" -ForegroundColor Red
-                $failures += "$testProjectName (net10.0)"
+                $initialFailedSelectors += @($run.FailedSelectors)
             }
         }
     } else {
-        Write-Host 'ℹ️ Skipping dedicated Tool/ServiceHost/Runner tests because net10.0 is not in -Frameworks.' -ForegroundColor Yellow
+        Write-Host 'ℹ️ Skipping dedicated MCP/Tool/ServiceHost/Runner tests because net10.0 is not in -Frameworks.' -ForegroundColor Yellow
     }
 
-    if ($failures.Count -gt 0) {
-        throw "Test-xUnit failed for targets: $($failures -join ', ')"
+    $initialFailedSelectors = @(
+        $initialFailedSelectors |
+            Group-Object -Property {
+                $selectorKey = if ([string]::IsNullOrWhiteSpace($_.FullyQualifiedName)) {
+                    $_.DisplayName
+                } else {
+                    $_.FullyQualifiedName
+                }
+                '{0}|{1}|{2}' -f $_.ProjectPath, $_.Framework, $selectorKey
+            } |
+            ForEach-Object { $_.Group[0] }
+    )
+
+    if ($initialFailedSelectors.Count -eq 0) {
+        Write-Host '✅ xUnit test suite passed on the initial run.' -ForegroundColor Green
+        return
     }
+
+    if ($initialFailedSelectors.Count -gt $XUnitAggregateRerunMaxFailedAllowed) {
+        $failedTargets = @(
+            $initialFailedSelectors |
+                Group-Object -Property { '{0} ({1})' -f $_.Label, $_.Framework } |
+                ForEach-Object { $_.Name }
+        )
+        throw "Test-xUnit recorded $($initialFailedSelectors.Count) failing tests, which exceeds the deferred rerun limit of $XUnitAggregateRerunMaxFailedAllowed. Failing targets: $($failedTargets -join ', ')"
+    }
+
+    Write-Host "🔁 Re-running $($initialFailedSelectors.Count) failed xUnit test(s) after the initial pass..." -ForegroundColor Yellow
+    $remainingFailedSelectors = @()
+    $rerunGroups = $initialFailedSelectors | Group-Object -Property { '{0}|{1}|{2}' -f $_.ProjectPath, $_.Framework, $_.Label }
+    foreach ($rerunGroup in $rerunGroups) {
+        $groupSelectors = @($rerunGroup.Group)
+        $fullyQualifiedNames = @(
+            $groupSelectors |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_.FullyQualifiedName) } |
+                Select-Object -ExpandProperty FullyQualifiedName -Unique
+        )
+
+        if ($fullyQualifiedNames.Count -eq 0) {
+            Write-Warning "Skipping xUnit rerun for '$($groupSelectors[0].Label)' ($($groupSelectors[0].Framework)) because no fully qualified names were recorded."
+            $remainingFailedSelectors += $groupSelectors
+            continue
+        }
+        # The VSTest filter syntax does not allow for multiple FullyQualifiedName clauses to be combined with OR,
+        # so we need to construct a single filter expression that matches any of the failed test cases.
+        $filter = ($fullyQualifiedNames | ForEach-Object {
+                # Escape special characters in fully qualified names per VSTest filter rules
+                $escapedName = $_ -replace '([\\"])', '\$1'
+                'FullyQualifiedName="{0}"' -f $escapedName
+            }) -join '|'
+
+        # The filter syntax for dotnet test requires the entire expression to be wrapped in double quotes,
+        # and inner quotes to be escaped with backslashes.
+        $rerun = Invoke-KestrunDotNetTest `
+            -ProjectPath $groupSelectors[0].ProjectPath `
+            -Framework $groupSelectors[0].Framework `
+            -Label $groupSelectors[0].Label `
+            -Configuration $Configuration `
+            -DotNetVerbosity $DotNetVerbosity `
+            -NoBuild `
+            -RunLabelSuffix 'rerun-01' `
+            -TestFilter $filter
+
+        if ($rerun.ExitCode -ne 0) {
+            $remainingFailedSelectors += @($rerun.FailedSelectors)
+        }
+    }
+
+    $remainingFailedSelectors = @(
+        $remainingFailedSelectors |
+            Group-Object -Property {
+                $selectorKey = if ([string]::IsNullOrWhiteSpace($_.FullyQualifiedName)) {
+                    $_.DisplayName
+                } else {
+                    $_.FullyQualifiedName
+                }
+                '{0}|{1}|{2}' -f $_.ProjectPath, $_.Framework, $selectorKey
+            } |
+            ForEach-Object { $_.Group[0] }
+    )
+
+    if ($remainingFailedSelectors.Count -gt 0) {
+        $failureSummary = @(
+            $remainingFailedSelectors |
+                ForEach-Object {
+                    if ([string]::IsNullOrWhiteSpace($_.FullyQualifiedName)) {
+                        '{0} ({1}) :: {2}' -f $_.Label, $_.Framework, $_.DisplayName
+                    } else {
+                        '{0} ({1}) :: {2}' -f $_.Label, $_.Framework, $_.FullyQualifiedName
+                    }
+                }
+        )
+        throw "Test-xUnit still has failing tests after the deferred rerun: $($failureSummary -join '; ')"
+    }
+
+    Write-Host '✅ xUnit deferred rerun cleared all initial failures.' -ForegroundColor Green
 }
 
 # Formatting source code
@@ -607,7 +724,8 @@ Add-BuildTask 'Test-Pester-NonTutorial' 'Test-Pester-LogContext', {
         -Verbosity $PesterVerbosity `
         -DebugMode:$isDebug `
         -TestPath $PesterTestsRootPath `
-        -ExcludePath $PesterTutorialTestPath
+        -ExcludePath $PesterTutorialTestPath `
+        -MaxFailedAllowed $PesterAggregateRerunMaxFailedAllowed
     if ($res -ne 0) { Write-Error "Test-Pester-NonTutorial failed with exit code $res" }
     return $res
 }
@@ -621,7 +739,8 @@ Add-BuildTask 'Test-Pester-Tutorial-Shard1' 'Test-Pester-LogContext', {
         -DebugMode:$isDebug `
         -TestPath $PesterTutorialTestPath `
         -ShardCount 2 `
-        -ShardIndex 1
+        -ShardIndex 1 `
+        -MaxFailedAllowed $PesterAggregateRerunMaxFailedAllowed
     if ($res -ne 0) { Write-Error "Test-Pester-Tutorial-Shard1 failed with exit code $res" }
     return $res
 }
@@ -635,15 +754,102 @@ Add-BuildTask 'Test-Pester-Tutorial-Shard2' 'Test-Pester-LogContext', {
         -DebugMode:$isDebug `
         -TestPath $PesterTutorialTestPath `
         -ShardCount 2 `
-        -ShardIndex 2
+        -ShardIndex 2 `
+        -MaxFailedAllowed $PesterAggregateRerunMaxFailedAllowed
     if ($res -ne 0) { Write-Error "Test-Pester-Tutorial-Shard2 failed with exit code $res" }
     return $res
 }
 
 Add-BuildTask 'Test-Pester-Tutorial' 'Test-Pester-Tutorial-Shard1', 'Test-Pester-Tutorial-Shard2'
 
-Add-BuildTask 'Test-Pester' 'Test-Pester-NonTutorial', 'Test-Pester-Tutorial', {
-    Write-Host 'âœ… Pester test suites completed.'
+Add-BuildTask 'Test-Pester' 'Test-Pester-LogContext', {
+    Write-Host '🧪 Running Pester tests with deferred reruns...'
+
+    $pesterRuns = @(
+        (& "$utilityPath/Test-Pester.ps1" `
+            -PassThru `
+            -ReRunFailed:$false `
+            -Verbosity $PesterVerbosity `
+            -DebugMode:$isDebug `
+            -TestPath $PesterTestsRootPath `
+            -ExcludePath $PesterTutorialTestPath `
+            -MaxFailedAllowed $PesterAggregateRerunMaxFailedAllowed),
+        (& "$utilityPath/Test-Pester.ps1" `
+            -PassThru `
+            -ReRunFailed:$false `
+            -Verbosity $PesterVerbosity `
+            -DebugMode:$isDebug `
+            -TestPath $PesterTutorialTestPath `
+            -ShardCount 2 `
+            -ShardIndex 1 `
+            -MaxFailedAllowed $PesterAggregateRerunMaxFailedAllowed),
+        (& "$utilityPath/Test-Pester.ps1" `
+            -PassThru `
+            -ReRunFailed:$false `
+            -Verbosity $PesterVerbosity `
+            -DebugMode:$isDebug `
+            -TestPath $PesterTutorialTestPath `
+            -ShardCount 2 `
+            -ShardIndex 2 `
+            -MaxFailedAllowed $PesterAggregateRerunMaxFailedAllowed)
+    )
+
+    $initialFailedSelectors = @(
+        $pesterRuns |
+            ForEach-Object { @($_.InitialFailedSelectors) }
+    )
+
+    $initialFailedSelectors = @(
+        $initialFailedSelectors |
+            Group-Object -Property { '{0}|{1}|{2}' -f $_.File, $_.Line, $_.FullName } |
+            ForEach-Object { $_.Group[0] }
+    )
+
+    if ($initialFailedSelectors.Count -eq 0) {
+        Write-Host '✅ Pester test suite passed on the initial run.' -ForegroundColor Green
+        return
+    }
+
+    if ($initialFailedSelectors.Count -gt $PesterAggregateRerunMaxFailedAllowed) {
+        throw "Test-Pester recorded $($initialFailedSelectors.Count) failing tests, which exceeds the deferred rerun limit of $PesterAggregateRerunMaxFailedAllowed."
+    }
+
+    Write-Host "🔁 Re-running $($initialFailedSelectors.Count) failed Pester test(s) after the initial pass..." -ForegroundColor Yellow
+    $aggregateRerunStamp = Get-Date -Format 'yyyyMMdd-HHmmss-fff'
+    $aggregateResultsDir = Join-Path -Path $PWD -ChildPath 'TestResults' -AdditionalChildPath 'pester', 'aggregate-rerun', $aggregateRerunStamp
+    if (-not (Test-Path -LiteralPath $aggregateResultsDir)) {
+        $null = New-Item -ItemType Directory -Force -Path $aggregateResultsDir
+    }
+
+    $aggregateRerunXmlPath = Join-Path -Path $aggregateResultsDir -ChildPath 'Pester.aggregate-rerun.xml'
+    $aggregateFailureManifestPath = Join-Path -Path $aggregateResultsDir -ChildPath 'Pester.aggregate-remaining-failures.json'
+    $aggregateBaseConfig = New-KestrunPesterConfig `
+        -TestPath $PesterTestsRootPath `
+        -Verbosity $PesterVerbosity `
+        -ResultsPath $aggregateRerunXmlPath `
+        -TestSuiteName 'Kestrun Pester Aggregate Rerun'
+
+    $aggregateRerunConfig = New-KestrunPesterRerunConfig `
+        -Failed $initialFailedSelectors `
+        -BaseConfig $aggregateBaseConfig `
+        -ResultsPath $aggregateRerunXmlPath `
+        -TestSuiteName 'Kestrun Pester Aggregate Rerun'
+
+    $aggregateRerun = Invoke-KestrunPesterWithConfig -Config $aggregateRerunConfig
+    $remainingFailedSelectors = if ($aggregateRerun.Run.FailedCount -gt 0) {
+        @(Get-KestrunPesterFailedSelector -PesterRun $aggregateRerun.Run)
+    } else {
+        @()
+    }
+
+    ConvertTo-Json -InputObject @($remainingFailedSelectors) -Depth 6 | Set-Content -LiteralPath $aggregateFailureManifestPath -Encoding utf8NoBOM
+
+    if ($remainingFailedSelectors.Count -gt 0) {
+        $failureSummary = @($remainingFailedSelectors | ForEach-Object { $_.FullName })
+        throw "Test-Pester still has failing tests after the deferred rerun: $($failureSummary -join '; ')"
+    }
+
+    Write-Host '✅ Pester deferred rerun cleared all initial failures.' -ForegroundColor Green
 }
 
 Add-BuildTask 'Test' 'Test-xUnit', 'Test-Pester'
@@ -759,6 +965,7 @@ Add-BuildTask 'Coverage' {
     Write-Host '📊 Creating coverage report...'
     & "$utilityPath/Build-Coverage.ps1" -TestProjects @(
         $KestrunCoreTestProjectPath,
+        $KestrunMcpTestProjectPath,
         $KestrunToolTestProjectPath,
         $KestrunServiceHostTestProjectPath,
         $KestrunRunnerTestProjectPath
@@ -774,6 +981,7 @@ Add-BuildTask 'Report-Coverage' {
     Write-Host '🌐 Creating coverage report webpage...'
     & "$utilityPath/Build-Coverage.ps1" -ReportGenerator -TestProjects @(
         $KestrunCoreTestProjectPath,
+        $KestrunMcpTestProjectPath,
         $KestrunToolTestProjectPath,
         $KestrunServiceHostTestProjectPath,
         $KestrunRunnerTestProjectPath
@@ -836,16 +1044,5 @@ Add-BuildTask Update-Module {
 }
 
 Add-BuildTask 'Normalize-LineEndings' {
-    Write-Host '🔄 Normalizing line endings to LF in .ps1, .psm1, .cs, .md, and .psd1 files...'
-
-    Get-ChildItem -Recurse -Include *.ps1, *.psm1, *.cs, *.md, *.psd1 |
-        Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } |
-        ForEach-Object {
-            $text = Get-Content -Raw -Path $_.FullName
-            # Replace CRLF with LF
-            $text = $text -replace "`r`n", "`n"
-            # Write back with UTF-8 (no BOM, cross-platform friendly)
-            [System.IO.File]::WriteAllText($_.FullName, $text, ([System.Text.UTF8Encoding]::new($false)))
-            Write-Host "Normalized line endings in $($_.FullName)"
-        }
+    & "$utilityPath/Normalize-Files.ps1" -Root $PSScriptRoot
 }

@@ -33,7 +33,7 @@ Related to #456
 ## ✅ Checklist
 
 - [ ] Code follows project style (C# + PowerShell guidelines)
-- [ ] Tests added/updated for new/changed functionality  
+- [ ] Tests added/updated for new/changed functionality
 - [ ] Documentation updated (README, docs.kestrun.dev, or inline XML/Comment-based help)
 - [ ] CI/CD passes locally (`Invoke-Build Test`)
 - [ ] Commit messages are clear and conventional

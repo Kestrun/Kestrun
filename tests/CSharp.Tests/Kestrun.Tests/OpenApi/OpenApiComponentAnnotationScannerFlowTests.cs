@@ -141,6 +141,26 @@ public sealed class OpenApiComponentAnnotationScannerFlowTests
         Assert.Contains("No running script path", ex.Message);
     }
 
+    [Fact]
+    public void ScanFromPath_BikeRentalExample_FindsSplitResponseComponents()
+    {
+        var path = LocateFirstExistingRepoFile(
+            ["docs", "_includes", "examples", "pwsh", "BikeRentalShop", "Synchronized", "Service.ps1"],
+            ["docs", "_includes", "examples", "pwsh", "BikeRentalShop", "Concurrent", "Service.ps1"]);
+
+        Assert.True(File.Exists(path), $"Expected example script at '{path}'.");
+
+        var result = OpenApiComponentAnnotationScanner.ScanFromPath(path);
+
+        Assert.True(result.ContainsKey("StaffReturnRentalOk"));
+        Assert.True(result.ContainsKey("StaffReturnRentalNotFound"));
+        Assert.True(result.ContainsKey("StaffReturnRentalConflict"));
+
+        Assert.Contains(result["StaffReturnRentalOk"].Annotations, attribute => attribute is OpenApiResponseComponentAttribute);
+        Assert.Contains(result["StaffReturnRentalNotFound"].Annotations, attribute => attribute is OpenApiResponseComponentAttribute);
+        Assert.Contains(result["StaffReturnRentalConflict"].Annotations, attribute => attribute is OpenApiResponseComponentAttribute);
+    }
+
     private static string CreateTempDir()
     {
         var dir = Path.Combine(Path.GetTempPath(), "kestrun-scanner-flow-" + Guid.NewGuid().ToString("N"));
@@ -160,6 +180,72 @@ public sealed class OpenApiComponentAnnotationScannerFlowTests
         catch
         {
             // best-effort temp cleanup
+        }
+    }
+
+    private static string GetSafeStartDirectory()
+    {
+        try
+        {
+            return Directory.GetCurrentDirectory();
+        }
+        catch (Exception ex) when (ex is IOException
+                                   or UnauthorizedAccessException
+                                   or DirectoryNotFoundException
+                                   or FileNotFoundException)
+        {
+            return AppContext.BaseDirectory;
+        }
+    }
+
+    private static string LocateRepoFile(params string[] relativeSegments)
+    {
+        foreach (var root in EnumerateSearchRoots())
+        {
+            var current = root;
+            while (!string.IsNullOrWhiteSpace(current))
+            {
+                var candidate = Path.Combine([current, .. relativeSegments]);
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+
+                current = Path.GetDirectoryName(current);
+            }
+        }
+
+        return Path.Combine([GetSafeStartDirectory(), .. relativeSegments]);
+    }
+
+    private static string LocateFirstExistingRepoFile(params string[][] relativePathCandidates)
+    {
+        foreach (var relativePath in relativePathCandidates)
+        {
+            var candidate = LocateRepoFile(relativePath);
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return LocateRepoFile(relativePathCandidates[0]);
+    }
+
+    private static IEnumerable<string> EnumerateSearchRoots()
+    {
+        var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            GetSafeStartDirectory(),
+            AppContext.BaseDirectory
+        };
+
+        foreach (var root in roots)
+        {
+            if (!string.IsNullOrWhiteSpace(root))
+            {
+                yield return root;
+            }
         }
     }
 }

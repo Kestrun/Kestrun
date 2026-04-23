@@ -29,7 +29,7 @@ if (Test-Path -Path "$OutDir/about_.md") {
 }
 # Import PlatyPS module
 if (-not (Get-Module -ListAvailable -Name Microsoft.PowerShell.PlatyPS)) {
-    Write-Host "📦 Installing Microsoft.PowerShell.PlatyPS..."
+    Write-Host '📦 Installing Microsoft.PowerShell.PlatyPS...'
     Install-Module Microsoft.PowerShell.PlatyPS -Force -Scope CurrentUser
 }
 Import-Module Microsoft.PowerShell.PlatyPS
@@ -115,17 +115,28 @@ foreach ($f in $files) {
     }
 
     $raw = ($lines -join "`n")
+    $contentBody = [regex]::Replace(
+        $raw,
+        '^\uFEFF?(?:[ \t]*\r?\n)*[ \t]*---\r?\n.*?\r?\n---\r?\n?',
+        '',
+        [System.Text.RegularExpressions.RegexOptions]::Singleline)
 
-    if ($raw -notmatch '^\s*---\s*$') {
-        @"
+    if ([string]::IsNullOrWhiteSpace($contentBody)) {
+        $contentBody = ''
+    } else {
+        $contentBody = $contentBody.TrimStart("`r", "`n")
+    }
+    @"
 ---
 layout: default
 parent: PowerShell Cmdlets
 nav_order: $i
 render_with_liquid: false
-$($raw.Substring(5))
+title: $($f.BaseName)
+
+$contentBody
 "@ | Set-Content $f.FullName -NoNewline
-    }
+
     $i++
 }
 

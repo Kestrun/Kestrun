@@ -1638,7 +1638,7 @@ internal static partial class Program
             return false;
         }
 
-        scriptSource = new ResolvedServiceScriptSource(fullScriptPath, null, Path.GetFileName(fullScriptPath), null, null, null, null, null, []);
+        scriptSource = new ResolvedServiceScriptSource(fullScriptPath, null, Path.GetFileName(fullScriptPath), null, null, null, null, null, [], []);
         error = string.Empty;
         return true;
     }
@@ -1995,7 +1995,7 @@ internal static partial class Program
     /// <returns>True when descriptor exists and mandatory metadata is valid.</returns>
     private static bool TryResolveServiceInstallDescriptor(string fullContentRoot, out ServiceInstallDescriptor descriptor, out string error)
     {
-        descriptor = new ServiceInstallDescriptor(string.Empty, string.Empty, string.Empty, string.Empty, null, null, []);
+        descriptor = new ServiceInstallDescriptor(string.Empty, string.Empty, string.Empty, string.Empty, null, null, [], []);
         if (!TryReadNormalizedServiceDescriptorText(fullContentRoot, out var descriptorText, out error))
         {
             return false;
@@ -2024,6 +2024,11 @@ internal static partial class Program
             return false;
         }
 
+        if (!TryGetServiceDescriptorStringArrayValue(descriptorText, "ApplicationDataFolders", out var applicationDataFolders, out error))
+        {
+            return false;
+        }
+
         descriptor = new ServiceInstallDescriptor(
             normalizedFormatVersion,
             name,
@@ -2031,7 +2036,8 @@ internal static partial class Program
             description,
             version,
             string.IsNullOrWhiteSpace(serviceLogPath) ? null : serviceLogPath,
-            preservePaths);
+            preservePaths,
+            applicationDataFolders);
         return true;
     }
 
@@ -2318,7 +2324,8 @@ internal static partial class Program
             descriptor.Description,
             descriptor.Version,
             descriptor.ServiceLogPath,
-            descriptor.PreservePaths);
+            descriptor.PreservePaths,
+            descriptor.ApplicationDataFolders);
 
     /// <summary>
     /// Downloads and extracts an HTTP content-root archive into the supplied directory.
@@ -2396,7 +2403,7 @@ internal static partial class Program
         }
 
         var relativeScriptPath = Path.GetRelativePath(fullContentRoot, fullScriptPathFromRoot);
-        scriptSource = new ResolvedServiceScriptSource(fullScriptPathFromRoot, fullContentRoot, relativeScriptPath, temporaryContentRootPath, null, null, null, null, []);
+        scriptSource = new ResolvedServiceScriptSource(fullScriptPathFromRoot, fullContentRoot, relativeScriptPath, temporaryContentRootPath, null, null, null, null, [], []);
         error = string.Empty;
         return true;
     }
@@ -2406,7 +2413,7 @@ internal static partial class Program
     /// </summary>
     /// <returns>Empty resolved service script source value.</returns>
     private static ResolvedServiceScriptSource CreateEmptyResolvedServiceScriptSource()
-        => new(string.Empty, null, string.Empty, null, null, null, null, null, []);
+        => new(string.Empty, null, string.Empty, null, null, null, null, null, [], []);
 
     /// <summary>
     /// Creates a temporary extraction directory for archive-based service content roots.

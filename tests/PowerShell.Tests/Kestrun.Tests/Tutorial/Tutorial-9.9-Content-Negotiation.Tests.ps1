@@ -13,6 +13,6 @@ Describe 'Example 9.9-Content-Negotiation' {
             Write-KrExampleInstanceOnFailure -Instance $script:instance
         }
     }
-    
+
     It 'Content negotiation routes respond with 200' { Test-ExampleRouteSet -Instance $script:instance }
 }

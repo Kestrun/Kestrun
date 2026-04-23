@@ -57,13 +57,36 @@ function Enable-KrConfiguration {
         if ([string]::IsNullOrEmpty($callerPath)) {
             throw 'KestrunHostManager is not properly initialized. EntryScriptPath is not set.'
         }
+        $callerPath = (Resolve-Path -LiteralPath $callerPath -ErrorAction Stop).ProviderPath
+        $callerDirectory = Split-Path -Parent $callerPath
+        $callerDirectoryPrefix = if ([string]::IsNullOrWhiteSpace($callerDirectory)) {
+            $null
+        } else {
+            $callerDirectory.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+        }
         # AUTO: collect session-defined functions present now
         $fx = @( Get-Command -CommandType Function | Where-Object { -not $_.Module } )
 
         if ($callerPath) {
             $fx = $fx | Where-Object {
-                $_.ScriptBlock.File -and
-                ((Resolve-Path -LiteralPath $_.ScriptBlock.File -ErrorAction SilentlyContinue)?.ProviderPath) -eq $callerPath
+                if (-not $_.ScriptBlock.File) {
+                    return $false
+                }
+
+                $functionPath = (Resolve-Path -LiteralPath $_.ScriptBlock.File -ErrorAction SilentlyContinue)?.ProviderPath
+                if (-not $functionPath) {
+                    return $false
+                }
+
+                if ($functionPath -eq $callerPath) {
+                    return $true
+                }
+
+                if ([string]::IsNullOrWhiteSpace($callerDirectoryPrefix)) {
+                    return $false
+                }
+
+                return $functionPath.StartsWith($callerDirectoryPrefix, [System.StringComparison]::OrdinalIgnoreCase)
             }
             $fx = @($fx)  # normalize again
         }

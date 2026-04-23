@@ -42,7 +42,10 @@
     .PARAMETER CertPassword
         The password for the SSL certificate, if applicable. This parameter is optional.
     .PARAMETER SelfSignedCert
-        If specified, a self-signed certificate will be generated and used for HTTPS. This parameter is optional.
+        If specified, a localhost development certificate will be generated and used for HTTPS.
+        The listener uses the issued leaf certificate while the generated development root remains
+        untrusted unless you trust it explicitly through New-KrSelfSignedCertificate -Development -TrustRoot. This parameter
+        is optional.
     .PARAMETER X509Certificate
         An X509Certificate2 object representing the SSL certificate. This parameter is Mandatory if using HTTPS
     .PARAMETER Protocols
@@ -74,6 +77,11 @@
         $httpsEndpoint = Add-KrEndpoint -Port 5443 -CertPath .\devcert.pfx -CertPassword $pw -PassThru
         Add-KrMapRoute -Pattern '/secure' -Endpoints $httpsEndpoint -ScriptBlock { Write-KrTextResponse 'Secure hello' }
         Adds an HTTPS listener and returns route endpoint specs for endpoint-specific routing.
+
+    .EXAMPLE
+        Add-KrEndpoint -Port 5443 -SelfSignedCert
+        Creates an HTTPS listener using a localhost development certificate issued from a generated
+        development root CA.
     .NOTES
         This function is designed to be used while staging server listeners before
         Enable-KrConfiguration is called.
@@ -160,7 +168,8 @@ function Add-KrEndpoint {
         }
         $X509Certificate = Import-KrCertificate -FilePath $CertPath -Password $CertPassword
     } elseif ($SelfSignedCert.IsPresent) {
-        $X509Certificate = New-KrSelfSignedCertificate -DnsNames localhost, 127.0.0.1 -ValidDays 30
+        $developmentCertificate = New-KrSelfSignedCertificate -Development -DnsNames localhost, 127.0.0.1, '::1' -LeafValidDays 30 -Exportable
+        $X509Certificate = $developmentCertificate.LeafCertificate
     }
 
     $defaultIPAddress = [System.Net.IPAddress]::Any

@@ -5,7 +5,7 @@ using Kestrun.Certificates;
 
 internal class Program
 {
-    internal static readonly string[] DnsNames = ["localhost", "127.0.0.1"];
+    internal static readonly string[] DnsNames = ["localhost", "127.0.0.1", "::1"];
 
     private static void Main()
     {
@@ -14,7 +14,7 @@ internal class Program
         // ────────────────────────────────────────────────────────────────
         // 1) Generate a self-signed RSA “dev” cert
         // ────────────────────────────────────────────────────────────────
-        var rsaCert = CertificateManager.NewSelfSigned(
+        var selfSignedCertificateResult = CertificateManager.NewSelfSigned(
             new SelfSignedOptions(
                 DnsNames: DnsNames,
                 KeyType: KeyType.Rsa,
@@ -22,7 +22,7 @@ internal class Program
                 ValidDays: 30,
                 Exportable: true
             ));
-
+        var rsaCert = selfSignedCertificateResult.Certificate;
         Console.WriteLine($"[RSA] Thumbprint : {rsaCert.Thumbprint}");
         Console.WriteLine($"[RSA] Subject    : {rsaCert.Subject}");
         Console.WriteLine($"[RSA] NotAfter   : {rsaCert.NotAfter:yyyy-MM-dd}");

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <AssemblyName>Kestrun.Mcp</AssemblyName>
+        <RootNamespace>Kestrun.Mcp.ServerHost</RootNamespace>
+        <AssemblyTitle>Kestrun.Mcp</AssemblyTitle>
+        <Product>Kestrun.Mcp</Product>
+        <Description>Model Context Protocol server for Kestrun route, OpenAPI, runtime, and safe invocation tools.</Description>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="ModelContextProtocol" Version="1.2.0" />
+        <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.6.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Kestrun\Kestrun.csproj" />
+        <ProjectReference Include="..\Kestrun.Runner\Kestrun.Runner.csproj" />
+    </ItemGroup>
+</Project>

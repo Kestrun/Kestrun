@@ -4,7 +4,7 @@
 .DESCRIPTION
     Creates a Service.psd1 descriptor file used by Kestrun.Tool content-root service install flow.
     Required keys are FormatVersion, Name, Description, Version, and EntryPoint.
-    Optional keys are ServiceLogPath and PreservePaths.
+    Optional keys are ServiceLogPath, PreservePaths, and ApplicationDataFolders.
 .PARAMETER Path
     Target descriptor path. Accepts either a descriptor file path or a directory path.
     When a directory path is provided, Service.psd1 is appended automatically.
@@ -20,6 +20,8 @@
     Optional default service log path.
 .PARAMETER PreservePaths
     Optional list of relative file/folder paths that must be preserved during service update.
+.PARAMETER ApplicationDataFolders
+    Optional list of relative application-data folders that must be preserved during service update.
 .PARAMETER Force
     Overwrite an existing descriptor file.
 .PARAMETER WhatIf
@@ -58,6 +60,9 @@ function New-KrServiceDescriptor {
 
         [Parameter()]
         [string[]]$PreservePaths,
+
+        [Parameter()]
+        [string[]]$ApplicationDataFolders,
 
         [Parameter()]
         [switch]$Force
@@ -124,6 +129,20 @@ function New-KrServiceDescriptor {
 
             $escapedPreservePath = $preservePath.Replace("'", "''")
             $contentLines.Add("        '$escapedPreservePath'")
+        }
+
+        $contentLines.Add('    )')
+    }
+
+    if ($null -ne $ApplicationDataFolders -and $ApplicationDataFolders.Count -gt 0) {
+        $contentLines.Add('    ApplicationDataFolders = @(')
+        foreach ($applicationDataFolder in $ApplicationDataFolders) {
+            if ([string]::IsNullOrWhiteSpace($applicationDataFolder)) {
+                continue
+            }
+
+            $escapedApplicationDataFolder = $applicationDataFolder.Replace("'", "''")
+            $contentLines.Add("        '$escapedApplicationDataFolder'")
         }
 
         $contentLines.Add('    )')

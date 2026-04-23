@@ -243,13 +243,16 @@ For `service install`:
 - `--runtime-package-id <id>`: override the default runtime package id (`Kestrun.Service.<rid>`).
 - `--runtime-cache <folder>`: override the local runtime package cache root.
 - `Service.psd1` required keys inside the package: `FormatVersion` (must be `'1.0'`), `Name`, `Description`, `Version`, `EntryPoint`.
-- `Service.psd1` optional keys: `ServiceLogPath`, `PreservePaths`.
+- `Service.psd1` optional keys: `ServiceLogPath`, `PreservePaths`, `ApplicationDataFolders`.
 - `Version` in `Service.psd1` must be compatible with `System.Version` parsing.
 - If both `Service.psd1` and CLI provide a service log path, `--service-log-path` overrides descriptor `ServiceLogPath`.
 - Package installs create bundles at `<deployment-root>/<Name>/`.
 - Runtime-only prefetch (`service install` without `--package`) requires at least one runtime acquisition option and does not create a service bundle.
 - `PreservePaths` is an optional string array of relative file/folder paths to keep from the currently installed application during `service update --package`.
 - `PreservePaths` entries must be relative and resolve inside the service application root (absolute paths and root-escaping paths are rejected).
+- `ApplicationDataFolders` is an optional string array of relative application-data folders to keep from the
+  currently installed application during `service update --package`.
+- `ApplicationDataFolders` entries must be relative and resolve inside the service application root (absolute paths and root-escaping paths are rejected).
 
 Example `Service.psd1` with `PreservePaths`:
 
@@ -262,14 +265,17 @@ Example `Service.psd1` with `PreservePaths`:
   EntryPoint = './Service.ps1'
   PreservePaths = @(
     'config/settings.json'
-    'data/'
     'db/app.db'
+  )
+  ApplicationDataFolders = @(
+    'data/'
     'logs/'
   )
 }
 ```
 
-- Files and folders listed in `PreservePaths` are copied from the currently installed application before package replacement and restored afterward.
+- Files and folders listed in `PreservePaths` and `ApplicationDataFolders` are copied from the currently installed
+    application before package replacement and restored afterward.
 - `--content-root-checksum <hex>`: verify package checksum before extraction.
 - `--content-root-checksum-algorithm <name>`: checksum algorithm (`md5`, `sha1`, `sha256`, `sha384`, `sha512`). Defaults to `sha256`.
 - `--content-root-bearer-token <token>`: sends `Authorization: Bearer <token>` for HTTP(S) package downloads and HTTP(S) runtime-source downloads.

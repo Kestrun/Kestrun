@@ -61,24 +61,17 @@ function ConvertTo-KrJwkJson {
     [CmdletBinding(DefaultParameterSetName = 'ByCertificate')]
     [OutputType([string])]
     param(
-        # Certificate instance (from pipeline)
         [Parameter(Mandatory = $true, ValueFromPipeline = $true, ParameterSetName = 'ByCertificate')]
-        [System.Security.Cryptography.X509Certificates.X509Certificate2]
-        $Certificate,
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
 
-        # Raw RSA private key PEM
         [Parameter(Mandatory = $true, ParameterSetName = 'ByRsaPrivateKeyPem')]
-        [string]
-        $RsaPrivateKeyPem,
+        [string]$RsaPrivateKeyPem,
 
-        # RSA private key PEM file path
         [Parameter(Mandatory = $true, ParameterSetName = 'ByRsaPrivateKeyPath')]
-        [string]
-        $RsaPrivateKeyPath,
+        [string]$RsaPrivateKeyPath,
 
         [Parameter()]
-        [switch]
-        $IncludePrivateParameters
+        [switch]$IncludePrivateParameters
     )
     process {
         switch ($PSCmdlet.ParameterSetName) {

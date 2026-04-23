@@ -71,6 +71,9 @@ You can find guides, API references, and usage examples to help you get started 
 - **📘 OpenAPI + interactive docs**
   Generate OpenAPI (v3.0 / v3.1 / v3.2) and serve docs UIs (Swagger UI / ReDoc / Scalar / RapiDoc / Elements).
 
+- **🤖 MCP server**
+  Expose route discovery, OpenAPI inspection, runtime inspection, request validation, and gated safe route invocation to MCP-compatible clients with `Kestrun.Mcp`.
+
 - **🔁 Realtime**
   Server-Sent Events (SSE) and SignalR support.
 
@@ -147,6 +150,21 @@ Download PowerShell from the official
   cd Kestrun
   ```
 
+  Build the core project and sync the PowerShell module:
+
+  ```powershell
+  Invoke-Build Restore
+  Invoke-Build Build
+  ```
+
+  Build the MCP host explicitly when you want the stdio server:
+
+  ```powershell
+  Invoke-Build Build-KestrunMcp
+  ```
+
+  For MCP setup and client configuration, see [docs/guides/mcp.md](docs/guides/mcp.md).
+
 - **🛠️ CI/CD ready**
   - Build- and run-time configurable
   - Works in containerized / headless environments
@@ -165,6 +183,41 @@ Download PowerShell from the official
   - **Cron-based scheduling**: Full cron expression support via Cronos
   - **Multi-language job support**: Schedule PowerShell, C#, and VB.NET scripts as background jobs
   - **Job management**: Start, stop, and monitor scheduled tasks with detailed logging
+
+## MCP Server
+
+Kestrun includes a standalone stdio MCP host project at `src/CSharp/Kestrun.Mcp/`.
+It lets MCP-compatible clients connect to a local Kestrun script and use tools for:
+
+- route discovery
+- route metadata lookup
+- generated OpenAPI retrieval
+- runtime inspection
+- request validation
+- gated safe route invocation
+
+Use the dedicated build task:
+
+```powershell
+Invoke-Build Build-KestrunMcp
+```
+
+Typical local workflow:
+
+1. Point `Kestrun.Mcp` at a PowerShell script that starts a Kestrun host.
+2. Call `kestrun.inspect_runtime` to confirm the listener is up.
+3. Call `kestrun.list_routes` or `kestrun.get_route` to inspect the live route table.
+4. Call `kestrun.get_openapi` to retrieve the generated OpenAPI document as JSON.
+5. Call `kestrun.validate_request` to explain likely `404`, `406`, or `415` outcomes before sending a request.
+6. Call `kestrun.invoke_route` only for routes explicitly allowlisted with `--allow-invoke`.
+
+Practical examples shipped in this branch:
+
+- `docs/_includes/examples/pwsh/24.1-Mcp-Hello.ps1` for route discovery, runtime inspection, and safe `GET /hello` invocation
+- `docs/_includes/examples/pwsh/24.2-Mcp-OpenAPI.ps1` for route schema inspection, OpenAPI retrieval, request validation, and safe `POST /items/{id}` invocation
+
+Then configure your MCP client to launch `Kestrun.Mcp` with a target script and optional `--allow-invoke` route globs.
+See the full guide: [docs/guides/mcp.md](docs/guides/mcp.md).
 
 ## Deployment & Extensibility
 
@@ -193,7 +246,8 @@ New-KrServiceDescriptor `
   -Version 1.2.0 `
   -EntryPoint '.\Service.ps1' `
   -ServiceLogPath '.\logs\service.log' `
-  -PreservePaths @('config/production.json', 'data/', 'logs/')
+  -PreservePaths @('config/production.json') `
+  -ApplicationDataFolders @('data/', 'logs/')
 ```
 
 Package a single script (auto-generates `Service.psd1`):
@@ -241,6 +295,7 @@ See [docs/](docs/) for structure.
 ## Project Structure
 
 - `src/CSharp/` — C# core libraries and web server
+  - `Kestrun.Mcp` — stdio MCP host for route, OpenAPI, runtime, and safe invocation tools
   - `Kestrun/Authentication` — authentication handlers and schemes
   - `Kestrun/Certificates` — certificate management utilities
   - `Kestrun/Hosting` — host configuration and extensions
@@ -264,7 +319,15 @@ See [docs/](docs/) for structure.
   - `CSharp/Scheduling` — task scheduling examples
   - `CSharp/SharedState` — shared state examples
   - `PowerShell/` — PowerShell examples
+    - `BikeRentalShop/Synchronized/` — package-ready rental API using a shared in-memory state object with serialized write/persist operations
+    - `BikeRentalShop/Concurrent/` — package-ready rental API using a fully concurrent dictionary-backed in-memory database
   - `Files/` — test files and resources
+
+The two bike rental PowerShell samples intentionally show different state models under
+`docs/_includes/examples/pwsh/BikeRentalShop/`. Use `Synchronized` when you want a simpler shared-state
+pattern around a familiar PowerShell object graph, and `Concurrent` when you want the
+in-memory database itself to be keyed with concurrent dictionaries end to end.
+
 - `tests/` — Test projects (C#, PowerShell)
 - `docs/` — Documentation files (Just-the-Docs)
 - `Utility/` — Build and maintenance scripts
@@ -317,4 +380,3 @@ Licensed under the MIT License. See [LICENSE](LICENSE).
 ---
 
 ### Using Kestrun in your projects? Support its development [![☕ Buy Me a Coffee](https://img.shields.io/badge/☕%20Buy%20Me%20a%20Coffee-Kestrun-FFDD00)](https://buymeacoffee.com/kestrun)
-

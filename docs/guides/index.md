@@ -21,6 +21,7 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 | [Authentication](./authentication) | JWT, OAuth 2.0, OpenID Connect (OIDC), and client certificates (mTLS) |
 | [OpenAPI](./openapi) | Generate and document APIs with OpenAPI 3.0+ specifications |
 | [Dotnet Tool](./tooling) | Install, update, and use the `kestrun` CLI via `Kestrun.Tool` |
+| [MCP Server](./mcp) | Expose Kestrun routes, OpenAPI, runtime inspection, and safe invocation to MCP clients |
 | [Production Deployment (Service/Daemon)](./production-service-daemon) | Deploy custom Kestrun apps to VM/bare-metal service hosts |
 | [Production Deployment (Container)](./production-container) | Package `.krpack` services into Docker images and Compose bundles |
 | [Real-time (SSE & SignalR)](./realtime) | Stream events via SSE or build interactive apps with SignalR |

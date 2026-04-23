@@ -553,6 +553,147 @@ function Remove-CommentHelpBlock {
 
 <#
 .SYNOPSIS
+    Gets the version of an assembly or returns $null if the assembly cannot be loaded.
+.DESCRIPTION
+    This function attempts to load the assembly at the specified path and retrieve its version.
+    If the assembly cannot be loaded, it returns $null.
+.PARAMETER Path
+    The path to the assembly file.
+.EXAMPLE
+    $version = Get-AssemblyVersionOrNull -Path 'C:\MyAssembly.dll'
+    This will attempt to load the assembly at the specified path and return its version, or $null if it cannot be loaded.
+#>
+function Get-AssemblyVersionOrNull {
+
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $null
+    }
+
+    try {
+        return [System.Reflection.AssemblyName]::GetAssemblyName($Path).Version
+    } catch {
+        return $null
+    }
+}
+
+function Get-FileSha256OrNull {
+
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $null
+    }
+
+    try {
+        return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path -ErrorAction Stop).Hash
+    } catch {
+        return $null
+    }
+}
+
+<#
+.SYNOPSIS
+    Copies a file if the version has changed.
+.DESCRIPTION
+    This function compares the version of the source and destination assemblies.
+    If the versions differ, it copies the source file to the destination.
+.PARAMETER SourcePath
+    The path to the source file.
+.PARAMETER DestinationPath
+    The path to the destination file.
+.EXAMPLE
+    Copy-IfVersionChanged -SourcePath 'C:\MyAssembly.dll' -DestinationPath 'D:\Lib\MyAssembly.dll'
+    This will copy the source assembly to the destination if the versions differ.
+#>
+function Copy-IfVersionChanged {
+
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SourcePath,
+        [Parameter(Mandatory = $true)]
+        [string]$DestinationPath
+    )
+
+    $targetDir = Split-Path -Path $DestinationPath -Parent
+    if (-not (Test-Path -LiteralPath $targetDir)) {
+        New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+    }
+
+    $fileName = Split-Path -Path $DestinationPath -Leaf
+    $sourceVersion = Get-AssemblyVersionOrNull -Path $SourcePath
+
+    if (Test-Path -LiteralPath $DestinationPath) {
+        $destinationVersion = Get-AssemblyVersionOrNull -Path $DestinationPath
+
+        if ($null -ne $sourceVersion -and $null -ne $destinationVersion -and $sourceVersion -eq $destinationVersion) {
+            # Version-only comparisons are insufficient for dev builds where the version often stays constant.
+            # When versions match, fall back to a content check (SHA256 when possible, otherwise file metadata).
+            $sourceInfo = Get-Item -LiteralPath $SourcePath
+            $destinationInfo = Get-Item -LiteralPath $DestinationPath
+
+            if ($sourceInfo.Length -eq $destinationInfo.Length) {
+                $sourceHash = Get-FileSha256OrNull -Path $SourcePath
+                $destinationHash = Get-FileSha256OrNull -Path $DestinationPath
+
+                if ($null -ne $sourceHash -and $null -ne $destinationHash -and $sourceHash -eq $destinationHash) {
+                    return [pscustomobject]@{
+                        Status = 'SkippedSameVersion'
+                        FileName = $fileName
+                        SourceVersion = $sourceVersion
+                        DestinationVersion = $destinationVersion
+                    }
+                }
+
+                if ($null -eq $sourceHash -or $null -eq $destinationHash) {
+                    # Hashing can fail in policy-restricted environments; prefer freshness as a tie-breaker.
+                    if ($sourceInfo.LastWriteTimeUtc -le $destinationInfo.LastWriteTimeUtc) {
+                        return [pscustomobject]@{
+                            Status = 'SkippedSameVersion'
+                            FileName = $fileName
+                            SourceVersion = $sourceVersion
+                            DestinationVersion = $destinationVersion
+                        }
+                    }
+                }
+            }
+
+            # Same assembly version but content differs (or appears newer): copy.
+            Copy-Item -Path $SourcePath -Destination $DestinationPath -Force
+            return [pscustomobject]@{
+                Status = 'Replaced'
+                FileName = $fileName
+                SourceVersion = $sourceVersion
+                DestinationVersion = $destinationVersion
+            }
+        }
+    } else {
+        Copy-Item -Path $SourcePath -Destination $DestinationPath -Force
+        return [pscustomobject]@{
+            Status = 'Added'
+            FileName = $fileName
+            SourceVersion = $sourceVersion
+            DestinationVersion = $null
+        }
+    }
+
+    Copy-Item -Path $SourcePath -Destination $DestinationPath -Force
+    return [pscustomobject]@{
+        Status = 'Replaced'
+        FileName = $fileName
+        SourceVersion = $sourceVersion
+        DestinationVersion = $destinationVersion
+    }
+}
+<#
+.SYNOPSIS
     Synchronizes PowerShell DLLs from the C# project output to the PowerShell module lib folder.
 .DESCRIPTION
     Copies compiled DLLs from the C# project output directory to the PowerShell module's lib folder,
@@ -568,6 +709,8 @@ function Remove-CommentHelpBlock {
     The path to the PowerShell installation to scan for existing DLLs. Default is $PSHOME.
 .PARAMETER ScanPowerShellHomeRecursively
     A switch indicating whether to scan the PowerShell home directory recursively for existing DLLs.
+.PARAMETER ShowSkippedDlls
+    A switch indicating whether skipped DLL names should be listed. By default only skip counts are shown.
 .EXAMPLE
     Sync-PowerShellDll -dest '.\src\PowerShell\Kestrun\lib' -Configuration 'Release' -Frameworks @('net8.0', 'net9.0')
     This will synchronize the DLLs from the Release build output for net8.0 and net9.0 to the specified lib folder.
@@ -590,11 +733,44 @@ function Sync-PowerShellDll {
         [string]$PowerShellHome = $PSHOME,
 
         [Parameter()]
-        [switch]$ScanPowerShellHomeRecursively
+        [switch]$ScanPowerShellHomeRecursively,
+
+        [Parameter()]
+        [switch]$ShowSkippedDlls
     )
-    if (  (Test-Path -Path $dest)) {
-        Write-Host "🧹 Cleaning destination folder: $dest"
-        Remove-Item -Path (Join-Path -Path $dest -ChildPath '*') -Recurse -Force -ErrorAction SilentlyContinue | Out-Null
+
+    function Write-GroupedSyncEntries {
+        param(
+            [Parameter(Mandatory = $true)]
+            [string]$Prefix,
+            [Parameter()]
+            [System.Collections.Generic.List[string]]$Entries,
+            [Parameter(Mandatory = $true)]
+            [bool]$ShowEntries,
+            [Parameter()]
+            [int]$ChunkSize = 8
+        )
+
+        if ($null -eq $Entries -or $Entries.Count -eq 0) {
+            return
+        }
+
+        $sortedEntries = @($Entries | Sort-Object -Unique)
+        if (-not $ShowEntries) {
+            Write-Host ('{0}: {1} DLL(s)' -f $Prefix, $sortedEntries.Count)
+            return
+        }
+
+        for ($index = 0; $index -lt $sortedEntries.Count; $index += $ChunkSize) {
+            $endIndex = [Math]::Min($index + $ChunkSize - 1, $sortedEntries.Count - 1)
+            $chunk = $sortedEntries[$index..$endIndex]
+
+            if ($index -eq 0) {
+                Write-Host ('{0} ({1}): {2}' -f $Prefix, $sortedEntries.Count, ($chunk -join ', '))
+            } else {
+                Write-Host ('   {0}' -f ($chunk -join ', '))
+            }
+        }
     }
 
     if (-not (Test-Path -Path $dest)) {
@@ -633,10 +809,10 @@ function Sync-PowerShellDll {
         & .\Utility\Download-CodeAnalysis.ps1 -OutputDir $dest
     }
     foreach ($framework in $Frameworks) {
+        $skippedSameVersionEntries = [System.Collections.Generic.List[string]]::new()
+        $skippedPsHomeEntries = [System.Collections.Generic.List[string]]::new()
+
         $destFramework = Join-Path -Path $dest -ChildPath $framework
-        if (Test-Path -Path $destFramework) {
-            Remove-Item -Path $destFramework -Recurse -Force | Out-Null
-        }
         New-Item -Path $destFramework -ItemType Directory -Force | Out-Null
         $destFramework = Resolve-Path -Path $destFramework
         $srcFramework = Resolve-Path (Join-Path -Path $src -ChildPath $framework)
@@ -677,19 +853,39 @@ function Sync-PowerShellDll {
 
                 # Skip DLLs that PowerShell already ships
                 if ($_.Extension -ieq '.dll' -and $psDllNames.Contains($_.Name)) {
-                    if ($VerboseSkips) { Write-Host "⏭️  Skipping (in PSHOME): $($_.Name)" }
+                    [void]$skippedPsHomeEntries.Add($_.Name)
                     return
                 }
 
                 $targetPath = $_.FullName.Replace($srcFramework, $destFramework)
-                $targetDir = Split-Path -Path $targetPath -Parent
-
-                if (-not (Test-Path $targetDir)) {
-                    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+                $copyResult = Copy-IfVersionChanged -SourcePath $_.FullName -DestinationPath $targetPath
+                switch ($copyResult.Status) {
+                    'Added' {
+                        if ($null -ne $copyResult.SourceVersion) {
+                            Write-Host "➕ Adding: $($copyResult.FileName) ($($copyResult.SourceVersion))"
+                        } else {
+                            Write-Host "➕ Adding: $($copyResult.FileName)"
+                        }
+                    }
+                    'Replaced' {
+                        if ($null -ne $copyResult.SourceVersion -and $null -ne $copyResult.DestinationVersion) {
+                            Write-Host "🔁 Replacing: $($copyResult.FileName) ($($copyResult.DestinationVersion) -> $($copyResult.SourceVersion))"
+                        } else {
+                            Write-Host "🔁 Replacing: $($copyResult.FileName)"
+                        }
+                    }
+                    'SkippedSameVersion' {
+                        if ($null -ne $copyResult.DestinationVersion) {
+                            [void]$skippedSameVersionEntries.Add("$($copyResult.FileName) ($($copyResult.DestinationVersion))")
+                        } else {
+                            [void]$skippedSameVersionEntries.Add($copyResult.FileName)
+                        }
+                    }
                 }
-
-                Copy-Item -Path $_.FullName -Destination $targetPath -Force
             }
+
+        Write-GroupedSyncEntries -Prefix '⏭️  Skipped same version' -Entries $skippedSameVersionEntries -ShowEntries $ShowSkippedDlls
+        Write-GroupedSyncEntries -Prefix '⏭️  Skipped PSHOME DLLs' -Entries $skippedPsHomeEntries -ShowEntries $ShowSkippedDlls
     }
     # Additionally, copy Kestrun.Annotations.dll and .pdb to PowerShell lib/assemblies
     $annotationSrc = Join-Path -Path $PWD -ChildPath 'src' -AdditionalChildPath 'CSharp', 'Kestrun.Annotations' , 'bin', $Configuration, 'net8.0'
@@ -700,7 +896,30 @@ function Sync-PowerShellDll {
         New-Item -Path $annotationDest -ItemType Directory -Force | Out-Null
     }
     # Copy the DLL and PDB files
-    Copy-Item -Path (Join-Path -Path $annotationSrc -ChildPath 'Kestrun.Annotations.dll') -Destination (Join-Path -Path $annotationDest -ChildPath 'Kestrun.Annotations.dll') -Force
+    $annotationCopyResult = Copy-IfVersionChanged -SourcePath (Join-Path -Path $annotationSrc -ChildPath 'Kestrun.Annotations.dll') -DestinationPath (Join-Path -Path $annotationDest -ChildPath 'Kestrun.Annotations.dll')
+    switch ($annotationCopyResult.Status) {
+        'Added' {
+            if ($null -ne $annotationCopyResult.SourceVersion) {
+                Write-Host "➕ Adding: $($annotationCopyResult.FileName) ($($annotationCopyResult.SourceVersion))"
+            } else {
+                Write-Host "➕ Adding: $($annotationCopyResult.FileName)"
+            }
+        }
+        'Replaced' {
+            if ($null -ne $annotationCopyResult.SourceVersion -and $null -ne $annotationCopyResult.DestinationVersion) {
+                Write-Host "🔁 Replacing: $($annotationCopyResult.FileName) ($($annotationCopyResult.DestinationVersion) -> $($annotationCopyResult.SourceVersion))"
+            } else {
+                Write-Host "🔁 Replacing: $($annotationCopyResult.FileName)"
+            }
+        }
+        'SkippedSameVersion' {
+            if ($null -ne $annotationCopyResult.DestinationVersion) {
+                Write-Host "⏭️  Skipped same version: $($annotationCopyResult.FileName) ($($annotationCopyResult.DestinationVersion))"
+            } else {
+                Write-Host "⏭️  Skipped same version: $($annotationCopyResult.FileName)"
+            }
+        }
+    }
 
     if ($Configuration -eq 'Debug' -and (Test-Path -Path (Join-Path -Path $annotationSrc -ChildPath 'Kestrun.Annotations.pdb'))) {
         Copy-Item -Path (Join-Path -Path $annotationSrc -ChildPath 'Kestrun.Annotations.pdb') -Destination (Join-Path -Path $annotationDest -ChildPath 'Kestrun.Annotations.pdb') -Force
@@ -738,7 +957,13 @@ function Invoke-KestrunDotNetTest {
         [ValidateSet('quiet', 'minimal', 'normal', 'detailed', 'diagnostic')]
         [string] $DotNetVerbosity = 'minimal',
         [Parameter()]
-        [string] $ResultsRoot = (Join-Path -Path (Get-Location) -ChildPath 'TestResults' -AdditionalChildPath 'xunit')
+        [string] $ResultsRoot = (Join-Path -Path (Get-Location) -ChildPath 'TestResults' -AdditionalChildPath 'xunit'),
+        [Parameter()]
+        [string] $TestFilter,
+        [Parameter()]
+        [string] $RunLabelSuffix = '',
+        [Parameter()]
+        [switch] $NoBuild
     )
 
     $safeLabel = ($Label -replace '[^A-Za-z0-9._-]', '_')
@@ -749,22 +974,73 @@ function Invoke-KestrunDotNetTest {
         New-Item -Path $targetResultsDir -ItemType Directory -Force | Out-Null
     }
 
-    $diagLogPath = Join-Path -Path $targetResultsDir -ChildPath "$safeLabel-$safeFramework.diag.log"
-    $trxFileName = "$safeLabel-$safeFramework.trx"
+    $safeRunLabelSuffix = if ([string]::IsNullOrWhiteSpace($RunLabelSuffix)) {
+        ''
+    } else {
+        '-' + ($RunLabelSuffix -replace '[^A-Za-z0-9._-]', '_')
+    }
+    $resultStem = "$safeLabel-$safeFramework$safeRunLabelSuffix"
+    $diagLogPath = Join-Path -Path $targetResultsDir -ChildPath "$resultStem.diag.log"
+    $trxFileName = "$resultStem.trx"
+    $trxPath = Join-Path -Path $targetResultsDir -ChildPath $trxFileName
+    $failureManifestPath = Join-Path -Path $targetResultsDir -ChildPath "$resultStem.failed-tests.json"
     $hangTimeout = if ($env:KESTRUN_TEST_HANG_TIMEOUT) { $env:KESTRUN_TEST_HANG_TIMEOUT } else { '5m' }
 
     Write-Host "🧪 dotnet test target: $Label ($Framework)" -ForegroundColor Cyan
     Write-Host "📁 xUnit results directory: $targetResultsDir" -ForegroundColor DarkCyan
     Write-Host "📝 xUnit diag log: $diagLogPath" -ForegroundColor DarkCyan
+    Write-Host "📄 xUnit failure manifest: $failureManifestPath" -ForegroundColor DarkCyan
     Write-Host "⏱️ xUnit hang timeout: $hangTimeout" -ForegroundColor DarkCyan
+    if (-not [string]::IsNullOrWhiteSpace($TestFilter)) {
+        Write-Host "🔎 xUnit filter: $TestFilter" -ForegroundColor DarkYellow
+    }
 
-    dotnet test "$ProjectPath" -c $Configuration -f $Framework -v:$DotNetVerbosity `
-        --results-directory "$targetResultsDir" `
-        --logger "trx;LogFileName=$trxFileName" `
-        --logger "console;verbosity=detailed" `
-        --diag "$diagLogPath" `
-        --blame-hang `
-        --blame-hang-timeout "$hangTimeout"
+    $arguments = @(
+        'test',
+        $ProjectPath,
+        '-c', $Configuration,
+        '-f', $Framework,
+        "-v:$DotNetVerbosity",
+        '--results-directory', $targetResultsDir,
+        '--logger', "trx;LogFileName=$trxFileName",
+        '--logger', 'console;verbosity=detailed',
+        '--diag', $diagLogPath,
+        '--blame-hang',
+        '--blame-hang-timeout', $hangTimeout
+    )
+
+    if ($NoBuild) {
+        $arguments += '--no-build'
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($TestFilter)) {
+        $arguments += @('--filter', $TestFilter)
+    }
+
+    & dotnet @arguments
+    $exitCode = $LASTEXITCODE
+
+    $failedSelectors = if (Test-Path -LiteralPath $trxPath) {
+        @(Get-KestrunTrxFailedSelector -TrxPath $trxPath -ProjectPath $ProjectPath -Framework $Framework -Label $Label)
+    } else {
+        Write-Warning "TRX result file was not created for '$Label' ($Framework): $trxPath"
+        @()
+    }
+
+    ConvertTo-Json -InputObject @($failedSelectors) -Depth 6 | Set-Content -LiteralPath $failureManifestPath -Encoding utf8NoBOM
+
+    return [pscustomobject]@{
+        ExitCode = $exitCode
+        ProjectPath = $ProjectPath
+        Framework = $Framework
+        Label = $Label
+        TestFilter = $TestFilter
+        TrxPath = $trxPath
+        DiagLogPath = $diagLogPath
+        ResultsDirectory = $targetResultsDir
+        FailureManifestPath = $failureManifestPath
+        FailedSelectors = @($failedSelectors)
+    }
 }
 
 <#
@@ -1262,18 +1538,126 @@ function Get-KestrunPesterFailedSelector {
         }
 
         [pscustomobject]@{
-            File         = $file
-            Line         = $test.StartLine
-            FullName     = $test.FullName
+            File = $file
+            Line = $test.StartLine
+            FullName = $test.FullName
             ExpandedPath = $test.ExpandedPath
-            Name         = $test.Name
-            Result       = $test.Result
+            Name = $test.Name
+            Result = $test.Result
         }
     }
 
     return @(
         $failedSelectors |
             Group-Object -Property { '{0}|{1}|{2}' -f $_.File, $_.Line, $_.FullName } |
+            ForEach-Object { $_.Group[0] }
+    )
+}
+
+<#
+.SYNOPSIS
+    Extracts failed xUnit/VSTest selectors from a TRX result file.
+.DESCRIPTION
+    Reads the generated TRX report, maps failed results back to their test
+    definitions, and returns stable selector objects that can be fed into a
+    deferred `dotnet test --filter` rerun.
+.PARAMETER TrxPath
+    Path to the TRX result file.
+.PARAMETER ProjectPath
+    Test project path that produced the TRX file.
+.PARAMETER Framework
+    Target framework associated with the TRX file.
+.PARAMETER Label
+    Friendly label used in build output for the test target.
+#>
+function Get-KestrunTrxFailedSelector {
+    [CmdletBinding()]
+    [OutputType([object[]])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $TrxPath,
+        [Parameter()]
+        [string] $ProjectPath,
+        [Parameter()]
+        [string] $Framework,
+        [Parameter()]
+        [string] $Label
+    )
+
+    if (-not (Test-Path -LiteralPath $TrxPath)) {
+        throw "TRX result file not found: $TrxPath"
+    }
+
+    [xml] $trx = Get-Content -LiteralPath $TrxPath -Raw
+    $namespaceManager = [System.Xml.XmlNamespaceManager]::new($trx.NameTable)
+    $namespaceManager.AddNamespace('trx', 'http://microsoft.com/schemas/VisualStudio/TeamTest/2010')
+
+    $testsById = @{}
+    foreach ($unitTest in @($trx.SelectNodes('//trx:TestDefinitions/trx:UnitTest', $namespaceManager))) {
+        $testId = $unitTest.GetAttribute('id')
+        if ([string]::IsNullOrWhiteSpace($testId)) {
+            continue
+        }
+
+        $testMethod = $unitTest.GetElementsByTagName('TestMethod') | Select-Object -First 1
+        $className = $null
+        $methodName = $null
+        if ($null -ne $testMethod) {
+            $className = $testMethod.GetAttribute('className')
+            $methodName = $testMethod.GetAttribute('name')
+        }
+        $fullyQualifiedName = if (-not [string]::IsNullOrWhiteSpace($className) -and -not [string]::IsNullOrWhiteSpace($methodName)) {
+            "$className.$methodName"
+        } else {
+            $null
+        }
+
+        $testsById[$testId] = [pscustomobject]@{
+            TestId = $testId
+            DisplayName = $unitTest.GetAttribute('name')
+            ClassName = $className
+            MethodName = $methodName
+            FullyQualifiedName = $fullyQualifiedName
+        }
+    }
+
+    $failedSelectors = foreach ($result in @($trx.SelectNodes('//trx:Results/trx:UnitTestResult[@outcome="Failed"]', $namespaceManager))) {
+        $testId = $result.GetAttribute('testId')
+        $test = if ($testsById.ContainsKey($testId)) { $testsById[$testId] } else { $null }
+        $className = if ($null -ne $test) { $test.ClassName } else { $null }
+        $methodName = if ($null -ne $test) { $test.MethodName } else { $null }
+        $fullyQualifiedName = if ($null -ne $test) { $test.FullyQualifiedName } else { $null }
+        $displayName = if ($test -and -not [string]::IsNullOrWhiteSpace($test.DisplayName)) {
+            $test.DisplayName
+        } else {
+            $result.GetAttribute('testName')
+        }
+
+        [pscustomobject]@{
+            ProjectPath = $ProjectPath
+            Framework = $Framework
+            Label = $Label
+            TrxPath = $TrxPath
+            TestId = $testId
+            DisplayName = $displayName
+            ClassName = $className
+            MethodName = $methodName
+            FullyQualifiedName = $fullyQualifiedName
+            Outcome = $result.GetAttribute('outcome')
+            ErrorMessage = $result.SelectSingleNode('trx:Output/trx:ErrorInfo/trx:Message', $namespaceManager)?.InnerText
+        }
+    }
+
+    return @(
+        $failedSelectors |
+            Group-Object -Property {
+                $selectorKey = if ([string]::IsNullOrWhiteSpace($_.FullyQualifiedName)) {
+                    $_.DisplayName
+                } else {
+                    $_.FullyQualifiedName
+                }
+                '{0}|{1}|{2}' -f $_.ProjectPath, $_.Framework, $selectorKey
+            } |
             ForEach-Object { $_.Group[0] }
     )
 }
@@ -1353,7 +1737,7 @@ function Invoke-KestrunPesterWithConfig {
     }
     $code = if ($run.FailedCount -gt 0) { 1 } else { 0 }
     return @{
-        Run      = $run
+        Run = $run
         ExitCode = $code
     }
 }

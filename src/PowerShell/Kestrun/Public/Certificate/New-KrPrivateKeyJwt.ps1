@@ -62,28 +62,22 @@ function New-KrPrivateKeyJwt {
     param(
         [Parameter(Mandatory = $true, ValueFromPipeline = $true, ParameterSetName = 'ByCertificate_Authority')]
         [Parameter(Mandatory = $true, ValueFromPipeline = $true, ParameterSetName = 'ByCertificate_EndPoint')]
-        [System.Security.Cryptography.X509Certificates.X509Certificate2]
-        $Certificate,
+        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'ByJwkJson_Authority')]
         [Parameter(Mandatory = $true, ParameterSetName = 'ByJwkJson_EndPoint')]
-        [string]
-        $JwkJson,
+        [string]$JwkJson,
 
         [Parameter(Mandatory = $true)]
-        [string]
-        $ClientId,
-
+        [string]$ClientId,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'ByJwkJson_EndPoint')]
         [Parameter(Mandatory = $true, ParameterSetName = 'ByCertificate_EndPoint')]
-        [string]
-        $TokenEndpoint,
+        [string]$TokenEndpoint,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'ByJwkJson_Authority')]
         [Parameter(Mandatory = $true, ParameterSetName = 'ByCertificate_Authority')]
-        [string]
-        $Authority
+        [string]$Authority
     )
     process {
         if (-not $PSCmdlet.ShouldProcess("ClientId '$ClientId' to audience '$TokenEndpoint'", 'Generate private_key_jwt')) {

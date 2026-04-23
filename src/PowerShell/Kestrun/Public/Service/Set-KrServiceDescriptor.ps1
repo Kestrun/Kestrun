@@ -2,7 +2,7 @@
 .SYNOPSIS
     Updates a Service.psd1 descriptor file.
 .DESCRIPTION
-    Updates Description, Version, EntryPoint, ServiceLogPath, and PreservePaths values in Service.psd1.
+    Updates Description, Version, EntryPoint, ServiceLogPath, PreservePaths, and ApplicationDataFolders values in Service.psd1.
     Name is immutable and cannot be changed by this cmdlet.
 .PARAMETER Path
     Descriptor path. Accepts either a descriptor file path or a directory path.
@@ -21,6 +21,10 @@
     Replaces PreservePaths with a new list of relative file/folder paths.
 .PARAMETER ClearPreservePaths
     Removes PreservePaths from the descriptor.
+.PARAMETER ApplicationDataFolders
+    Replaces ApplicationDataFolders with a new list of relative application-data folder paths.
+.PARAMETER ClearApplicationDataFolders
+    Removes ApplicationDataFolders from the descriptor.
 .PARAMETER WhatIf
     Shows what would happen if the cmdlet runs. The cmdlet is not executed.
 .PARAMETER Confirm
@@ -53,10 +57,16 @@ function Set-KrServiceDescriptor {
         [string[]]$PreservePaths,
 
         [Parameter()]
+        [string[]]$ApplicationDataFolders,
+
+        [Parameter()]
         [switch]$ClearServiceLogPath,
 
         [Parameter()]
-        [switch]$ClearPreservePaths
+        [switch]$ClearPreservePaths,
+
+        [Parameter()]
+        [switch]$ClearApplicationDataFolders
     )
 
     $updateRequested = $PSBoundParameters.ContainsKey('Description') -or
@@ -64,8 +74,10 @@ function Set-KrServiceDescriptor {
     $PSBoundParameters.ContainsKey('EntryPoint') -or
     $PSBoundParameters.ContainsKey('ServiceLogPath') -or
     $PSBoundParameters.ContainsKey('PreservePaths') -or
+    $PSBoundParameters.ContainsKey('ApplicationDataFolders') -or
     $ClearServiceLogPath -or
-    $ClearPreservePaths
+    $ClearPreservePaths -or
+    $ClearApplicationDataFolders
 
     if (-not $updateRequested) {
         throw 'No updates requested. Specify one or more updatable fields.'
@@ -77,6 +89,10 @@ function Set-KrServiceDescriptor {
 
     if ($PSBoundParameters.ContainsKey('PreservePaths') -and $ClearPreservePaths) {
         throw 'Cannot use -PreservePaths and -ClearPreservePaths together.'
+    }
+
+    if ($PSBoundParameters.ContainsKey('ApplicationDataFolders') -and $ClearApplicationDataFolders) {
+        throw 'Cannot use -ApplicationDataFolders and -ClearApplicationDataFolders together.'
     }
 
     $current = Get-KrServiceDescriptor -Path $Path
@@ -94,6 +110,7 @@ function Set-KrServiceDescriptor {
     $nextEntryPoint = if ($PSBoundParameters.ContainsKey('EntryPoint')) { $EntryPoint } else { $current.EntryPoint }
     $nextServiceLogPath = if ($ClearServiceLogPath) { $null } elseif ($PSBoundParameters.ContainsKey('ServiceLogPath')) { $ServiceLogPath } else { $current.ServiceLogPath }
     $nextPreservePaths = if ($ClearPreservePaths) { @() } elseif ($PSBoundParameters.ContainsKey('PreservePaths')) { @($PreservePaths) } else { @($current.PreservePaths) }
+    $nextApplicationDataFolders = if ($ClearApplicationDataFolders) { @() } elseif ($PSBoundParameters.ContainsKey('ApplicationDataFolders')) { @($ApplicationDataFolders) } else { @($current.ApplicationDataFolders) }
 
     if ([string]::IsNullOrWhiteSpace($nextDescription)) {
         if ($PSBoundParameters.ContainsKey('Description')) {
@@ -172,6 +189,20 @@ function Set-KrServiceDescriptor {
 
             $escapedPreservePath = $preservePath.Replace("'", "''")
             $contentLines.Add("        '$escapedPreservePath'")
+        }
+
+        $contentLines.Add('    )')
+    }
+
+    if ($null -ne $nextApplicationDataFolders -and $nextApplicationDataFolders.Count -gt 0) {
+        $contentLines.Add('    ApplicationDataFolders = @(')
+        foreach ($applicationDataFolder in $nextApplicationDataFolders) {
+            if ([string]::IsNullOrWhiteSpace($applicationDataFolder)) {
+                continue
+            }
+
+            $escapedApplicationDataFolder = $applicationDataFolder.Replace("'", "''")
+            $contentLines.Add("        '$escapedApplicationDataFolder'")
         }
 
         $contentLines.Add('    )')

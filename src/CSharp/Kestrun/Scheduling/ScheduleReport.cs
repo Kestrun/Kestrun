@@ -10,7 +10,7 @@ namespace Kestrun.Scheduling;
 /// <remarks>
 /// This report can be used to track the status and execution history of scheduled jobs.
 /// It is particularly useful for debugging and operational monitoring.
-/// </remarks>  
+/// </remarks>
 public sealed record ScheduleReport(
     DateTimeOffset GeneratedAt,
     IReadOnlyList<JobInfo> Jobs);

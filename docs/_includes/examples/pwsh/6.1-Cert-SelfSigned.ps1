@@ -1,9 +1,12 @@
 <#
-    Create a self-signed development certificate and start HTTPS listener.
+    Create a development root CA, issue a localhost leaf certificate, optionally trust the root,
+    and start an HTTPS listener.
     FileName: 6.1-Cert-SelfSigned.ps1
 #>
 param(
-    [int]$Port = $env:PORT ?? 5000
+    [int]$Port = $env:PORT ?? 5000,
+
+    [switch]$TrustRoot
 )
 
 # Initialize Kestrun root directory
@@ -15,20 +18,38 @@ New-KrLogger |
     Add-KrSinkConsole |
     Register-KrLogger -Name 'myLogger' -SetAsDefault
 
-# Create a self-signed cert for localhost (RSA 2048 by default)
-$cert = New-KrSelfSignedCertificate -DnsNames localhost, 127.0.0.1 -Exportable -ValidDays 30
+$bundle = New-KrSelfSignedCertificate -Development `
+    -DnsNames 'localhost', '127.0.0.1', '::1' `
+    -Exportable `
+    -LeafValidDays 30 `
+    -RootValidDays 3650 `
+    -TrustRoot:$TrustRoot.IsPresent
+
+$root = $bundle.RootCertificate
+$cert = $bundle.LeafCertificate
+
+Write-Host "Development root: $($root.Subject)" -ForegroundColor Cyan
+Write-Host "Leaf certificate: $($cert.Subject)" -ForegroundColor Cyan
+
+if ($bundle.RootTrusted) {
+    Write-Host 'Development root is present in CurrentUser\\Root.' -ForegroundColor Green
+} elseif ($TrustRoot.IsPresent) {
+    Write-Host 'TrustRoot was requested but no Windows trust action was performed.' -ForegroundColor Yellow
+} else {
+    Write-Host 'Root trust skipped. Use -TrustRoot on Windows if you want Chromium-family browsers to trust the root.' -ForegroundColor Yellow
+}
 
 # Show EKUs
 Get-KrCertificatePurpose -Certificate $cert | Out-Host
 
 # Configure HTTPS listener with the certificate
-New-KrServer -Name "HTTPS Demo"
+New-KrServer -Name 'HTTPS Demo'
 Add-KrEndpoint -Port $Port -X509Certificate $cert -Protocols Http1
 
 # Minimal route to verify HTTPS works
 
 Enable-KrConfiguration
-Add-KrMapRoute -Verbs Get -Pattern "/hello" -ScriptBlock { Write-KrTextResponse "hello https" }
+Add-KrMapRoute -Verbs Get -Pattern '/hello' -ScriptBlock { Write-KrTextResponse 'hello https' }
 
 Start-KrServer
 

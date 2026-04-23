@@ -2096,6 +2096,9 @@ public class KestrunToolCommandSurfaceTests
             var preservePaths = Assert.IsAssignableFrom<System.Collections.IEnumerable>(Descriptor.GetType().GetProperty("PreservePaths")!.GetValue(Descriptor));
             var preserveValues = preservePaths.Cast<object>().Select(static value => value?.ToString()).Where(static value => !string.IsNullOrWhiteSpace(value)).ToList();
             Assert.Empty(preserveValues);
+            var applicationDataFolders = Assert.IsAssignableFrom<System.Collections.IEnumerable>(Descriptor.GetType().GetProperty("ApplicationDataFolders")!.GetValue(Descriptor));
+            var applicationDataValues = applicationDataFolders.Cast<object>().Select(static value => value?.ToString()).Where(static value => !string.IsNullOrWhiteSpace(value)).ToList();
+            Assert.Empty(applicationDataValues);
         }
         finally
         {
@@ -2126,6 +2129,36 @@ public class KestrunToolCommandSurfaceTests
             var preservePaths = Assert.IsAssignableFrom<System.Collections.IEnumerable>(Descriptor!.GetType().GetProperty("PreservePaths")!.GetValue(Descriptor));
             var preserveValues = preservePaths.Cast<object>().Select(static value => value?.ToString()).Where(static value => !string.IsNullOrWhiteSpace(value)).ToList();
             Assert.Equal(["config/settings.json", "data/", "db/app.db"], preserveValues);
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                _ = InvokeTryDeleteDirectoryWithRetry(tempRoot, maxAttempts: 20, initialDelayMs: 50);
+            }
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Tooling")]
+    public void TryResolveServiceInstallDescriptor_Format10_ParsesApplicationDataFolders()
+    {
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"kestrun-tests-{Guid.NewGuid():N}");
+        try
+        {
+            _ = Directory.CreateDirectory(tempRoot);
+            var descriptorPath = Path.Combine(tempRoot, "Service.psd1");
+            var descriptorText = "@{`n    FormatVersion = '1.0'`n    Name = 'Demo.Service'`n    Description = 'demo'`n    Version = '1.1.0'`n    EntryPoint = 'server.ps1'`n    ApplicationDataFolders = @('data/','state/cache')`n}";
+            File.WriteAllText(descriptorPath, descriptorText, Encoding.UTF8);
+
+            var (Success, Descriptor, Error) = InvokeTryResolveServiceInstallDescriptor(tempRoot);
+
+            Assert.True(Success, Error);
+            Assert.True(string.IsNullOrWhiteSpace(Error));
+            Assert.NotNull(Descriptor);
+            var applicationDataFolders = Assert.IsAssignableFrom<System.Collections.IEnumerable>(Descriptor!.GetType().GetProperty("ApplicationDataFolders")!.GetValue(Descriptor));
+            var applicationDataValues = applicationDataFolders.Cast<object>().Select(static value => value?.ToString()).Where(static value => !string.IsNullOrWhiteSpace(value)).ToList();
+            Assert.Equal(["data/", "state/cache"], applicationDataValues);
         }
         finally
         {

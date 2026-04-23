@@ -2266,6 +2266,37 @@ public partial class KestrunHost : IDisposable
         }
     }
 
+    /// <summary>
+    /// Gets the currently known application URLs for this host.
+    /// </summary>
+    public IReadOnlyList<string> CurrentUrls => _app is { Urls.Count: > 0 }
+                ? [.. _app.Urls]
+                : [
+                .. Options.Listeners.Select(static listener =>
+                    $"{(listener.UseHttps ? "https" : "http")}://{FormatListenerHost(listener.IPAddress)}:{listener.Port}")
+            ];
+
+    /// <summary>
+    /// Formats a listener IP address into a URL-safe host literal.
+    /// </summary>
+    /// <param name="address">The listener IP address.</param>
+    /// <returns>A URL-safe host literal.</returns>
+    private static string FormatListenerHost(IPAddress address)
+    {
+        if (Equals(address, IPAddress.Any))
+        {
+            return "0.0.0.0";
+        }
+
+        if (Equals(address, IPAddress.IPv6Any))
+        {
+            return "[::]";
+        }
+
+        var text = address.ToString();
+        return address.AddressFamily == AddressFamily.InterNetworkV6 ? $"[{text}]" : text;
+    }
+
     #endregion
 
     #region Runspace Pool Management

@@ -475,7 +475,7 @@ if (File.Exists("./devcert.pfx"))
 else
 {
     // Create a new self-signed certificate
-    x509Certificate = CertificateManager.NewSelfSigned(
+    var result = CertificateManager.NewSelfSigned(
       new SelfSignedOptions(
           DnsNames: ["localhost", "127.0.0.1"],
           KeyType: KeyType.Rsa,
@@ -484,6 +484,7 @@ else
           Exportable: true
       )
   );
+    x509Certificate = result.Certificate;
     // Export the certificate to a file
     CertificateManager.Export(
         x509Certificate,

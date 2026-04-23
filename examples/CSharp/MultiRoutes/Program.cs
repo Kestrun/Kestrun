@@ -61,15 +61,18 @@ else
 {
     // Create a new self-signed certificate
 
-    x509Certificate = CertificateManager.NewSelfSigned(
+    var selfSignedCertificateResult = CertificateManager.NewSelfSigned(
       new SelfSignedOptions(
-          DnsNames: ["localhost", "127.0.0.1"],
+          DnsNames: ["localhost", "127.0.0.1", "::1"],
           KeyType: KeyType.Rsa,
           KeyLength: 2048,
           ValidDays: 30,
           Exportable: true
       )
-  );
+    );
+    // Assign the generated certificate to the variable
+    x509Certificate = selfSignedCertificateResult.Certificate;
+
     // Export the certificate to a file
     CertificateManager.Export(
         x509Certificate,

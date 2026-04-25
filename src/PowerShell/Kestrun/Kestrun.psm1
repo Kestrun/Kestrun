@@ -90,6 +90,7 @@ if (-not $inRouteRunspace) {
         }
     }
 } else {
+    Add-KrAspNetCoreType -Version $KrAspNetCoreVersion | Out-Null
     # Assert that the assembly is loaded and load it if not
     Assert-KrAssemblyLoaded (Join-Path -Path $assemblyLoadPath -ChildPath 'Kestrun.dll')
 }

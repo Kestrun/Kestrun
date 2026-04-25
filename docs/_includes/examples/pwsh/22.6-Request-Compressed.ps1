@@ -38,10 +38,10 @@ New-KrLogger |
 
 New-KrServer -Name 'Forms 22.6'
 
-Add-KrEndpoint -Port $Port | Out-Null
+Add-KrEndpoint -Port $Port
 
 # Enable Request Decompression Middleware
-Add-KrRequestDecompressionMiddleware -AllowedEncoding gzip | Out-Null
+Add-KrRequestDecompressionMiddleware -AllowedEncoding gzip
 
 # Upload directory
 $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($PSCommandPath)

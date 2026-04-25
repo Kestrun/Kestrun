@@ -14,7 +14,7 @@
 
     <ItemGroup>
         <PackageReference Include="ModelContextProtocol" Version="1.2.0" />
-        <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.6.0" />
+        <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.6.1" />
     </ItemGroup>
 
     <ItemGroup>

@@ -635,13 +635,16 @@ public static partial class KestrunHostMapExtensions
     private static bool IsValidPort(int port) => port is >= MIN_PORT and <= MAX_PORT;
 
     /// <summary>
-    /// Formats the host and port for use in RequireHost, adding brackets for IPv6 literals.
+    /// Formats the host and port for use in RequireHost.
+    /// ASP.NET Core's <c>HostMatcherPolicy</c> cannot parse bracketed IPv6 literals (e.g. <c>[::1]:5000</c>),
+    /// so IPv6 addresses are substituted with a port-only wildcard (<c>*:{port}</c>), which preserves
+    /// the intended port-based listener separation without crashing the DFA matcher.
     /// </summary>
     /// <param name="host">The host component.</param>
     /// <param name="port">The port component.</param>
     /// <returns>The formatted host and port string.</returns>
     internal static string ToRequireHost(string host, int port) =>
-        IsIPv6Address(host) ? $"[{host}]:{port}" : $"{host}:{port}"; // IPv6 literals must be bracketed in RequireHost
+        IsIPv6Address(host) ? $"*:{port}" : $"{host}:{port}";
 
     /// <summary>
     /// Determines if the given host string is an IPv6 address.

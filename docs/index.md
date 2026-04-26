@@ -75,7 +75,7 @@ Spin up your server, validate endpoints, and iterate quickly.
 Choose your deployment model:
 
 - **Service/daemon** → [Production Deployment](/guides/production-service-daemon)
-- **Container** → see the repository examples today; dedicated deployment docs are still planned
+- **Container** → [Production Deployment (Container)](/guides/production-container)
 
 ## Minimal example
 
@@ -95,6 +95,9 @@ Add-KrMapRoute -Verbs Get -Path '/cs/hello' -Code @'
 
 Start-KrServer
 ```
+
+By default, `Add-KrEndpoint -Port 5000` binds all interfaces (`0.0.0.0` for IPv4).
+Use `-IPAddress ([IPAddress]::Loopback)` when you want local-only development binding.
 
 `Add-KrEndpoint` also supports environment-based binding when no explicit target is provided. For example,
 `$env:PORT='8080'; Add-KrEndpoint` binds to `0.0.0.0:8080`, and `ASPNETCORE_URLS` supports full listener URLs.

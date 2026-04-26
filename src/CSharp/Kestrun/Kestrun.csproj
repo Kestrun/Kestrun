@@ -264,7 +264,7 @@
         <PackageReference Include="CsvHelper" Version="33.1.0" />
         <PackageReference Include="Cronos" Version="0.12.0" />
         <PackageReference Include="PeterO.Cbor" Version="4.5.5" />
-        <PackageReference Include="MongoDB.Bson" Version="3.7.1" />
+        <PackageReference Include="MongoDB.Bson" Version="3.8.0" />
         <PackageReference Include="YamlDotNet" Version="17.0.1" />
         <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
         <!-- Source Link for debugging

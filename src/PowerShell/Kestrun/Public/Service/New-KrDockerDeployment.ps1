@@ -131,6 +131,16 @@ function New-KrDockerDeployment {
     }
 
     function Get-KrStableDockerSuffix {
+        <#
+        .SYNOPSIS
+            Generates a stable suffix for Docker resource names based on an input string.
+        .DESCRIPTION
+            Computes a SHA256 hash of the input string and returns the first 12 characters as a hexadecimal suffix. This ensures that the same input will always produce the same suffix, which is useful for generating consistent Docker resource names based on variable input.
+        .PARAMETER InputValue
+            The input string used to generate the hash-based suffix.
+        .OUTPUTS
+            String containing the stable Docker suffix derived from the input value.
+        #>
         param(
             [Parameter(Mandatory)]
             [string]$InputValue
@@ -141,7 +151,19 @@ function New-KrDockerDeployment {
         return ([System.Convert]::ToHexString($hash)).Substring(0, 12).ToLowerInvariant()
     }
 
-    function Get-KrApplicationDataDefinitions {
+    function KrApplicationDataDefinition {
+        <#
+        .SYNOPSIS
+            Generates application data volume definitions for Docker Compose based on service descriptor entries.
+        .DESCRIPTION
+            For each relative path specified in the service descriptor's `ApplicationDataFolders`, this function generates a corresponding Docker volume name and storage path. The volume name is constructed using the normalized service name, a normalized segment derived from the relative path, and a stable hash suffix to ensure uniqueness. The storage path is set under `/opt/kestrun/application-data` with a structure that mirrors the relative path. This allows the generated Docker Compose file to define volumes that can be mounted to the appropriate locations in the container, ensuring that application data is persisted across container restarts and can be easily identified.
+        .PARAMETER NormalizedServiceName
+            The normalized name of the service, used as a prefix for volume names.
+        .PARAMETER RelativePaths
+            An array of relative paths from the service descriptor's `ApplicationDataFolders` entry. Each path is processed to generate a corresponding Docker volume definition.
+        .OUTPUTS
+            An array of custom objects, each containing `RelativePath`, `VolumeName`, and `StoragePath` properties for use in Docker Compose volume definitions.
+        #>
         param(
             [Parameter(Mandatory)]
             [string]$NormalizedServiceName,
@@ -315,7 +337,7 @@ function New-KrDockerDeployment {
         $dockerignorePath = Join-Path -Path $resolvedOutputPath -ChildPath '.dockerignore'
         $packageDestinationPath = Join-Path -Path $resolvedOutputPath -ChildPath 'app.krpack'
         $moduleDestinationPath = Join-Path -Path $resolvedOutputPath -ChildPath 'Kestrun'
-        $applicationDataDefinitions = @(Get-KrApplicationDataDefinitions -NormalizedServiceName $normalizedServiceName -RelativePaths $descriptor.ApplicationDataFolders)
+        $applicationDataDefinitions = @(KrApplicationDataDefinition -NormalizedServiceName $normalizedServiceName -RelativePaths $descriptor.ApplicationDataFolders)
 
         $composeLines = [System.Collections.Generic.List[string]]::new()
         $composeLines.Add('services:')

@@ -130,6 +130,53 @@ function New-KrDockerDeployment {
         return $normalized
     }
 
+    function Get-KrStableDockerSuffix {
+        param(
+            [Parameter(Mandatory)]
+            [string]$InputValue
+        )
+
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($InputValue)
+        $hash = [System.Security.Cryptography.SHA256]::HashData($bytes)
+        return ([System.Convert]::ToHexString($hash)).Substring(0, 12).ToLowerInvariant()
+    }
+
+    function Get-KrApplicationDataDefinitions {
+        param(
+            [Parameter(Mandatory)]
+            [string]$NormalizedServiceName,
+
+            [Parameter()]
+            [string[]]$RelativePaths
+        )
+
+        $definitions = [System.Collections.Generic.List[object]]::new()
+        foreach ($relativePath in @($RelativePaths)) {
+            if ([string]::IsNullOrWhiteSpace($relativePath)) {
+                continue
+            }
+
+            $normalizedRelativePath = $relativePath.Replace('\\', '/').Trim()
+            $trimmedRelativePath = $normalizedRelativePath.Trim('/')
+            if ([string]::IsNullOrWhiteSpace($trimmedRelativePath)) {
+                continue
+            }
+
+            $dockerSegment = Get-KrNormalizedDockerName -Name ($trimmedRelativePath -replace '/', '-') -Fallback 'app-data'
+            $hashSuffix = Get-KrStableDockerSuffix -InputValue $trimmedRelativePath.ToLowerInvariant()
+            $volumeName = '{0}-appdata-{1}-{2}' -f $NormalizedServiceName, $dockerSegment, $hashSuffix
+            $storagePath = '/opt/kestrun/application-data/{0}-{1}' -f $dockerSegment, $hashSuffix
+
+            $definitions.Add([pscustomobject]([ordered]@{
+                        RelativePath = $normalizedRelativePath
+                        VolumeName = $volumeName
+                        StoragePath = $storagePath
+                    }))
+        }
+
+        return $definitions
+    }
+
     function Get-KrDeploymentOutputPath {
         <#
         .SYNOPSIS
@@ -268,22 +315,38 @@ function New-KrDockerDeployment {
         $dockerignorePath = Join-Path -Path $resolvedOutputPath -ChildPath '.dockerignore'
         $packageDestinationPath = Join-Path -Path $resolvedOutputPath -ChildPath 'app.krpack'
         $moduleDestinationPath = Join-Path -Path $resolvedOutputPath -ChildPath 'Kestrun'
+        $applicationDataDefinitions = @(Get-KrApplicationDataDefinitions -NormalizedServiceName $normalizedServiceName -RelativePaths $descriptor.ApplicationDataFolders)
 
-        $composeContent = @"
-services:
-  ${normalizedServiceName}:
-    container_name: $normalizedServiceName
-    image: $resolvedImageName
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "$PublishedPort`:$ContainerPort"
-    environment:
-      PORT: "$ContainerPort"
-      ASPNETCORE_URLS: "http://+:$ContainerPort"
-    restart: unless-stopped
-"@
+        $composeLines = [System.Collections.Generic.List[string]]::new()
+        $composeLines.Add('services:')
+        $composeLines.Add("  ${normalizedServiceName}:")
+        $composeLines.Add("    container_name: $normalizedServiceName")
+        $composeLines.Add("    image: $resolvedImageName")
+        $composeLines.Add('    build:')
+        $composeLines.Add('      context: .')
+        $composeLines.Add('      dockerfile: Dockerfile')
+        $composeLines.Add('    ports:')
+        $composeLines.Add(('      - "{0}:{1}"' -f $PublishedPort, $ContainerPort))
+        $composeLines.Add('    environment:')
+        $composeLines.Add(('      PORT: "{0}"' -f $ContainerPort))
+        $composeLines.Add(('      ASPNETCORE_URLS: "http://+:{0}"' -f $ContainerPort))
+        if ($applicationDataDefinitions.Count -gt 0) {
+            $composeLines.Add('    volumes:')
+            foreach ($applicationDataDefinition in $applicationDataDefinitions) {
+                $composeLines.Add("      - $($applicationDataDefinition.VolumeName):$($applicationDataDefinition.StoragePath)")
+            }
+        }
+
+        $composeLines.Add('    restart: unless-stopped')
+
+        if ($applicationDataDefinitions.Count -gt 0) {
+            $composeLines.Add('volumes:')
+            foreach ($applicationDataDefinition in $applicationDataDefinitions) {
+                $composeLines.Add("  $($applicationDataDefinition.VolumeName):")
+            }
+        }
+
+        $composeContent = $composeLines -join "`n"
 
         $dockerfileContent = @"
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
@@ -320,29 +383,84 @@ EXPOSE $ContainerPort
 ENTRYPOINT ["/opt/kestrun/entrypoint.sh"]
 "@
 
-        $entrypointLines = @(
+        $entrypointLines = [System.Collections.Generic.List[string]]::new()
+        @(
             '#!/bin/sh'
             'set -eu'
             ''
             'PACKAGE_PATH="/opt/kestrun/app/app.krpack"'
             'SERVICE_ROOT="/opt/kestrun/service"'
+            'PERSISTENT_ROOT="/opt/kestrun/application-data"'
+            'ENTRYPOINT_FILE="/opt/kestrun/app/entrypoint-path.txt"'
             ''
-            'rm -rf "$SERVICE_ROOT"'
-            'mkdir -p "$SERVICE_ROOT"'
+            'mkdir -p "$PERSISTENT_ROOT"'
             ''
-            'pwsh -NoLogo -NoProfile -Command ''$ErrorActionPreference = "Stop"; Expand-Archive -LiteralPath "/opt/kestrun/app/app.krpack" -DestinationPath "/opt/kestrun/service" -Force'''
+            "pwsh -NoLogo -NoProfile -File - <<'POWERSHELL'"
+            '$ErrorActionPreference = ''Stop'''
+            '$packagePath = ''/opt/kestrun/app/app.krpack'''
+            '$serviceRoot = ''/opt/kestrun/service'''
+            '$entrypointFile = ''/opt/kestrun/app/entrypoint-path.txt'''
+            '$serviceRootWithSeparator = ([System.IO.Path]::GetFullPath($serviceRoot)).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar'
+            '$applicationDataDefinitions = @('
+        ).ForEach({ $entrypointLines.Add($_) })
+
+        foreach ($applicationDataDefinition in $applicationDataDefinitions) {
+            $entrypointLines.Add("    [pscustomobject]@{ RelativePath = '$($applicationDataDefinition.RelativePath.Replace("'", "''"))'; StoragePath = '$($applicationDataDefinition.StoragePath.Replace("'", "''"))' }")
+        }
+
+        @(
+            ')'
+            'if (Test-Path -LiteralPath $serviceRoot) {'
+            '    Remove-Item -LiteralPath $serviceRoot -Recurse -Force'
+            '}'
+            '$null = New-Item -ItemType Directory -Path $serviceRoot -Force'
+            'Expand-Archive -LiteralPath $packagePath -DestinationPath $serviceRoot -Force'
+            '$descriptorPath = [System.IO.Path]::Combine($serviceRoot, ''Service.psd1'')'
+            '$descriptor = Import-PowerShellDataFile -LiteralPath $descriptorPath'
+            'if (-not $descriptor.ContainsKey(''EntryPoint'') -or [string]::IsNullOrWhiteSpace([string]$descriptor[''EntryPoint''])) {'
+            '    throw (''Descriptor {0} is missing required key EntryPoint.'' -f $descriptorPath)'
+            '}'
+            'foreach ($applicationDataDefinition in $applicationDataDefinitions) {'
+            '    $relativePath = [string]$applicationDataDefinition.RelativePath'
+            '    $storagePath = [string]$applicationDataDefinition.StoragePath'
+            '    $servicePath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($serviceRoot, $relativePath))'
+            '    if ($servicePath -ne $serviceRoot -and -not $servicePath.StartsWith($serviceRootWithSeparator, [System.StringComparison]::Ordinal)) {'
+            '        throw (''ApplicationDataFolders entry ''''{0}'''' resolved outside the service root.'' -f $relativePath)'
+            '    }'
+            '    $storageDirectory = [System.IO.Path]::GetDirectoryName($storagePath)'
+            '    if (-not [string]::IsNullOrWhiteSpace($storageDirectory)) {'
+            '        $null = New-Item -ItemType Directory -Path $storageDirectory -Force'
+            '    }'
+            '    if (-not (Test-Path -LiteralPath $storagePath -PathType Container)) {'
+            '        $null = New-Item -ItemType Directory -Path $storagePath -Force'
+            '    }'
+            '    $storageChildren = @(Get-ChildItem -LiteralPath $storagePath -Force -ErrorAction SilentlyContinue)'
+            '    if ((Test-Path -LiteralPath $servicePath -PathType Container) -and $storageChildren.Count -eq 0) {'
+            '        foreach ($child in Get-ChildItem -LiteralPath $servicePath -Force -ErrorAction SilentlyContinue) {'
+            '            Copy-Item -LiteralPath $child.FullName -Destination $storagePath -Recurse -Force'
+            '        }'
+            '    }'
+            '    if (Test-Path -LiteralPath $servicePath) {'
+            '        Remove-Item -LiteralPath $servicePath -Recurse -Force'
+            '    }'
+            '    $serviceDirectory = [System.IO.Path]::GetDirectoryName($servicePath)'
+            '    if (-not [string]::IsNullOrWhiteSpace($serviceDirectory)) {'
+            '        $null = New-Item -ItemType Directory -Path $serviceDirectory -Force'
+            '    }'
+            '    $null = New-Item -ItemType SymbolicLink -Path $servicePath -Target $storagePath'
+            '}'
+            '$entryPointPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($serviceRoot, [string]$descriptor[''EntryPoint'']))'
+            '[System.IO.File]::WriteAllText($entrypointFile, $entryPointPath, [System.Text.UTF8Encoding]::new($false))'
+            'POWERSHELL'
             ''
-            'ENTRYPOINT_PATH=$(pwsh -NoLogo -NoProfile -Command ''$ErrorActionPreference = "Stop"; $descriptorPath = [System.IO.Path]::Combine("/opt/kestrun/service", "Service.psd1");'
-            '$descriptor = Import-PowerShellDataFile -LiteralPath $descriptorPath; if (-not $descriptor.ContainsKey("EntryPoint") -or [string]::IsNullOrWhiteSpace([string]$descriptor["EntryPoint"]))'
-            '{ throw ("Descriptor {0} is missing required key EntryPoint." -f $descriptorPath) };'
-            '[System.IO.Path]::GetFullPath([System.IO.Path]::Combine("/opt/kestrun/service", [string]$descriptor["EntryPoint"]))'')'
+            'ENTRYPOINT_PATH=$(cat "$ENTRYPOINT_FILE")'
             ''
             ('export ASPNETCORE_URLS="${{ASPNETCORE_URLS:-http://+:{0}}}"' -f $ContainerPort)
             ('export PORT="${{PORT:-{0}}}"' -f $ContainerPort)
             ''
             'cd "$SERVICE_ROOT"'
             'exec pwsh -NoLogo -File "$ENTRYPOINT_PATH" "$@"'
-        )
+        ).ForEach({ $entrypointLines.Add($_) })
         $entrypointContent = $entrypointLines -join "`n"
 
         $dockerignoreContent = @'

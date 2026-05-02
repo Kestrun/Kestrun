@@ -159,9 +159,9 @@ The generated output folder contains:
 
 Purpose of each file:
 
-- `docker-compose.yml`: local/default deployment manifest with image name, build context, ports, and environment variables.
+- `docker-compose.yml`: local/default deployment manifest with image name, build context, ports, environment variables, and named volumes for descriptor `ApplicationDataFolders`.
 - `Dockerfile`: image definition for ASP.NET Core + PowerShell + staged Kestrun module + app package.
-- `entrypoint.sh`: runtime startup script that extracts the package, resolves `Service.psd1`, and launches the packaged entry script.
+- `entrypoint.sh`: runtime startup script that extracts the package, reconnects descriptor `ApplicationDataFolders` to persistent storage, resolves `Service.psd1`, and launches the packaged entry script.
 - `app.krpack`: your packaged Kestrun app copied into the image build context.
 - `Kestrun/`: a staged copy of the current Kestrun module used during image build.
 - `.dockerignore`: keeps the Docker build context minimal and predictable.
@@ -189,14 +189,19 @@ if (Get-Module -ListAvailable Kestrun) {
 5. Copies `app.krpack` and the startup script into the image.
 6. At container startup:
    - extracts `app.krpack` into `/opt/kestrun/service`
-   - reads `Service.psd1`
-   - resolves `EntryPoint`
-   - executes the packaged PowerShell script with `pwsh -File`
+
+- recreates each descriptor `ApplicationDataFolders` path as a symbolic link to a durable path under `/opt/kestrun/application-data`
+- seeds an empty durable folder from the packaged content the first time that folder is mounted
+- reads `Service.psd1`
+- resolves `EntryPoint`
+- executes the packaged PowerShell script with `pwsh -File`
 
 The generated Compose file sets:
 
 - `PORT`
 - `ASPNETCORE_URLS`
+
+If `Service.psd1` defines `ApplicationDataFolders`, the generated Compose file also adds one named volume per folder and mounts it under `/opt/kestrun/application-data/...`.
 
 This means a typical app using:
 
@@ -205,6 +210,35 @@ Add-KrEndpoint -Port $Port
 ```
 
 can run without additional container-specific code.
+
+## Descriptor-Driven Application Data Volumes
+
+`ApplicationDataFolders` in `Service.psd1` now drives Docker persistence as well as package-based service updates.
+
+Example descriptor:
+
+```powershell
+@{
+  FormatVersion = '1.0'
+  Name = 'bike-rental-shop-web'
+  Description = 'Standalone Razor Pages web client for the bike rental shop backends.'
+  Version = '1.0.0'
+  EntryPoint = './Service.ps1'
+  ServiceLogPath = './logs/bike-rental-shop-web.log'
+  ApplicationDataFolders = @(
+    'data/'
+    'logs/'
+  )
+}
+```
+
+When `New-KrDockerDeployment` reads that descriptor it generates:
+
+- a named Docker volume for `data/`
+- a named Docker volume for `logs/`
+- startup logic that relinks `./data` and `./logs` in `/opt/kestrun/service` to those durable locations
+
+This keeps mutable application state and logs intact when you rebuild the image and redeploy the container.
 
 ## Why the Profile Import Matters
 
@@ -331,7 +365,7 @@ The generated bundle is intentionally minimal. For production use, extend `docke
 
 Typical additions:
 
-- bind mounts or named volumes for durable app data
+- extra bind mounts or named volumes beyond the descriptor-driven `ApplicationDataFolders`
 - environment-specific configuration via `environment:` or `env_file:`
 - reverse proxy integration
 - restart policy tuning
@@ -343,15 +377,15 @@ Example additions:
 services:
   my-service:
     volumes:
-      - my-service-data:/opt/kestrun/service/data
+      - my-service-config:/opt/kestrun/service/config
     env_file:
       - .env.production
 
 volumes:
-  my-service-data:
+  my-service-config:
 ```
 
-If your app writes logs or mutable state under the extracted service root, add an explicit volume for those paths.
+If your app already declares `ApplicationDataFolders`, the generated bundle includes the corresponding durable volumes automatically. Add explicit extra volumes only for paths that are not declared in the descriptor.
 
 ## Update Workflow
 
@@ -362,6 +396,8 @@ When your service changes:
 3. regenerate the Docker deployment bundle
 4. rebuild the image
 5. redeploy the container
+
+If you keep the generated named volumes in place, the container reuses the existing `ApplicationDataFolders` content across redeployments.
 
 Example:
 
@@ -381,11 +417,13 @@ docker compose build --no-cache
 docker compose up -d
 ```
 
+Avoid `docker compose down -v` when you want descriptor-managed application data to persist, because `-v` removes the named volumes generated from `ApplicationDataFolders`.
+
 ## Production Hardening Notes
 
 - Treat the generated bundle as a starting point, not the final shape for every environment.
 - Pin image tags intentionally; avoid ambiguous rollout practices.
-- Use volumes for durable data and logs when needed.
+- Use descriptor `ApplicationDataFolders` for durable app data and logs, and add extra volumes only when you need more paths.
 - Put secrets outside the image.
 - Prefer a reverse proxy, ingress, or load balancer in front of the container for TLS termination and public exposure.
 - Validate your generated bundle in staging before promoting it.

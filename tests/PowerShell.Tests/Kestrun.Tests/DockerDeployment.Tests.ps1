@@ -97,4 +97,43 @@ Describe 'Docker deployment cmdlet' {
             }
         }
     }
+
+    It 'New-KrDockerDeployment maps BikeRentalShop application data folders to durable named volumes' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-docker-bike-rental-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $projectRoot = Get-ProjectRootDirectory
+        $sourceFolder = Join-Path $projectRoot 'docs\_includes\examples\pwsh\BikeRentalShop\Web'
+        $packagePath = Join-Path $tempRoot 'bike-rental-shop-web.krpack'
+        $outputPath = Join-Path $tempRoot 'docker'
+
+        try {
+            $null = New-Item -ItemType Directory -Path $tempRoot -Force
+
+            $null = New-KrServicePackage -SourceFolder $sourceFolder -OutputPath $packagePath -Force
+            $result = New-KrDockerDeployment -PackagePath $packagePath -OutputPath $outputPath
+
+            $result.ServiceName | Should -Be 'bike-rental-shop-web'
+
+            $compose = ConvertFrom-KrYaml (Get-Content -LiteralPath (Join-Path $outputPath 'docker-compose.yml') -Raw)
+            $serviceVolumes = @($compose['services']['bike-rental-shop-web']['volumes'])
+            $serviceVolumes.Count | Should -Be 2
+            $serviceVolumes[0] | Should -Match '^bike-rental-shop-web-appdata-.*:/opt/kestrun/application-data/'
+            $serviceVolumes[1] | Should -Match '^bike-rental-shop-web-appdata-.*:/opt/kestrun/application-data/'
+            ($serviceVolumes -join "`n") | Should -Match ':/opt/kestrun/application-data/data-'
+            ($serviceVolumes -join "`n") | Should -Match ':/opt/kestrun/application-data/logs-'
+
+            $volumeKeys = @($compose['volumes'].Keys)
+            $volumeKeys.Count | Should -Be 2
+            $volumeKeys | Should -Contain ($serviceVolumes[0] -split ':', 2)[0]
+            $volumeKeys | Should -Contain ($serviceVolumes[1] -split ':', 2)[0]
+
+            $entrypoint = Get-Content -LiteralPath (Join-Path $outputPath 'entrypoint.sh') -Raw
+            $entrypoint | Should -Match "RelativePath = 'data/'"
+            $entrypoint | Should -Match "RelativePath = 'logs/'"
+            $entrypoint | Should -Match 'New-Item -ItemType SymbolicLink'
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
 }

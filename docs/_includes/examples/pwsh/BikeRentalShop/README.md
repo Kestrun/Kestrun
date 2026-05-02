@@ -22,6 +22,21 @@ New-KrServicePackage -SourceFolder .\docs\_includes\examples\pwsh\BikeRentalShop
 New-KrServicePackage -SourceFolder .\docs\_includes\examples\pwsh\BikeRentalShop\Web -OutputPath .\bike-rental-shop-web-1.0.0.krpack
 ```
 
+## Docker Commands
+
+```powershell
+New-KrDockerDeployment -PackagePath .\bike-rental-shop-1.0.0.krpack -OutputPath .\deploy\bike-rental-shop-docker -Force
+New-KrDockerDeployment -PackagePath .\bike-rental-shop-concurrent-1.0.0.krpack -OutputPath .\deploy\bike-rental-shop-concurrent-docker -Force
+New-KrDockerDeployment -PackagePath .\bike-rental-shop-web-1.0.0.krpack -OutputPath .\deploy\bike-rental-shop-web-docker -Force
+```
+
+Run one of the generated bundles with Docker Compose:
+
+```powershell
+cd .\deploy\bike-rental-shop-web-docker
+docker compose up -d
+```
+
 ## Run Commands
 
 ```powershell
@@ -42,5 +57,8 @@ pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Cleanup.ps1 -IncludeLogs
 - Both variants expose the same HTTP API shape so their behavior is easy to compare.
 - Both backend variants persist state under each sample's `data/` folder using `Export-KrSharedState` and `Import-KrSharedState`.
 - The web client is intentionally separate, so browser assets and Razor Pages do not leak into either backend sample.
+- All three checked-in `Service.psd1` files declare `ApplicationDataFolders = @('data/', 'logs/')`, so `New-KrDockerDeployment` generates named Docker volumes for those folders automatically.
+- The generated container startup relinks `data/` and `logs/` back into the extracted app so those paths survive image rebuilds and `docker compose up -d` updates.
+- Avoid `docker compose down -v` when you want to keep the sample's persistent state and logs.
 - When you run `Web/` against a backend on another origin, start that backend with `-AllowedCorsOrigins` for the web service origin.
 - `Cleanup.ps1` removes the generated shared root cache plus each sample's local `data/` artifacts, and it can also remove `logs/` with `-IncludeLogs`.

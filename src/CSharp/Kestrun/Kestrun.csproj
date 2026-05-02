@@ -245,9 +245,9 @@
         <PackageReference Include="Serilog.Sinks.SyslogMessages" Version="4.1.0" />
 
         <!-- Microsoft.AspNetCore -->
-        <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.17.0" />
-        <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.17.0" />
-        <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.17.0" />
+        <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.18.0" />
+        <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.18.0" />
+        <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.18.0" />
 
         <!-- Scripting Engines -->
         <PackageReference Include="Microsoft.ClearScript.V8" Version="7.5.0" />
@@ -259,13 +259,13 @@
     -->
 
         <!-- Utilities -->
-        <PackageReference Include="Microsoft.OpenApi" Version="3.5.2" />
+        <PackageReference Include="Microsoft.OpenApi" Version="3.5.3" />
 
         <PackageReference Include="CsvHelper" Version="33.1.0" />
-        <PackageReference Include="Cronos" Version="0.12.0" />
+        <PackageReference Include="Cronos" Version="0.13.0" />
         <PackageReference Include="PeterO.Cbor" Version="4.5.5" />
-        <PackageReference Include="MongoDB.Bson" Version="3.7.1" />
-        <PackageReference Include="YamlDotNet" Version="17.0.1" />
+        <PackageReference Include="MongoDB.Bson" Version="3.8.0" />
+        <PackageReference Include="YamlDotNet" Version="17.1.0" />
         <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
         <!-- Source Link for debugging
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />-->

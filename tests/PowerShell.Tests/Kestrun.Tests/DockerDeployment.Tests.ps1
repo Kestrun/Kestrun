@@ -2,6 +2,68 @@ param()
 
 BeforeAll {
     . (Join-Path $PSScriptRoot '.\PesterHelpers.ps1')
+
+    $script:dockerSmokeAvailable = $false
+    $script:dockerSmokeUnavailableReason = $null
+
+    try {
+        $null = & docker info --format '{{.ServerVersion}}' 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $script:dockerSmokeAvailable = $true
+        } else {
+            $script:dockerSmokeUnavailableReason = 'docker info returned a non-zero exit code.'
+        }
+    } catch {
+        $script:dockerSmokeUnavailableReason = $_.Exception.Message
+    }
+
+    function Invoke-TestDockerCompose {
+        param(
+            [Parameter(Mandatory)]
+            [string]$WorkingDirectory,
+
+            [Parameter(Mandatory)]
+            [string[]]$Arguments
+        )
+
+        Push-Location -LiteralPath $WorkingDirectory
+        try {
+            $output = (& docker compose @Arguments 2>&1) | Out-String
+            if ($LASTEXITCODE -ne 0) {
+                throw "docker compose $($Arguments -join ' ') failed.`n$output"
+            }
+
+            return $output
+        } finally {
+            Pop-Location
+        }
+    }
+
+    function Wait-TestHttpJson {
+        param(
+            [Parameter(Mandatory)]
+            [string]$Uri,
+
+            [ValidateRange(1, 180)]
+            [int]$TimeoutSeconds = 90,
+
+            [string]$Method = 'Get'
+        )
+
+        $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+        $lastError = $null
+
+        while ((Get-Date) -lt $deadline) {
+            try {
+                return Invoke-RestMethod -Uri $Uri -Method $Method -TimeoutSec 10
+            } catch {
+                $lastError = $_
+                Start-Sleep -Seconds 1
+            }
+        }
+
+        throw "Timed out waiting for $Method $Uri. Last error: $($lastError.Exception.Message)"
+    }
 }
 
 Describe 'Docker deployment cmdlet' {
@@ -131,6 +193,128 @@ Describe 'Docker deployment cmdlet' {
             $entrypoint | Should -Match "RelativePath = 'logs/'"
             $entrypoint | Should -Match 'New-Item -ItemType SymbolicLink'
         } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'New-KrDockerDeployment preserves application data across compose rebuild updates' -Tag 'Integration', 'Slow' -Skip:(-not $script:dockerSmokeAvailable) {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-docker-update-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $sourceV1 = Join-Path $tempRoot 'service-v1'
+        $sourceV2 = Join-Path $tempRoot 'service-v2'
+        $packageV1 = Join-Path $tempRoot 'service-v1.krpack'
+        $packageV2 = Join-Path $tempRoot 'service-v2.krpack'
+        $deployPath = Join-Path $tempRoot 'docker'
+        $publishedPort = Get-FreeTcpPort
+        $serviceName = 'docker-update-smoke'
+        $composeDownSucceeded = $false
+
+        $serviceScriptTemplate = @'
+param(
+    [int]$Port = $env:PORT ?? 8080
+)
+
+$Version = '__VERSION__'
+$DataRoot = Join-Path $PSScriptRoot 'data'
+$StatePath = Join-Path $DataRoot 'counter.txt'
+
+function Get-TestCounter {
+    if (-not (Test-Path -LiteralPath $StatePath -PathType Leaf)) {
+        return 0
+    }
+
+    return [int](Get-Content -LiteralPath $StatePath -Raw)
+}
+
+New-KrServer -Name 'Docker Update Smoke'
+Add-KrEndpoint -Port $Port -IPAddress ([System.Net.IPAddress]::Any)
+
+Add-KrMapRoute -Verbs Get -Pattern '/state' -AllowAnonymous -ScriptBlock {
+    Write-KrJsonResponse -InputObject ([ordered]@{
+            count = Get-TestCounter
+            version = $Version
+        }) -StatusCode 200
+}
+
+Add-KrMapRoute -Verbs Post -Pattern '/state/increment' -AllowAnonymous -ScriptBlock {
+    if (-not (Test-Path -LiteralPath $DataRoot -PathType Container)) {
+        $null = New-Item -ItemType Directory -Path $DataRoot -Force
+    }
+
+    $nextCount = (Get-TestCounter) + 1
+    Set-Content -LiteralPath $StatePath -Value $nextCount -Encoding utf8NoBOM
+
+    Write-KrJsonResponse -InputObject ([ordered]@{
+            count = $nextCount
+            version = $Version
+        }) -StatusCode 200
+}
+
+Start-KrServer -CloseLogsOnExit
+'@
+
+        $descriptorTemplate = @'
+@{
+    FormatVersion = '1.0'
+    Name = 'docker-update-smoke'
+    Description = 'Docker update integration smoke test service.'
+    Version = '__VERSION__'
+    EntryPoint = './Service.ps1'
+    ServiceLogPath = './logs/docker-update-smoke.log'
+    ApplicationDataFolders = @(
+        'data/'
+        'logs/'
+    )
+}
+'@
+
+        try {
+            $null = New-Item -ItemType Directory -Path $sourceV1 -Force
+            $null = New-Item -ItemType Directory -Path $sourceV2 -Force
+
+            Set-Content -LiteralPath (Join-Path $sourceV1 'Service.ps1') -Value ($serviceScriptTemplate.Replace('__VERSION__', '1.0.0')) -Encoding utf8NoBOM
+            Set-Content -LiteralPath (Join-Path $sourceV1 'Service.psd1') -Value ($descriptorTemplate.Replace('__VERSION__', '1.0.0')) -Encoding utf8NoBOM
+            Set-Content -LiteralPath (Join-Path $sourceV2 'Service.ps1') -Value ($serviceScriptTemplate.Replace('__VERSION__', '2.0.0')) -Encoding utf8NoBOM
+            Set-Content -LiteralPath (Join-Path $sourceV2 'Service.psd1') -Value ($descriptorTemplate.Replace('__VERSION__', '2.0.0')) -Encoding utf8NoBOM
+
+            $null = New-KrServicePackage -SourceFolder $sourceV1 -OutputPath $packageV1 -Force
+            $null = New-KrDockerDeployment -PackagePath $packageV1 -OutputPath $deployPath -PublishedPort $publishedPort -ContainerPort 8080 -ServiceName $serviceName -Force
+
+            Invoke-TestDockerCompose -WorkingDirectory $deployPath -Arguments @('up', '-d', '--build') | Out-Null
+
+            $stateUri = "http://127.0.0.1:$publishedPort/state"
+            $incrementUri = "http://127.0.0.1:$publishedPort/state/increment"
+
+            $initialState = Wait-TestHttpJson -Uri $stateUri
+            $initialState.count | Should -Be 0
+            $initialState.version | Should -Be '1.0.0'
+
+            $incrementedState = Wait-TestHttpJson -Uri $incrementUri -Method Post
+            $incrementedState.count | Should -Be 1
+            $incrementedState.version | Should -Be '1.0.0'
+
+            $null = New-KrServicePackage -SourceFolder $sourceV2 -OutputPath $packageV2 -Force
+            $null = New-KrDockerDeployment -PackagePath $packageV2 -OutputPath $deployPath -PublishedPort $publishedPort -ContainerPort 8080 -ServiceName $serviceName -Force
+
+            Invoke-TestDockerCompose -WorkingDirectory $deployPath -Arguments @('up', '-d', '--build', '--force-recreate') | Out-Null
+
+            $updatedState = Wait-TestHttpJson -Uri $stateUri
+            $updatedState.count | Should -Be 1
+            $updatedState.version | Should -Be '2.0.0'
+
+            $composeDownSucceeded = $true
+        } finally {
+            if (Test-Path -LiteralPath $deployPath) {
+                try {
+                    Invoke-TestDockerCompose -WorkingDirectory $deployPath -Arguments @('down', '--volumes', '--remove-orphans') | Out-Null
+                } catch {
+                    if ($composeDownSucceeded) {
+                        throw
+                    }
+                }
+            }
+
             if (Test-Path -LiteralPath $tempRoot) {
                 Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
             }

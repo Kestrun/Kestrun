@@ -1297,6 +1297,14 @@ function Assert-YamlContainsKeyValue {
     Expected YAML value for YamlKey.
 .PARAMETER ReturnResponse
     Return the underlying Invoke-WebRequest result (for chaining) instead of nothing.
+.PARAMETER Headers
+    Optional hashtable of headers to include in the request.
+.PARAMETER ContentType
+    Optional Content-Type header value for the request.
+.PARAMETER Body
+    Optional body content for POST/PUT/PATCH requests.
+.PARAMETER TimeoutSec
+    Request timeout in seconds (default 20).
 #>
 function Assert-RouteContent {
 
@@ -1314,12 +1322,13 @@ function Assert-RouteContent {
         [hashtable]$Headers,
         [string]$ContentType,
         [object]$Body,
-        [switch]$ReturnResponse
+        [switch]$ReturnResponse,
+        [int]$TimeoutSec = 20
     )
     if (-not ($Exact -or $Contains -or $Regex -or ($JsonField -and $JsonValue) -or ($YamlKey -and $YamlValue))) {
         throw 'Assert-RouteContent: Provide one of Exact/Contains/Regex or JsonField+JsonValue or YamlKey+YamlValue.'
     }
-    $invokeParams = @{ Uri = $Uri; Method = $Method; UseBasicParsing = $true; TimeoutSec = 10 }
+    $invokeParams = @{ Uri = $Uri; Method = $Method; UseBasicParsing = $true; TimeoutSec = $TimeoutSec }
     if ($Uri -like 'https://*') { $invokeParams.SkipCertificateCheck = $true }
     if ($Headers) { $invokeParams.Headers = $Headers }
     if ($Body) { $invokeParams.Body = $Body }

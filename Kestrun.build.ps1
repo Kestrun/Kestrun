@@ -162,13 +162,16 @@ if ($isDebug) {
 $SolutionPath = Join-Path -Path $PSScriptRoot -ChildPath 'Kestrun.sln'
 $KestrunProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun/Kestrun.csproj'
 $KestrunAnnotationsProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Annotations/Kestrun.Annotations.csproj'
+$KestrunMcpProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Mcp/Kestrun.Mcp.csproj'
 $KestrunToolProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.Tool/Kestrun.Tool.csproj'
 $KestrunServiceHostProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'src/CSharp/Kestrun.ServiceHost/Kestrun.ServiceHost.csproj'
 $KestrunCoreTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Tests/Kestrun.Tests.csproj'
+$KestrunMcpTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Mcp.Tests/Kestrun.Mcp.Tests.csproj'
 $KestrunToolTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Tool.Tests/Kestrun.Tool.Tests.csproj'
 $KestrunServiceHostTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.ServiceHost.Tests/Kestrun.ServiceHost.Tests.csproj'
 $KestrunRunnerTestProjectPath = Join-Path -Path $PSScriptRoot -ChildPath 'tests/CSharp.Tests/Kestrun.Runner.Tests/Kestrun.Runner.Tests.csproj'
 $KestrunDedicatedNet10TestProjects = @(
+    $KestrunMcpTestProjectPath,
     $KestrunToolTestProjectPath,
     $KestrunServiceHostTestProjectPath,
     $KestrunRunnerTestProjectPath
@@ -252,6 +255,7 @@ Add-BuildTask Help {
     Write-Host '- Remove-Module: Removes the Kestrun module.'
     Write-Host '- Update-Module: Updates the Kestrun module.'
     # Build tasks
+    Write-Host '- Build-KestrunMcp: Builds the Kestrun.Mcp stdio MCP host project for net10.0 using the current -Configuration value.'
     Write-Host '- Build-KestrunTool: Publishes dedicated ServiceHost runtimes and stages PowerShell Modules payloads in src/CSharp/Kestrun.Tool/kestrun-service using the current -Configuration value.'
     Write-Host '- Build-Help: Generates PowerShell help documentation.'
     Write-Host '- Build-TutorialIndex: Regenerates docs/pwsh/tutorial/index.md.'
@@ -422,6 +426,16 @@ Add-BuildTask 'Build-KestrunTool' {
         -ServiceHostRuntimesDirectory $kestrunToolServiceHostRuntimesDirectory
 }
 
+Add-BuildTask 'Build-KestrunMcp' {
+    Write-Host "🔧 Building Kestrun.Mcp using configuration: $Configuration"
+
+    dotnet build "$KestrunMcpProjectPath" -c $Configuration -f net10.0 -v:$DotNetVerbosity `
+        -p:Version=$Version -p:InformationalVersion="$($VersionDetails.InformationalVersion)"
+    if ($LASTEXITCODE -ne 0) {
+        throw 'dotnet build failed for Kestrun.Mcp.'
+    }
+}
+
 Add-BuildTask 'Pack-KestrunTool' 'Set-PackageConfiguration', 'Build-KestrunTool', {
     Write-Host '📦 Packing Kestrun dotnet tool package (dotnet-kestrun) and service runtime packages...'
 
@@ -574,7 +588,7 @@ Add-BuildTask 'Test-xUnit' {
             }
         }
     } else {
-        Write-Host 'ℹ️ Skipping dedicated Tool/ServiceHost/Runner tests because net10.0 is not in -Frameworks.' -ForegroundColor Yellow
+        Write-Host 'ℹ️ Skipping dedicated MCP/Tool/ServiceHost/Runner tests because net10.0 is not in -Frameworks.' -ForegroundColor Yellow
     }
 
     $initialFailedSelectors = @(
@@ -951,6 +965,7 @@ Add-BuildTask 'Coverage' {
     Write-Host '📊 Creating coverage report...'
     & "$utilityPath/Build-Coverage.ps1" -TestProjects @(
         $KestrunCoreTestProjectPath,
+        $KestrunMcpTestProjectPath,
         $KestrunToolTestProjectPath,
         $KestrunServiceHostTestProjectPath,
         $KestrunRunnerTestProjectPath
@@ -966,6 +981,7 @@ Add-BuildTask 'Report-Coverage' {
     Write-Host '🌐 Creating coverage report webpage...'
     & "$utilityPath/Build-Coverage.ps1" -ReportGenerator -TestProjects @(
         $KestrunCoreTestProjectPath,
+        $KestrunMcpTestProjectPath,
         $KestrunToolTestProjectPath,
         $KestrunServiceHostTestProjectPath,
         $KestrunRunnerTestProjectPath

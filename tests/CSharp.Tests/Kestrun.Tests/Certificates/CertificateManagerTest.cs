@@ -21,11 +21,18 @@ public class CertificateManagerTest
                ValidDays: 30,
                Ephemeral: true,
                Exportable: true);
+
+    private static X509Certificate2 CreateCertificate(SelfSignedOptions options)
+        => CertificateManager.NewSelfSigned(options).Certificate;
+
+    private static SelfSignedCertificateResult CreateDevelopmentBundle(SelfSignedOptions? options = null)
+        => CertificateManager.NewSelfSigned(options ?? new SelfSignedOptions(DnsNames: null, Exportable: true, Development: true));
+
     [Fact]
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_GeneratesValidCert_WithSAN_EKU()
     {
-        var cert = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+        var cert = CreateCertificate(DefaultSelfSignedOptions());
 
         Assert.NotNull(cert);
         Assert.True(DateTime.UtcNow >= cert.NotBefore.ToUniversalTime().AddMinutes(-6));
@@ -52,7 +59,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_EmitsLoopbackIpSans_AndLeafExtensions()
     {
-        using var cert = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+        using var cert = CreateCertificate(DefaultSelfSignedOptions());
 
         var extensions = cert.Extensions;
         var san = extensions.Cast<System.Security.Cryptography.X509Certificates.X509Extension>().SingleOrDefault(e => e.Oid?.Value == "2.5.29.17");
@@ -82,7 +89,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_NormalizesSanInputs_BeforeEmittingSubjectAndSanSet()
     {
-        using var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        using var cert = CreateCertificate(new SelfSignedOptions([
                 " localhost ", "localhost", " 127.0.0.1 ", "127.0.0.1", "\t::1\t", "   "
             ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 30, Ephemeral: true, Exportable: true));
 
@@ -112,7 +119,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_Ecdsa_UsesDigitalSignatureOnlyKeyUsage()
     {
-        using var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        using var cert = CreateCertificate(new SelfSignedOptions([
             "localhost", "::1"
         ], KeyType: KeyType.Ecdsa, KeyLength: 256, ValidDays: 30, Ephemeral: true, Exportable: true));
 
@@ -125,7 +132,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_UsesExplicitKeyUsageFlags_WhenProvided()
     {
-        using var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        using var cert = CreateCertificate(new SelfSignedOptions([
             "localhost", "127.0.0.1"
         ],
         KeyType: KeyType.Rsa,
@@ -143,7 +150,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_TreatsExplicitNoneKeyUsageAsUnspecified()
     {
-        using var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        using var cert = CreateCertificate(new SelfSignedOptions([
             "localhost", "127.0.0.1"
         ],
         KeyType: KeyType.Rsa,
@@ -165,7 +172,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_CertificateAuthority_EmitsCaExtensionsWithoutLeafEkuOrSan()
     {
-        using var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        using var cert = CreateCertificate(new SelfSignedOptions([
             "Kestrun Development Root CA"
         ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 365, Ephemeral: true, Exportable: true, IsCertificateAuthority: true));
 
@@ -192,11 +199,11 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_IssuerCertificate_SignsLeafCertificateWithIssuerMetadata()
     {
-        using var root = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        using var root = CreateCertificate(new SelfSignedOptions([
             "Kestrun Development Root CA"
         ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 365, Ephemeral: true, Exportable: true, IsCertificateAuthority: true));
 
-        using var leaf = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        using var leaf = CreateCertificate(new SelfSignedOptions([
             "localhost", "127.0.0.1", "::1"
         ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 30, Ephemeral: true, Exportable: true, IssuerCertificate: root));
 
@@ -224,9 +231,9 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void NewSelfSigned_IssuerCertificate_RejectsNonCaIssuer()
     {
-        using var issuer = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+        using var issuer = CreateCertificate(DefaultSelfSignedOptions());
 
-        var exception = Assert.Throws<InvalidOperationException>(() => CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        var exception = Assert.Throws<InvalidOperationException>(() => CreateCertificate(new SelfSignedOptions([
             "localhost"
         ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 30, Ephemeral: true, Exportable: true, IssuerCertificate: issuer)));
 
@@ -235,17 +242,20 @@ public class CertificateManagerTest
 
     [Fact]
     [Trait("Category", "Certificates")]
-    public void NewDevelopmentCertificate_CreatesDefaultBundle()
+    public void NewSelfSigned_Development_CreatesDefaultBundle()
     {
-        var bundle = CertificateManager.NewDevelopmentCertificate(new DevelopmentCertificateOptions(Exportable: true));
+        var bundle = CreateDevelopmentBundle();
 
+        Assert.NotNull(bundle);
+        Assert.NotNull(bundle.RootCertificate);
+        Assert.NotNull(bundle.LeafCertificate);
         Assert.Equal("CN=Kestrun Development Root CA", bundle.RootCertificate.Subject);
         Assert.Equal("CN=localhost", bundle.LeafCertificate.Subject);
         Assert.Equal(bundle.RootCertificate.Subject, bundle.LeafCertificate.Issuer);
         Assert.True(bundle.RootCertificate.HasPrivateKey);
         Assert.True(bundle.LeafCertificate.HasPrivateKey);
         Assert.NotNull(bundle.PublicRootCertificate);
-        Assert.False(bundle.PublicRootCertificate!.HasPrivateKey);
+        Assert.False(bundle.PublicRootCertificate.HasPrivateKey);
         Assert.Equal(bundle.RootCertificate.Thumbprint, bundle.PublicRootCertificate.Thumbprint);
         Assert.False(bundle.RootTrusted);
 
@@ -254,22 +264,28 @@ public class CertificateManagerTest
 
     [Fact]
     [Trait("Category", "Certificates")]
-    public void NewDevelopmentCertificate_ReusesSuppliedRootCertificate()
+    public void NewSelfSigned_Development_ReusesSuppliedRootCertificate()
     {
-        using var root = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        using var root = CreateCertificate(new SelfSignedOptions([
             "Reusable Development Root CA"
         ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 365, Ephemeral: false, Exportable: true, IsCertificateAuthority: true));
 
-        var bundle = CertificateManager.NewDevelopmentCertificate(new DevelopmentCertificateOptions(
-            RootCertificate: root,
+        var bundle = CreateDevelopmentBundle(new SelfSignedOptions(
             DnsNames: ["localhost", "dev.localtest.me"],
-            Exportable: true));
+            Exportable: true,
+            Development: true,
+            RootCertificate: root));
+
+        Assert.NotNull(bundle);
+        Assert.NotNull(bundle.RootCertificate);
+        Assert.NotNull(bundle.LeafCertificate);
+        Assert.NotNull(bundle.PublicRootCertificate);
 
         Assert.Same(root, bundle.RootCertificate);
         Assert.Equal(root.Subject, bundle.LeafCertificate.Issuer);
         Assert.Equal("CN=localhost", bundle.LeafCertificate.Subject);
         Assert.NotNull(bundle.PublicRootCertificate);
-        Assert.False(bundle.PublicRootCertificate!.HasPrivateKey);
+        Assert.False(bundle.PublicRootCertificate.HasPrivateKey);
         Assert.Equal(root.Thumbprint, bundle.PublicRootCertificate.Thumbprint);
         Assert.False(bundle.RootTrusted);
 
@@ -357,7 +373,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void ExportImport_Pfx_RoundTrip_WithPassword()
     {
-        var cert = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+        var cert = CreateCertificate(DefaultSelfSignedOptions());
 
         var dir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "KestrunTests", Guid.NewGuid().ToString("N"))).FullName;
         var pfxPath = Path.Combine(dir, "testcert.pfx");
@@ -381,7 +397,7 @@ public class CertificateManagerTest
         var options = new SelfSignedOptions([
             "localhost", "127.0.0.1"
         ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 30, Ephemeral: false, Exportable: true);
-        var cert = CertificateManager.NewSelfSigned(options);
+        var cert = CreateCertificate(options);
 
         var dir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "KestrunTests", Guid.NewGuid().ToString("N"))).FullName;
         var pemPath = Path.Combine(dir, "cert.pem");
@@ -519,7 +535,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void ExportImport_Pem_PublicOnly()
     {
-        var cert = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+        var cert = CreateCertificate(DefaultSelfSignedOptions());
         var dir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "KestrunTests", Guid.NewGuid().ToString("N"))).FullName;
         var pemPath = Path.Combine(dir, "pubonly.pem");
 
@@ -535,11 +551,11 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void Validate_SelfSigned_And_WeakRsa()
     {
-        var good = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+        var good = CreateCertificate(DefaultSelfSignedOptions());
         Assert.True(CertificateManager.Validate(good));
         Assert.False(CertificateManager.Validate(good, denySelfSigned: true));
 
-        var weak = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        var weak = CreateCertificate(new SelfSignedOptions([
             "localhost"
         ], KeyType: KeyType.Rsa, KeyLength: 1024, ValidDays: 7, Ephemeral: true, Exportable: true));
 
@@ -551,9 +567,14 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void Validate_IssuedLeaf_WithSuppliedRootChain_Passes()
     {
-        var bundle = CertificateManager.NewDevelopmentCertificate(new DevelopmentCertificateOptions(
+        var bundle = CreateDevelopmentBundle(new SelfSignedOptions(
             DnsNames: ["localhost", "127.0.0.1", "::1"],
-            Exportable: true));
+            Exportable: true,
+            Development: true));
+
+        Assert.NotNull(bundle);
+        Assert.NotNull(bundle.RootCertificate);
+        Assert.NotNull(bundle.LeafCertificate);
 
         try
         {
@@ -591,7 +612,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void GetPurposes_ReturnsAtLeastServerClientAuth()
     {
-        var cert = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+        var cert = CreateCertificate(DefaultSelfSignedOptions());
         var purposes = CertificateManager.GetPurposes(cert).ToList();
         Assert.True(purposes.Count >= 2);
         // Accept either friendly names or OIDs
@@ -618,7 +639,7 @@ public class CertificateManagerTest
         var dir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "KestrunTests", Guid.NewGuid().ToString("N"))).FullName;
         var pemPath = Path.Combine(dir, "onlycert.pem");
         // Write a simple public-only PEM
-        var cert = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+        var cert = CreateCertificate(DefaultSelfSignedOptions());
         var certDer = cert.Export(X509ContentType.Cert);
         var certB64 = Convert.ToBase64String(certDer, Base64FormattingOptions.InsertLineBreaks);
         File.WriteAllText(pemPath, $"-----BEGIN CERTIFICATE-----\n{certB64}\n-----END CERTIFICATE-----\n");
@@ -632,7 +653,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void Import_Pfx_With_SecureString_Password_Succeeds()
     {
-        var cert = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+        var cert = CreateCertificate(DefaultSelfSignedOptions());
         var dir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "KestrunTests", Guid.NewGuid().ToString("N"))).FullName;
         var pfxPath = Path.Combine(dir, "secure.pfx");
         var pwd = "Sup3rS3cure".AsSpan();
@@ -656,7 +677,7 @@ public class CertificateManagerTest
     public void Import_Pem_With_Unencrypted_SeparateKey_Manual()
     {
         // Generate a non-ephemeral exportable self-signed cert for key extraction
-        var cert = CertificateManager.NewSelfSigned(new SelfSignedOptions([
+        var cert = CreateCertificate(new SelfSignedOptions([
             "localhost", "127.0.0.1"
         ], KeyType: KeyType.Rsa, KeyLength: 2048, ValidDays: 30, Ephemeral: false, Exportable: true));
         using var rsa = cert.GetRSAPrivateKey();
@@ -685,7 +706,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void Import_Der_PublicOnly_Succeeds()
     {
-        var cert = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+        var cert = CreateCertificate(DefaultSelfSignedOptions());
         var dir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "KestrunTests", Guid.NewGuid().ToString("N"))).FullName;
         var derPath = Path.Combine(dir, "cert.cer");
         File.WriteAllBytes(derPath, cert.Export(X509ContentType.Cert));
@@ -700,7 +721,7 @@ public class CertificateManagerTest
     [Trait("Category", "Certificates")]
     public void Validate_Purposes_Strict_Mismatch_Fails_But_NonStrict_Subset_Passes()
     {
-        var cert = CertificateManager.NewSelfSigned(DefaultSelfSignedOptions());
+        var cert = CreateCertificate(DefaultSelfSignedOptions());
         // Build OidCollections
         var serverAuth = new Oid("1.3.6.1.5.5.7.3.1");
         var clientAuth = new Oid("1.3.6.1.5.5.7.3.2");

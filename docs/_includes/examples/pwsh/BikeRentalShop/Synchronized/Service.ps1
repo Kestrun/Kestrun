@@ -9,6 +9,20 @@ if ((-not $PSBoundParameters.ContainsKey('AllowedCorsOrigins')) -and -not [strin
     $AllowedCorsOrigins = @($env:BIKE_RENTAL_ALLOWED_CORS_ORIGINS -split ';' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
 }
 
+if (-not (Get-Command -Name 'Initialize-KrRoot' -CommandType Function -ErrorAction SilentlyContinue)) {
+    try {
+        Import-Module Kestrun -ErrorAction Stop
+    } catch {
+        $repoModulePath = Join-Path $PSScriptRoot '..\..\..\..\..\..\src\PowerShell\Kestrun\Kestrun.psm1'
+        if (Test-Path -LiteralPath $repoModulePath) {
+            try {
+                Import-Module $repoModulePath -Force -ErrorAction Stop
+            } catch {
+            }
+        }
+    }
+}
+
 <#
 .SYNOPSIS
     Package-ready bike rental shop API.

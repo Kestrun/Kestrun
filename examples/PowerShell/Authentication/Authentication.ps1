@@ -1,9 +1,4 @@
 
-[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
-param(
-    [int]$Port = 5000,
-    [IPAddress]$IPAddress = [IPAddress]::Loopback
-)
 <#
     .SYNOPSIS
         Kestrun PowerShell Example: Multi Routes
@@ -59,6 +54,10 @@ param(
         Invoke-RestMethod -Uri https://localhost:5000/secure/cookies/policy -Method POST -SkipCertificateCheck -WebSession $authSession
         Invoke-RestMethod -Uri https://localhost:5000/secure/cookies/policy -Method PUT -SkipCertificateCheck -WebSession $authSession
 #>
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '')]
+param(
+    [int]$Port = $env:PORT ?? 5000
+)
 
 $logger = New-KrLogger |
     Set-KrLoggerLevel -Value Debug |
@@ -169,11 +168,8 @@ Add-KrBasicAuthentication -AuthenticationScheme $BasicVBNetScheme -Realm 'VBNet-
 # ── WINDOWS AUTHENTICATION ────────────────────────────────────────────
 Add-KrWindowsAuthentication
 
-
-
+# ── API KEY AUTHENTICATION ───────────────────────────────────────────
 Add-KrApiKeyAuthentication -AuthenticationScheme $ApiKeySimple -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -StaticApiKey 'my-secret-api-key'
-
-
 
 Add-KrApiKeyAuthentication -AuthenticationScheme $ApiKeyPowerShell -AllowInsecureHttp -ApiKeyName 'X-Api-Key' -ScriptBlock {
     param(
@@ -613,4 +609,4 @@ Add-KrRouteGroup -Prefix '/secure/cookies' -AuthorizationScheme $CookieScheme {
 # Start the server asynchronously
 ********************************************
 #>
-Start-KrServer -Server $server
+Start-KrServer -Server $server -CloseLogsOnExit

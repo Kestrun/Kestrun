@@ -6,6 +6,7 @@ BeforeAll {
 Describe 'Example 13.1-Server-Limits' {
     BeforeAll {
         $script:instance = Start-ExampleScript -Name '13.1-Server-Limits.ps1' -SkipPortProbe
+        Wait-ExampleRoute -Instance $script:instance -Route '/online' -TimeoutSeconds 20 | Out-Null
     }
     AfterAll { if ($script:instance) {
             # Stop the example script

@@ -43,6 +43,7 @@ It combines the performance of C# with the flexibility of PowerShell, making it 
 - 📚 **Tutorials**: [pwsh/tutorial/](/pwsh/tutorial/)
 - 📘 **Guides**: [guides/](/guides/)
 - 🛠️ **Dotnet Tool**: [Kestrun CLI (`Kestrun.Tool`)](/guides/tooling)
+- 🤖 **MCP Server**: [Kestrun MCP Guide](/guides/mcp)
 
 ## Getting started
 
@@ -63,6 +64,7 @@ Use the [Guides](/guides/) to add real-world features:
 - Authentication (JWT, API keys, etc.)
 - Logging and observability
 - OpenAPI documentation and UI
+- MCP-based runtime inspection and local agent tooling
 
 ### 3. Run and test locally
 

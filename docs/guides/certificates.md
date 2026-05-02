@@ -27,7 +27,7 @@ These tools support cross-platform scenarios (Windows, Linux, macOS) and are ess
 ### 1. Development CA and issuer-signed leaf certificate (PowerShell)
 
 ```powershell
-$bundle = New-KrDevelopmentCertificate -TrustRoot
+$bundle = New-KrSelfSignedCertificate -Development -TrustRoot
 $cert = $bundle.LeafCertificate
 $root = $bundle.RootCertificate
 
@@ -112,10 +112,10 @@ $leaf = New-KrSelfSignedCertificate `
     -ValidDays 30
 ```
 
-Or use the convenience helper:
+Or use development mode on the same cmdlet:
 
 ```powershell
-$bundle = New-KrDevelopmentCertificate -TrustRoot
+$bundle = New-KrSelfSignedCertificate -Development -TrustRoot
 $leaf = $bundle.LeafCertificate
 ```
 
@@ -218,18 +218,18 @@ Typical localhost browser workflow:
 3. Issue a localhost leaf certificate from that root.
 4. Bind the leaf certificate to the Kestrun HTTPS listener.
 
-If you want that in one call, use `New-KrDevelopmentCertificate`.
+If you want that in one call, use `New-KrSelfSignedCertificate -Development`.
 
 ### Validate issuer-signed development certificates
 
-`New-KrDevelopmentCertificate` creates a localhost leaf certificate signed by a private development root.
+`New-KrSelfSignedCertificate -Development` creates a localhost leaf certificate signed by a private development root.
 If that root is not trusted by the operating system, `Test-KrCertificate` can report `PartialChain` even though
 the leaf certificate itself is correct.
 
 For validation in scripts, tests, or local tooling, pass the root certificate explicitly:
 
 ```powershell
-$bundle = New-KrDevelopmentCertificate -Exportable
+$bundle = New-KrSelfSignedCertificate -Development -Exportable
 $leaf = $bundle.LeafCertificate
 $root = $bundle.RootCertificate
 
@@ -249,7 +249,7 @@ If you want a stable local development setup, export both certificates to PFX on
 
 ```powershell
 $password = ConvertTo-SecureString 'p@ssw0rd!' -AsPlainText -Force
-$bundle = New-KrDevelopmentCertificate -Exportable
+$bundle = New-KrSelfSignedCertificate -Development -Exportable
 
 New-Item -ItemType Directory -Force './certs' | Out-Null
 
@@ -263,7 +263,7 @@ Later, reuse the exported root certificate to issue a fresh localhost leaf:
 $password = ConvertTo-SecureString 'p@ssw0rd!' -AsPlainText -Force
 $root = Import-KrCertificate -FilePath './certs/dev-root.pfx' -Password $password
 
-$bundle = New-KrDevelopmentCertificate `
+$bundle = New-KrSelfSignedCertificate -Development `
     -RootCertificate $root `
     -DnsNames 'localhost','127.0.0.1','::1' `
     -Exportable
@@ -358,7 +358,6 @@ Use `-KeyUsage` when you need to override KU explicitly for a specific integrati
 
 - Cmdlets:
   - [New-KrSelfSignedCertificate](/pwsh/cmdlets/New-KrSelfSignedCertificate)
-    - [New-KrDevelopmentCertificate](/pwsh/cmdlets/New-KrDevelopmentCertificate)
   - [New-KrCertificateRequest](/pwsh/cmdlets/New-KrCertificateRequest)
   - [Import-KrCertificate](/pwsh/cmdlets/Import-KrCertificate)
   - [Export-KrCertificate](/pwsh/cmdlets/Export-KrCertificate)

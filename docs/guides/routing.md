@@ -67,8 +67,9 @@ Enable-KrConfiguration
 Start-KrServer | Out-Null
 ```
 
-`Add-KrEndpoint -Port 5000` now defaults to a wildcard listener. For local-only routing examples,
-specify `-IPAddress ([IPAddress]::Loopback)` explicitly.
+`Add-KrEndpoint -Port 5000` defaults to loopback binding. Use environment-based
+bindings such as `$env:PORT` or `ASPNETCORE_URLS` when a deployment should listen
+on all interfaces.
 
 ## 2. Applying Conventions to Ad-Hoc Endpoints
 

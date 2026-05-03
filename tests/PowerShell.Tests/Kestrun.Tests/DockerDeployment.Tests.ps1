@@ -8,10 +8,16 @@ BeforeAll {
 
     try {
         $null = & docker info --format '{{.ServerVersion}}' 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            $script:dockerSmokeUnavailableReason = 'docker info returned a non-zero exit code.'
+            return
+        }
+
+        $null = & docker compose version 2>$null
         if ($LASTEXITCODE -eq 0) {
             $script:dockerSmokeAvailable = $true
         } else {
-            $script:dockerSmokeUnavailableReason = 'docker info returned a non-zero exit code.'
+            $script:dockerSmokeUnavailableReason = 'docker compose is not available.'
         }
     } catch {
         $script:dockerSmokeUnavailableReason = $_.Exception.Message
@@ -108,7 +114,8 @@ Describe 'Docker deployment cmdlet' {
 
             $dockerfile = Get-Content -LiteralPath $dockerfilePath -Raw
             $dockerfile | Should -Match 'FROM mcr\.microsoft\.com/dotnet/aspnet:10\.0'
-            $dockerfile | Should -Match 'apt-get install -y --no-install-recommends powershell'
+            $dockerfile | Should -Match 'ARG POWERSHELL_PACKAGE_VERSION=7\.6\.0-1\.deb'
+            $dockerfile | Should -Match 'apt-get install -y --no-install-recommends powershell=\$\{POWERSHELL_PACKAGE_VERSION\}'
             $dockerfile | Should -Match 'packages\.microsoft\.com/config/\$\{ID\}/\$\{VERSION_ID\}/packages-microsoft-prod\.deb'
             $dockerfile | Should -Match 'ENV PORT=8080'
             $dockerfile | Should -Match 'COPY Kestrun/'
@@ -149,7 +156,7 @@ Describe 'Docker deployment cmdlet' {
 
             $compose = ConvertFrom-KrYaml (Get-Content -LiteralPath (Join-Path $outputPath 'docker-compose.yml') -Raw)
             $compose['services'].Keys | Should -Contain 'frontend-api'
-            $compose['services']['frontend-api']['container_name'] | Should -Be 'frontend-api'
+            $compose['services']['frontend-api'].Keys | Should -Not -Contain 'container_name'
             @($compose['services']['frontend-api']['ports']) | Should -Be @('5000:5001')
             $compose['services']['frontend-api']['environment']['PORT'] | Should -Be '5001'
             $compose['services']['frontend-api']['environment']['ASPNETCORE_URLS'] | Should -Be 'http://+:5001'
@@ -192,6 +199,67 @@ Describe 'Docker deployment cmdlet' {
             $entrypoint | Should -Match "RelativePath = 'data/'"
             $entrypoint | Should -Match "RelativePath = 'logs/'"
             $entrypoint | Should -Match 'New-Item -ItemType SymbolicLink'
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'New-KrDockerDeployment returns nothing when WhatIf skips bundle creation' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-docker-whatif-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $scriptPath = Join-Path $tempRoot 'Service.ps1'
+        $packagePath = Join-Path $tempRoot 'demo-service.krpack'
+        $outputPath = Join-Path $tempRoot 'docker'
+
+        try {
+            $null = New-Item -ItemType Directory -Path $tempRoot -Force
+            Set-Content -LiteralPath $scriptPath -Value "Write-Output 'whatif'" -Encoding utf8NoBOM
+
+            $null = New-KrServicePackage -ScriptPath $scriptPath -Name 'Demo WhatIf' -Description 'Demo service' -Version ([Version]'1.0.0') -OutputPath $packagePath
+            $result = New-KrDockerDeployment -PackagePath $packagePath -OutputPath $outputPath -WhatIf
+
+            $result | Should -BeNullOrEmpty
+            Test-Path -LiteralPath $outputPath | Should -BeFalse
+        } finally {
+            if (Test-Path -LiteralPath $tempRoot) {
+                Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'New-KrDockerDeployment rejects ApplicationDataFolders entries that target the service root' {
+        $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('kestrun-docker-invalid-appdata-{0}' -f [Guid]::NewGuid().ToString('N'))
+        $sourceFolder = Join-Path $tempRoot 'service'
+        $packagePath = Join-Path $tempRoot 'invalid-service.krpack'
+        $outputPath = Join-Path $tempRoot 'docker'
+
+        $serviceScript = @'
+Write-Output 'invalid-appdata'
+'@
+
+        $descriptor = @'
+@{
+    FormatVersion = '1.0'
+    Name = 'invalid-service'
+    Description = 'Invalid ApplicationDataFolders entry.'
+    Version = '1.0.0'
+    EntryPoint = './Service.ps1'
+    ApplicationDataFolders = @(
+        '.'
+    )
+}
+'@
+
+        try {
+            $null = New-Item -ItemType Directory -Path $sourceFolder -Force
+            Set-Content -LiteralPath (Join-Path $sourceFolder 'Service.ps1') -Value $serviceScript -Encoding utf8NoBOM
+            Set-Content -LiteralPath (Join-Path $sourceFolder 'Service.psd1') -Value $descriptor -Encoding utf8NoBOM
+
+            $null = New-KrServicePackage -SourceFolder $sourceFolder -OutputPath $packagePath -Force
+            {
+                New-KrDockerDeployment -PackagePath $packagePath -OutputPath $outputPath
+            } | Should -Throw '*ApplicationDataFolders entry*subdirectory under the service root*'
         } finally {
             if (Test-Path -LiteralPath $tempRoot) {
                 Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue

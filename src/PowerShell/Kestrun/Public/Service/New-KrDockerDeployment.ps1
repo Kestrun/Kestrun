@@ -80,22 +80,48 @@ function New-KrDockerDeployment {
         [switch]$Force
     )
 
+    $declaringModuleBase = if ($MyInvocation.MyCommand.Module) {
+        $MyInvocation.MyCommand.Module.ModuleBase
+    } else {
+        $null
+    }
+
     function Get-KrDefaultModuleRoot {
         <#
         .SYNOPSIS
             Resolves the default Kestrun module root path based on the current script location.
         .DESCRIPTION
-            Assumes the script is located under `src/PowerShell/Kestrun/Public/Service` and traverses up to find the module root.
-            Validates that the resolved path contains `Kestrun.psd1` to ensure it's correct.
+            Resolves the module root from the current module base when available and
+            falls back to nearby script locations when running from a source checkout.
+            Validates that the resolved path contains `Kestrun.psd1` to ensure it is correct.
         .OUTPUTS
             String path to the Kestrun module root.
         #>
-        $moduleRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-        if (-not (Test-Path -LiteralPath (Join-Path -Path $moduleRoot -ChildPath 'Kestrun.psd1') -PathType Leaf)) {
-            throw "Unable to resolve the Kestrun module root from '$PSScriptRoot'."
+        $candidateRoots = [System.Collections.Generic.List[string]]::new()
+        foreach ($candidateRoot in @(
+                $declaringModuleBase
+                $ExecutionContext.SessionState.Module.ModuleBase
+                $PSScriptRoot
+                (Split-Path -Parent $PSScriptRoot)
+                (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))
+            )) {
+            if ([string]::IsNullOrWhiteSpace($candidateRoot)) {
+                continue
+            }
+
+            $resolvedCandidateRoot = [System.IO.Path]::GetFullPath($candidateRoot)
+            if (-not $candidateRoots.Contains($resolvedCandidateRoot)) {
+                $candidateRoots.Add($resolvedCandidateRoot)
+            }
         }
 
-        return $moduleRoot
+        foreach ($candidateRoot in $candidateRoots) {
+            if (Test-Path -LiteralPath (Join-Path -Path $candidateRoot -ChildPath 'Kestrun.psd1') -PathType Leaf) {
+                return $candidateRoot
+            }
+        }
+
+        throw "Unable to resolve the Kestrun module root from '$PSScriptRoot'."
     }
 
     function Get-KrNormalizedDockerName {
@@ -157,17 +183,19 @@ function New-KrDockerDeployment {
         .SYNOPSIS
             Generates application data volume definitions for Docker Compose based on service descriptor entries.
         .DESCRIPTION
-            For each relative path specified in the service descriptor's `ApplicationDataFolders`,this function generates a corresponding Docker volume name and storage path.
-            The volume name is constructed using the normalized service name, a normalized segment derived from the relative path, and a stable hash suffix to ensure uniqueness.
-            The storage path is set under `/opt/kestrun/application-data` with a structure that mirrors the relative path.
-            This allows the generated Docker Compose file to define volumes that can be mounted to the appropriate locations in the container,
-            ensuring that application data is persisted across container restarts and can be easily identified.
+            For each relative path specified in the service descriptor's
+            `ApplicationDataFolders`, this function generates a corresponding Docker
+            volume name and storage path. Each path must point to a subdirectory
+            under the service root.
         .PARAMETER NormalizedServiceName
             The normalized name of the service, used as a prefix for volume names.
         .PARAMETER RelativePaths
-            An array of relative paths from the service descriptor's `ApplicationDataFolders` entry. Each path is processed to generate a corresponding Docker volume definition.
+            An array of relative paths from the service descriptor's
+            `ApplicationDataFolders` entry. Each path is processed to generate a
+            corresponding Docker volume definition.
         .OUTPUTS
-            An array of custom objects, each containing `RelativePath`, `VolumeName`, and `StoragePath` properties for use in Docker Compose volume definitions.
+            An array of custom objects containing `RelativePath`, `VolumeName`, and
+            `StoragePath` properties for use in Docker Compose volume definitions.
         #>
         param(
             [Parameter(Mandatory)]
@@ -185,6 +213,15 @@ function New-KrDockerDeployment {
 
             $normalizedRelativePath = $relativePath.Replace('\\', '/').Trim()
             $trimmedRelativePath = $normalizedRelativePath.Trim('/')
+            $pathSegments = @($trimmedRelativePath -split '/')
+
+            if ($pathSegments -contains '.' -or $pathSegments -contains '..') {
+                throw (
+                    "ApplicationDataFolders entry '{0}' must resolve to a subdirectory under the service root." -f
+                    $relativePath
+                )
+            }
+
             if ([string]::IsNullOrWhiteSpace($trimmedRelativePath)) {
                 continue
             }
@@ -234,11 +271,15 @@ function New-KrDockerDeployment {
         .SYNOPSIS
             Writes content to a file, ensuring the directory exists and handling overwrites based on the Force parameter.
         .DESCRIPTION
-            Creates the target directory if it doesn't exist. If the file already exists and Force is not set, it throws an error. Writes the content using UTF-8 encoding without a BOM.
+            Creates the target directory if it does not exist. If the file already
+            exists and Force is not set, it throws an error. Writes the content
+            using UTF-8 encoding without a BOM.
         .PARAMETER Path
             The file path where the content should be written.
         .PARAMETER Content
             The content to write to the file.
+        .OUTPUTS
+            Boolean indicating whether the file was written.
         #>
         [CmdletBinding(SupportsShouldProcess)]
         param(
@@ -248,6 +289,10 @@ function New-KrDockerDeployment {
             [Parameter(Mandatory)]
             [string]$Content
         )
+
+        if (-not $PSCmdlet.ShouldProcess($Path, 'Write generated file content')) {
+            return $false
+        }
 
         $directory = [System.IO.Path]::GetDirectoryName($Path)
         if (-not [string]::IsNullOrWhiteSpace($directory) -and -not (Test-Path -LiteralPath $directory -PathType Container)) {
@@ -260,6 +305,8 @@ function New-KrDockerDeployment {
 
         $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
         [System.IO.File]::WriteAllText($Path, $Content, $utf8NoBom)
+
+        return $true
     }
 
     function Copy-KrGeneratedDirectory {
@@ -272,7 +319,10 @@ function New-KrDockerDeployment {
             The path of the source directory to copy.
         .PARAMETER DestinationPath
             The path of the destination directory.
+        .OUTPUTS
+            Boolean indicating whether the directory was copied.
         #>
+        [CmdletBinding(SupportsShouldProcess)]
         param(
             [Parameter(Mandatory)]
             [string]$SourcePath,
@@ -280,6 +330,10 @@ function New-KrDockerDeployment {
             [Parameter(Mandatory)]
             [string]$DestinationPath
         )
+
+        if (-not $PSCmdlet.ShouldProcess($DestinationPath, 'Copy generated directory contents')) {
+            return $false
+        }
 
         if (Test-Path -LiteralPath $DestinationPath) {
             if (-not $Force) {
@@ -290,6 +344,8 @@ function New-KrDockerDeployment {
         }
 
         Copy-Item -LiteralPath $SourcePath -Destination $DestinationPath -Recurse -Force
+
+        return $true
     }
 
     $temporaryExtractionRoot = $null
@@ -336,6 +392,7 @@ function New-KrDockerDeployment {
         }
 
         $resolvedOutputPath = Get-KrDeploymentOutputPath -ProvidedOutputPath $OutputPath -DefaultDirectoryName ('{0}-docker' -f $normalizedServiceName)
+        $resolvedPowerShellPackageVersion = '7.6.0-1.deb'
         $composePath = Join-Path -Path $resolvedOutputPath -ChildPath 'docker-compose.yml'
         $dockerfilePath = Join-Path -Path $resolvedOutputPath -ChildPath 'Dockerfile'
         $entrypointPath = Join-Path -Path $resolvedOutputPath -ChildPath 'entrypoint.sh'
@@ -347,7 +404,6 @@ function New-KrDockerDeployment {
         $composeLines = [System.Collections.Generic.List[string]]::new()
         $composeLines.Add('services:')
         $composeLines.Add("  ${normalizedServiceName}:")
-        $composeLines.Add("    container_name: $normalizedServiceName")
         $composeLines.Add("    image: $resolvedImageName")
         $composeLines.Add('    build:')
         $composeLines.Add('      context: .')
@@ -378,6 +434,8 @@ function New-KrDockerDeployment {
         $dockerfileContent = @"
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 
+ARG POWERSHELL_PACKAGE_VERSION=$resolvedPowerShellPackageVersion
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends wget ca-certificates \
     && . /etc/os-release \
@@ -385,7 +443,7 @@ RUN apt-get update \
     && dpkg -i packages-microsoft-prod.deb \
     && rm packages-microsoft-prod.deb \
     && apt-get update \
-    && apt-get install -y --no-install-recommends powershell \
+    && apt-get install -y --no-install-recommends powershell=`${POWERSHELL_PACKAGE_VERSION} \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -453,8 +511,8 @@ ENTRYPOINT ["/opt/kestrun/entrypoint.sh"]
             '    $relativePath = [string]$applicationDataDefinition.RelativePath'
             '    $storagePath = [string]$applicationDataDefinition.StoragePath'
             '    $servicePath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($serviceRoot, $relativePath))'
-            '    if ($servicePath -ne $serviceRoot -and -not $servicePath.StartsWith($serviceRootWithSeparator, [System.StringComparison]::Ordinal)) {'
-            '        throw (''ApplicationDataFolders entry ''''{0}'''' resolved outside the service root.'' -f $relativePath)'
+            '    if ($servicePath -eq $serviceRoot -or -not $servicePath.StartsWith($serviceRootWithSeparator, [System.StringComparison]::Ordinal)) {'
+            '        throw (''ApplicationDataFolders entry ''''{0}'''' must resolve to a subdirectory under the service root.'' -f $relativePath)'
             '    }'
             '    $storageDirectory = [System.IO.Path]::GetDirectoryName($storagePath)'
             '    if (-not [string]::IsNullOrWhiteSpace($storageDirectory)) {'
@@ -502,23 +560,25 @@ ENTRYPOINT ["/opt/kestrun/entrypoint.sh"]
 !Kestrun/**
 '@
 
-        if ($PSCmdlet.ShouldProcess($resolvedOutputPath, 'Create Docker deployment bundle')) {
-            if (-not (Test-Path -LiteralPath $resolvedOutputPath -PathType Container)) {
-                $null = New-Item -ItemType Directory -Path $resolvedOutputPath -Force
-            }
-
-            Set-KrGeneratedFileContent -Path $composePath -Content $composeContent
-            Set-KrGeneratedFileContent -Path $dockerfilePath -Content $dockerfileContent
-            Set-KrGeneratedFileContent -Path $entrypointPath -Content $entrypointContent
-            Set-KrGeneratedFileContent -Path $dockerignorePath -Content $dockerignoreContent
-
-            if ((Test-Path -LiteralPath $packageDestinationPath -PathType Leaf) -and -not $Force) {
-                throw "Output file already exists: $packageDestinationPath. Use -Force to overwrite."
-            }
-
-            Copy-Item -LiteralPath $resolvedPackagePath -Destination $packageDestinationPath -Force
-            Copy-KrGeneratedDirectory -SourcePath $resolvedModuleRoot -DestinationPath $moduleDestinationPath
+        if (-not $PSCmdlet.ShouldProcess($resolvedOutputPath, 'Create Docker deployment bundle')) {
+            return
         }
+
+        if (-not (Test-Path -LiteralPath $resolvedOutputPath -PathType Container)) {
+            $null = New-Item -ItemType Directory -Path $resolvedOutputPath -Force
+        }
+
+        Set-KrGeneratedFileContent -Path $composePath -Content $composeContent -Confirm:$false -WhatIf:$false | Out-Null
+        Set-KrGeneratedFileContent -Path $dockerfilePath -Content $dockerfileContent -Confirm:$false -WhatIf:$false | Out-Null
+        Set-KrGeneratedFileContent -Path $entrypointPath -Content $entrypointContent -Confirm:$false -WhatIf:$false | Out-Null
+        Set-KrGeneratedFileContent -Path $dockerignorePath -Content $dockerignoreContent -Confirm:$false -WhatIf:$false | Out-Null
+
+        if ((Test-Path -LiteralPath $packageDestinationPath -PathType Leaf) -and -not $Force) {
+            throw "Output file already exists: $packageDestinationPath. Use -Force to overwrite."
+        }
+
+        Copy-Item -LiteralPath $resolvedPackagePath -Destination $packageDestinationPath -Force
+        Copy-KrGeneratedDirectory -SourcePath $resolvedModuleRoot -DestinationPath $moduleDestinationPath -Confirm:$false -WhatIf:$false | Out-Null
 
         [pscustomobject]([ordered]@{
                 PackagePath = $resolvedPackagePath

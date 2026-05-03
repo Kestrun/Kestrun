@@ -161,7 +161,8 @@ Purpose of each file:
 
 - `docker-compose.yml`: local/default deployment manifest with image name, build context, ports, environment variables, and named volumes for descriptor `ApplicationDataFolders`.
 - `Dockerfile`: image definition for ASP.NET Core + PowerShell + staged Kestrun module + app package.
-- `entrypoint.sh`: runtime startup script that extracts the package, reconnects descriptor `ApplicationDataFolders` to persistent storage, resolves `Service.psd1`, and launches the packaged entry script.
+- `entrypoint.sh`: runtime startup script that extracts the package, reconnects descriptor `ApplicationDataFolders` to persistent storage, resolves `Service.psd1`,
+and launches the packaged entry script.
 - `app.krpack`: your packaged Kestrun app copied into the image build context.
 - `Kestrun/`: a staged copy of the current Kestrun module used during image build.
 - `.dockerignore`: keeps the Docker build context minimal and predictable.
@@ -385,7 +386,8 @@ volumes:
   my-service-config:
 ```
 
-If your app already declares `ApplicationDataFolders`, the generated bundle includes the corresponding durable volumes automatically. Add explicit extra volumes only for paths that are not declared in the descriptor.
+If your app already declares `ApplicationDataFolders`, the generated bundle includes the corresponding durable volumes automatically.
+Add explicit extra volumes only for paths that are not declared in the descriptor.
 
 ## Update Workflow
 

@@ -57,7 +57,8 @@ pwsh .\docs\_includes\examples\pwsh\BikeRentalShop\Cleanup.ps1 -IncludeLogs
 - Both variants expose the same HTTP API shape so their behavior is easy to compare.
 - Both backend variants persist state under each sample's `data/` folder using `Export-KrSharedState` and `Import-KrSharedState`.
 - The web client is intentionally separate, so browser assets and Razor Pages do not leak into either backend sample.
-- All three checked-in `Service.psd1` files declare `ApplicationDataFolders = @('data/', 'logs/')`, so `New-KrDockerDeployment` generates named Docker volumes for those folders automatically.
+- All three checked-in `Service.psd1` files declare `ApplicationDataFolders = @('data/', 'logs/')`, so `New-KrDockerDeployment`
+generates named Docker volumes for those folders automatically.
 - The generated container startup relinks `data/` and `logs/` back into the extracted app so those paths survive image rebuilds and `docker compose up -d` updates.
 - Avoid `docker compose down -v` when you want to keep the sample's persistent state and logs.
 - When you run `Web/` against a backend on another origin, start that backend with `-AllowedCorsOrigins` for the web service origin.

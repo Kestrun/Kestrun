@@ -135,7 +135,8 @@ function New-KrDockerDeployment {
         .SYNOPSIS
             Generates a stable suffix for Docker resource names based on an input string.
         .DESCRIPTION
-            Computes a SHA256 hash of the input string and returns the first 12 characters as a hexadecimal suffix. This ensures that the same input will always produce the same suffix, which is useful for generating consistent Docker resource names based on variable input.
+            Computes a SHA256 hash of the input string and returns the first 12 characters as a hexadecimal suffix.
+            This ensures that the same input will always produce the same suffix, which is useful for generating consistent Docker resource names based on variable input.
         .PARAMETER InputValue
             The input string used to generate the hash-based suffix.
         .OUTPUTS
@@ -151,12 +152,16 @@ function New-KrDockerDeployment {
         return ([System.Convert]::ToHexString($hash)).Substring(0, 12).ToLowerInvariant()
     }
 
-    function KrApplicationDataDefinition {
+    function Get-KrApplicationDataDefinition {
         <#
         .SYNOPSIS
             Generates application data volume definitions for Docker Compose based on service descriptor entries.
         .DESCRIPTION
-            For each relative path specified in the service descriptor's `ApplicationDataFolders`, this function generates a corresponding Docker volume name and storage path. The volume name is constructed using the normalized service name, a normalized segment derived from the relative path, and a stable hash suffix to ensure uniqueness. The storage path is set under `/opt/kestrun/application-data` with a structure that mirrors the relative path. This allows the generated Docker Compose file to define volumes that can be mounted to the appropriate locations in the container, ensuring that application data is persisted across container restarts and can be easily identified.
+            For each relative path specified in the service descriptor's `ApplicationDataFolders`,this function generates a corresponding Docker volume name and storage path.
+            The volume name is constructed using the normalized service name, a normalized segment derived from the relative path, and a stable hash suffix to ensure uniqueness.
+            The storage path is set under `/opt/kestrun/application-data` with a structure that mirrors the relative path.
+            This allows the generated Docker Compose file to define volumes that can be mounted to the appropriate locations in the container,
+            ensuring that application data is persisted across container restarts and can be easily identified.
         .PARAMETER NormalizedServiceName
             The normalized name of the service, used as a prefix for volume names.
         .PARAMETER RelativePaths
@@ -209,7 +214,7 @@ function New-KrDockerDeployment {
             The user-provided output path.
         .PARAMETER DefaultDirectoryName
             The default directory name to use if no path is provided.
-        .OUTPUT
+        .OUTPUTS
             String containing the resolved output path.
         #>
         param(
@@ -337,7 +342,7 @@ function New-KrDockerDeployment {
         $dockerignorePath = Join-Path -Path $resolvedOutputPath -ChildPath '.dockerignore'
         $packageDestinationPath = Join-Path -Path $resolvedOutputPath -ChildPath 'app.krpack'
         $moduleDestinationPath = Join-Path -Path $resolvedOutputPath -ChildPath 'Kestrun'
-        $applicationDataDefinitions = @(KrApplicationDataDefinition -NormalizedServiceName $normalizedServiceName -RelativePaths $descriptor.ApplicationDataFolders)
+        $applicationDataDefinitions = @(Get-KrApplicationDataDefinition -NormalizedServiceName $normalizedServiceName -RelativePaths $descriptor.ApplicationDataFolders)
 
         $composeLines = [System.Collections.Generic.List[string]]::new()
         $composeLines.Add('services:')
@@ -422,7 +427,9 @@ ENTRYPOINT ["/opt/kestrun/entrypoint.sh"]
             '$packagePath = ''/opt/kestrun/app/app.krpack'''
             '$serviceRoot = ''/opt/kestrun/service'''
             '$entrypointFile = ''/opt/kestrun/app/entrypoint-path.txt'''
-            '$serviceRootWithSeparator = ([System.IO.Path]::GetFullPath($serviceRoot)).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar'
+            '$serviceRootWithSeparator = ([System.IO.Path]::GetFullPath($serviceRoot)).TrimEnd('
+            '    [System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) +'
+            '    [System.IO.Path]::DirectorySeparatorChar'
             '$applicationDataDefinitions = @('
         ).ForEach({ $entrypointLines.Add($_) })
 

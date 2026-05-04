@@ -20,6 +20,9 @@
         'http://localhost:5000', 'http://+:8080', or a semicolon-delimited list,
         where the first non-empty entry is used. When ASPNETCORE_URLS is not set,
         PORT can be used to bind to 0.0.0.0 on the specified port.
+        When neither explicit parameters nor environment variables provide a
+        listener target, Add-KrEndpoint defaults to loopback binding
+        (`127.0.0.1` for IPv4, `::1` for IPv6-only).
     .PARAMETER Port
         The port on which the server will listen for incoming requests. When no
         explicit binding target is provided, this value may be resolved from the
@@ -27,7 +30,7 @@
     .PARAMETER IPAddress
         The IP address on which the server will listen. If omitted and no other
         explicit binding target is supplied, Add-KrEndpoint may resolve the listener
-        from ASPNETCORE_URLS or PORT before falling back to the default binding.
+        from ASPNETCORE_URLS or PORT before falling back to the default loopback binding.
     .PARAMETER HostName
         The hostname for the listener. This parameter is Mandatory if using the 'HostName' parameter set.
     .PARAMETER Uri
@@ -52,6 +55,10 @@
     .PARAMETER PassThru
         If specified, returns one or more endpoint spec strings that can be passed
         directly to Add-KrMapRoute -Endpoints for listener-specific routing.
+    .EXAMPLE
+        New-KrServer -Name 'MyKestrunServer'
+        Add-KrEndpoint -Port 5000
+        Adds a default loopback listener on port 5000.
     .EXAMPLE
         New-KrServer -Name 'MyKestrunServer'
         Add-KrEndpoint -Port 5000 -IPAddress ([System.Net.IPAddress]::Loopback)

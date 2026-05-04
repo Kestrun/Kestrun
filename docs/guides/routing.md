@@ -67,6 +67,10 @@ Enable-KrConfiguration
 Start-KrServer | Out-Null
 ```
 
+`Add-KrEndpoint -Port 5000` defaults to loopback binding. Use environment-based
+bindings such as `$env:PORT` or `ASPNETCORE_URLS` when a deployment should listen
+on all interfaces.
+
 ## 2. Applying Conventions to Ad-Hoc Endpoints
 
 If you map endpoints directly with ASP.NET Core (e.g. `app.MapGet`), you can still apply the same

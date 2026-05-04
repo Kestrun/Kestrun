@@ -23,6 +23,7 @@ Deeper, cross-cutting subjects (logging, deployment, performance, etc.).
 | [Dotnet Tool](./tooling) | Install, update, and use the `kestrun` CLI via `Kestrun.Tool` |
 | [MCP Server](./mcp) | Expose Kestrun routes, OpenAPI, runtime inspection, and safe invocation to MCP clients |
 | [Production Deployment (Service/Daemon)](./production-service-daemon) | Deploy custom Kestrun apps to VM/bare-metal service hosts |
+| [Production Deployment (Container)](./production-container) | Package `.krpack` services into Docker images and Compose bundles |
 | [Real-time (SSE & SignalR)](./realtime) | Stream events via SSE or build interactive apps with SignalR |
 | [Scheduling](./scheduling) | Background jobs via intervals and CRON (PS & C#) |
 | [Sessions](./sessions) | Cookie-based per-client state across requests |

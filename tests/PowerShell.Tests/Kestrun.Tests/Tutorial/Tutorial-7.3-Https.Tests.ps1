@@ -4,7 +4,7 @@ BeforeAll {
 }
 
 Describe 'Example 7.3-Https' {
-    BeforeAll { $script:instance = Start-ExampleScript -Name '7.3-Https.ps1' }
+    m BeforeAll { $script:instance = Start-ExampleScript -Name '7.3-Https.ps1' -PortCount 2 }
     AfterAll {
         if ($script:instance) {
             # Stop the example script
@@ -23,7 +23,7 @@ Describe 'Example 7.3-Https' {
     }
 
     It 'GET /secure returns hello on secondary listener (HTTPS)' {
-        $uri = "https://127.0.0.1:$($script:instance.Port+443)/secure"
+        $uri = "https://127.0.0.1:$($script:instance.Port+1)/secure"
 
         $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop -SkipCertificateCheck
         $resp.StatusCode | Should -Be 200
@@ -36,7 +36,7 @@ Describe 'Example 7.3-Https' {
     }
 
     It 'GET /unsecure fails on secondary listener (HTTPS)' {
-        $uri = "https://127.0.0.1:$($script:instance.Port+443)/unsecure"
+        $uri = "https://127.0.0.1:$($script:instance.Port+1)/unsecure"
         { Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 5 -ErrorAction Stop -SkipCertificateCheck } | Should -Throw
     }
 }

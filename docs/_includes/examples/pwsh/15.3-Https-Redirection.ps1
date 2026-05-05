@@ -18,19 +18,21 @@ New-KrLogger |
 # Create a self-signed cert for localhost (RSA 2048 by default)
 $cert = New-KrSelfSignedCertificate -DnsNames localhost, 127.0.0.1 -Exportable -ValidDays 30
 
+$httpsPort = $Port + 1
+
 
 # Configure HTTPS listener with the certificate
-New-KrServer -Name "HTTPS Redirection Demo"
+New-KrServer -Name 'HTTPS Redirection Demo'
 Add-KrEndpoint -Port ($Port)
-Add-KrEndpoint -Port ($Port + 443) -X509Certificate $cert
+Add-KrEndpoint -Port $httpsPort -X509Certificate $cert
 
-Add-KrHttpsRedirection -RedirectStatusCode 301 -HttpsPort ($Port + 443)
+Add-KrHttpsRedirection -RedirectStatusCode 301 -HttpsPort $httpsPort
 
 # Enable Kestrun configuration
 Enable-KrConfiguration
 
 # Minimal route to verify HTTPS redirect works
-Add-KrMapRoute -Verbs Get -Pattern "/" -ScriptBlock { Write-KrTextResponse "hello https" }
+Add-KrMapRoute -Verbs Get -Pattern '/' -ScriptBlock { Write-KrTextResponse 'hello https' }
 
 Start-KrServer
 

@@ -4,7 +4,7 @@ BeforeAll {
 }
 
 Describe 'Example 15.4-Https-Hsts' -Tag 'Tutorial', 'Middleware', 'Https', 'Hsts' {
-    BeforeAll { $script:instance = Start-ExampleScript -Name '15.4-Https-Hsts.ps1' }
+    BeforeAll { $script:instance = Start-ExampleScript -Name '15.4-Https-Hsts.ps1' -PortCount 2 }
     AfterAll { if ($script:instance) {
             # Stop the example script
             Stop-ExampleScript -Instance $script:instance
@@ -17,7 +17,7 @@ Describe 'Example 15.4-Https-Hsts' -Tag 'Tutorial', 'Middleware', 'Https', 'Hsts
         $uri = "http://$($script:instance.Host):$($script:instance.Port)/"
         $probe = Get-HttpHeadersRaw -Uri $uri -Insecure -AsHashtable
         $probe.StatusCode | Should -Be 301
-        $probe.Location | Should -Be "https://$($script:instance.Host):$($script:instance.Port + 443)/"
+        $probe.Location | Should -Be "https://$($script:instance.Host):$($script:instance.Port + 1)/"
     }
 
     It 'Serves content over HTTPS after HTTP redirect' {
@@ -28,7 +28,7 @@ Describe 'Example 15.4-Https-Hsts' -Tag 'Tutorial', 'Middleware', 'Https', 'Hsts
     }
 
     It 'Serves content over HTTPS directly' {
-        $httpsPort = $script:instance.Port + 443
+        $httpsPort = $script:instance.Port + 1
         $uri = "https://$($script:instance.Host):$httpsPort/"
 
         $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
@@ -37,7 +37,7 @@ Describe 'Example 15.4-Https-Hsts' -Tag 'Tutorial', 'Middleware', 'Https', 'Hsts
     }
 
     It 'Includes HSTS header in HTTPS response' {
-        $httpsPort = $script:instance.Port + 443
+        $httpsPort = $script:instance.Port + 1
         $uri = "https://$($script:instance.Host):$httpsPort/"
 
         $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
@@ -45,7 +45,7 @@ Describe 'Example 15.4-Https-Hsts' -Tag 'Tutorial', 'Middleware', 'Https', 'Hsts
     }
 
     It 'HSTS header contains expected directives' {
-        $httpsPort = $script:instance.Port + 443
+        $httpsPort = $script:instance.Port + 1
         $uri = "https://$($script:instance.Host):$httpsPort/"
 
         $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
@@ -62,7 +62,7 @@ Describe 'Example 15.4-Https-Hsts' -Tag 'Tutorial', 'Middleware', 'Https', 'Hsts
     }
 
     It 'HSTS header has correct max-age value' {
-        $httpsPort = $script:instance.Port + 443
+        $httpsPort = $script:instance.Port + 1
         $uri = "https://$($script:instance.Host):$httpsPort/"
 
         $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck
@@ -83,7 +83,7 @@ Describe 'Example 15.4-Https-Hsts' -Tag 'Tutorial', 'Middleware', 'Https', 'Hsts
     }
 
     It 'Uses self-signed certificate for HTTPS' {
-        $httpsPort = $script:instance.Port + 443
+        $httpsPort = $script:instance.Port + 1
         $uri = "https://$($script:instance.Host):$httpsPort/"
 
         # This should work with -SkipCertificateCheck but fail without it

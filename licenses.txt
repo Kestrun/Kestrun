@@ -1,12 +1,4 @@
 ####################################################################################################
-Package:Azure.Identity
-Version:1.17.1
-project URL:https://github.com/Azure/azure-sdk-for-net/blob/Azure.Identity_1.17.1/sdk/identity/Azure.Identity/README.md
-Description:Provides APIs for authenticating to Microsoft Entra ID
-licenseUrl:https://licenses.nuget.org/MIT
-license Type:MIT
-
-####################################################################################################
 Package:BouncyCastle.Cryptography
 Version:2.6.2
 project URL:https://www.bouncycastle.org/stable/nuget/csharp/website
@@ -16,7 +8,7 @@ license Type:MIT
 
 ####################################################################################################
 Package:Cronos
-Version:0.11.1
+Version:0.13.0
 project URL:https://github.com/HangfireIO/Cronos
 Description:A fully-featured .NET library for parsing cron expressions and calculating next occurrences that was designed with time zones in mind and correctly handles daylight saving time transitions.
 licenseUrl:https://licenses.nuget.org/MIT
@@ -32,21 +24,21 @@ license Type:MS-PL OR Apache-2.0
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.Certificate
-Version:8.0.25
+Version:8.0.26
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to support certificate authentication.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/ef18546e04f9b0127bbd7709b6af054cc18da98a
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/829dd6d36442c2bcf83ebfc9d4159b7ecc15c2ff
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.Certificate
-Version:9.0.14
+Version:9.0.15
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to support certificate authentication.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/baa6b294e728e6171378b4e8c52e42e7c4d4ed63
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/324a351f7f1ae6c17b6a8661903e2a7921a7d75c
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -62,21 +54,21 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.JwtBearer
-Version:8.0.25
+Version:8.0.26
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to receive an OpenID Connect bearer token.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/ef18546e04f9b0127bbd7709b6af054cc18da98a
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/829dd6d36442c2bcf83ebfc9d4159b7ecc15c2ff
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.JwtBearer
-Version:9.0.14
+Version:9.0.15
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to receive an OpenID Connect bearer token.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/baa6b294e728e6171378b4e8c52e42e7c4d4ed63
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/324a351f7f1ae6c17b6a8661903e2a7921a7d75c
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -92,21 +84,21 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.Negotiate
-Version:8.0.25
+Version:8.0.26
 project URL:https://asp.net/
 Description:ASP.NET Core authentication handler used to authenticate requests using Negotiate, Kerberos, or NTLM.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/ef18546e04f9b0127bbd7709b6af054cc18da98a
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/829dd6d36442c2bcf83ebfc9d4159b7ecc15c2ff
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.Negotiate
-Version:9.0.14
+Version:9.0.15
 project URL:https://asp.net/
 Description:ASP.NET Core authentication handler used to authenticate requests using Negotiate, Kerberos, or NTLM.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/baa6b294e728e6171378b4e8c52e42e7c4d4ed63
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/324a351f7f1ae6c17b6a8661903e2a7921a7d75c
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -122,21 +114,21 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.OpenIdConnect
-Version:8.0.25
+Version:8.0.26
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to support the OpenID Connect authentication workflow.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/ef18546e04f9b0127bbd7709b6af054cc18da98a
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/829dd6d36442c2bcf83ebfc9d4159b7ecc15c2ff
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Authentication.OpenIdConnect
-Version:9.0.14
+Version:9.0.15
 project URL:https://asp.net/
 Description:ASP.NET Core middleware that enables an application to support the OpenID Connect authentication workflow.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/baa6b294e728e6171378b4e8c52e42e7c4d4ed63
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/324a351f7f1ae6c17b6a8661903e2a7921a7d75c
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -152,21 +144,21 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation
-Version:8.0.25
+Version:8.0.26
 project URL:https://asp.net/
 Description:Runtime compilation support for Razor views and Razor Pages in ASP.NET Core MVC.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/ef18546e04f9b0127bbd7709b6af054cc18da98a
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/829dd6d36442c2bcf83ebfc9d4159b7ecc15c2ff
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.AspNetCore.Mvc.Razor.RuntimeCompilation
-Version:9.0.14
+Version:9.0.15
 project URL:https://asp.net/
 Description:Runtime compilation support for Razor views and Razor Pages in ASP.NET Core MVC.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/baa6b294e728e6171378b4e8c52e42e7c4d4ed63
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/324a351f7f1ae6c17b6a8661903e2a7921a7d75c
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -463,21 +455,21 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.Extensions.Caching.SqlServer
-Version:8.0.25
+Version:8.0.26
 project URL:https://asp.net/
 Description:Distributed cache implementation of Microsoft.Extensions.Caching.Distributed.IDistributedCache using Microsoft SQL Server.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/ef18546e04f9b0127bbd7709b6af054cc18da98a
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/829dd6d36442c2bcf83ebfc9d4159b7ecc15c2ff
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.Extensions.Caching.SqlServer
-Version:9.0.14
+Version:9.0.15
 project URL:https://asp.net/
 Description:Distributed cache implementation of Microsoft.Extensions.Caching.Distributed.IDistributedCache using Microsoft SQL Server.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/baa6b294e728e6171378b4e8c52e42e7c4d4ed63
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/324a351f7f1ae6c17b6a8661903e2a7921a7d75c
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -493,21 +485,21 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.Extensions.Caching.StackExchangeRedis
-Version:8.0.25
+Version:8.0.26
 project URL:https://asp.net/
 Description:Distributed cache implementation of Microsoft.Extensions.Caching.Distributed.IDistributedCache using Redis.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/ef18546e04f9b0127bbd7709b6af054cc18da98a
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/829dd6d36442c2bcf83ebfc9d4159b7ecc15c2ff
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.Extensions.Caching.StackExchangeRedis
-Version:9.0.14
+Version:9.0.15
 project URL:https://asp.net/
 Description:Distributed cache implementation of Microsoft.Extensions.Caching.Distributed.IDistributedCache using Redis.
 
-This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/baa6b294e728e6171378b4e8c52e42e7c4d4ed63
+This package was built from the source code at https://github.com/dotnet/aspnetcore/tree/324a351f7f1ae6c17b6a8661903e2a7921a7d75c
 licenseUrl:https://licenses.nuget.org/MIT
 license Type:MIT
 
@@ -523,7 +515,7 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.IdentityModel.JsonWebTokens
-Version:8.16.0
+Version:8.18.0
 project URL:https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet
 Description:Includes types that provide support for creating, serializing and validating JSON Web Tokens. This is a newer, faster version of System.IdentityModel.Tokens.Jwt that has additional functionality.
 licenseUrl:https://licenses.nuget.org/MIT
@@ -531,7 +523,7 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.IdentityModel.Tokens
-Version:8.16.0
+Version:8.18.0
 project URL:https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet
 Description:Includes types that provide support for SecurityTokens, Cryptographic operations: Signing, Verifying Signatures, Encryption.
 licenseUrl:https://licenses.nuget.org/MIT
@@ -539,7 +531,7 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.OpenApi
-Version:3.4.0
+Version:3.5.3
 project URL:https://github.com/Microsoft/OpenAPI.NET
 Description:.NET models with JSON and YAML writers for OpenAPI specification
 licenseUrl:https://licenses.nuget.org/MIT
@@ -547,7 +539,7 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.PowerShell.SDK
-Version:7.4.14
+Version:7.4.15
 project URL:https://github.com/PowerShell/PowerShell
 Description:Runtime for hosting PowerShell
 licenseUrl:https://licenses.nuget.org/MIT
@@ -555,7 +547,7 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.PowerShell.SDK
-Version:7.5.5
+Version:7.5.6
 project URL:https://github.com/PowerShell/PowerShell
 Description:Runtime for hosting PowerShell
 licenseUrl:https://licenses.nuget.org/MIT
@@ -563,7 +555,7 @@ license Type:MIT
 
 ####################################################################################################
 Package:Microsoft.PowerShell.SDK
-Version:7.6.0
+Version:7.6.1
 project URL:https://github.com/PowerShell/PowerShell
 Description:Runtime for hosting PowerShell
 licenseUrl:https://licenses.nuget.org/MIT
@@ -571,7 +563,7 @@ license Type:MIT
 
 ####################################################################################################
 Package:MongoDB.Bson
-Version:3.7.0
+Version:3.8.0
 project URL:https://www.mongodb.com/docs/drivers/csharp/
 Description:MongoDB's Official Bson Library.
 licenseUrl:https://licenses.nuget.org/Apache-2.0
@@ -691,7 +683,7 @@ license Type:Apache-2.0
 
 ####################################################################################################
 Package:System.IdentityModel.Tokens.Jwt
-Version:8.16.0
+Version:8.18.0
 project URL:https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet
 Description:Includes types that provide support for creating, serializing and validating JSON Web Tokens. As of IdentityModel 7x, this is a legacy tool that should be replaced with Microsoft.IdentityModel.JsonWebTokens.
 licenseUrl:https://licenses.nuget.org/MIT
@@ -699,7 +691,7 @@ license Type:MIT
 
 ####################################################################################################
 Package:YamlDotNet
-Version:16.3.0
+Version:17.1.0
 project URL:https://github.com/aaubry/YamlDotNet/wiki
 Description:YamlDotNet is a .NET library for YAML. YamlDotNet provides low level parsing and emitting of YAML as well as a high level object model similar to XmlDocument. A serialization library is also included that allows to read and write objects from and to YAML streams.
 licenseUrl:https://licenses.nuget.org/MIT

@@ -24,7 +24,7 @@ if (-not (Test-Path $certPath)) {
         Export-KrCertificate -FilePath $certPath -Format Pfx -IncludePrivateKey -Password $pw | Out-Null
 }
 
-$port2 = $Port + 443
+$port2 = $Port + 1
 # Create a new Kestrun server
 New-KrServer -Name 'Endpoints Https'
 

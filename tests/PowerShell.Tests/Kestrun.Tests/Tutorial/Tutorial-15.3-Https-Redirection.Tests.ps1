@@ -4,7 +4,7 @@ BeforeAll {
 }
 
 Describe 'Example 15.3-Https-Redirection' -Tag 'Tutorial', 'Middleware', 'Https' {
-    BeforeAll { $script:instance = Start-ExampleScript -Name '15.3-Https-Redirection.ps1' }
+    BeforeAll { $script:instance = Start-ExampleScript -Name '15.3-Https-Redirection.ps1' -PortCount 2 }
     AfterAll { if ($script:instance) {
             # Stop the example script
             Stop-ExampleScript -Instance $script:instance
@@ -17,7 +17,7 @@ Describe 'Example 15.3-Https-Redirection' -Tag 'Tutorial', 'Middleware', 'Https'
         $uri = "http://$($script:instance.Host):$($script:instance.Port)/"
         $probe = Get-HttpHeadersRaw -Uri $uri -Insecure -AsHashtable
         $probe.StatusCode | Should -Be 301
-        $probe.Location | Should -Be "https://$($script:instance.Host):$($script:instance.Port + 443)/"
+        $probe.Location | Should -Be "https://$($script:instance.Host):$($script:instance.Port + 1)/"
     }
 
     It 'Serves content over HTTPS after HTTP redirect' {
@@ -28,7 +28,7 @@ Describe 'Example 15.3-Https-Redirection' -Tag 'Tutorial', 'Middleware', 'Https'
     }
 
     It 'Serves content over HTTPS after redirect' {
-        $httpsPort = $script:instance.Port + 443
+        $httpsPort = $script:instance.Port + 1
         $uri = "https://$($script:instance.Host):$httpsPort/"
 
         $resp = Invoke-WebRequest -Uri $uri -UseBasicParsing -TimeoutSec 15 -SkipCertificateCheck

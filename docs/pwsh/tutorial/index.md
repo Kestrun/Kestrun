@@ -64,7 +64,7 @@ Stop the server with Ctrl+C in the terminal.
 | 12 | Static Routes | [Response Caching & Conditional Requests][ch-3-6-response-caching] | [Script][sc-3-6-response-caching] | Layer fine‑grained dynamic caching and validator logic on top of (or independent from) file server level |
 | 13 | Shared Variable | [Using Shared Variables][ch-4-1-shared-variables] | [Script][sc-4-1-shared-variables] | Share in-memory state (counters, caches, configuration) by defining variables **before** `Enable-KrConfiguration` |
 | 14 | Shared Variable | [Managing Shared State][ch-4-2-shared-state] | [Script][sc-4-2-shared-state] | Use the Kestrun shared state cmdlets (`Set-KrSharedState`, `Get-KrSharedState`, `Remove-KrSharedState`) to create |
-| 15 | Shared Variable | [Shared State Snapshots][ch-4-3-shared-state-snapshots] | [Script][sc-4-3-shared-state-snapshots] | Capture and restore a shared in-memory object by combining `Export-KrSharedState`, `Import-KrSharedState`, and a named lock. |
+| 15 | Shared Variable | [Shared State Snapshots][ch-4-3-shared-state-snapshots] | [Script][sc-4-3-shared-state-snapshots] | Capture and restore a shared in-memory object with `Export-KrSharedState`, `Import-KrSharedState`, and `Use-KrLock`. |
 | 16 | Logging | [Simple Logging][ch-5-1-simple-logging] | [Script][sc-5-1-simple-logging] | Introduce structured logging early: create a named logger with console + rolling file sinks, register it as |
 | 17 | Logging | [Multiple Loggers & Levels][ch-5-2-multiple-loggers-levels] | [Script][sc-5-2-multiple-loggers-levels] | Run more than one named logger at once and control their verbosity separately. |
 | 18 | Logging | [Enrichment & Correlation IDs][ch-5-3-enrichment-correlation-ids] | [Script][sc-5-3-enrichment-correlation-ids] | Attach useful properties (enrichment) to your log events and add a per-request |
@@ -72,7 +72,7 @@ Stop the server with Ctrl+C in the terminal.
 | 20 | Logging | [Sinks (HTTP/EventLog/Syslog)][ch-5-5-sinks-advanced] | [Script][sc-5-5-sinks-advanced] | Push logs to external systems. |
 | 21 | Logging | [Hot Reload (Update Logger)][ch-5-6-hot-reload] | [Script][sc-5-6-hot-reload] | Change logging behavior without restarting the server. |
 | 22 | Logging | [Apache Common Access Log][ch-5-7-apache-common-access-log] | [Script][sc-5-7-apache-common-access-log] | Add structured request logging in the classic **Apache Common Log Format (CLF)** (also called *Common Access Log*). |
-| 23 | Certificates | [Create a Self‑Signed Certificate][ch-6-1-self-signed] | [Script][sc-6-1-self-signed] | Generate a development certificate for localhost and bind it to an HTTPS listener. |
+| 23 | Certificates | [Create a Self‑Signed Certificate][ch-6-1-self-signed] | [Script][sc-6-1-self-signed] | Generate a development CA root, issue a localhost leaf certificate from it, and bind the leaf to an HTTPS listener. |
 | 24 | Certificates | [Generate a CSR (Certificate Signing Request)][ch-6-2-csr] | [Script][sc-6-2-csr] | Run a small API that generates a CSR from request parameters. |
 | 25 | Certificates | [Import, Export, Validate & EKU][ch-6-3-import-export-validate] | [Script][sc-6-3-import-export-validate] | Expose API endpoints to import a certificate and export it in different formats, with simple validation and EKU reporting. |
 | 26 | Endpoints | [Basic Server][ch-7-1-basic-server] | [Script][sc-7-1-basic-server] | Minimal server: one HTTP listener (loopback:5000) + a single PowerShell route returning text. |
@@ -192,9 +192,11 @@ Stop the server with Ctrl+C in the terminal.
 | 140 | File and Form Uploads | [OpenAPI: part-level compression][ch-22-14-part-compressed-openapi] | [Script][sc-22-14-part-compressed-openapi] | Document per-part Content-Encoding with OpenAPI annotations. |
 | 141 | File and Form Uploads | [OpenAPI: file hash upload][ch-22-15-file-hash-openapi] | [Script][sc-22-15-file-hash-openapi] | Upload a binary file and return MD5/SHA1/SHA256/SHA384/SHA512 hashes with OpenAPI annotations. |
 | 142 | File and Form Uploads | [Form rules: file hash upload][ch-22-16-file-hash-rule] | [Script][sc-22-16-file-hash-rule] | Upload a binary file using `New-KrFormPartRule` and return MD5/SHA1/SHA256/SHA384/SHA512 hashes. |
-| 143 | Applications | [Bike Rental Shop Application][ch-23-1-bike-rental-shop] | [Script][sc-23-1-bike-rental-shop] | Walk through a multi-route application with persisted rentals, staff operations, optional CORS, and a separate Razor client. |
-| 144 | Applications | [Bike Rental Shop Web Client][ch-23-2-bike-rental-shop-web] | [Script][sc-23-2-bike-rental-shop-web] | Connect a standalone Razor Pages client to the bike-rental backend while keeping browser concerns out of the API service. |
-| 145 | Applications | [Bike Rental Shop Backend Variants][ch-23-3-bike-rental-shop-variants] | [Script][sc-23-3-bike-rental-shop-variants] | Compare the synchronized and concurrent backends while preserving the same customer and staff API contract. |
+| 143 | Applications | [Bike Rental Shop Application][ch-23-1-bikerentalshop] | [Script][sc-23-1-bikerentalshop] | Build a realistic Kestrun application that manages bike inventory, rental checkout, staff operations, and an optional standalone web client. |
+| 144 | Applications | [Bike Rental Shop Web Client][ch-23-2-bikerentalshop-web] | [Script][sc-23-2-bikerentalshop-web] | Add a standalone Razor Pages frontend that talks to the BikeRentalShop API over HTTP while keeping the backend services focused on API concerns. |
+| 145 | Applications | [Bike Rental Shop Backend Variants][ch-23-3-bikerentalshop-variants] | [Script][sc-23-3-bikerentalshop-variants] | Compare the synchronized and concurrent BikeRentalShop backends while keeping the same API contract, packaging approach, and web-client integration points. |
+| 146 | Applications | [Bike Rental Shop Packaging][ch-23-4-bikerentalshop-packaging] | [Script][sc-23-4-bikerentalshop-packaging] | Package the BikeRentalShop backend or web client into a `.krpack` so the sample is ready to move from a repository checkout into a deployment workflow. |
+| 147 | Applications | [Bike Rental Shop Install and Update][ch-23-5-bikerentalshop-install-update] | [Script][sc-23-5-bikerentalshop-install-update] | Turn a packaged BikeRentalShop target into concrete `dotnet kestrun service install` and `service update` commands for a deployment workflow. |
 
 Static chapters and scripts are all linked directly above for quick navigation.
 
@@ -324,25 +326,27 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [ch-20-1-tasks]: ./20.Tasks/1.Tasks
 [ch-21-1-localization]: ./21.Localization/1.Localization
 [ch-21-2-razor-localization]: ./21.Localization/2.Razor-Localization
-[ch-22-1-basic-multipart]: ./22.file-and-form-uploads/22.1-Basic-Multipart
-[ch-22-2-multiple-files]: ./22.file-and-form-uploads/22.2-Multiple-Files
-[ch-22-3-urlencoded]: ./22.file-and-form-uploads/22.3-UrlEncoded
-[ch-22-4-multipart-mixed]: ./22.file-and-form-uploads/22.4-Multipart-Mixed
-[ch-22-5-nested-multipart]: ./22.file-and-form-uploads/22.5-Nested-Multipart
-[ch-22-6-request-compressed]: ./22.file-and-form-uploads/22.6-Request-Compressed
-[ch-22-7-part-compressed]: ./22.file-and-form-uploads/22.7-Part-Compressed
-[ch-22-8-basic-multipart-openapi]: ./22.file-and-form-uploads/22.8-Basic-Multipart-OpenAPI
-[ch-22-9-multiple-files-openapi]: ./22.file-and-form-uploads/22.9-Multiple-Files-OpenAPI
-[ch-22-10-url-encoded-openapi]: ./22.file-and-form-uploads/22.10-Url-Encoded-OpenAPI
-[ch-22-11-multipart-mixed-openapi]: ./22.file-and-form-uploads/22.11-Multipart-Mixed-OpenAPI
-[ch-22-12-nested-multipart-openapi]: ./22.file-and-form-uploads/22.12-Nested-Multipart-OpenAPI
-[ch-22-13-request-compressed-openapi]: ./22.file-and-form-uploads/22.13-Request-Compressed-OpenAPI
-[ch-22-14-part-compressed-openapi]: ./22.file-and-form-uploads/22.14-Part-Compressed-OpenAPI
-[ch-22-15-file-hash-openapi]: ./22.file-and-form-uploads/22.15-File-Hash-OpenAPI
-[ch-22-16-file-hash-rule]: ./22.file-and-form-uploads/22.16-File-Hash-Rule
-[ch-23-1-bike-rental-shop]: ./23.applications/1.BikeRentalShop
-[ch-23-2-bike-rental-shop-web]: ./23.applications/2.BikeRentalShop-Web
-[ch-23-3-bike-rental-shop-variants]: ./23.applications/3.BikeRentalShop-Variants
+[ch-22-1-basic-multipart]: ./22.file-and-form-uploads/1.Basic-Multipart
+[ch-22-2-multiple-files]: ./22.file-and-form-uploads/2.Multiple-Files
+[ch-22-3-urlencoded]: ./22.file-and-form-uploads/3.UrlEncoded
+[ch-22-4-multipart-mixed]: ./22.file-and-form-uploads/4.Multipart-Mixed
+[ch-22-5-nested-multipart]: ./22.file-and-form-uploads/5.Nested-Multipart
+[ch-22-6-request-compressed]: ./22.file-and-form-uploads/6.Request-Compressed
+[ch-22-7-part-compressed]: ./22.file-and-form-uploads/7.Part-Compressed
+[ch-22-8-basic-multipart-openapi]: ./22.file-and-form-uploads/8.Basic-Multipart-OpenAPI
+[ch-22-9-multiple-files-openapi]: ./22.file-and-form-uploads/9.Multiple-Files-OpenAPI
+[ch-22-10-url-encoded-openapi]: ./22.file-and-form-uploads/10.Url-Encoded-OpenAPI
+[ch-22-11-multipart-mixed-openapi]: ./22.file-and-form-uploads/11.Multipart-Mixed-OpenAPI
+[ch-22-12-nested-multipart-openapi]: ./22.file-and-form-uploads/12.Nested-Multipart-OpenAPI
+[ch-22-13-request-compressed-openapi]: ./22.file-and-form-uploads/13.Request-Compressed-OpenAPI
+[ch-22-14-part-compressed-openapi]: ./22.file-and-form-uploads/14.Part-Compressed-OpenAPI
+[ch-22-15-file-hash-openapi]: ./22.file-and-form-uploads/15.File-Hash-OpenAPI
+[ch-22-16-file-hash-rule]: ./22.file-and-form-uploads/16.File-Hash-Rule
+[ch-23-1-bikerentalshop]: ./23.applications/1.BikeRentalShop
+[ch-23-2-bikerentalshop-web]: ./23.applications/2.BikeRentalShop-Web
+[ch-23-3-bikerentalshop-variants]: ./23.applications/3.BikeRentalShop-Variants
+[ch-23-4-bikerentalshop-packaging]: ./23.applications/4.BikeRentalShop-Packaging
+[ch-23-5-bikerentalshop-install-update]: ./23.applications/5.BikeRentalShop-Install-Update
 [sc-1-1-hello-world]: /pwsh/tutorial/examples/1.1-Hello-World.ps1
 [sc-2-1-multiple-content-types]: /pwsh/tutorial/examples/2.1-Multiple-Content-Types.ps1
 [sc-2-2-multi-language-routes]: /pwsh/tutorial/examples/2.2-Multi-Language-Routes.ps1
@@ -485,6 +489,8 @@ Static chapters and scripts are all linked directly above for quick navigation.
 [sc-22-14-part-compressed-openapi]: /pwsh/tutorial/examples/22.14-Part-Compressed-OpenAPI.ps1
 [sc-22-15-file-hash-openapi]: /pwsh/tutorial/examples/22.15-File-Hash-OpenAPI.ps1
 [sc-22-16-file-hash-rule]: /pwsh/tutorial/examples/22.16-File-Hash-Rule.ps1
-[sc-23-1-bike-rental-shop]: /pwsh/tutorial/examples/BikeRentalShop/Synchronized/Service.ps1
-[sc-23-2-bike-rental-shop-web]: /pwsh/tutorial/examples/BikeRentalShop/Web/Service.ps1
-[sc-23-3-bike-rental-shop-variants]: /pwsh/tutorial/examples/BikeRentalShop/Concurrent/Service.ps1
+[sc-23-1-bikerentalshop]: /pwsh/tutorial/examples/23.1-BikeRentalShop.ps1
+[sc-23-2-bikerentalshop-web]: /pwsh/tutorial/examples/23.2-BikeRentalShop-Web.ps1
+[sc-23-3-bikerentalshop-variants]: /pwsh/tutorial/examples/23.3-BikeRentalShop-Variants.ps1
+[sc-23-4-bikerentalshop-packaging]: /pwsh/tutorial/examples/23.4-BikeRentalShop-Packaging.ps1
+[sc-23-5-bikerentalshop-install-update]: /pwsh/tutorial/examples/23.5-BikeRentalShop-Install-Update.ps1

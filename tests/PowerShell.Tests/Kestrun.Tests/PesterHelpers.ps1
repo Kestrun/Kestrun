@@ -479,7 +479,7 @@ function Restore-ExamplePath {
         - ScriptDirectory: Working directory used when launching the example.
         - OriginalLocation: Caller location captured before changing into the example directory.
         - PushedLocation: Indicates whether the helper pushed a location that Stop-ExampleScript should pop.
-        - Https: Indicates whether the helper inferred HTTPS for the started example.
+        - Https: Indicates whether the helper inferred HTTPS for the base listener on the returned Port.
 #>
 function Start-ExampleScript {
     [CmdletBinding(SupportsShouldProcess, defaultParameterSetName = 'Name')]
@@ -545,12 +545,25 @@ Start-KrServer
         }
     }
 
-    # Heuristic: detect HTTPS usage if listener line includes cert/self-signed flags.
-    # This is also used to avoid noisy HTTPS readiness probes for HTTP-only examples.
-    $usesHttps = $false
-    if ($content -match '(?s)Add-KrEndpoint\b.*?-(SelfSignedCert(?:ificate)?|CertPath|X509Certificate)\b') {
-        $usesHttps = $true
+    # Heuristic: infer the scheme for the base listener associated with -Port.
+    # Mixed HTTP/HTTPS samples often bind plain HTTP on $Port and TLS on a sibling
+    # port such as $Port + 1, so probing the base port as HTTPS creates avoidable
+    # startup warnings even when the example is healthy.
+    $basePortListenerPattern = '(?m)Add-KrEndpoint\b[^\r\n]*-Port\s*\(?\s*\$Port\s*\)?'
+    $httpsListenerPattern = '-(SelfSignedCert(?:ificate)?|CertPath|X509Certificate)\b'
+    $basePortHasListener = $content -match $basePortListenerPattern
+    $basePortUsesHttps = $content -match ($basePortListenerPattern + '[^\r\n]*' + $httpsListenerPattern)
+    $hasAnyHttpsListener = $content -match ('(?m)Add-KrEndpoint\b[^\r\n]*' + $httpsListenerPattern)
+    $basePortScheme = if ($basePortUsesHttps) {
+        'https'
+    } elseif ($basePortHasListener) {
+        'http'
+    } elseif ($hasAnyHttpsListener) {
+        'https'
+    } else {
+        'http'
     }
+    $usesHttps = $basePortScheme -eq 'https'
 
     $tempDir = [System.IO.Path]::GetTempPath()
     # Generate a unique file name for the temp script
@@ -671,8 +684,7 @@ Start-KrServer
             Start-Sleep -Seconds 1 # Initial delay before probing
 
             if ($RunInPlace.IsPresent) {
-                $expectedScheme = if ($usesHttps) { 'https' } else { 'http' }
-                $readyPattern = [regex]::Escape("Now listening on: ${expectedScheme}://") + ".+:$Port"
+                $readyPattern = [regex]::Escape("Now listening on: ${basePortScheme}://") + ".+:$Port"
                 $logProbeInstance = [pscustomobject]@{
                     StdOut = $stdOut
                     StdErr = $stdErr

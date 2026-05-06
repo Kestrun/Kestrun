@@ -548,12 +548,17 @@ Start-KrServer
     # Heuristic: infer the scheme for the base listener associated with -Port.
     # Mixed HTTP/HTTPS samples often bind plain HTTP on $Port and TLS on a sibling
     # port such as $Port + 1, so probing the base port as HTTPS creates avoidable
-    # startup warnings even when the example is healthy.
-    $basePortListenerPattern = '(?m)Add-KrEndpoint\b[^\r\n]*-Port\s*\(?\s*\$Port\s*\)?'
+    # startup warnings even when the example is healthy. Parse logical Add-KrEndpoint
+    # commands rather than single lines because many samples wrap listener options
+    # across multiple lines with PowerShell continuations.
+    $endpointCommandPattern = '(?ms)^[ \t]*Add-KrEndpoint\b.*?(?=^[ \t]*(?!-)\S|\Z)'
+    $basePortListenerPattern = '-Port\s*\(?\s*\$Port\s*\)?'
     $httpsListenerPattern = '-(SelfSignedCert(?:ificate)?|CertPath|X509Certificate)\b'
-    $basePortHasListener = $content -match $basePortListenerPattern
-    $basePortUsesHttps = $content -match ($basePortListenerPattern + '[^\r\n]*' + $httpsListenerPattern)
-    $hasAnyHttpsListener = $content -match ('(?m)Add-KrEndpoint\b[^\r\n]*' + $httpsListenerPattern)
+    $endpointCommands = @([regex]::Matches($content, $endpointCommandPattern) | ForEach-Object { $_.Value })
+    $basePortCommand = $endpointCommands | Where-Object { $_ -match $basePortListenerPattern } | Select-Object -First 1
+    $basePortHasListener = $null -ne $basePortCommand
+    $basePortUsesHttps = $basePortHasListener -and ($basePortCommand -match $httpsListenerPattern)
+    $hasAnyHttpsListener = $endpointCommands | Where-Object { $_ -match $httpsListenerPattern } | Select-Object -First 1
     $basePortScheme = if ($basePortUsesHttps) {
         'https'
     } elseif ($basePortHasListener) {

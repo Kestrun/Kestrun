@@ -4,7 +4,7 @@ BeforeAll {
 }
 
 Describe 'Example 7.3-Https' {
-    m BeforeAll { $script:instance = Start-ExampleScript -Name '7.3-Https.ps1' -PortCount 2 }
+    BeforeAll { $script:instance = Start-ExampleScript -Name '7.3-Https.ps1' -PortCount 2 }
     AfterAll {
         if ($script:instance) {
             # Stop the example script

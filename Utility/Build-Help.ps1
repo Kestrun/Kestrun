@@ -133,6 +133,7 @@ parent: PowerShell Cmdlets
 nav_order: $i
 render_with_liquid: false
 title: $($f.BaseName)
+---
 
 $contentBody
 "@ | Set-Content $f.FullName -NoNewline
@@ -154,7 +155,8 @@ if (-not $NotEmitXmlHelp) {
     # Import only CommandHelp → export MAML
     $md |
         Where-Object FileType -Match 'CommandHelp' |
-        Import-MarkdownCommandHelp -Path { $_.FilePath } |
+        Select-Object -ExpandProperty FilePath |
+        Import-MarkdownCommandHelp |
         Export-MamlCommandHelp -OutputFolder $xmlOut -Force -Verbose
     Write-Host "✅ Done. XML Help at $xmlOut"
 }

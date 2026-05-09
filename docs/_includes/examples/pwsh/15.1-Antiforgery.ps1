@@ -22,6 +22,7 @@ Add-KrEndpoint -Port $Port -SelfSignedCert
 # Header: X-CSRF-TOKEN
 Add-KrAntiforgeryMiddleware -CookieName '.Kestrun.AntiXSRF' -HeaderName 'X-CSRF-TOKEN'
 
+# Enable Kestrun configuration
 Enable-KrConfiguration
 
 # Add token endpoint

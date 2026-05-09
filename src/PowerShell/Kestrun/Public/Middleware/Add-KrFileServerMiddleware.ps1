@@ -4,8 +4,6 @@
 .DESCRIPTION
     This cmdlet allows you to serve static files from a specified path using the Kestrun server.
     It can be used to serve files like images, stylesheets, and scripts.
-.PARAMETER Server
-    The Kestrun server instance to which the file server will be added.
 .PARAMETER Options
     The FileServerOptions to configure the file server.
 .PARAMETER RootPath
@@ -52,14 +50,12 @@
     If specified, adds a 'must-revalidate' directive to the Cache-Control header.
 .PARAMETER ProxyRevalidate
     If specified, adds a 'proxy-revalidate' directive to the Cache-Control header.
-.PARAMETER PassThru
-    If specified, the cmdlet will return the modified server instance.
 .EXAMPLE
-    $server | Add-KrFileServerMiddleware -RequestPath '/files' -EnableDirectoryBrowsing
+    Add-KrFileServerMiddleware -RequestPath '/files' -EnableDirectoryBrowsing
     This example adds a file server to the server for the path '/files', enabling directory browsing.
     The file server will use the default options for serving static files.
 .EXAMPLE
-    $server | Add-KrFileServerMiddleware -Options $options
+    Add-KrFileServerMiddleware -Options $options
     This example adds a file server to the server using the specified FileServerOptions.
 .LINK
     https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.builder.fileserveroptions?view=aspnetcore-8.0
@@ -67,11 +63,7 @@
 function Add-KrFileServerMiddleware {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(defaultParameterSetName = 'Items')]
-    [OutputType([Kestrun.Hosting.KestrunHost])]
     param(
-        [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
-        [Kestrun.Hosting.KestrunHost]$Server,
-
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Microsoft.AspNetCore.Builder.FileServerOptions]$Options,
 
@@ -98,113 +90,115 @@ function Add-KrFileServerMiddleware {
 
         [Parameter(ParameterSetName = 'Items')]
         [hashtable]$ContentTypeMap,
+
         [Parameter()]
         [switch]$NoCache,
+
         [Parameter()]
         [switch]$NoStore,
+
         [Parameter()]
         [ValidateRange(1, [int]::MaxValue)]
         [int]$MaxAge,
+
         [Parameter()]
         [ValidateRange(1, [int]::MaxValue)]
         [int]$SharedMaxAge,
+
         [Parameter()]
         [switch]$MaxStale,
+
         [Parameter()]
         [ValidateRange(1, [int]::MaxValue)]
         [int]$MaxStaleLimit,
+
         [Parameter()]
         [ValidateRange(1, [int]::MaxValue)]
         [int]$MinFresh,
+
         [Parameter()]
         [switch]$NoTransform,
+
         [Parameter()]
         [switch]$OnlyIfCached,
+
         [Parameter()]
         [switch]$Public,
+
         [Parameter()]
         [switch]$Private,
+
         [Parameter()]
         [switch]$MustRevalidate,
-        [Parameter()]
-        [switch]$ProxyRevalidate,
 
         [Parameter()]
-        [switch]$PassThru
+        [switch]$ProxyRevalidate
     )
-    begin {
-        # Ensure the server instance is resolved
-        $Server = Resolve-KestrunServer -Server $Server
+    # Ensure the server instance is resolved
+    $Server = Resolve-KestrunServer
+    if ($PSCmdlet.ParameterSetName -eq 'Items') {
+        $Options = [Microsoft.AspNetCore.Builder.FileServerOptions]::new()
+
+        if (-not [string]::IsNullOrEmpty($RequestPath)) {
+            $Options.RequestPath = [Microsoft.AspNetCore.Http.PathString]::new($RequestPath.TrimEnd('/'))
+        }
+        if (-not [string]::IsNullOrEmpty($RootPath)) {
+            $resolvedPath = Resolve-KrPath $RootPath -KestrunRoot
+            $Options.FileProvider = [Microsoft.Extensions.FileProviders.PhysicalFileProvider]::new($resolvedPath)
+        }
+        if ($EnableDirectoryBrowsing.IsPresent) {
+            $Options.EnableDirectoryBrowsing = $true
+        }
+        if ($ServeUnknownFileTypes.IsPresent) {
+            $Options.StaticFileOptions.ServeUnknownFileTypes = $true
+        }
+        if ($PSBoundParameters.ContainsKey('HttpsCompression')) {
+            $Options.StaticFileOptions.HttpsCompression = $HttpsCompression
+        }
+        if (-not [string]::IsNullOrEmpty($DefaultContentType)) {
+            $Options.StaticFileOptions.DefaultContentType = $DefaultContentType
+        }
+        if ($RedirectToAppendTrailingSlash.IsPresent) {
+            $Options.RedirectToAppendTrailingSlash = $true
+        }
+        if ($ContentTypeMap) {
+            $provider = [Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider]::new()
+            foreach ($k in $ContentTypeMap.Keys) {
+                $ext = if ($k -like '.*') { $k } else { ".$k" }
+                $mime = [string]$ContentTypeMap[$k]
+                if ([string]::IsNullOrWhiteSpace($mime)) { continue }
+                $provider.Mappings[$ext] = $mime
+            }
+            $Options.StaticFileOptions.ContentTypeProvider = $provider
+        }
     }
-    process {
-        if ($PSCmdlet.ParameterSetName -eq 'Items') {
-            $Options = [Microsoft.AspNetCore.Builder.FileServerOptions]::new()
 
-            if (-not [string]::IsNullOrEmpty($RequestPath)) {
-                $Options.RequestPath = [Microsoft.AspNetCore.Http.PathString]::new($RequestPath.TrimEnd('/'))
-            }
-            if (-not [string]::IsNullOrEmpty($RootPath)) {
-                $resolvedPath = Resolve-KrPath $RootPath -KestrunRoot
-                $Options.FileProvider = [Microsoft.Extensions.FileProviders.PhysicalFileProvider]::new($resolvedPath)
-            }
-            if ($EnableDirectoryBrowsing.IsPresent) {
-                $Options.EnableDirectoryBrowsing = $true
-            }
-            if ($ServeUnknownFileTypes.IsPresent) {
-                $Options.StaticFileOptions.ServeUnknownFileTypes = $true
-            }
-            if ($PSBoundParameters.ContainsKey('HttpsCompression')) {
-                $Options.StaticFileOptions.HttpsCompression = $HttpsCompression
-            }
-            if (-not [string]::IsNullOrEmpty($DefaultContentType)) {
-                $Options.StaticFileOptions.DefaultContentType = $DefaultContentType
-            }
-            if ($RedirectToAppendTrailingSlash.IsPresent) {
-                $Options.RedirectToAppendTrailingSlash = $true
-            }
-            if ($ContentTypeMap) {
-                $provider = [Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider]::new()
-                foreach ($k in $ContentTypeMap.Keys) {
-                    $ext = if ($k -like ".*") { $k } else { ".$k" }
-                    $mime = [string]$ContentTypeMap[$k]
-                    if ([string]::IsNullOrWhiteSpace($mime)) { continue }
-                    $provider.Mappings[$ext] = $mime
-                }
-                $Options.StaticFileOptions.ContentTypeProvider = $provider
-            }
-        }
-
-        if ($PSBoundParameters.ContainsKey('NoCache') -or ($PSBoundParameters.ContainsKey('NoStore')) -or ($PSBoundParameters.ContainsKey('MaxAge')) -or
-            ($PSBoundParameters.ContainsKey('SharedMaxAge')) -or ($PSBoundParameters.ContainsKey('MaxStale')) -or
-            ($PSBoundParameters.ContainsKey('MaxStaleLimit')) -or ($PSBoundParameters.ContainsKey('MinFresh')) -or
-            ($PSBoundParameters.ContainsKey('NoTransform')) -or ($PSBoundParameters.ContainsKey('OnlyIfCached')) -or
-            ($PSBoundParameters.ContainsKey('Public')) -or ($PSBoundParameters.ContainsKey('Private')) -or
-            ($PSBoundParameters.ContainsKey('MustRevalidate')) -or ($PSBoundParameters.ContainsKey('ProxyRevalidate'))
-        ) {
-            $cacheControl = [Microsoft.Net.Http.Headers.CacheControlHeaderValue]::new();
-            if ($PSBoundParameters.ContainsKey('NoCache')) { $cacheControl.NoCache = $NoCache.IsPresent }
-            if ($PSBoundParameters.ContainsKey('NoStore')) { $cacheControl.NoStore = $NoStore.IsPresent }
-            if ($PSBoundParameters.ContainsKey('MaxAge')) { $cacheControl.MaxAge = [TimeSpan]::FromSeconds($MaxAge) }
-            if ($PSBoundParameters.ContainsKey('SharedMaxAge')) { $cacheControl.SharedMaxAge = [TimeSpan]::FromSeconds($SharedMaxAge) }
-            if ($PSBoundParameters.ContainsKey('MaxStale')) { $cacheControl.MaxStale = $MaxStale.IsPresent }
-            if ($PSBoundParameters.ContainsKey('MaxStaleLimit')) { $cacheControl.MaxStaleLimit = [TimeSpan]::FromSeconds($MaxStaleLimit) }
-            if ($PSBoundParameters.ContainsKey('MinFresh')) { $cacheControl.MinFresh = [TimeSpan]::FromSeconds($MinFresh) }
-            if ($PSBoundParameters.ContainsKey('NoTransform')) { $cacheControl.NoTransform = $NoTransform.IsPresent }
-            if ($PSBoundParameters.ContainsKey('OnlyIfCached')) { $cacheControl.OnlyIfCached = $OnlyIfCached.IsPresent }
-            if ($PSBoundParameters.ContainsKey('Public')) { $cacheControl.Public = $Public.IsPresent }
-            if ($PSBoundParameters.ContainsKey('Private')) { $cacheControl.Private = $Private.IsPresent }
-            if ($PSBoundParameters.ContainsKey('MustRevalidate')) { $cacheControl.MustRevalidate = $MustRevalidate.IsPresent }
-            if ($PSBoundParameters.ContainsKey('ProxyRevalidate')) { $cacheControl.ProxyRevalidate = $ProxyRevalidate.IsPresent }
-            # Add the file server to the server with caching options
-            $Server.AddFileServer( $Options, $cacheControl) | Out-Null
-        } else {
-            # Add the file server to the server without caching options
-            $Server.AddFileServer( $Options) | Out-Null
-        }
-
-        if ($PassThru.IsPresent) {
-            # if the PassThru switch is specified, return the modified server instance
-            return $Server
-        }
+    if ($PSBoundParameters.ContainsKey('NoCache') -or ($PSBoundParameters.ContainsKey('NoStore')) -or ($PSBoundParameters.ContainsKey('MaxAge')) -or
+        ($PSBoundParameters.ContainsKey('SharedMaxAge')) -or ($PSBoundParameters.ContainsKey('MaxStale')) -or
+        ($PSBoundParameters.ContainsKey('MaxStaleLimit')) -or ($PSBoundParameters.ContainsKey('MinFresh')) -or
+        ($PSBoundParameters.ContainsKey('NoTransform')) -or ($PSBoundParameters.ContainsKey('OnlyIfCached')) -or
+        ($PSBoundParameters.ContainsKey('Public')) -or ($PSBoundParameters.ContainsKey('Private')) -or
+        ($PSBoundParameters.ContainsKey('MustRevalidate')) -or ($PSBoundParameters.ContainsKey('ProxyRevalidate'))
+    ) {
+        $cacheControl = [Microsoft.Net.Http.Headers.CacheControlHeaderValue]::new();
+        if ($PSBoundParameters.ContainsKey('NoCache')) { $cacheControl.NoCache = $NoCache.IsPresent }
+        if ($PSBoundParameters.ContainsKey('NoStore')) { $cacheControl.NoStore = $NoStore.IsPresent }
+        if ($PSBoundParameters.ContainsKey('MaxAge')) { $cacheControl.MaxAge = [TimeSpan]::FromSeconds($MaxAge) }
+        if ($PSBoundParameters.ContainsKey('SharedMaxAge')) { $cacheControl.SharedMaxAge = [TimeSpan]::FromSeconds($SharedMaxAge) }
+        if ($PSBoundParameters.ContainsKey('MaxStale')) { $cacheControl.MaxStale = $MaxStale.IsPresent }
+        if ($PSBoundParameters.ContainsKey('MaxStaleLimit')) { $cacheControl.MaxStaleLimit = [TimeSpan]::FromSeconds($MaxStaleLimit) }
+        if ($PSBoundParameters.ContainsKey('MinFresh')) { $cacheControl.MinFresh = [TimeSpan]::FromSeconds($MinFresh) }
+        if ($PSBoundParameters.ContainsKey('NoTransform')) { $cacheControl.NoTransform = $NoTransform.IsPresent }
+        if ($PSBoundParameters.ContainsKey('OnlyIfCached')) { $cacheControl.OnlyIfCached = $OnlyIfCached.IsPresent }
+        if ($PSBoundParameters.ContainsKey('Public')) { $cacheControl.Public = $Public.IsPresent }
+        if ($PSBoundParameters.ContainsKey('Private')) { $cacheControl.Private = $Private.IsPresent }
+        if ($PSBoundParameters.ContainsKey('MustRevalidate')) { $cacheControl.MustRevalidate = $MustRevalidate.IsPresent }
+        if ($PSBoundParameters.ContainsKey('ProxyRevalidate')) { $cacheControl.ProxyRevalidate = $ProxyRevalidate.IsPresent }
+        # Add the file server to the server with caching options
+        $Server.AddFileServer( $Options, $cacheControl) | Out-Null
+    } else {
+        # Add the file server to the server without caching options
+        $Server.AddFileServer( $Options) | Out-Null
     }
 }
+

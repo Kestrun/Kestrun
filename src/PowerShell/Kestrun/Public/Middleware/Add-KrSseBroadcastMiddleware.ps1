@@ -4,8 +4,6 @@
     .DESCRIPTION
         Registers an in-memory SSE broadcaster service and maps an SSE endpoint that keeps connections open.
         Clients connect (e.g. via browser EventSource) and receive events broadcast by Send-KrSseBroadcastEvent.
-    .PARAMETER Server
-        The Kestrun server instance. If not provided, the default server is used.
     .PARAMETER Path
         The URL path where the SSE broadcast endpoint will be accessible. Defaults to '/sse/broadcast'.
     .PARAMETER DocId
@@ -32,14 +30,12 @@
     .PARAMETER Options
         Full OpenAPI customization object (Kestrun.Hosting.Options.SseBroadcastOptions).
         When provided, it takes precedence over the individual parameters.
-    .PARAMETER PassThru
-        If specified, returns the modified server instance.
     .EXAMPLE
         Add-KrSseBroadcastMiddleware -Path '/sse/broadcast' -PassThru
         Adds an SSE broadcast endpoint at '/sse/broadcast' and returns the server instance.
     .EXAMPLE
-        $server = New-KrServer -Name 'MyServer'
-        Add-KrSseBroadcastMiddleware -Server $server -Path '/events' -KeepAliveSeconds 30
+       New-KrServer -Name 'MyServer'
+        Add-KrSseBroadcastMiddleware -Path '/events' -KeepAliveSeconds 30
         Adds an SSE broadcast endpoint at '/events' with 30-second keep-alives to the specified server.
     .EXAMPLE
         Add-KrSseBroadcastMiddleware -SkipOpenApi
@@ -52,14 +48,13 @@
         Adds an SSE broadcast endpoint at '/sse/updates' with 15-second keep-alives using the provided options object.
     .NOTES
         Call this before Enable-KrConfiguration.
+        The SSE broadcast endpoint allows clients to connect and receive server-sent events broadcast via Send-KrSseBroadcastEvent.
+        This cmdlet is part of the Kestrun PowerShell module and is used to manage SSE broadcast endpoints on the Kestrun server.
 #>
 function Add-KrSseBroadcastMiddleware {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(DefaultParameterSetName = 'Items')]
     param(
-        [Parameter(ValueFromPipeline)]
-        [Kestrun.Hosting.KestrunHost]$Server,
-
         [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
         [Parameter(Mandatory = $false, ParameterSetName = 'ItemsSkipOpenApi')]
         [string]$Path,
@@ -98,40 +93,33 @@ function Add-KrSseBroadcastMiddleware {
         [switch]$SkipOpenApi,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
-        [Kestrun.Hosting.Options.SseBroadcastOptions]$Options,
-
-        [Parameter()]
-        [switch]$PassThru
+        [Kestrun.Hosting.Options.SseBroadcastOptions]$Options
     )
-    begin {
-        $Server = Resolve-KestrunServer -Server $Server
-    }
-    process {
-        if ($PSCmdlet.ParameterSetName -eq 'Items') {
-            $Options = [Kestrun.Hosting.Options.SseBroadcastOptions]::new()
-            if ( $SkipOpenApi.IsPresent ) {
-                $Options.SkipOpenApi = $true
-            }# Set the documentation IDs for the SSE broadcast endpoint
-            $Options.DocId = $DocId
+    # Ensure the server instance is resolved
+    $Server = Resolve-KestrunServer
 
-            # Set the path for the SSE broadcast endpoint
-            if ($PSBoundParameters.ContainsKey('Path')) { $Options.Path = $Path }
-            if ($PSBoundParameters.ContainsKey('KeepAliveSeconds')) { $Options.KeepAliveSeconds = $KeepAliveSeconds }
-            if ($PSBoundParameters.ContainsKey('OperationId')) { $Options.OperationId = $OperationId }
-            if ($PSBoundParameters.ContainsKey('Summary')) { $Options.Summary = $Summary }
-            if ($PSBoundParameters.ContainsKey('Description')) { $Options.Description = $Description }
-            if ($PSBoundParameters.ContainsKey('Tags')) { $Options.Tags = $Tags }
-            if ($PSBoundParameters.ContainsKey('StatusCode')) { $Options.StatusCode = $StatusCode }
-            if ($PSBoundParameters.ContainsKey('ResponseDescription')) { $Options.ResponseDescription = $ResponseDescription }
-            if ($PSBoundParameters.ContainsKey('ItemSchemaType')) {
-                $Options.ItemSchemaType = $ItemSchemaType
-            }
-        }
+    # If the Options parameter set is not used, create an options object from the individual parameters
+    if ($PSCmdlet.ParameterSetName -eq 'Items') {
+        $Options = [Kestrun.Hosting.Options.SseBroadcastOptions]::new()
+        if ( $SkipOpenApi.IsPresent ) {
+            $Options.SkipOpenApi = $true
+        }# Set the documentation IDs for the SSE broadcast endpoint
+        $Options.DocId = $DocId
 
-        $Server.AddSseBroadcast($Options) | Out-Null
-
-        if ($PassThru.IsPresent) {
-            return $Server
+        # Set the path for the SSE broadcast endpoint
+        if ($PSBoundParameters.ContainsKey('Path')) { $Options.Path = $Path }
+        if ($PSBoundParameters.ContainsKey('KeepAliveSeconds')) { $Options.KeepAliveSeconds = $KeepAliveSeconds }
+        if ($PSBoundParameters.ContainsKey('OperationId')) { $Options.OperationId = $OperationId }
+        if ($PSBoundParameters.ContainsKey('Summary')) { $Options.Summary = $Summary }
+        if ($PSBoundParameters.ContainsKey('Description')) { $Options.Description = $Description }
+        if ($PSBoundParameters.ContainsKey('Tags')) { $Options.Tags = $Tags }
+        if ($PSBoundParameters.ContainsKey('StatusCode')) { $Options.StatusCode = $StatusCode }
+        if ($PSBoundParameters.ContainsKey('ResponseDescription')) { $Options.ResponseDescription = $ResponseDescription }
+        if ($PSBoundParameters.ContainsKey('ItemSchemaType')) {
+            $Options.ItemSchemaType = $ItemSchemaType
         }
     }
+    # Add the SSE broadcast middleware to the server
+    $Server.AddSseBroadcast($Options) | Out-Null
 }
+

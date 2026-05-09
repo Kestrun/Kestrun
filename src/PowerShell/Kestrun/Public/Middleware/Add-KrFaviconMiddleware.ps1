@@ -11,10 +11,10 @@
     .PARAMETER PassThru
         If specified, returns the modified server instance after adding the favicon.
     .EXAMPLE
-        $server | Add-KrFaviconMiddleware -IconPath 'C:\path\to\favicon.ico'
+        Add-KrFaviconMiddleware -IconPath 'C:\path\to\favicon.ico'
         This example adds a custom favicon to the server from the specified path.
     .EXAMPLE
-        $server | Add-KrFaviconMiddleware
+        Add-KrFaviconMiddleware
         This example adds the default embedded favicon to the server.
     .NOTES
         This cmdlet is used to register a favicon for the Kestrun server, allowing you to set a custom favicon for the server's web interface.
@@ -25,24 +25,11 @@ function Add-KrFaviconMiddleware {
     [CmdletBinding()]
     [OutputType([Kestrun.Hosting.KestrunHost])]
     param(
-        [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
-        [Kestrun.Hosting.KestrunHost]$Server,
-
-        [string]$IconPath = $null,
-
         [Parameter()]
-        [switch]$PassThru
+        [string]$IconPath = $null
     )
-    begin {
-        # Ensure the server instance is resolved
-        $Server = Resolve-KestrunServer -Server $Server
-    }
-    process {
-        $Server.AddFavicon($IconPath) | Out-Null
+    # Ensure the server instance is resolved
+    $Server = Resolve-KestrunServer
 
-        if ($PassThru.IsPresent) {
-            # if the PassThru switch is specified, return the modified server instance
-            return $Server
-        }
-    }
+    $Server.AddFavicon($IconPath) | Out-Null
 }

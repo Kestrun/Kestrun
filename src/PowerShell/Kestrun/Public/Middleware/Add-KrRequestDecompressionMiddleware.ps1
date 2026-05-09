@@ -27,3 +27,4 @@ function Add-KrRequestDecompressionMiddleware {
         [Kestrun.Hosting.Compression.KrRequestDecompressionExtensions]::AddRequestDecompression($Server) | Out-Null
     }
 }
+

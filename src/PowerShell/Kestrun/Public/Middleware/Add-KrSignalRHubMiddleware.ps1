@@ -3,8 +3,6 @@
         Maps a SignalR hub class to the given URL path.
     .DESCRIPTION
         This function allows you to map a SignalR hub class to a specific URL path on the Kestrun server.
-    .PARAMETER Server
-        The Kestrun server instance to which the SignalR hub will be added.
     .PARAMETER Path
         The URL path where the SignalR hub will be accessible. Defaults to '/hubs/kestrun'.
     .PARAMETER DocId
@@ -24,11 +22,19 @@
     .PARAMETER Options
         Full OpenAPI customization object (Kestrun.Hosting.Options.SignalROpenApiOptions).
         When provided, it takes precedence over the individual -OpenApi* parameters.
-    .PARAMETER PassThru
-        If specified, the cmdlet will return the modified server instance after adding the SignalR hub.
     .EXAMPLE
-        Add-KrSignalRHubMiddleware -Path '/hubs/notifications' -PassThru
-        Adds a SignalR hub at the path '/hubs/notifications' and returns the modified server instance.
+        Add-KrSignalRHubMiddleware -Path '/hubs/notifications' -HubName 'NotificationsHub' -IncludeNegotiateEndpoint
+        Adds a SignalR hub at the path '/hubs/notifications' with the hub name 'NotificationsHub' and includes the negotiate endpoint.
+    .EXAMPLE
+        $options = [Kestrun.Hosting.Options.SignalROptions]::new()
+        $options.Path = '/hubs/updates'
+        $options.HubName = 'UpdatesHub'
+        $options.IncludeNegotiateEndpoint = $true
+        Add-KrSignalRHubMiddleware -Options $options
+        Adds a SignalR hub at the path '/hubs/updates' with the hub name 'UpdatesHub' and includes the negotiate endpoint, using the provided options object for configuration.
+    .EXAMPLE
+        Add-KrSignalRHubMiddleware -Path '/hubs/alerts' -HubName 'AlertsHub' -SkipOpenApi
+        Adds a SignalR hub at the path '/hubs/alerts' with the hub name 'AlertsHub' and skips OpenAPI documentation for this endpoint.
     .NOTES
         This function is part of the Kestrun PowerShell module and is used to manage SignalR hubs on the Kestrun server.
         The Server parameter accepts a KestrunHost instance; if not provided, the default server is used.
@@ -39,9 +45,6 @@ function Add-KrSignalRHubMiddleware {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(DefaultParameterSetName = 'Items')]
     param(
-        [Parameter(ValueFromPipeline)]
-        [Kestrun.Hosting.KestrunHost]$Server,
-
         [Parameter(Mandatory = $false, ParameterSetName = 'Items')]
         [Parameter(Mandatory = $false, ParameterSetName = 'ItemsSkipOpenApi')]
         [string]$Path,
@@ -69,39 +72,29 @@ function Add-KrSignalRHubMiddleware {
         [switch]$IncludeNegotiateEndpoint,
 
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
-        [Kestrun.Hosting.Options.SignalROptions]$Options,
-
-        [Parameter()]
-        [switch]$PassThru
+        [Kestrun.Hosting.Options.SignalROptions]$Options
     )
-    begin {
-        # Ensure the server instance is resolved
-        $Server = Resolve-KestrunServer -Server $Server
-    }
-    process {
+    # Ensure the server instance is resolved
+    $Server = Resolve-KestrunServer
 
-        if ($PSCmdlet.ParameterSetName -eq 'Items') {
-            $Options = [Kestrun.Hosting.Options.SignalROptions]::new()
-            if ( $SkipOpenApi.IsPresent ) {
-                $Options.SkipOpenApi = $true
-            }
-
-            if ($PSBoundParameters.ContainsKey('Summary')) { $Options.Summary = $Summary }
-            if ($PSBoundParameters.ContainsKey('Description')) { $Options.Description = $Description }
-            if ($PSBoundParameters.ContainsKey('Tags')) { $Options.Tags = $Tags }
-            if ($PSBoundParameters.ContainsKey('HubName')) { $Options.HubName = $HubName }
-            # Set the documentation IDs for the SignalR hub
-            $Options.DocId = $DocId
-            # Set the path for the SignalR hub
-            if ($PSBoundParameters.ContainsKey('Path')) { $Options.Path = $Path }
-            $Options.IncludeNegotiateEndpoint = $IncludeNegotiateEndpoint.IsPresent
+    # If the Options parameter set is not used, create an options object from the individual parameters
+    if ($PSCmdlet.ParameterSetName -eq 'Items') {
+        $Options = [Kestrun.Hosting.Options.SignalROptions]::new()
+        if ( $SkipOpenApi.IsPresent ) {
+            $Options.SkipOpenApi = $true
         }
-        $server.AddSignalR($Options) | Out-Null
-
-        if ($PassThru.IsPresent) {
-            # if the PassThru switch is specified, return the modified server instance
-            return $Server
-        }
+        # Set the OpenAPI documentation details for the SignalR hub endpoint
+        if ($PSBoundParameters.ContainsKey('Summary')) { $Options.Summary = $Summary }
+        if ($PSBoundParameters.ContainsKey('Description')) { $Options.Description = $Description }
+        if ($PSBoundParameters.ContainsKey('Tags')) { $Options.Tags = $Tags }
+        if ($PSBoundParameters.ContainsKey('HubName')) { $Options.HubName = $HubName }
+        # Set the documentation IDs for the SignalR hub
+        $Options.DocId = $DocId
+        # Set the path for the SignalR hub
+        if ($PSBoundParameters.ContainsKey('Path')) { $Options.Path = $Path }
+        $Options.IncludeNegotiateEndpoint = $IncludeNegotiateEndpoint.IsPresent
     }
+    # Add the SignalR hub middleware to the server
+    $server.AddSignalR($Options) | Out-Null
 }
 

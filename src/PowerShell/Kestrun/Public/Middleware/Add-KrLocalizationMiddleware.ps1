@@ -5,8 +5,6 @@
     Enables PowerShell-style localization using string table files (Messages.psd1).
     The middleware resolves the culture once per request and exposes localized strings via
     Context.LocalizedStrings (alias: Context.Strings) and the Localizer variable in route runspaces.
-.PARAMETER Server
-    The Kestrun server instance to configure.
 .PARAMETER Options
     A Kestrun.Localization.KestrunLocalizationOptions instance. Overrides individual parameters.
 .PARAMETER DefaultCulture
@@ -35,8 +33,6 @@
     of existing threads or runspaces and does not replace per-request
     culture handling.
     Default is false.
-.PARAMETER PassThru
-    Returns the server instance for chaining.
 .EXAMPLE
     Add-KrLocalizationMiddleware -ResourcesBasePath './Assets/i18n'
 .EXAMPLE
@@ -48,11 +44,7 @@
 function Add-KrLocalizationMiddleware {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(DefaultParameterSetName = 'Items')]
-    [OutputType([Kestrun.Hosting.KestrunHost])]
     param(
-        [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
-        [Kestrun.Hosting.KestrunHost]$Server,
-
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Kestrun.Localization.KestrunLocalizationOptions]$Options,
 
@@ -62,7 +54,6 @@ function Add-KrLocalizationMiddleware {
                 catch { throw "Invalid culture name '$_'. Use a valid BCP 47 / .NET culture (e.g. en-US, zh-Hans, sr-Latn-RS, es-419)." }
             })]
         [string]$DefaultCulture = 'en-US',
-
 
         [Parameter(ParameterSetName = 'Items')]
         [string]$ResourcesBasePath = 'i18n',
@@ -86,40 +77,34 @@ function Add-KrLocalizationMiddleware {
         [switch]$EnableCookie,
 
         [Parameter(ParameterSetName = 'Items')]
-        [switch]$SetDefaultThreadCulture,
-
-        [Parameter()]
-        [switch]$PassThru
+        [switch]$SetDefaultThreadCulture
     )
-    begin {
-        $Server = Resolve-KestrunServer -Server $Server
-    }
-    process {
-        if ($PSCmdlet.ParameterSetName -eq 'Items') {
-            $Options = [Kestrun.Localization.KestrunLocalizationOptions]::new()
-            $Options.DefaultCulture = $DefaultCulture
-            $Options.ResourcesBasePath = (Resolve-KrPath -Path $ResourcesBasePath -KestrunRoot)
-            $Options.FileName = $FileName
-            $Options.QueryKey = $QueryKey
-            $Options.CookieName = $CookieName
+    # Ensure the server instance is resolved
+    $Server = Resolve-KestrunServer
 
-            if ($PSBoundParameters.ContainsKey('DisableAcceptLanguage')) { $Options.EnableAcceptLanguage = -not $DisableAcceptLanguage.IsPresent }
-            if ($PSBoundParameters.ContainsKey('EnableQuery')) { $Options.EnableQuery = $EnableQuery.IsPresent }
-            if ($PSBoundParameters.ContainsKey('EnableCookie')) { $Options.EnableCookie = $EnableCookie.IsPresent }
-            if ($PSBoundParameters.ContainsKey('SetDefaultThreadCulture')) { $Options.SetDefaultThreadCulture = $SetDefaultThreadCulture.IsPresent }
-        } else {
-            if ($null -eq $Options) {
-                throw 'Options cannot be null.'
-            }
-            try {
-                [void][System.Globalization.CultureInfo]::GetCultureInfo($Options.DefaultCulture)
-            } catch {
-                throw "Invalid culture name '$($Options.DefaultCulture)'. Use a valid BCP 47 / .NET culture (e.g. en-US, zh-Hans, sr-Latn-RS, es-419)."
-            }
+    if ($PSCmdlet.ParameterSetName -eq 'Items') {
+        $Options = [Kestrun.Localization.KestrunLocalizationOptions]::new()
+        $Options.DefaultCulture = $DefaultCulture
+        $Options.ResourcesBasePath = (Resolve-KrPath -Path $ResourcesBasePath -KestrunRoot)
+        $Options.FileName = $FileName
+        $Options.QueryKey = $QueryKey
+        $Options.CookieName = $CookieName
+
+        if ($PSBoundParameters.ContainsKey('DisableAcceptLanguage')) { $Options.EnableAcceptLanguage = -not $DisableAcceptLanguage.IsPresent }
+        if ($PSBoundParameters.ContainsKey('EnableQuery')) { $Options.EnableQuery = $EnableQuery.IsPresent }
+        if ($PSBoundParameters.ContainsKey('EnableCookie')) { $Options.EnableCookie = $EnableCookie.IsPresent }
+        if ($PSBoundParameters.ContainsKey('SetDefaultThreadCulture')) { $Options.SetDefaultThreadCulture = $SetDefaultThreadCulture.IsPresent }
+    } else {
+        if ($null -eq $Options) {
+            throw 'Options cannot be null.'
         }
-
-        $Server.AddLocalization($Options) | Out-Null
-
-        if ($PassThru.IsPresent) { return $Server }
+        try {
+            [void][System.Globalization.CultureInfo]::GetCultureInfo($Options.DefaultCulture)
+        } catch {
+            throw "Invalid culture name '$($Options.DefaultCulture)'. Use a valid BCP 47 / .NET culture (e.g. en-US, zh-Hans, sr-Latn-RS, es-419)."
+        }
     }
+
+    $Server.AddLocalization($Options) | Out-Null
 }
+

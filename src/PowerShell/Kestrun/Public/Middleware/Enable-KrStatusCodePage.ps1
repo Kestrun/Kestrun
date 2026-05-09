@@ -5,8 +5,6 @@
     Wraps KestrunHostStatusCodePagesExtensions to configure how 4xx–5xx responses
     produce a body: default text, redirect, re-execute, template body, options object,
     or a scripted handler via LanguageOptions (PowerShell/C#).
-.PARAMETER Server
-    The Kestrun server instance (resolved if omitted via Resolve-KestrunServer).
 .PARAMETER LocationFormat
     The location URL for Redirect mode (e.g. "/error/{0}").
 .PARAMETER PathFormat
@@ -32,8 +30,6 @@
     Additional assembly references for custom scripted handling.
 .PARAMETER Arguments
     Additional arguments (key-value pairs) for custom scripted handling.
-.PARAMETER PassThru
-    If specified, the function will return the created route object.
 .EXAMPLE
     Enable-KrStatusCodePage -Mode Default
 .EXAMPLE
@@ -84,11 +80,7 @@
 function Enable-KrStatusCodePage {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(DefaultParameterSetName = 'Default')]
-    [OutputType([Kestrun.Hosting.KestrunHost])]
     param(
-        [Parameter(ValueFromPipeline = $true)]
-        [Kestrun.Hosting.KestrunHost] $Server,
-
         # Redirect
         [Parameter(Mandatory = $true, ParameterSetName = 'Redirect')]
         [string] $LocationFormat,
@@ -96,12 +88,14 @@ function Enable-KrStatusCodePage {
         # Re-execute
         [Parameter(Mandatory = $true, ParameterSetName = 'ReExecute')]
         [string] $PathFormat,
+
         [Parameter(ParameterSetName = 'ReExecute')]
         [string] $QueryFormat,
 
         # Template body
         [Parameter(Mandatory = $true, ParameterSetName = 'Template')]
         [string] $ContentType,
+
         [Parameter(Mandatory = $true, ParameterSetName = 'Template')]
         [string] $BodyFormat,
 
@@ -115,6 +109,7 @@ function Enable-KrStatusCodePage {
         [Parameter(Mandatory = $true, ParameterSetName = 'Code')]
         [Alias('CodeBlock')]
         [string]$Code,
+
         [Parameter(Mandatory = $true, ParameterSetName = 'Code')]
         [Kestrun.Scripting.ScriptLanguage]$Language,
 
@@ -129,92 +124,83 @@ function Enable-KrStatusCodePage {
         [Parameter(ParameterSetName = 'ScriptBlock')]
         [Parameter(ParameterSetName = 'Code')]
         [Parameter(ParameterSetName = 'CodeFilePath')]
-        [hashtable]$Arguments,
-
-        [switch] $PassThru
+        [hashtable]$Arguments
     )
-    begin {
-        $Server = Resolve-KestrunServer -Server $Server
-    }
-    process {
-        $statusCodeOptions = [Kestrun.Hosting.Options.StatusCodeOptions]::new($Server)
-        switch ($PSCmdlet.ParameterSetName) {
-            'Default' {
-                # Nothing to configure; use default plain text handler
-            }
-            'Template' {
-                if ([string]::IsNullOrWhiteSpace($ContentType)) { throw '-ContentType is required for Mode=Template.' }
-                if ([string]::IsNullOrWhiteSpace($BodyFormat)) { throw '-BodyFormat is required for Mode=Template.' }
-                $statusCodeOptions.ContentType = $ContentType
-                $statusCodeOptions.BodyFormat = $BodyFormat
-            }
-            'Redirect' {
-                if ([string]::IsNullOrWhiteSpace($LocationFormat)) { throw '-LocationFormat is required for Mode=Redirect.' }
-                $statusCodeOptions.LocationFormat = $LocationFormat
-            }
-            'ReExecute' {
-                if ([string]::IsNullOrWhiteSpace($PathFormat)) { throw '-Path is required for Mode=ReExecute.' }
-                $statusCodeOptions.PathFormat = $PathFormat
-                $statusCodeOptions.QueryFormat = $QueryFormat
-            }
-            'LanguageOptions' {
-                $statusCodeOptions.LanguageOptions = $LanguageOptions
-            }
-            default {
-                $lo = [Kestrun.Hosting.Options.LanguageOptions]::new()
-                $lo.ExtraImports = $ExtraImports
-                $lo.ExtraRefs = $ExtraRefs
-                if ($null -ne $Arguments) {
-                    $dict = [System.Collections.Generic.Dictionary[string, object]]::new()
-                    foreach ($key in $Arguments.Keys) {
-                        $dict[$key] = $Arguments[$key]
-                    }
-                    $lo.Arguments = $dict
-                }
+    # Ensure the server instance is resolved
+    $Server = Resolve-KestrunServer
 
-                switch ($PSCmdlet.ParameterSetName) {
-                    'ScriptBlock' {
-                        $lo.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
-                        $lo.Code = $ScriptBlock.ToString()
-                    }
-                    'Code' {
-                        $lo.Language = $Language
-                        $lo.Code = $Code
-                    }
-                    'CodeFilePath' {
-                        if (-not (Test-Path -Path $CodeFilePath)) {
-                            throw "The specified code file path does not exist: $CodeFilePath"
-                        }
-                        $extension = Split-Path -Path $CodeFilePath -Extension
-                        switch ($extension) {
-                            '.ps1' {
-                                $lo.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
-                            }
-                            '.cs' {
-                                $lo.Language = [Kestrun.Scripting.ScriptLanguage]::CSharp
-                            }
-                            '.vb' {
-                                $lo.Language = [Kestrun.Scripting.ScriptLanguage]::VisualBasic
-                            }
-                            default {
-                                throw "Unsupported '$extension' code file extension."
-                            }
-                        }
-                        $lo.Code = Get-Content -Path $CodeFilePath -Raw
-                    }
-                    default {
-                        throw "Unrecognized ParameterSetName: $($PSCmdlet.ParameterSetName)"
-                    }
-                }
-                $statusCodeOptions.LanguageOptions = $lo
-            }
+    $statusCodeOptions = [Kestrun.Hosting.Options.StatusCodeOptions]::new($Server)
+    switch ($PSCmdlet.ParameterSetName) {
+        'Default' {
+            # Nothing to configure; use default plain text handler
         }
-        # Assign the configured options to the server instance
-        $Server.StatusCodeOptions = $statusCodeOptions
+        'Template' {
+            if ([string]::IsNullOrWhiteSpace($ContentType)) { throw '-ContentType is required for Mode=Template.' }
+            if ([string]::IsNullOrWhiteSpace($BodyFormat)) { throw '-BodyFormat is required for Mode=Template.' }
+            $statusCodeOptions.ContentType = $ContentType
+            $statusCodeOptions.BodyFormat = $BodyFormat
+        }
+        'Redirect' {
+            if ([string]::IsNullOrWhiteSpace($LocationFormat)) { throw '-LocationFormat is required for Mode=Redirect.' }
+            $statusCodeOptions.LocationFormat = $LocationFormat
+        }
+        'ReExecute' {
+            if ([string]::IsNullOrWhiteSpace($PathFormat)) { throw '-Path is required for Mode=ReExecute.' }
+            $statusCodeOptions.PathFormat = $PathFormat
+            $statusCodeOptions.QueryFormat = $QueryFormat
+        }
+        'LanguageOptions' {
+            $statusCodeOptions.LanguageOptions = $LanguageOptions
+        }
+        default {
+            $lo = [Kestrun.Hosting.Options.LanguageOptions]::new()
+            $lo.ExtraImports = $ExtraImports
+            $lo.ExtraRefs = $ExtraRefs
+            if ($null -ne $Arguments) {
+                $dict = [System.Collections.Generic.Dictionary[string, object]]::new()
+                foreach ($key in $Arguments.Keys) {
+                    $dict[$key] = $Arguments[$key]
+                }
+                $lo.Arguments = $dict
+            }
 
-        if ($PassThru.IsPresent) {
-            # if the PassThru switch is specified, return the modified server instance
-            return $Server
+            switch ($PSCmdlet.ParameterSetName) {
+                'ScriptBlock' {
+                    $lo.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
+                    $lo.Code = $ScriptBlock.ToString()
+                }
+                'Code' {
+                    $lo.Language = $Language
+                    $lo.Code = $Code
+                }
+                'CodeFilePath' {
+                    if (-not (Test-Path -Path $CodeFilePath)) {
+                        throw "The specified code file path does not exist: $CodeFilePath"
+                    }
+                    $extension = Split-Path -Path $CodeFilePath -Extension
+                    switch ($extension) {
+                        '.ps1' {
+                            $lo.Language = [Kestrun.Scripting.ScriptLanguage]::PowerShell
+                        }
+                        '.cs' {
+                            $lo.Language = [Kestrun.Scripting.ScriptLanguage]::CSharp
+                        }
+                        '.vb' {
+                            $lo.Language = [Kestrun.Scripting.ScriptLanguage]::VisualBasic
+                        }
+                        default {
+                            throw "Unsupported '$extension' code file extension."
+                        }
+                    }
+                    $lo.Code = Get-Content -Path $CodeFilePath -Raw
+                }
+                default {
+                    throw "Unrecognized ParameterSetName: $($PSCmdlet.ParameterSetName)"
+                }
+            }
+            $statusCodeOptions.LanguageOptions = $lo
         }
     }
+    # Assign the configured options to the server instance
+    $Server.StatusCodeOptions = $statusCodeOptions
 }

@@ -3,8 +3,6 @@
         Adds Host Filtering middleware to a Kestrun server instance.
     .DESCRIPTION
         This cmdlet adds the Host Filtering middleware to a Kestrun server instance, allowing you to configure host filtering options.
-    .PARAMETER Server
-        The Kestrun server instance to which the Host Filtering middleware will be added. If not specified, the cmdlet will attempt to use the current Kestrun server instance.
     .PARAMETER Options
         A Microsoft.AspNetCore.HostFiltering.HostFilteringOptions object that defines the configuration options for the Host Filtering middleware.
         If this parameter is provided, it takes precedence over the individual configuration parameters (AllowedHosts, AllowEmptyHosts, IncludeFailureMessage).
@@ -21,10 +19,6 @@
     .PARAMETER ExcludeFailureMessage
         A switch indicating whether to exclude the failure message in the response when a request is rejected due to host filtering.
         If this switch is present, the failure message will be excluded from the response.
-    .PARAMETER PassThru
-        If this switch is specified, the cmdlet will return the modified Kestrun server instance
-        after adding the Host Filtering middleware. This allows for further chaining of cmdlets or inspection of
-        the server instance.
     .EXAMPLE
         Add-KrHostFiltering -AllowedHosts "example.com", "www.example.com" -PassThru
         This example adds Host Filtering middleware to the current Kestrun server instance, allowing only requests with Host headers
@@ -43,53 +37,41 @@
 function Add-KrHostFiltering {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(defaultParameterSetName = 'Items')]
-    [OutputType([Kestrun.Hosting.KestrunHost])]
     param(
-        [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
-        [Kestrun.Hosting.KestrunHost]$Server,
-
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Microsoft.AspNetCore.HostFiltering.HostFilteringOptions]$Options,
 
         [Parameter(ParameterSetName = 'Items')]
         [string[]] $AllowedHosts,
+
         [Parameter(ParameterSetName = 'Items')]
         [switch] $NotAllowEmptyHosts,
+
         [Parameter(ParameterSetName = 'Items')]
-        [switch] $ExcludeFailureMessage,
-        [Parameter()]
-        [switch]$PassThru
+        [switch] $ExcludeFailureMessage
     )
-    begin {
-        # Ensure the server instance is resolved
-        $Server = Resolve-KestrunServer -Server $Server
-    }
-    process {
-        if ($PSCmdlet.ParameterSetName -eq 'Items') {
-            # Create options from individual parameters
-            $Options = [Microsoft.AspNetCore.HostFiltering.HostFilteringOptions]::new()
+    # Ensure the server instance is resolved
+    $Server = Resolve-KestrunServer
 
-            if ($PSBoundParameters.ContainsKey('AllowedHosts')) {
-                # Validate that at least one host is provided
-                if ($AllowedHosts.Count -eq 0) {
-                    throw 'At least one AllowedHost must be specified when using the AllowedHosts parameter.'
-                }
-                foreach ($h in $AllowedHosts) {
-                    $Options.AllowedHosts.Add($h);
-                }
+    if ($PSCmdlet.ParameterSetName -eq 'Items') {
+        # Create options from individual parameters
+        $Options = [Microsoft.AspNetCore.HostFiltering.HostFilteringOptions]::new()
+
+        if ($PSBoundParameters.ContainsKey('AllowedHosts')) {
+            # Validate that at least one host is provided
+            if ($AllowedHosts.Count -eq 0) {
+                throw 'At least one AllowedHost must be specified when using the AllowedHosts parameter.'
             }
-            # Validate the options
-            $Options.AllowEmptyHosts = -not $NotAllowEmptyHosts.IsPresent
-            $Options.IncludeFailureMessage = -not $ExcludeFailureMessage.IsPresent
+            foreach ($h in $AllowedHosts) {
+                $Options.AllowedHosts.Add($h);
+            }
         }
-
-        # Add the Host Filtering middleware
-        [Kestrun.Hosting.KestrunSecurityMiddlewareExtensions]::AddHostFiltering($Server, $Options) | Out-Null
-
-        if ($PassThru.IsPresent) {
-            # if the PassThru switch is specified, return the modified server instance
-            return $Server
-        }
+        # Validate the options
+        $Options.AllowEmptyHosts = -not $NotAllowEmptyHosts.IsPresent
+        $Options.IncludeFailureMessage = -not $ExcludeFailureMessage.IsPresent
     }
+
+    # Add the Host Filtering middleware
+    [Kestrun.Hosting.KestrunSecurityMiddlewareExtensions]::AddHostFiltering($Server, $Options) | Out-Null
 }
 

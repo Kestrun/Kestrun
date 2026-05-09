@@ -4,8 +4,6 @@
     .DESCRIPTION
         This cmdlet allows you to configure response compression for the Kestrun server.
         It can be used to compress responses using various algorithms like Gzip, Brotli, etc.
-    .PARAMETER Server
-        The Kestrun server instance to which the response compression will be added.
     .PARAMETER Options
         The ResponseCompressionOptions to configure the response compression.
     .PARAMETER EnableForHttps
@@ -18,13 +16,11 @@
         If specified, disables Gzip compression.
     .PARAMETER DisableBrotli
         If specified, disables Brotli compression.
-    .PARAMETER PassThru
-        If specified, the cmdlet will return the modified server instance.
     .EXAMPLE
-        $server | Add-KrCompressionMiddleware -EnableForHttps -MimeTypes 'text/plain', 'application/json' -ExcludedMimeTypes 'image/*' -Providers $gzipProvider, $brotliProvider
+        Add-KrCompressionMiddleware -EnableForHttps -MimeTypes 'text/plain', 'application/json' -ExcludedMimeTypes 'image/*' -Providers $gzipProvider, $brotliProvider
         This example adds response compression to the server, enabling it for HTTPS requests, and specifying the MIME types to compress and exclude, as well as the compression providers to use.
     .EXAMPLE
-        $server | Add-KrCompressionMiddleware -Options $options
+        Add-KrCompressionMiddleware -Options $options
         This example adds response compression to the server using the specified ResponseCompressionOptions.
     .LINK
         https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.responsecompression.responsecompressionoptions?view=aspnetcore-8.0
@@ -35,59 +31,50 @@
 function Add-KrCompressionMiddleware {
     [KestrunRuntimeApi('Definition')]
     [CmdletBinding(defaultParameterSetName = 'Items')]
-    [OutputType([Kestrun.Hosting.KestrunHost])]
     param(
-        [Parameter(Mandatory = $false, ValueFromPipeline = $true)]
-        [Kestrun.Hosting.KestrunHost]$Server,
         [Parameter(Mandatory = $true, ParameterSetName = 'Options')]
         [Microsoft.AspNetCore.ResponseCompression.ResponseCompressionOptions]$Options,
+
         [Parameter(ParameterSetName = 'Items')]
         [switch]$EnableForHttps,
+
         [Parameter(ParameterSetName = 'Items')]
         [string[]]$MimeTypes,
+
         [Parameter(ParameterSetName = 'Items')]
         [string[]]$ExcludedMimeTypes,
+
         [Parameter(ParameterSetName = 'Items')]
         [switch]$DisableGzip,
+
         [Parameter(ParameterSetName = 'Items')]
-        [switch]$DisableBrotli,
-        [Parameter()]
-        [switch]$PassThru
+        [switch]$DisableBrotli
     )
-    begin {
-        # Ensure the server instance is resolved
-        $Server = Resolve-KestrunServer -Server $Server
-    }
-    process {
-        if ($PSCmdlet.ParameterSetName -eq 'Items') {
-            $Options = [Microsoft.AspNetCore.ResponseCompression.ResponseCompressionOptions]::new()
-            if ($null -ne $MimeTypes -and $MimeTypes.Count -gt 0) {
-                $Options.MimeTypes = $MimeTypes
-            }
-            if ($null -ne $ExcludedMimeTypes -and $ExcludedMimeTypes.Count -gt 0) {
-                $Options.ExcludedMimeTypes = $ExcludedMimeTypes
-            }
-            if ($EnableForHttps.IsPresent) {
-                $Options.EnableForHttps = $true
-            }
-            if (-not $DisableGzip.IsPresent) {
-                $gzipCompressionProviderOptions = [Microsoft.AspNetCore.ResponseCompression.GzipCompressionProviderOptions]::new()
-                $gzipOptionsWrapper = [Microsoft.Extensions.Options.Options]::Create($gzipCompressionProviderOptions)
-                $Options.Providers.Add([Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider]::new($gzipOptionsWrapper))
-                if (-not $DisableBrotli.IsPresent) {
-                    $brotliCompressionProviderOptions = [Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProviderOptions]::new()
-                    $brotliOptionsWrapper = [Microsoft.Extensions.Options.Options]::Create($brotliCompressionProviderOptions)
-                    $Options.Providers.Add([Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider]::new($brotliOptionsWrapper))
-                }
+    # Ensure the server instance is resolved
+    $Server = Resolve-KestrunServer
+    if ($PSCmdlet.ParameterSetName -eq 'Items') {
+        $Options = [Microsoft.AspNetCore.ResponseCompression.ResponseCompressionOptions]::new()
+        if ($null -ne $MimeTypes -and $MimeTypes.Count -gt 0) {
+            $Options.MimeTypes = $MimeTypes
+        }
+        if ($null -ne $ExcludedMimeTypes -and $ExcludedMimeTypes.Count -gt 0) {
+            $Options.ExcludedMimeTypes = $ExcludedMimeTypes
+        }
+        if ($EnableForHttps.IsPresent) {
+            $Options.EnableForHttps = $true
+        }
+        if (-not $DisableGzip.IsPresent) {
+            $gzipCompressionProviderOptions = [Microsoft.AspNetCore.ResponseCompression.GzipCompressionProviderOptions]::new()
+            $gzipOptionsWrapper = [Microsoft.Extensions.Options.Options]::Create($gzipCompressionProviderOptions)
+            $Options.Providers.Add([Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider]::new($gzipOptionsWrapper))
+            if (-not $DisableBrotli.IsPresent) {
+                $brotliCompressionProviderOptions = [Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProviderOptions]::new()
+                $brotliOptionsWrapper = [Microsoft.Extensions.Options.Options]::Create($brotliCompressionProviderOptions)
+                $Options.Providers.Add([Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider]::new($brotliOptionsWrapper))
             }
         }
-
-        [Kestrun.Hosting.KestrunHttpMiddlewareExtensions]::AddResponseCompression($Server, $Options) | Out-Null
-
-        if ($PassThru.IsPresent) {
-            # if the PassThru switch is specified, return the modified server instance
-            return $Server
-        }
     }
+
+    [Kestrun.Hosting.KestrunHttpMiddlewareExtensions]::AddResponseCompression($Server, $Options) | Out-Null
 }
 

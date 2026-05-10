@@ -32,6 +32,18 @@ param(
 $ErrorActionPreference = 'Stop'
 
 function New-KestrunRuntimeNuspec {
+    <#
+    .SYNOPSIS
+        Creates a new NuGet specification (nuspec) for a Kestrun runtime package.
+    .DESCRIPTION
+        Generates the XML content for a nuspec file for a specific Kestrun runtime package.
+    .PARAMETER PackageId
+        The ID of the NuGet package.
+    .PARAMETER PackageVersion
+        The version of the NuGet package.
+    .PARAMETER RuntimeIdentifier
+        The runtime identifier (RID) for the package.
+    #>
     param(
         [Parameter(Mandatory = $true)]
         [string]$PackageId,
@@ -51,6 +63,7 @@ function New-KestrunRuntimeNuspec {
     <owners>Kestrun</owners>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <license type="expression">MIT</license>
+    <licenseUrl>https://licenses.nuget.org/MIT</licenseUrl>
     <projectUrl>https://github.com/kestrun/Kestrun</projectUrl>
     <repository type="git" url="https://github.com/kestrun/Kestrun" />
     <description>Kestrun dedicated service runtime payload for $RuntimeIdentifier.</description>
@@ -61,6 +74,16 @@ function New-KestrunRuntimeNuspec {
 }
 
 function New-KestrunRuntimeManifest {
+    <#
+    .SYNOPSIS
+        Creates a new runtime manifest for a Kestrun service runtime package.
+    .DESCRIPTION
+        Generates the JSON content for a runtime manifest file that describes the contents of a Kestrun service runtime package.
+    .PARAMETER RuntimeIdentifier
+        The runtime identifier (RID) that this manifest describes.
+    .PARAMETER ServiceHostFileName
+        The file name of the service host executable within the package (e.g., 'kestrun-service-host.exe' or 'kestrun-service-host').
+    #>
     param(
         [Parameter(Mandatory = $true)]
         [string]$RuntimeIdentifier,
@@ -133,8 +156,7 @@ try {
         Compress-Archive -Path (Join-Path -Path $packageStagingDirectory -ChildPath '*') -DestinationPath $packagePath -CompressionLevel Optimal
         Write-Host "    ✅ Packed runtime package: $packagePath" -ForegroundColor Green
     }
-}
-finally {
+} finally {
     if (Test-Path -Path $stagingRoot) {
         Remove-Item -Path $stagingRoot -Recurse -Force -ErrorAction SilentlyContinue
     }

@@ -201,17 +201,64 @@ jobs:
               env:
                   NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
               run: |
-                  set -e
+                  set -uo pipefail
                   if [ "${PUBLISH_MODE}" = "real" ]; then
                     shopt -s nullglob
+                    failures=()
+
+                    get_nuspec_value() {
+                      local package_path="$1"
+                      local tag_name="$2"
+                      unzip -p "$package_path" '*.nuspec' | sed -n "s:.*<$tag_name>\\(.*\\)</$tag_name>.*:\\1:p" | head -n 1
+                    }
+
+                    is_nuget_published() {
+                      local package_id="$1"
+                      local package_version="$2"
+                      local id_lower
+                      local version_lower
+                      id_lower=$(echo "$package_id" | tr '[:upper:]' '[:lower:]')
+                      version_lower=$(echo "$package_version" | tr '[:upper:]' '[:lower:]')
+                      local package_url="https://api.nuget.org/v3-flatcontainer/${id_lower}/${version_lower}/${id_lower}.${version_lower}.nupkg"
+                      curl -fsI "$package_url" >/dev/null
+                    }
+
                     for pkg in release-assets/*.nupkg; do
+                      package_id=$(get_nuspec_value "$pkg" id)
+                      package_version=$(get_nuspec_value "$pkg" version)
+                      if [ -z "$package_id" ] || [ -z "$package_version" ]; then
+                        echo "ERROR: Could not read package metadata from $pkg"
+                        failures+=("$pkg")
+                        continue
+                      fi
+
+                      if is_nuget_published "$package_id" "$package_version"; then
+                        echo "Skipping already published package on NuGet.org: ${package_id} ${package_version}"
+                        continue
+                      fi
+
                       echo "Pushing $pkg to NuGet.org"
-                      dotnet nuget push "$pkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+                      if ! dotnet nuget push "$pkg" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate; then
+                        echo "ERROR: Failed to push $pkg"
+                        failures+=("$pkg")
+                      fi
                     done
+
                     for sym in release-assets/*.snupkg; do
                       echo "Pushing $sym (symbols) to NuGet.org"
-                      dotnet nuget push "$sym" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+                      if ! dotnet nuget push "$sym" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate; then
+                        echo "ERROR: Failed to push symbol package $sym"
+                        failures+=("$sym")
+                      fi
                     done
+
+                    if [ ${#failures[@]} -gt 0 ]; then
+                      echo "The following packages failed to publish:"
+                      for failed_pkg in "${failures[@]}"; do
+                        echo " - $failed_pkg"
+                      done
+                      exit 1
+                    fi
                   else
                     echo "Rehearsal: Would push .nupkg/.snupkg to NuGet.org"
                   fi
@@ -219,24 +266,81 @@ jobs:
             # ---------- GitHub Packages (NuGet) ----------
             - name: 🚀 Publish to GitHub Packages (NuGet)
               if: contains(env.TARGETS, 'github')
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: |
-                  set -e
+                  set -uo pipefail
                   if [ "${PUBLISH_MODE}" = "real" ]; then
                     shopt -s nullglob
+                    failures=()
+
+                    get_nuspec_value() {
+                      local package_path="$1"
+                      local tag_name="$2"
+                      unzip -p "$package_path" '*.nuspec' | sed -n "s:.*<$tag_name>\\(.*\\)</$tag_name>.*:\\1:p" | head -n 1
+                    }
+
+                    is_github_nuget_published() {
+                      local package_id="$1"
+                      local package_version="$2"
+                      local package_name_encoded
+                      local versions_json
+                      package_name_encoded=$(jq -rn --arg name "$package_id" '$name|@uri')
+
+                      versions_json=$(gh api \
+                        --silent \
+                        --method GET \
+                        "/orgs/${GITHUB_REPOSITORY_OWNER}/packages/nuget/${package_name_encoded}/versions?per_page=100" \
+                        2>/dev/null || true)
+
+                      if [ -z "$versions_json" ]; then
+                        return 1
+                      fi
+
+                      echo "$versions_json" | jq -e --arg version "$package_version" '[.[] | .name | ascii_downcase] | index($version|ascii_downcase) != null' >/dev/null
+                    }
+
                     for pkg in release-assets/*.nupkg; do
+                      package_id=$(get_nuspec_value "$pkg" id)
+                      package_version=$(get_nuspec_value "$pkg" version)
+                      if [ -z "$package_id" ] || [ -z "$package_version" ]; then
+                        echo "ERROR: Could not read package metadata from $pkg"
+                        failures+=("$pkg")
+                        continue
+                      fi
+
+                      if is_github_nuget_published "$package_id" "$package_version"; then
+                        echo "Skipping already published package on GitHub Packages: ${package_id} ${package_version}"
+                        continue
+                      fi
+
                       echo "Pushing $pkg to GitHub Packages"
-                      dotnet nuget push "$pkg" \
+                      if ! dotnet nuget push "$pkg" \
                         --source "https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json" \
                         --api-key "${{ secrets.GITHUB_TOKEN }}" \
-                        --skip-duplicate
+                        --skip-duplicate; then
+                        echo "ERROR: Failed to push $pkg to GitHub Packages"
+                        failures+=("$pkg")
+                      fi
                     done
                     for sym in release-assets/*.snupkg; do
                       echo "Pushing $sym (symbols) to GitHub Packages"
-                      dotnet nuget push "$sym" \
+                      if ! dotnet nuget push "$sym" \
                         --source "https://nuget.pkg.github.com/${GITHUB_REPOSITORY_OWNER}/index.json" \
                         --api-key "${{ secrets.GITHUB_TOKEN }}" \
-                        --skip-duplicate
+                        --skip-duplicate; then
+                        echo "ERROR: Failed to push symbol package $sym to GitHub Packages"
+                        failures+=("$sym")
+                      fi
                     done
+
+                    if [ ${#failures[@]} -gt 0 ]; then
+                      echo "The following GitHub Packages publishes failed:"
+                      for failed_pkg in "${failures[@]}"; do
+                        echo " - $failed_pkg"
+                      done
+                      exit 1
+                    fi
                   else
                     echo "Rehearsal: Would push .nupkg/.snupkg to GitHub Packages"
                   fi

@@ -56,6 +56,13 @@ $newMdSplat = @{
 Write-Host "🛠️ Creating markdown help in $OutDir"
 New-MarkdownCommandHelp @newMdSplat
 
+$rawHelpOutDir = $null
+if (-not $NotEmitXmlHelp) {
+    $rawHelpOutDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('kestrun-help-raw-' + [Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Force -Path $rawHelpOutDir | Out-Null
+    Copy-Item -Path (Join-Path -Path $OutDir -ChildPath '*') -Destination $rawHelpOutDir -Recurse -Force
+}
+
 $index_md = @'
 ---
 layout: default
@@ -143,21 +150,53 @@ $contentBody
 
 # (Optional) emit external help XML to ship in your module
 if (-not $NotEmitXmlHelp) {
-    $md = Measure-PlatyPSMarkdown -Path "$OutDir/Kestrun/*.md"
-    if ( $XmlFolder) {
-        $xmlOut = Join-Path -Path $XmlFolder -ChildPath $XmlCulture
-    } else {
-        $srcDir = Split-Path -Path $ModulePath -Parent
-        $xmlOut = Join-Path -Path $srcDir -ChildPath $XmlCulture
+    try {
+        $xmlMarkdownSource = if ($rawHelpOutDir) { $rawHelpOutDir } else { $OutDir }
+        $md = Measure-PlatyPSMarkdown -Path "$xmlMarkdownSource/Kestrun/*.md"
+        if ( $XmlFolder) {
+            $xmlOut = Join-Path -Path $XmlFolder -ChildPath $XmlCulture
+        } else {
+            $srcDir = Split-Path -Path $ModulePath -Parent
+            $xmlOut = Join-Path -Path $srcDir -ChildPath $XmlCulture
+        }
+        New-Item -ItemType Directory -Force -Path $xmlOut | Out-Null
+        Write-Host '🧬 Generating external help XML…'
+        $commandHelpFiles = $md |
+            Where-Object FileType -Match 'CommandHelp' |
+            Select-Object -ExpandProperty FilePath
+
+        $exportXmlHelp = {
+            param([Parameter(Mandatory = $true)][string]$OutputFolder)
+
+            $commandHelpFiles |
+                Import-MarkdownCommandHelp |
+                Export-MamlCommandHelp -OutputFolder $OutputFolder -Force -Verbose
+        }
+
+        # Import only CommandHelp → export MAML
+        try {
+            & $exportXmlHelp -OutputFolder $xmlOut
+        } catch {
+            if ($_.Exception.Message -notmatch 'Access to the path') {
+                throw
+            }
+
+            $tempXmlOut = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('kestrun-help-' + [Guid]::NewGuid().ToString('N'))
+            Write-Warning "XML help export failed for '$xmlOut' due to path access restrictions. Retrying via temp path '$tempXmlOut'."
+            New-Item -ItemType Directory -Force -Path $tempXmlOut | Out-Null
+
+            try {
+                & $exportXmlHelp -OutputFolder $tempXmlOut
+                Copy-Item -Path (Join-Path -Path $tempXmlOut -ChildPath '*') -Destination $xmlOut -Recurse -Force
+            } finally {
+                Remove-Item -Path $tempXmlOut -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+        Write-Host "✅ Done. XML Help at $xmlOut"
+    } finally {
+        if ($rawHelpOutDir) {
+            Remove-Item -Path $rawHelpOutDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
     }
-    New-Item -ItemType Directory -Force -Path $xmlOut | Out-Null
-    Write-Host '🧬 Generating external help XML…'
-    # Import only CommandHelp → export MAML
-    $md |
-        Where-Object FileType -Match 'CommandHelp' |
-        Select-Object -ExpandProperty FilePath |
-        Import-MarkdownCommandHelp |
-        Export-MamlCommandHelp -OutputFolder $xmlOut -Force -Verbose
-    Write-Host "✅ Done. XML Help at $xmlOut"
 }
 Write-Host "✅ Done. Markdown at $OutDir"

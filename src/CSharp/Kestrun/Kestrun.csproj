@@ -250,7 +250,7 @@
         <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.18.0" />
 
         <!-- Scripting Engines -->
-        <PackageReference Include="Microsoft.ClearScript.V8" Version="7.5.0" />
+        <PackageReference Include="Microsoft.ClearScript.V8" Version="7.5.1" />
 
         <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
         <PackageReference Include="pythonnet" Version="3.0.5" />

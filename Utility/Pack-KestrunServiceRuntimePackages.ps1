@@ -31,6 +31,48 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Test-KestrunRuntimePackageLicenseMetadata {
+    <#
+    .SYNOPSIS
+        Validates license metadata in a generated Kestrun runtime package.
+    .DESCRIPTION
+        Opens the generated .nupkg archive, reads the embedded nuspec, and verifies that
+        packages using a license expression also include the legacy MIT licenseUrl required
+        by NuGet.org compatibility checks.
+    .PARAMETER PackagePath
+        The path to the generated runtime package.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PackagePath
+    )
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($PackagePath)
+    try {
+        $nuspecEntry = $archive.Entries | Where-Object { $_.FullName -like '*.nuspec' } | Select-Object -First 1
+        if (-not $nuspecEntry) {
+            throw "Generated package is missing a nuspec: $PackagePath"
+        }
+
+        $reader = New-Object System.IO.StreamReader($nuspecEntry.Open())
+        try {
+            $nuspecContent = $reader.ReadToEnd()
+        } finally {
+            $reader.Dispose()
+        }
+
+        $hasLicenseExpression = $nuspecContent -match '<license\s+type="expression">MIT</license>'
+        $hasLicenseUrl = $nuspecContent -match '<licenseUrl>https://licenses.nuget.org/MIT</licenseUrl>'
+        if ($hasLicenseExpression -and -not $hasLicenseUrl) {
+            throw "Generated package is missing legacy MIT licenseUrl metadata: $PackagePath"
+        }
+    } finally {
+        $archive.Dispose()
+    }
+}
+
 function New-KestrunRuntimeNuspec {
     <#
     .SYNOPSIS
@@ -154,6 +196,7 @@ try {
         }
 
         Compress-Archive -Path (Join-Path -Path $packageStagingDirectory -ChildPath '*') -DestinationPath $packagePath -CompressionLevel Optimal
+        Test-KestrunRuntimePackageLicenseMetadata -PackagePath $packagePath
         Write-Host "    ✅ Packed runtime package: $packagePath" -ForegroundColor Green
     }
 } finally {

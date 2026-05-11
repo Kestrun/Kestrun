@@ -189,11 +189,98 @@ jobs:
                   }
                   if (-not $env:PSGALLERY_API_KEY) { throw "Missing PSGALLERY_API_KEY" }
                   $path = Resolve-Path "./stage/module"
+
+                  $manifest = Get-ChildItem -Path $path -Filter '*.psd1' -File | Select-Object -First 1
+                  if (-not $manifest) { throw "No module manifest (*.psd1) found under $path" }
+
+                  $moduleInfo = Test-ModuleManifest -Path $manifest.FullName
+                  $moduleName = [string]$moduleInfo.Name
+                  $baseVersion = [string]$moduleInfo.Version
+                  $prereleaseLabel = [string]$moduleInfo.PrivateData.PSData.Prerelease
+                  $moduleVersion = if ([string]::IsNullOrWhiteSpace($prereleaseLabel)) { $baseVersion } else { "$baseVersion-$prereleaseLabel" }
+
+                  $existing = $null
+                  $findParams = @{
+                    Name = $moduleName
+                    Version = $moduleVersion
+                    Repository = 'PSGallery'
+                    ErrorAction = 'SilentlyContinue'
+                  }
+                  if ($moduleVersion.Contains('-')) {
+                    $findParams.Prerelease = $true
+                  }
+                  $existing = Find-PSResource @findParams
+
+                  if ($existing) {
+                    Write-Host "Skipping PSGallery publish: ${moduleName} ${moduleVersion} already exists."
+                    return
+                  }
+
                   if ($env:PUBLISH_MODE -eq 'real') {
                     Publish-PSResource -Path $path -Repository PSGallery -ApiKey $env:PSGALLERY_API_KEY
                   } else {
                     Publish-PSResource -Path $path -Repository PSGallery -ApiKey $env:PSGALLERY_API_KEY -WhatIf
                   }
+
+            - name: 🔍 Validate NuGet package metadata (license compatibility)
+              if: contains(env.TARGETS, 'nuget') || contains(env.TARGETS, 'github')
+              run: |
+                  set -euo pipefail
+                  shopt -s nullglob
+
+                  patched=0
+                  for pkg in release-assets/*.nupkg; do
+                    workdir=$(mktemp -d)
+                    unzip -qq "$pkg" -d "$workdir"
+                    nuspec=$(find "$workdir" -maxdepth 2 -name '*.nuspec' | head -n 1)
+
+                    if [ -n "$nuspec" ] &&
+                       grep -qi '<license[[:space:]]\+type="expression">MIT</license>' "$nuspec" &&
+                       ! grep -qi '<licenseUrl>https://licenses.nuget.org/MIT</licenseUrl>' "$nuspec"; then
+                      sed -i 's#<license[[:space:]]\+type="expression">MIT</license>#<license type="expression">MIT</license>\n    <licenseUrl>https://licenses.nuget.org/MIT</licenseUrl>#I' "$nuspec"
+                      (cd "$workdir" && zip -qr "$OLDPWD/$pkg.fixed" .)
+                      mv -f "$pkg.fixed" "$pkg"
+                      echo "Patched missing licenseUrl in $pkg"
+                      patched=$((patched + 1))
+                    fi
+
+                    rm -rf "$workdir"
+                  done
+                  echo "License metadata auto-patch count: $patched"
+
+                  invalid=()
+                  for pkg in release-assets/*.nupkg; do
+                    nuspec=$(unzip -p "$pkg" '*.nuspec' || true)
+                    if [ -z "$nuspec" ]; then
+                      echo "ERROR: Could not read nuspec from $pkg"
+                      invalid+=("$pkg (nuspec unreadable)")
+                      continue
+                    fi
+
+                    has_license_expression=0
+                    has_license_url=0
+                    if echo "$nuspec" | grep -qi '<license[[:space:]]\+type="expression"'; then
+                      has_license_expression=1
+                    fi
+                    if echo "$nuspec" | grep -qi '<licenseUrl>https://licenses.nuget.org/'; then
+                      has_license_url=1
+                    fi
+
+                    if [ "$has_license_expression" -eq 1 ] && [ "$has_license_url" -eq 0 ]; then
+                      invalid+=("$pkg")
+                    fi
+                  done
+
+                  if [ ${#invalid[@]} -gt 0 ]; then
+                    echo "ERROR: The following packages are missing legacy <licenseUrl> while using license expression:"
+                    for bad in "${invalid[@]}"; do
+                      echo " - $bad"
+                    done
+                    echo "Action required: regenerate and re-upload these .nupkg assets with licenseUrl set (for MIT: https://licenses.nuget.org/MIT)."
+                    exit 1
+                  fi
+
+                  echo "NuGet metadata compatibility check passed."
 
             # ---------- NuGet.org ----------
             - name: 🚀 Publish to NuGet.org

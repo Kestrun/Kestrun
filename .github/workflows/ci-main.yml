@@ -8,15 +8,12 @@ on:
     push:
         branches: [main]
         paths:
-            - "**/*.cs"
-            - "**/*.csproj"
-            - "**/*.sln"
-            - "**/*.ps1"
-            - "**/*.psm1"
-            - "**/*.psd1"
-            - "**/*.yml"
-            - "**/*.yaml"
-            - tests/**
+            - src/**/*.cs
+            - src/**/*.csproj
+            - src/**/*.sln
+            - src/**/*.ps1
+            - src/**/*.psm1
+            - src/**/*.psd1
     workflow_dispatch: {}
 
 jobs:

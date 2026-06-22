@@ -32,7 +32,7 @@ jobs:
             publish_mode: ${{ steps.norm.outputs.publish_mode }}
         steps:
             - name: 🛎️ Checkout (for version.json)
-              uses: actions/checkout@v6.0.2
+              uses: actions/checkout@v7.0.0
               with:
                   fetch-depth: 1
 
@@ -142,7 +142,7 @@ jobs:
             PUBLISH_MODE: ${{ needs.gate.outputs.publish_mode }}
         steps:
             - name: 🛎️ Checkout (lightweight)
-              uses: actions/checkout@v6.0.2
+              uses: actions/checkout@v7.0.0
               with:
                   fetch-depth: 1
 

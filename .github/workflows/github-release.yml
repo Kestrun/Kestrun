@@ -70,7 +70,7 @@ jobs:
                   Install-PSResource InvokeBuild -Scope CurrentUser -Quiet
 
             - name: Setup .NET 10
-              uses: actions/setup-dotnet@v5
+              uses: actions/setup-dotnet@v6
               with:
                   dotnet-version: "10.0.x"
 

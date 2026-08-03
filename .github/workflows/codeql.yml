@@ -39,7 +39,7 @@ jobs:
             - uses: actions/checkout@v6.0.2
 
             - name: Initialize CodeQL
-              uses: github/codeql-action/init@v4
+              uses: github/codeql-action/init@v4.37.4
               with:
                   languages: ${{ matrix.language }}
             # queries: security-extended  # optional: stricter rules
@@ -67,7 +67,7 @@ jobs:
               run: Invoke-Build Build -DotNetVerbosity minimal
 
             - name: Analyze
-              uses: github/codeql-action/analyze@v4
+              uses: github/codeql-action/analyze@v4.37.4
               with:
                   category: "/language:${{ matrix.language }}"
 
@@ -174,7 +174,7 @@ jobs:
                   }
 
             - name: ⬆️ Upload PSSA SARIF
-              uses: github/codeql-action/upload-sarif@v4
+              uses: github/codeql-action/upload-sarif@v4.37.4
               with:
                   sarif_file: pssa.sarif
                   category: powershell
